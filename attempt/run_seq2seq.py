@@ -430,7 +430,6 @@ def main(dpy, model_path, config_file):
             label_pad_token_id=label_pad_token_id,
             pad_to_multiple_of=8 if training_args.fp16 else None,
         )
-    breakpoint()
     eval_metrics = [AutoTask.get(dataset_name, dataset_config_name).metric
                     for dataset_name, dataset_config_name in zip(data_args.dataset_name, data_args.dataset_config_name)][0]
 
