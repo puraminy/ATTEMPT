@@ -128,7 +128,7 @@ class NewDataset(datasets.GeneratorBasedBuilder):
                 gen_kwargs={
                     "filepath": os.path.join(data_dir, "data.tsv"),
                     "start":0,
-                    "end":4,
+                    "end":100,
                     "split": "train",
                 },
             ),
