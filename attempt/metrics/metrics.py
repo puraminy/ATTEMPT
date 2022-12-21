@@ -55,6 +55,7 @@ def accuracy(predictions, targets) -> dict:
     logger.info("-----------------------------------------------")
     logger.info(predictions)
     logger.info(targets)
+    breakpoint()
     logger.info("-----------------------------------------------")
     return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
 
