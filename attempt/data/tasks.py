@@ -26,7 +26,7 @@ class AbstractTask(abc.ABC):
     labels_list = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
-    small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
+    small_datasets_without_all_splits = ["atomic","cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
                                          "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
                                          "superglue-boolq", "xsum", "scitail"]
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
@@ -366,6 +366,8 @@ class STSB(AbstractTask):
 
 class Atomic(AbstractTask):
     name = "atomic"
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
     def load_dataset(self, split):
         path='data/atomic/atomic.py'
         return datasets.load_dataset(path, split=split)
