@@ -373,9 +373,9 @@ class Atomic(AbstractTask):
         return datasets.load_dataset(path, split=split)
 
     def preprocessor(self, example, add_prefix=True):
-        src_texts = ["question1:", example['input_text'],
-                     "question2:", example["target_text"]]
-        tgt_texts = [str(example['prefix'])]
+        src_texts = ["prefix:", example['prefix'],
+                     "input_text:", example["input_text"]]
+        tgt_texts = [str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 class QQP(AbstractTask):
