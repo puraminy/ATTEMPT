@@ -52,6 +52,10 @@ logger = getLogger(__name__)
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
+    logger.info("-----------------------------------------------")
+    logger.info(predictions)
+    logger.info(targets)
+    logger.info("-----------------------------------------------")
     return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
 
 
