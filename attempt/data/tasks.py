@@ -367,7 +367,7 @@ class STSB(AbstractTask):
 class Atomic(AbstractTask):
     name = "atomic"
     def load_dataset(self, split):
-        path='data/ATOMIC/atomic.py'
+        path='data/atomic/atomic.py'
         return datasets.load_dataset(path, split=split)
 
     def preprocessor(self, example, add_prefix=True):

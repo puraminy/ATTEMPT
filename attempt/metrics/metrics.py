@@ -12,7 +12,7 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 TASK_TO_METRICS = {
-                   "atomic": ["accuracy", "f1"],
+                   "atomic": ["accuracy"],
                    "mrpc": ["accuracy", "f1"],
                    "cola": ['matthews_correlation'],
                    "stsb": ['pearson', 'spearmanr'],
