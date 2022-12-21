@@ -64,18 +64,46 @@ def run_command(command):
     output = subprocess.getoutput(command)
     return output
 
+import click
+import debugpy
+import os.path as op
 
-def main():
+@click.command()
+@click.option(
+    "--dpy",
+    "-dpy",
+    is_flag=True,
+    help="Enables remote debugging"
+)
+@click.option(
+    "--model_path",
+    "-mp",
+    default="",
+    type=str,
+    help=""
+)
+@click.option(
+    "--config_file",
+    "-cfg",
+    default="",
+    type=str,
+    help=""
+)
+def main(dpy, model_path, config_file):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
-    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+    if dpy:
+        debugpy.listen(('0.0.0.0', 1234))
+        print("Waiting for client... ")
+        debugpy.wait_for_client()  # blocks execution until client is attached
+    if config_file and config_file.endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
         model_args, data_args, training_args, adapter_args = parser.parse_json_file(
-            json_file=os.path.abspath(sys.argv[1]))
+            json_file=config_file)
     else:
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
     # Detecting last checkpoint.
@@ -120,8 +148,11 @@ def main():
     set_seed(training_args.seed)
 
     # Load a model config
+    model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
+    if model_path:
+        model_name_or_path = op.join(model_path, model_name_or_path)
     config = T5Config.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+        model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
@@ -142,7 +173,7 @@ def main():
 
     # Set tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+        model_name_or_path,
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
         revision=model_args.model_revision,
@@ -151,8 +182,8 @@ def main():
 
     # Initialize the model
     model = T5ForConditionalGeneration.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        model_name_or_path,
+        from_tf=bool(".ckpt" in model_name_or_path),
         config=config,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
@@ -479,7 +510,7 @@ def main():
     # Saves training config.
     if trainer.is_world_process_zero():
         os.makedirs(training_args.output_dir, exist_ok=True)
-        save_training_config(sys.argv[1], training_args.output_dir)
+        save_training_config(config_file, training_args.output_dir)
 
     # Training
     if training_args.do_train:
