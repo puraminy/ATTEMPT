@@ -11,7 +11,9 @@ import sklearn.metrics
 import functools
 from data.postprocessors import AutoPostProcessor
 
-TASK_TO_METRICS = {"mrpc": ["accuracy", "f1"],
+TASK_TO_METRICS = {
+                   "atomic": ["accuracy", "f1"],
+                   "mrpc": ["accuracy", "f1"],
                    "cola": ['matthews_correlation'],
                    "stsb": ['pearson', 'spearmanr'],
                    'sst2': ['accuracy'],

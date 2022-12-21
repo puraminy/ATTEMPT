@@ -363,6 +363,19 @@ class STSB(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
+
+class Atomic(AbstractTask):
+    name = "atomic"
+    def load_dataset(self, split):
+        path='data/ATOMIC/atomic.py'
+        return datasets.load_dataset(path, split=split)
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["question1:", example['input_text'],
+                     "question2:", example["target_text"]]
+        tgt_texts = [str(example['prefix'])]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
 class QQP(AbstractTask):
     name = "qqp"
     labels_list = ["0", "1"]
@@ -785,6 +798,7 @@ class PAWS(AbstractTask):
 
 TASK_MAPPING = OrderedDict(
     [
+        ('atomic', Atomic),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('cola', COLA),
