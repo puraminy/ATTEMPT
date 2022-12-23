@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datasets import Dataset
 import collections
 import abc
 import functools
@@ -363,14 +364,18 @@ class STSB(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
-
+import pandas as pd
 class Atomic(AbstractTask):
     name = "atomic"
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     def load_dataset(self, split):
         path='data/atomic/atomic.py'
-        return datasets.load_dataset(path, split=split)
+        path='data/atomic/data.tsv'
+        df = pd.read_table(path)
+        ds = Dataset.from_pandas(df)
+        return ds
+        #return datasets.load_dataset(path, split=split, features = {"test":1})
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["prefix:", example['prefix'],

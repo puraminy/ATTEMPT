@@ -18,6 +18,7 @@ runs/*
 logs/*
 **/**/logs/*
 **/**/outputs/*
+**/output*/**/**
 **/**/runs/*
 **/**/source_prompts/*
 **/**/images/*
