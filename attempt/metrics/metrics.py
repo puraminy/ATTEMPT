@@ -57,9 +57,13 @@ def rouge(predictions, targets) -> dict:
     """Computes rouge score."""
     #breakpoint()
     rouge_scorer = Rouge()
-    rouge_score = rouge_scorer.get_scores(predictions, targets,
-                                        avg=True, ignore_empty=True)
-    rouge_score = rouge_score["rouge-l"]["f"]
+    rouge_score = -1
+    try:
+        rouge_score = rouge_scorer.get_scores(predictions, targets,
+                                            avg=True, ignore_empty=True)
+        rouge_score = rouge_score["rouge-l"]["f"]
+    except:
+        pass
     return {"rouge": rouge_score}
 
 def accuracy(predictions, targets) -> dict:
