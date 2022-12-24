@@ -604,16 +604,17 @@ def main(dpy, model_path, config_file):
                 #predictions = np.argmax(predictions, axis=1)
                 #predictions = tokenizer.batch_decode(predictions)
                 output_predict_file = os.path.join(training_args.output_dir, 
-                        "full_results.tsv")
+                        "full_results_" + task + ".tsv")
                 df = test_dataset.to_pandas()
                 df["pred_text1"] = ""
                 df["rouge_score"] = 0.0
                 df["bert_score"] = 0.0
+                df["prefix"] = task
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
                     df.at[i, "pred_text1"] = tokenizer.decode(predictions[i])
-                df.drop(columns=["input_ids","labels"])
+                df.drop(columns=["input_ids","labels","attention_mask"])
                 df.to_csv(output_predict_file, sep="\t")
 
     if model_args.save_prefix_only:
