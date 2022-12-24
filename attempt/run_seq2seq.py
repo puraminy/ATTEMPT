@@ -611,6 +611,7 @@ def main(dpy, model_path, config_file):
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
                     df.at[i, "pred_text1"] = tokenizer.decode(predictions[i])
+                df.drop(columns=["input_ids","labels"])
                 df.to_csv(output_predict_file, sep="\t")
 
     if model_args.save_prefix_only:
