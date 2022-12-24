@@ -604,9 +604,11 @@ def main(dpy, model_path, config_file):
                 #predictions = np.argmax(predictions, axis=1)
                 #predictions = tokenizer.batch_decode(predictions)
                 output_predict_file = os.path.join(training_args.output_dir, 
-                        str(task) + "_predictions.tsv")
+                        "full_results.tsv")
                 df = test_dataset.to_pandas()
                 df["pred_text1"] = ""
+                df["rouge_score"] = 0.0
+                df["bert_score"] = 0.0
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
