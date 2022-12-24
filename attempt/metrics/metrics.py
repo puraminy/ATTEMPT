@@ -59,6 +59,7 @@ def rouge(predictions, targets) -> dict:
     rouge_scorer = Rouge()
     rouge_score = rouge_scorer.get_scores(predictions, targets,
                                         avg=True, ignore_empty=True)
+    return {"rouge": rouge_score}
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
