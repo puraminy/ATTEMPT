@@ -52,25 +52,17 @@ TASK_TO_METRICS = {
                    "paws": ["accuracy"], }
 
 logger = getLogger(__name__)
-
+from rouge import Rouge
 def rouge(predictions, targets) -> dict:
     """Computes rouge score."""
-    logger.info("-----------------------------------------------")
-    logger.info(predictions)
-    logger.info(targets)
-    breakpoint()
-    logger.info("-----------------------------------------------")
+    #breakpoint()
     rouge_scorer = Rouge()
     rouge_score = rouge_scorer.get_scores(predictions, targets,
                                         avg=True, ignore_empty=True)
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
-    logger.info("-----------------------------------------------")
-    logger.info(predictions)
-    logger.info(targets)
     breakpoint()
-    logger.info("-----------------------------------------------")
     return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
 
 
