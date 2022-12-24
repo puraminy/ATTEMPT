@@ -59,11 +59,11 @@ def rouge(predictions, targets) -> dict:
     rouge_scorer = Rouge()
     rouge_score = rouge_scorer.get_scores(predictions, targets,
                                         avg=True, ignore_empty=True)
+    rouge_score = rouge_score["rouge-l"]["f"]
     return {"rouge": rouge_score}
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
-    breakpoint()
     return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
 
 
