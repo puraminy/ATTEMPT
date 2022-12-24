@@ -27,7 +27,7 @@ class AbstractTask(abc.ABC):
     labels_list = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
-    small_datasets_without_all_splits = ["atomic","cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
+    small_datasets_without_all_splits = ["atomic", "xIntent", "xAttr", "xReact", "xNeed","cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
                                          "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
                                          "superglue-boolq", "xsum", "scitail"]
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
@@ -363,25 +363,51 @@ class STSB(AbstractTask):
         tgt_texts = [str(round_stsb_target(example['label']))]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
+import os.path as op
 
+HOME = op.expanduser("~")
 import pandas as pd
 class Atomic(AbstractTask):
     name = "atomic"
-    metric = [metrics.accuracy]
-    metric_names = ["accuracy"]
+    metric = [metrics.rouge]
+    metric_names = ["rouge"]
     def load_dataset(self, split):
-        path='data/atomic/atomic.py'
-        path='data/atomic/data.tsv'
+        path= op.join(HOME, 'mt5-comet', 'comet', 'data', 
+                'atomic2020', 'sel', split + '.tsv')
         df = pd.read_table(path)
+        df = self.filter(df)
         ds = Dataset.from_pandas(df)
         return ds
-        #return datasets.load_dataset(path, split=split, features = {"test":1})
+
+    def filter(df):
+       return df
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["prefix:", example['prefix'],
                      "input_text:", example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
+class xIntent(Atomic):
+    name = "xIntent"
+    def filter(self, df):
+        df = df[df.prefix == "xIntent"]
+        return df
+
+class xAttr(Atomic):
+    name = "xAttr"
+    def filter(self, df):
+        return df[df.prefix == "xAttr"]
+
+class xNeed(Atomic):
+    name = "xNeed"
+    def filter(self, df):
+        return df[df.prefix == "xNeed"]
+
+class xReact(Atomic):
+    name = "xReact"
+    def filter(self, df):
+        return df[df.prefix == "xReact"]
 
 class QQP(AbstractTask):
     name = "qqp"
@@ -806,6 +832,10 @@ class PAWS(AbstractTask):
 TASK_MAPPING = OrderedDict(
     [
         ('atomic', Atomic),
+        ('xIntent', xIntent),
+        ('xAttr', xAttr),
+        ('xNeed', xNeed),
+        ('xReact', xReact),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('cola', COLA),

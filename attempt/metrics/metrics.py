@@ -12,7 +12,11 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 TASK_TO_METRICS = {
-                   "atomic": ["accuracy"],
+                   "atomic": ["rouge"],
+                   "xIntent": ["rouge"],
+                   "xAttr": ["rouge"],
+                   "xNeed": ["rouge"],
+                   "xReact": ["rouge"],
                    "mrpc": ["accuracy", "f1"],
                    "cola": ['matthews_correlation'],
                    "stsb": ['pearson', 'spearmanr'],
@@ -49,6 +53,16 @@ TASK_TO_METRICS = {
 
 logger = getLogger(__name__)
 
+def rouge(predictions, targets) -> dict:
+    """Computes rouge score."""
+    logger.info("-----------------------------------------------")
+    logger.info(predictions)
+    logger.info(targets)
+    breakpoint()
+    logger.info("-----------------------------------------------")
+    rouge_scorer = Rouge()
+    rouge_score = rouge_scorer.get_scores(predictions, targets,
+                                        avg=True, ignore_empty=True)
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
