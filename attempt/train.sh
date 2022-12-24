@@ -33,7 +33,7 @@ do
       ;;
    esac
 done
-home=$(echo $others | xargs)
+config=$(echo $others | xargs)
 model=t5-base
 case "$HOME" in 
   *ahmad*)
@@ -41,10 +41,11 @@ case "$HOME" in
     model=t5-base
     ;;
 esac
-if [ -z $home ]; then
-   home=$HOME
+if [ -z $config ]; then
+   config=configs/baselines/prompt_tuning.json 
 fi 
-echo $home
+echo $config
+home=$HOME
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
@@ -70,7 +71,7 @@ exp=xint-skilled-shared
 log=${home}/logs   #/${exp}
 echo "log: ${log}"
 
-runat $g2 -mp ${home}/pret -cfg configs/baselines/prompt_tuning.json 
+runat $g2 -mp ${home}/pret -cfg $config 
 
 #--freeze_parts="router" --freeze_step=500 
 
