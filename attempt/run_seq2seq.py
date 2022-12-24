@@ -579,7 +579,7 @@ def main(dpy, model_path, config_file):
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
-                metrics = trainer.evaluate(eval_dataset=eval_dataset,
+                metrics = trainer.predict(eval_dataset=eval_dataset,
                                            max_length=data_args.val_max_target_length, num_beams=data_args.num_beams,
                                            )
                 trainer.log_metrics("eval", metrics)
@@ -592,7 +592,7 @@ def main(dpy, model_path, config_file):
         results = {}
         if model_args.shared_attn is False:
             for task, test_dataset in test_datasets.items():
-                metrics = trainer.evaluate(eval_dataset=test_dataset,
+                metrics = trainer.predict(eval_dataset=test_dataset,
                                            max_length=data_args.test_max_target_length, num_beams=data_args.num_beams,
                                            metric_key_prefix="test"
                                            )
@@ -642,7 +642,7 @@ def main(dpy, model_path, config_file):
                     checkpoint_dir, "prefix_embeddings_{}.pt".format(data_args.task_name[idx])))
                 trainer.model.update_prefix_weights_multi(
                     shared_param, num_target=1)
-                metrics = trainer.evaluate(eval_dataset=eval_dataset,
+                metrics = trainer.predict(eval_dataset=eval_dataset,
                                            max_length=data_args.val_max_target_length, num_beams=data_args.num_beams,
                                            )
                 trainer.log_metrics("eval", metrics)
@@ -672,7 +672,7 @@ def main(dpy, model_path, config_file):
                     checkpoint_dir, "prefix_embeddings_{}.pt".format(data_args.task_name[idx])))
                 trainer.model.update_prefix_weights_multi(
                     shared_param, num_target=1)
-                metrics = trainer.evaluate(eval_dataset=test_dataset,
+                metrics = trainer.predict(eval_dataset=test_dataset,
                                            max_length=data_args.test_max_target_length, num_beams=data_args.num_beams,
                                            metric_key_prefix="test"
                                            )
