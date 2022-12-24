@@ -602,7 +602,6 @@ def main(dpy, model_path, config_file):
                 trainer.save_metrics("test", metrics)
 
                 #predictions = np.argmax(predictions, axis=1)
-                breakpoint()
                 #predictions = tokenizer.batch_decode(predictions)
                 output_predict_file = os.path.join(training_args.output_dir, 
                         str(task) + "_predictions.tsv")
