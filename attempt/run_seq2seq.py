@@ -614,7 +614,9 @@ def main(dpy, model_path, config_file):
                 df["resp"] = ""
                 df["prefix"] = task
                 for i, row in df.iterrows():
-                    df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
+                    inp = tokenizer.decode(row["input_ids"])
+                    inp = re.sub(r'<.*?>','', inp)
+                    df.at[i, "input_text"] = inp 
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
                     pred = tokenizer.decode(predictions[i])
                     pred = re.sub(r'<.*?>','',pred)
