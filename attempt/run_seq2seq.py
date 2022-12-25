@@ -610,8 +610,8 @@ def main(dpy, model_path, config_file):
                         "full_results_" + task + ".tsv")
                 df = test_dataset.to_pandas()
                 df["pred_text1"] = ""
-                df["rouge_score"] = 0.0
-                df["bert_score"] = 0.0
+                #df["rouge_score"] = 0.0
+                #df["bert_score"] = 0.0
                 df["method"] = "ptun" 
                 df["resp"] = ""
                 df["langs"] = "en2en"
