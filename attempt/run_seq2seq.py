@@ -618,12 +618,14 @@ def main(dpy, model_path, config_file):
                 df["prefix"] = task
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    inp = tokenizer.decode(row["input_ids"])
+                    inp = tokenizer.decode(row["input_ids"], skip_special_tokens=True)
                     inp = re.sub(r'<.*?>','', inp)
                     df.at[i, "input_text"] = inp 
-                    tail = tokenizer.decode(row["labels"])
-                    df.at[i, "target_text"] = tail 
-                    pred = tokenizer.decode(predictions[i])
+                    labels = row["labels"]
+                    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+                    labels = tokenizer.decode(labels, skip_special_tokens=True)
+                    df.at[i, "target_text"] = labels 
+                    pred = tokenizer.decode(predictions[i], skip_special_tokens=True)
                     pred = re.sub(r'<.*?>','',pred)
                     pred = pred.strip()
                     df.at[i, "pred_text1"] = pred
