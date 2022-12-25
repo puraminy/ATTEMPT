@@ -27,6 +27,7 @@ from third_party.trainers import Seq2SeqTrainer
 from data import TaskDataCollatorForSeq2Seq
 from data import AutoTask
 import re
+from rouge import Rouge
 from utils import get_adapter_config
 from transformers.trainer_utils import is_main_process, get_last_checkpoint
 from transformers import (
@@ -54,9 +55,10 @@ from data.tasks import TASK_MAPPING
 from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
+from comet.train.eval import do_score
+
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
-
 
 logger = logging.getLogger(__name__)
 
@@ -613,17 +615,19 @@ def main(dpy, model_path, config_file):
                 df["method"] = "ptun" 
                 df["resp"] = ""
                 df["prefix"] = task
+                rouge_scorer = Rouge()
                 for i, row in df.iterrows():
                     inp = tokenizer.decode(row["input_ids"])
                     inp = re.sub(r'<.*?>','', inp)
                     df.at[i, "input_text"] = inp 
-                    df.at[i, "target_text"] = tokenizer.decode(row["labels"])
+                    tail = tokenizer.decode(row["labels"])
+                    df.at[i, "target_text"] = tail 
                     pred = tokenizer.decode(predictions[i])
                     pred = re.sub(r'<.*?>','',pred)
                     pred = pred.strip()
                     df.at[i, "pred_text1"] = pred
                 df.drop(columns=["input_ids","labels","attention_mask"])
-                df.to_csv(output_predict_file, sep="\t")
+                do_score(df, "rouge", training_args.output_dir)
 
     if model_args.save_prefix_only:
         checkpoints = glob.glob(os.path.join(
