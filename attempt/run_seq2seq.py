@@ -614,6 +614,7 @@ def main(dpy, model_path, config_file):
                 df["bert_score"] = 0.0
                 df["method"] = "ptun" 
                 df["resp"] = ""
+                df["langs"] = "en2en"
                 df["prefix"] = task
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
