@@ -28,7 +28,7 @@
     "max_test_samples": 100,
     "eval_dataset_name": ["xNeed"], 
     "test_dataset_name": ["xNeed"], 
-    "num_train_epochs": 3,
+    "num_train_epochs": 10,
     "dataset_config_name": ["en"],
     "eval_dataset_config_name": ["en"],
     "test_dataset_config_name": ["en"],
