@@ -26,6 +26,7 @@ from options import AdapterTrainingArguments, ModelArguments, DataTrainingArgume
 from third_party.trainers import Seq2SeqTrainer
 from data import TaskDataCollatorForSeq2Seq
 from data import AutoTask
+import re
 from utils import get_adapter_config
 from transformers.trainer_utils import is_main_process, get_last_checkpoint
 from transformers import (
@@ -615,7 +616,10 @@ def main(dpy, model_path, config_file):
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
-                    df.at[i, "pred_text1"] = tokenizer.decode(predictions[i])
+                    pred = predictions[i]
+                    pred = re.sub(r'<.*?>','',pred)
+                    pred = pred.strip()
+                    df.at[i, "pred_text1"] = tokenizer.decode(pred)
                 df.drop(columns=["input_ids","labels","attention_mask"])
                 df.to_csv(output_predict_file, sep="\t")
 
