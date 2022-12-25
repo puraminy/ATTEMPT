@@ -616,10 +616,10 @@ def main(dpy, model_path, config_file):
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
                     df.at[i, "target_text"] = tokenizer.decode(row["labels"])
-                    pred = predictions[i]
+                    pred = tokenizer.decode(predictions[i])
                     pred = re.sub(r'<.*?>','',pred)
                     pred = pred.strip()
-                    df.at[i, "pred_text1"] = tokenizer.decode(pred)
+                    df.at[i, "pred_text1"] = pred
                 df.drop(columns=["input_ids","labels","attention_mask"])
                 df.to_csv(output_predict_file, sep="\t")
 
