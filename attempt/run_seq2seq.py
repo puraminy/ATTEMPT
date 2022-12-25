@@ -609,6 +609,8 @@ def main(dpy, model_path, config_file):
                 df["pred_text1"] = ""
                 df["rouge_score"] = 0.0
                 df["bert_score"] = 0.0
+                df["method"] = "ptun" 
+                df["resp"] = ""
                 df["prefix"] = task
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = tokenizer.decode(row["input_ids"])
