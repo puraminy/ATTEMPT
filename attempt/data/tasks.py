@@ -386,7 +386,7 @@ class Atomic(AbstractTask):
         src_texts = ["prefix:", example['prefix'],
                      "input_text:", example["input_text"]]
         tgt_texts = [str(example['target_text'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
 
 class xIntent(Atomic):
     name = "xIntent"
