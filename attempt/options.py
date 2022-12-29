@@ -1,4 +1,4 @@
-from adapters import ADAPTER_CONFIG_MAPPING
+from comet.adapters import ADAPTER_CONFIG_MAPPING
 from dataclasses import dataclass, field
 from typing import Optional, List
 from transformers import Seq2SeqTrainingArguments
@@ -78,6 +78,16 @@ class AdapterTrainingArguments:
         default=True, metadata={"help": "If set, adds adapters in the self attention"})
     prefix_tuning: Optional[bool] = field(
         default=False, metadata={"help": "If set, uses prefix tuning."})
+    ########### My options
+    prompt_tuning: Optional[bool] = field(
+        default=False, metadata={"help": "If set, uses prompt tuning."})
+    num_prompt_encoders: Optional[int] = field(
+        default=2, metadata={"help": "Number of prompt encoders."})
+    num_prompt_tokens: Optional[int] = field(
+        default=8, metadata={"help": "Number of prompt tokens for each prompt encoder."})
+    prompt_encoder_type: Optional[str] = field(
+        default="lstm", metadata={"help": "the type of prompt encoder."})
+    ####################
     prefix_dim: Optional[int] = field(
         default=100, metadata={"help": "Specifies the prefix embedding dimension."})
     init_prefix_from_vocab: Optional[bool] = field(default=False, metadata={
