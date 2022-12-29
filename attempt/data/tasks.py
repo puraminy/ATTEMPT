@@ -108,8 +108,11 @@ class AbstractTask(abc.ABC):
                     'csv', data_files={split:file_name})[split]
             else:
                 dataset = self.load_dataset(split=mapped_split)
-            indices = self.get_split_indices(
-                split, dataset, validation_size=len(dataset)//2)
+            if split == "test":
+                indices = range(n_obs)
+            else:
+                indices = self.get_split_indices(
+                    split, dataset, validation_size=len(dataset)//2)
             dataset = self.subsample(dataset, n_obs, indices)
         # For larger datasets (n_samples > 10K), we divide training set into 1K as
         # validation and the rest as training set, keeping the original validation
