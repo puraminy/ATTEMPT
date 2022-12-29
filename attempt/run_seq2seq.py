@@ -55,7 +55,9 @@ from data.tasks import TASK_MAPPING
 from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
+###### My imports
 from comet.train.eval import do_score
+from encoders.encoders import *
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
@@ -162,6 +164,7 @@ def main(dpy, model_path, config_file):
     )
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
+    config.prompt_tuning = adapter_args.prompt_tuning
     config.attn_prefix_tuning = model_args.attn_prefix_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
@@ -243,6 +246,35 @@ def main(dpy, model_path, config_file):
     if model_args.load_layer_norm is True and model_args.layer_norm_dir is not None:
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
+    ######################## My code
+    n_tasks = len(data_args.task_name)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    prompts = {}
+    if adapter_args.prompt_tuning:
+        for task in data_args.task_name:
+            for n in range(adapter_args.num_prompt_encoders):
+                tokens = []
+                for m in range(adapter_args.num_prompt_tokens):
+                   tokens.append("<" + task +str(n) + "@" + \
+                           adapter_args.prompt_encoder_type + \
+                           "_" + str(m)+ ">") 
+                prompts[task +str(n) + "@" + adapter_args.prompt_encoder_type]  = tokens 
+        ii = 1
+        prompt_encoders = []
+        offsets = []
+        for task, prompt_tokens in prompts.items():
+            enc_router = torch.ones((n_tasks, len(prompt_tokens)), device=device)
+            encoder, offset = create_encoder(task, model, tokenizer, 
+                    prompt_tokens, adapter_args.prompt_encoder_type, 
+                    enc_router = enc_router)
+            encoder.gid = (ii - 1) % n_tasks 
+            prompt_encoders.append(encoder)
+            offsets.append(offset)
+            ii += 1
+        id_offset = min(offsets)
+        model.set_encoders(prompt_encoders, [], id_offset)
+
+    ##############################
     model.resize_token_embeddings(len(tokenizer))
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
