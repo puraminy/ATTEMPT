@@ -194,6 +194,7 @@ def main(dpy, model_path, config_file):
         adapter_config=adapter_config
     )
 
+    mapl=torch.device('cpu')
     if model_args.load_prefix_embeddings is True:
         if model_args.prompt_embedding_path is None:
             for name, param in model.named_parameters():
@@ -202,11 +203,11 @@ def main(dpy, model_path, config_file):
         else:
             shared_params = []
             for path in model_args.prompt_embedding_path:
-                shared_param = torch.load(path)
+                shared_param = torch.load(path, map_location=mapl)
                 shared_params.append(shared_param)
             if model_args.target_prompt_embedding_path is not None:
                 target_prompt_embedding = torch.load(
-                    model_args.target_prompt_embedding_path)
+                    model_args.target_prompt_embedding_path, map_location=mapl)
 
         if model_args.attn_prefix_tuning is True:
             if training_args.do_train is True and model_args.multi_task is False and model_args.shared_attn is False:
@@ -234,7 +235,7 @@ def main(dpy, model_path, config_file):
                     shared_params, target_prompt_embedding)
 
     if model_args.load_attention is True and model_args.attn_path is not None:
-        model.update_attention_weights(torch.load(model_args.attn_path))
+        model.update_attention_weights(torch.load(model_args.attn_path, map_location=mapl))
 
     if model_args.load_attention is True and model_args.attn_path_sub is not None:
         model.update_attention_weights_sub(model_args.attn_path_sub)

@@ -1069,6 +1069,7 @@ class T5Stack(T5PreTrainedModel):
                 input_shape = inputs_embeds.size()[:-1]
 
             if self.append_attn_prefix:
+                breakpoint()
                 avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
                 if self.ignore_target is False:
                     if task_ids is not None:
@@ -1769,7 +1770,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def store_prefix_weights(self, prefix_embeddings):
         # need to pass them as a parameter?
         # stack or cat?
-        embeddings = torch.stack([emb.cuda() for emb in prefix_embeddings])
+        #embeddings = torch.stack([emb.cuda() for emb in prefix_embeddings])
+        embeddings = torch.stack([emb for emb in prefix_embeddings])
         # Initialize the embeddings
         self.mul_prefix_emb.data = embeddings.clone().detach()
 
@@ -1923,7 +1925,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             if self.config.num_layers == self.config.num_decoder_layers:
                 warnings.warn(__HEAD_MASK_WARNING_MSG, FutureWarning)
                 decoder_head_mask = head_mask
-
+                 
         if self.prefix_tuning:
             if attention_mask is not None:
                 attention_mask = torch.cat([torch.ones((attention_mask.shape[0], self.prefix_dim)).to(
