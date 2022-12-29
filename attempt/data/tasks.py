@@ -383,8 +383,6 @@ class Atomic(AbstractTask):
        return df
 
     def preprocessor(self, example, add_prefix=True):
-        src_texts = ["prefix:", example['prefix'],
-                     "input_text:", example["input_text"]]
         src_texts = [example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
@@ -393,6 +391,16 @@ class xIntent(Atomic):
     name = "xIntent"
     def filter(self, df):
         df = df[df.prefix == "xIntent"]
+        return df
+
+class PersonX(Atomic):
+    name = "PersonX"
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = [example["input_text"]]
+        tgt_texts = [str(example['target_text'])]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
+    def filter(self, df):
+        df = df[(df.prefix == "xIntent") or (df.prefix == "xWant") or (df.prefix == "oWant")]
         return df
 
 class xAttr(Atomic):
