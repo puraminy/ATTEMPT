@@ -33,6 +33,7 @@ do
       ;;
    esac
 done
+echo "Others: ${others}"
 config=$(echo $others | xargs)
 model=t5-base
 case "$HOME" in 
@@ -44,7 +45,7 @@ esac
 if [ -z $config ]; then
    config=configs/baselines/prompt_tuning.json 
 fi 
-echo $config
+echo "Config: ${config}"
 home=$HOME
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
