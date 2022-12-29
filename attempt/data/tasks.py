@@ -383,7 +383,14 @@ class Atomic(AbstractTask):
        return df
 
     def preprocessor(self, example, add_prefix=True):
-        src_texts = [example["input_text"]]
+        tokens = []
+        n = 0
+        for m in range(8):
+           tokens.append("<" + self.name +str(n) + "@" + \
+                   "lstm" + \
+                   "_" + str(m)+ ">") 
+        prompt = "".join(tokens)
+        src_texts = [prompt, example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
 
@@ -396,7 +403,7 @@ class xIntent(Atomic):
 class PersonX(Atomic):
     name = "PersonX"
     def preprocessor(self, example, add_prefix=True):
-        src_texts = [example["input_text"]]
+        src_texts = ["<xNeed0@lstm_0>", example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
     def filter(self, df):

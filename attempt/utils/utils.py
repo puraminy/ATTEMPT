@@ -1,5 +1,5 @@
-from third_party.models.t5 import T5LayerNorm
-from adapters import (AutoAdapterConfig, AdapterController, Adapter)
+from comet.third_party.models.t5 import T5LayerNorm
+from comet.adapters import (AutoAdapterConfig, AdapterController, Adapter)
 import os
 import regex as re
 import logging
@@ -88,6 +88,11 @@ def freeze_model_params(model, adapter_args, adapter_config):
                 if len(name.split(".")) < 7:
                     for param_name, param in sub_module.named_parameters():
                         param.requires_grad = True
+
+    if adapter_args.prompt_tuning:
+        for n, m in model.named_parameters():
+            if not "prompt_encoders" in n and not "general_encoders" in n:
+                m.requires_grad = False
 
     if adapter_args.prefix_tuning:
         freeze_params(model)
