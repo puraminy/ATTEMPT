@@ -1,4 +1,5 @@
 {
+    "seed":123,
     "do_train": true,
     "do_eval": true,
     "do_test": true,

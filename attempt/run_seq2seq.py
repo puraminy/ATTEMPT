@@ -150,6 +150,7 @@ def main(dpy, model_path, config_file):
     logger.info("Training/evaluation parameters %s", training_args)
 
     # Set seed before initializing model.
+    breakpoint()
     set_seed(training_args.seed)
 
     # Load a model config
