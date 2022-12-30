@@ -394,8 +394,7 @@ class Atomic(AbstractTask):
 
     def check_n_obs(self, n_obs, total_size):
         if self.use_all_data:
-            return super().check_n_obs(n_obs, total_size)
-
+            return total_size
         df = self.df
         lst = df['input_text'].value_counts()[:n_obs].index
         out = df[df['input_text'].isin(lst)]
