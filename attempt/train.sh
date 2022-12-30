@@ -65,11 +65,11 @@ elif [ "$m" -eq "1" ]; then
 fi
 seed=123
 
-exp=att-xint
+exp=att-xint2
 log=${home}/logs   
 echo "log: ${log}"
 
-runat run $g2 -exp $exp -cfg $config --test=1 -var learning_rate=0.22#0.3--prompt_learning_rate=0.01#02 
+runat run $g2 -exp $exp -cfg $config --test=1 -var learning_rate=0.3#0.5--prompt_learning_rate=0.01#0.1 
 case "$home" in 
   *content*)
     # Do stuff
