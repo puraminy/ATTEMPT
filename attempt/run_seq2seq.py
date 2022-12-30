@@ -18,6 +18,7 @@ Fine-tuning the library models for sequence to sequence.
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 from utils import modify_model_after_init, save_training_config, save_prompts
 import shutil
+from pathlib import Path
 import glob
 from data import AutoPostProcessor
 from third_party.models import T5Config, T5ForConditionalGeneration
@@ -57,6 +58,7 @@ from metrics.metrics import build_compute_metrics_fn
 
 ###### My imports
 from comet.train.eval import do_score
+from comet.train.mylogs import *
 from encoders.encoders import *
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
@@ -123,6 +125,10 @@ def main(dpy, model_path, config_file):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
+            out = training_args.output_dir
+            out += "_" + now
+            Path(out).mkdir(parents = True, exist_ok=True)
+            training_args.output_dir = out
             pass
         elif last_checkpoint is not None:
             logger.info(
