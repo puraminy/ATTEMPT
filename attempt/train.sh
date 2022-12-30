@@ -65,17 +65,11 @@ elif [ "$m" -eq "1" ]; then
 fi
 seed=123
 
-exp=xint-skilled-shared
-log=${home}/logs   #/${exp}
+exp=att-xint
+log=${home}/logs   
 echo "log: ${log}"
 
-runat $g2 -mp ${home}/pret -cfg $config 
-
-#--freeze_parts="router" --freeze_step=500 
-
-#--unfreeze_parts="encoder" --unfreez_step=50 
-
-#cp train.sh ${log}
+runat run $g2 -exp $exp -cfg $config --test=1 -var learning_rate=0.22#0.3--prompt_learning_rate=0.01#02 
 case "$home" in 
   *content*)
     # Do stuff
@@ -84,8 +78,5 @@ case "$home" in
 	cp /content/${exp}-$m.tar.gz ${home}/logs 
     ;;
 esac
-
-# learning rate for supervised and unsupervised learning for t5-v1
-#runat run -exp learning-rate -bc base -ov -sm $1 --model_id=t5-v1 -var train_samples=100#200#300--learning_rate=0.0001#0.00001--method=sup#sup-nat#unsup-nat  --rel_filter=xIntent --train_samples=100  --test_samples=300 --repeat=3 --loop=True $extra --skip=True 
 
 
