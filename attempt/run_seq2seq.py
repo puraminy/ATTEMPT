@@ -500,26 +500,41 @@ def main(dpy, model_path, config_file):
         return result
 
     # If you want to use a different learning rate for attention layer, initialize an optimizer using the learning rate here.
+    grouped_params = []
+    all_parameters = set(model.parameters())
+    attn_params = []
     if model_args.attn_learning_rate is not None:
-        all_parameters = set(model.parameters())
-        attn_params = []
+        model_args.use_optimizer = True
         for name, param in model.named_parameters():
             if name == "encoder.attn_W_up" or name == "encoder.attn_W_down" or name == "encoder.layer_norm":
                 attn_params += list(param)
         attn_params = set(attn_params)
-        non_attn_params = all_parameters - attn_params
-        non_attn_params = list(non_attn_params)
-        attn_params = list(attn_params)
+        grouped_params.append({'params': list(attn_params), 
+            'lr': model_args.attn_learning_rate})
+        
 
-        optim = AdamW([
-            {'params': non_attn_params},
-            {'params': attn_params, 'lr': model_args.attn_learning_rate},
-        ], lr=training_args.learning_rate,)
-        scheduler = get_linear_schedule_with_warmup(
-            optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
-                train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
-        )
+    ########### My Code
+    prompt_params = []
+    if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
+        model_args.use_optimizer = True
+        for name, param in model.named_parameters():
+            if not "prompt_encoders" in name and not "skill_encoders" in name:
+                prompt_params += list(param)
 
+        prompt_params = set(prompt_params)
+        grouped_params.append({'params': list(prompt_params), 
+            'lr': model_args.prompt_learning_rate})
+
+    other_params = all_parameters - set(attn_params) - set(prompt_params)
+    other_params = list(other_params)
+    grouped_params.append({'params': other_params})
+    optim = AdamW(grouped_params, lr=training_args.learning_rate,)
+
+    scheduler = get_linear_schedule_with_warmup(
+        optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
+            train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+    )
+    if model_args.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
@@ -536,7 +551,6 @@ def main(dpy, model_path, config_file):
             shared=model_args.shared_attn,
             optimizers=(optim, scheduler)
         )
-
     else:
         trainer = Seq2SeqTrainer(
             model=model,
