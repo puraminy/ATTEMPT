@@ -414,7 +414,8 @@ def train(config_file, **kwargs):
         prompt_encoders = []
         offsets = []
         for task, prompt_tokens in prompts.items():
-            enc_router = torch.ones((n_tasks, len(prompt_tokens)), device=device)
+            enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
+                    requires_grad=False, device=device)
             encoder, offset = create_encoder(task, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type, 
                     enc_router = enc_router)
@@ -646,7 +647,7 @@ def train(config_file, **kwargs):
 
     # If you want to use a different learning rate for attention layer, initialize an optimizer using the learning rate here.
     grouped_params = []
-    all_parameters = set(model.parameters())
+    all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     if model_args.attn_learning_rate is not None:
         model_args.use_optimizer = True
@@ -662,9 +663,9 @@ def train(config_file, **kwargs):
     prompt_params = []
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
         model_args.use_optimizer = True
-        for name, param in model.named_parameters():
-            if not "prompt_encoders" in name and not "skill_encoders" in name:
-                prompt_params += list(param)
+        for encoder in model.prompt_encoders:
+           para_list =[p for p in encoder.parameters() if p.requires_grad]
+           prompt_params.extend(para_list)
 
         prompt_params = set(prompt_params)
         grouped_params.append({'params': list(prompt_params), 
