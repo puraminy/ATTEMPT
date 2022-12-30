@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
+    do_shuffle = True # My code
     config = NotImplemented
     prefix = NotImplemented
     preprocessor: Callable = NotImplemented
@@ -108,11 +109,8 @@ class AbstractTask(abc.ABC):
                     'csv', data_files={split:file_name})[split]
             else:
                 dataset = self.load_dataset(split=mapped_split)
-            if split == "test":
-                indices = range(n_obs)
-            else:
-                indices = self.get_split_indices(
-                    split, dataset, validation_size=len(dataset)//2)
+            indices = self.get_split_indices(
+                split, dataset, validation_size=len(dataset)//2)
             dataset = self.subsample(dataset, n_obs, indices)
         # For larger datasets (n_samples > 10K), we divide training set into 1K as
         # validation and the rest as training set, keeping the original validation
@@ -374,13 +372,35 @@ class Atomic(AbstractTask):
     name = "atomic"
     metric = [metrics.rouge]
     metric_names = ["rouge"]
+    do_shuffle = False
     def load_dataset(self, split):
         path= op.join(HOME, 'mt5-comet', 'comet', 'data', 
                 'atomic2020', 'sel', split + '.tsv')
         df = pd.read_table(path)
         df = self.filter(df)
+        self.df = self.preproc(df)
         ds = Dataset.from_pandas(df)
         return ds
+
+    def shuffled_indices(self, dataset):
+        num_samples = len(dataset)
+        return range(num_samples)
+
+    def check_n_obs(self, n_obs, total_size):
+        df = self.df
+        lst = df['input_text'].value_counts()[:n_obs].index
+        m = pd.Series(range(0, n_obs), index=lst)
+        out = df[df['input_text'].isin(lst)].sort_values('input_text', key=lambda x: m[x])
+        n_obs = len(out)
+        return n_obs
+
+    def preproc(self, df):
+        df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
+        sort_by = ["freqs","input_text", "prefix"] 
+        if "sel" in df:
+            sort_by = ["sel", "freqs","input_text", "prefix"] 
+        df = df.sort_values(by=sort_by, ascending=False)
+        return df
 
     def filter(df):
        return df
