@@ -14,7 +14,7 @@
     "greater_is_better": true,
     "evaluation_strategy": "epoch",
     "non_linearity": "gelu_new",
-    "overwrite_output_dir": true,
+    "overwrite_output_dir": false,
     "init_prefix_from_vocab": true,
     "prompt_tuning": true,
     "prefix_dim": 100,
