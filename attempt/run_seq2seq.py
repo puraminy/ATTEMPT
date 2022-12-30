@@ -179,7 +179,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
 
    if not exp_vars:
        args["tag"] = "@".join(tags)
-       args["exp_id"] = 1 
+       args["expid"] = 1 
 
        args["output_dir"] = save_path
        ctx.invoke(train, config_file=config_file, **args)
@@ -210,7 +210,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
                    _output_dir.append(var_name + "=" + str(var_item))
            ii += 1
            args["output_dir"] = os.path.join(save_path, *_output_dir)
-           args["exp_id"] = ii
+           args["expid"] = ii
            ctx.invoke(train, config_file=config_file, **args)
 
 @cli.command()
