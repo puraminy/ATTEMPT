@@ -14,6 +14,32 @@ sys.path.append('..')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+##### My utils
+def isfloat(element: any) -> bool:
+    #If you expect None to be passed:
+    if element is None: 
+        return False
+    try:
+        float(element)
+        return True
+    except ValueError:
+        return False
+
+def strval(val):
+   if type(val) != str:
+       return val
+   if val.lower() == "none": 
+       ret= None 
+   elif val.lower() == "false":
+       ret = False
+   elif val.lower() == "true":
+       ret= True
+   elif "." in val and isfloat(val):
+       ret = float(val)
+   elif val.isdigit():
+       ret= int(val)
+   return ret
+##### My utils end
 
 def create_dir(output_dir):
     """

@@ -16,7 +16,7 @@
 Fine-tuning the library models for sequence to sequence.
 """
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
-from utils import modify_model_after_init, save_training_config, save_prompts
+from utils import modify_model_after_init, save_training_config, save_prompts, strval
 import shutil
 from pathlib import Path
 import glob
@@ -57,15 +57,15 @@ from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
 ###### My imports
+import itertools, collections
 from comet.train.eval import do_score
-from comet.train.mylogs import *
+import mylogs 
 from encoders.encoders import *
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
 logger = logging.getLogger(__name__)
-
 
 def run_command(command):
     output = subprocess.getoutput(command)
@@ -75,20 +75,145 @@ import click
 import debugpy
 import os.path as op
 
-@click.command()
+@click.group()
+def cli():
+    pass
+@cli.command(context_settings=dict(
+            ignore_unknown_options=True,
+            allow_extra_args=True,))
 @click.option(
-    "--dpy",
-    "-dpy",
-    is_flag=True,
-    help="Enables remote debugging"
+    "--experiment",
+    "-exp",
+    default="exp",
+    type=str,
+    help="Experiment name"
 )
 @click.option(
-    "--model_path",
-    "-mp",
+    "--config_file",
+    "-cfg",
     default="",
     type=str,
-    help=""
+    help="The experiment config file"
 )
+@click.option(
+    "--exp_vars",
+    "-var",
+    default="",
+    type=str,
+    help="Experiment variables (can be combined or override variables in config file)"
+)
+@click.option(
+    "--break_point",
+    "-bp",
+    default="",
+    type=str,
+    help="Stop on breakpoints equal to the value"
+)
+@click.option(
+    "--preview",
+    "-pv",
+    default="",
+    type=str,
+    help="The name of an experiment variable for which you want to check the difference of its values"
+)
+@click.option(
+    "--debug",
+    "-dpy",
+    is_flag=True,
+    help="Enable debugpy"
+)
+@click.option(
+    "--trial",
+    "-t",
+    default="1",
+    type=str,
+    help="You can set it for repeating experiments with different identities"
+)
+@click.option(
+    "--rem",
+    "-rem",
+    is_flag=True,
+    help="Remove the existing experiment folder"
+)
+@click.pass_context
+#rrrrrrrrrrr
+def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, trial, rem):
+   if debug:
+       port = "1234"
+       debugpy.listen(('0.0.0.0', int(port)))
+       print("Waiting for client at run...port:", port)
+       debugpy.wait_for_client()  # blocks execution until client is attached
+   exclude_list = []
+   args = {}
+   save_path = os.path.join(mylogs.logPath, experiment)
+   if Path(save_path).exists() and rem:
+       #if input("Are you sure you want to delete the experiment folder?") == "y":
+       #shutil.rmtree(save_path)
+       save_path = save_path.rstrip("/")
+       dirs = glob.glob(save_path + '/*/')
+       for d in dirs:
+            shutil.rmtree(d)
+
+   if Path(save_path).is_file():
+       os.remove(save_path)
+   Path(save_path).mkdir(exist_ok=True, parents=True)
+   args["save_path"] = save_path
+   args["load_path"] = mylogs.pretPath 
+   args["experiment"] = experiment 
+   args["trial"] = trial
+   args["break_point"] = break_point 
+   args["preview"] = preview 
+   tags = [] # tags used to distinguish experiments
+   mylogs.BREAK_POINT = break_point
+   extra_args = ""
+   for _item in ctx.args:
+       print("arg = %s", _item)
+       _key,_val = _item.split("=")
+       _val = _val.strip()
+       _key=_key.strip("--")
+       if not _key in exclude_list:
+            _ks = "".join([k[0] for k in _key.split("_")])
+            extra_args += "@" + (_ks + "=" + _val if not str(_val)=="True" else _key)
+       logger.info("set %s = %s", _key, _val)
+       args[_key] = strval(_val)
+
+   if not exp_vars:
+       args["tag"] = "@".join(tags)
+       args["exp_id"] = 1 
+
+       args["output_dir"] = save_path
+       ctx.invoke(train, config_file=config_file, **args)
+   else:
+       output_dir = "trial=" + args["trial"]
+       all_vars = exp_vars.split("--")
+       var_names = [x.split("=")[0] for x in all_vars]
+       values = [x.split("=")[1].split("#") for x in all_vars]
+       assert not preview or preview in var_names, "Preview :" + preview + " is not in " + str(var_names)
+       for vv, cc in zip(var_names, values):
+           if len(cc) > 1:
+               tags.append(vv)
+               if preview and not vv in preview:
+                   var_names.remove(vv)
+                   values.remove(cc)
+
+       args["tag"] = "@".join(tags)
+       tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
+       ii = 0
+       orig_args = args.copy()
+       logger.info("Total experiments:%s", len(tot_comb))
+       for comb in tot_comb:
+           _output_dir = [output_dir]
+           for var_name,var_item in comb.items():
+               var_item = strval(var_item)
+               args[var_name]=var_item
+               if not var_name in exclude_list:
+                   _output_dir.append(var_name + "=" + str(var_item))
+           ii += 1
+           args["output_dir"] = os.path.join(save_path, *_output_dir)
+           args["exp_id"] = ii
+           ctx.invoke(train, config_file=config_file, **args)
+
+@cli.command()
 @click.option(
     "--config_file",
     "-cfg",
@@ -96,16 +221,13 @@ import os.path as op
     type=str,
     help=""
 )
-def main(dpy, model_path, config_file):
+def train(config_file, **kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+    mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
-    if dpy:
-        debugpy.listen(('0.0.0.0', 1234))
-        print("Waiting for client... ")
-        debugpy.wait_for_client()  # blocks execution until client is attached
     if config_file and config_file.endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -114,6 +236,25 @@ def main(dpy, model_path, config_file):
     else:
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
+    #### My code: overwrite kwargs over arguments read from parser
+    for k,v in kwargs.items():
+        logger.info("ARGS: %s=%s", k, v)
+        #v = strval(v)
+        if hasattr(model_args,k):
+            setattr(model_args, k, v)
+        if hasattr(data_args,k):
+            setattr(data_args, k, v)
+        if hasattr(training_args,k):
+            setattr(training_args, k, v)
+        if hasattr(adapter_args,k):
+            setattr(adapter_args, k, v)
+    ###### Collect experiment infos
+    exp_info = {}
+    for k,v in kwargs.items():
+        if not k in exp_info:
+            exp_info[k] = v
+
+    exp_info["tag"] = mylogs.tag() 
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
@@ -128,10 +269,11 @@ def main(dpy, model_path, config_file):
             '''
             last_checkpoint = None
             out = training_args.output_dir
-            out += "_" + now
+            out += "_" + mylogs.now
             Path(out).mkdir(parents = True, exist_ok=True)
             training_args.output_dir = out
-            pass
+            print("Skiping experiment:", training_args.output_dir)
+            return 
         elif last_checkpoint is not None:
             logger.info(
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
@@ -162,8 +304,9 @@ def main(dpy, model_path, config_file):
 
     # Load a model config
     model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
-    if model_path:
-        model_name_or_path = op.join(model_path, model_name_or_path)
+    load_path = kwargs.setdefault("load_path", "")
+    if load_path:
+        model_name_or_path = op.join(load_path, model_name_or_path)
     config = T5Config.from_pretrained(
         model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -530,7 +673,7 @@ def main(dpy, model_path, config_file):
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
-    optim = AdamW(grouped_params, lr=training_args.learning_rate,)
+    optim = AdamW(grouped_params, lr=training_args.learning_rate)
 
     scheduler = get_linear_schedule_with_warmup(
         optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
@@ -675,6 +818,8 @@ def main(dpy, model_path, config_file):
                 df["resp"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
+                for key, info in exp_info.items():
+                    df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
                     inp = tokenizer.decode(row["input_ids"], skip_special_tokens=True)
@@ -782,6 +927,5 @@ def main(dpy, model_path, config_file):
 
     return results
 
-
 if __name__ == "__main__":
-    main()
+   cli()
