@@ -28,6 +28,7 @@
     "max_val_samples": 10,
     "max_test_samples": 100,
     "num_train_epochs": 3,
+    "use_all_data":true,
     "eval_dataset_name": ["xIntent"], 
     "test_dataset_name": ["xIntent"], 
     "dataset_config_name": ["en"],

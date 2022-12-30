@@ -34,9 +34,9 @@ class AbstractTask(abc.ABC):
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
                                      "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
-    def __init__(self, config, seed=42):
+    def __init__(self, config, data_args):
         self.config = config
-        self.seed = seed
+        self.seed = data_args.data_seed
 
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
@@ -374,12 +374,17 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     do_shuffle = False
     samples_per_head = 3
+    def __init__(self, config, data_args):
+        super().__init__(config, data_args)
+        self.use_all_data = data_args.use_all_data
+
     def load_dataset(self, split):
         path= op.join(HOME, 'mt5-comet', 'comet', 'data', 
                 'atomic2020', 'sel', split + '.tsv')
         df = pd.read_table(path)
-        df = self.filter(df)
-        self.df = self.preproc(df)
+        if not self.use_all_data:
+            df = self.filter(df)
+            self.df = self.preproc(df)
         ds = Dataset.from_pandas(df)
         return ds
 
@@ -388,6 +393,9 @@ class Atomic(AbstractTask):
         return range(num_samples)
 
     def check_n_obs(self, n_obs, total_size):
+        if self.use_all_data:
+            return super().check_n_obs(n_obs, total_size)
+
         df = self.df
         lst = df['input_text'].value_counts()[:n_obs].index
         out = df[df['input_text'].isin(lst)]
@@ -918,9 +926,9 @@ TASK_MAPPING = OrderedDict(
 
 class AutoTask:
     @classmethod
-    def get(self, task, config, seed=42):
+    def get(self, task, config, data_args=None):
         if task in TASK_MAPPING:
-            return TASK_MAPPING[task](config, seed)
+            return TASK_MAPPING[task](config, data_args)
         raise ValueError(
             "Unrecognized task {} for AutoTask Model: {}.\n"
             "Task name should be one of {}.".format(
