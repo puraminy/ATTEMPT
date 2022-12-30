@@ -28,7 +28,7 @@ class AbstractTask(abc.ABC):
     labels_list = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
-    small_datasets_without_all_splits = ["atomic", "xIntent", "xAttr", "xReact", "xNeed","cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
+    small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
                                          "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
                                          "superglue-boolq", "xsum", "scitail"]
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
@@ -373,6 +373,7 @@ class Atomic(AbstractTask):
     metric = [metrics.rouge]
     metric_names = ["rouge"]
     do_shuffle = False
+    samples_per_head = 3
     def load_dataset(self, split):
         path= op.join(HOME, 'mt5-comet', 'comet', 'data', 
                 'atomic2020', 'sel', split + '.tsv')
@@ -389,13 +390,15 @@ class Atomic(AbstractTask):
     def check_n_obs(self, n_obs, total_size):
         df = self.df
         lst = df['input_text'].value_counts()[:n_obs].index
-        m = pd.Series(range(0, n_obs), index=lst)
-        out = df[df['input_text'].isin(lst)].sort_values('input_text', key=lambda x: m[x])
+        out = df[df['input_text'].isin(lst)]
+        #m = pd.Series(range(0, n_obs), index=lst)
+        #out = df[df['input_text'].isin(lst)].sort_values('input_text', key=lambda x: m[x])
         n_obs = len(out)
         return n_obs
 
     def preproc(self, df):
         df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
+        df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         sort_by = ["freqs","input_text", "prefix"] 
         if "sel" in df:
             sort_by = ["sel", "freqs","input_text", "prefix"] 
