@@ -292,6 +292,20 @@ class ModelArguments:
             "help": "set temperature."
         },
     )
+    ###### My options
+    prompt_learning_rate: float = field(
+        default=None,
+        metadata={
+            "help": "set prompt learning rate."
+        },
+    )
+
+    use_optimizer: bool = field(
+        default=False,
+        metadata={
+            "help": "use optimizer."
+        },
+    )
 
     load_layer_norm: bool = field(
         default=False,
