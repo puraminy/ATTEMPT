@@ -52,6 +52,7 @@ alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 folder=${PWD##*/}          
 
 train_num=200
+val_num=10
 test_num=100
 
 if [ -z $m ]; then
@@ -63,6 +64,7 @@ if [ "$m" -eq "0" ]; then
 elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
   train_num=2
+  val_num=1
   test_num=3 
 fi
 exp=att-xattr-1
@@ -73,7 +75,7 @@ echo "log: ${log}"
 var="data_path=ATTEMPT/attempt/data/atomic2020/sel2"
 
 var="${var}--max_train_samples=$train_num"
-var="${var}--max_val_samples=10"
+var="${var}--max_val_samples=$val_num"
 var="${var}--max_test_samples=$test_num"
 
 # task
@@ -81,6 +83,11 @@ task="xAttr@"
 var="${var}--task_name=$task"
 var="${var}--eval_dataset_name=$task" 
 var="${var}--test_dataset_name=$task" 
+
+# operations
+var="${var}--do_train=True"
+var="${var}--do_test=True"
+var="${var}--do_eval=False"
 
 # training 
 var="${var}--learning_rate=0.0003"
@@ -97,7 +104,7 @@ var="${var}--prefix_tuning=False"
 var="${var}--prefix_dim=100"
 
 # prompt tuning
-var="${var}--prompt_tuning=False"
+var="${var}--prompt_tuning=True"
 var="${var}--prompt_learning_rate=0.1"
 var="${var}--num_prompt_encoders=2"
 var="${var}--num_prompt_tokens=8"
