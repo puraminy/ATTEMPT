@@ -10,8 +10,15 @@ from .qa_utils import normalize_squad, qa_metrics
 import sklearn.metrics
 import functools
 from data.postprocessors import AutoPostProcessor
+
+## My imports
+from sentence_transformers import SentenceTransformer, util
 from rouge import Rouge
-import mylogs
+from mylogs import *
+from tqdm import tqdm
+import re
+import pandas as pd
+import json
 
 TASK_TO_METRICS = {
                    "atomic": ["rouge"],
@@ -263,7 +270,42 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
 
     return {task: tasks_metrics(task) for task in task_names}
 
+######## My functions
 
+def bert_score(bert_scorer, hyps, refs):
+        if bert_scorer == None:
+            return 0, 0, 0.0
+
+        hyps = [p.strip() for p in hyps]
+        refs = [g.strip() for g in refs]
+
+        embeddings1 = bert_scorer.encode(hyps, device=device, convert_to_tensor=True)
+        embeddings2 = bert_scorer.encode(refs, device=device, convert_to_tensor=True)
+
+        #Compute cosine-similarities for each sentence with each other sentence
+        cosine_scores = util.pytorch_cos_sim(embeddings1, embeddings2)
+
+        #Find the pairs with the highest cosine similarity scores
+        pairs = []
+        rows = cosine_scores.shape[0]
+        cols = cosine_scores.shape[1]
+        for i in range(rows):
+            for j in range(cols):
+                pairs.append({'index': [i, j], 'score': cosine_scores[i][j]})
+            #logging.info({'index': [i, j], 'score': cosine_scores[i][j]})
+
+        #Sort scores in decreasing order
+        pairs = sorted(pairs, key=lambda x: x['score'], reverse=True)
+
+        top = pairs[0]
+        best_hyp_index = top["index"][0]
+        best_ref_index = top["index"][1]
+
+        return best_hyp_index, best_ref_index, top["score"] 
+
+rel_target_omits = {
+    "xIntent":"to",
+}
 def do_score(df, scorers, save_path, reval=False):
     #try:
     #    nltk_path = str(nltk.data.find("tokenizers/punkt"))
@@ -294,6 +336,7 @@ def do_score(df, scorers, save_path, reval=False):
     if "nli" in scorers:
         nli_model = CrossEncoder(local_path)
     nli_counter = {}
+    nli_map = ['contradiction', 'entailment', 'neutral']
     for l in nli_map:
         nli_counter[l] = 0
     counter = {"all":0}
@@ -306,7 +349,7 @@ def do_score(df, scorers, save_path, reval=False):
     sum_bleu = {"all":0}
     mean_bleu = {}
     new_results = {}
-    smoothie = SmoothingFunction().method4 # a function for smooth
+    #smoothie = SmoothingFunction().method4 # a function for smooth
     hyp_counter = [0]*5
 
     all_predictions = []
@@ -329,7 +372,6 @@ def do_score(df, scorers, save_path, reval=False):
                 sum_match[scope] = 0
                 counter[scope] = 0
             #mlog.debug("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-            gen_token = gen_tokens[lang]
             #Compute embeddings
             top_hyp = str(row["pred_text1"])
             preds = [top_hyp]
@@ -405,8 +447,8 @@ def do_score(df, scorers, save_path, reval=False):
             pbar.update()
             rows.append(data)
 
-    if not reval:
-        df = pd.concat([df, df2], axis=1)
+    #if not reval:
+    #    df = pd.concat([df, df2], axis=1)
 
     mlog.info("Saving results %s", save_path)
     save_fname = now + "_full_results.tsv"
@@ -440,14 +482,11 @@ def do_score(df, scorers, save_path, reval=False):
             mlog.info(r)
             vlog.info(r)
 
-    df_mean_rouge = df["rouge_score"].mean()
     for logger in [mlog, vlog, clog]:
         logger.info("Len data frame: {}".format(len(df)))
         logger.info("Rouge:{} ".format(mean_rouge_str)) 
-        logger.info("DF mean Rouge Score: {}".format(df_mean_rouge))
         if "bert" in scorers:
             logger.info("BERT:{} ".format(mean_bert_str)) 
-            logger.info("DF mean Bert Score: {}".format(df["bert_score"].mean()))
         #logger.info("nli_counter: {}".format(nli_counter))
         #logger.info("hyp_counter: {}".format(hyp_counter))
         logger.info("Distinct preds:{}".format(len(pred_counts)))
