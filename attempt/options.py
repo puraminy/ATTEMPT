@@ -447,6 +447,10 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
 
+    data_path: Optional[List[str]] = field(
+        default=None, metadata={"help": "Path to the directory containing split files."}
+    )
+
     train_files: Optional[List[str]] = field(
         default=None, metadata={"help": "A csv or a json file containing the training data."}
     )

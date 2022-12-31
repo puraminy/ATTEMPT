@@ -66,13 +66,14 @@ fi
 exp=att-xint-4
 log=${home}/logs   
 echo "log: ${log}"
-var="max_train_samples=200"
+var="max_train_samples=200#300"
 var="${var}--max_val_samples=10"
 var="${var}--max_test_samples=100"
-var="${var}--num_train_epochs=3#5"
+var="${var}--num_train_epochs=3"
 var="${var}--prompt_learning_rate=0.1"
 var="${var}--learning_rate=0.1"
 var="${var}--use_optimizer=False#True"
+var="${var}--data_path=ATTEMPT/attempt/data/atomic2020/sel2"
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
