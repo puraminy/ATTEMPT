@@ -88,6 +88,9 @@ class BaseTrainer(Trainer):
         """
         # memory metrics - must set up as early as possible
         # self._memory_tracker.start()
+        if eval_dataset is None:
+            return None
+
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         start_time = time.time()
         print(self.multi_task_compute_metrics)

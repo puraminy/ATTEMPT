@@ -65,7 +65,7 @@ elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
   train_num=2
   val_num=1
-  test_num=3 
+  test_num=1 
 fi
 exp=att-xattr-1
 log=${home}/logs   
