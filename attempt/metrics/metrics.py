@@ -320,10 +320,8 @@ def do_score(df, scorers, save_path, reval=False):
         local_path = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
 
     bert_scorer = None
-    bert_metric = None
     if "bert" in scorers:
         bert_scorer = SentenceTransformer(local_path)
-        bert_metric = load_metric("bertscore")
 
     rouge_scorer = None
     if "rouge" in scorers:
