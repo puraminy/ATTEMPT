@@ -69,7 +69,6 @@ elif [ "$m" -eq "1" ]; then
   test_num=1 
   epochs=1
 fi
-exp=att-xattr-1
 log=${home}/logs   
 echo "log: ${log}"
 
@@ -111,6 +110,8 @@ var="${var}--prompt_learning_rate=0.1"
 var="${var}--num_prompt_encoders=2"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
+
+exp=att-$task-$m
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
