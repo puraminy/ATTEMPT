@@ -63,13 +63,16 @@ elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
   config=configs/baselines/test.json 
 fi
-seed=123
-
-exp=att-xint2
+exp=att-xint3
 log=${home}/logs   
 echo "log: ${log}"
+var="max_train_samples=200"
+var="${var}--max_val_samples=10"
+var="${var}--max_test_samples=100"
+var="${var}--num_train_epochs=3#5"
+echo "var: ${var}"
 
-runat run $g2 -exp $exp -cfg $config --test=1 -var learning_rate=0.3#0.5--prompt_learning_rate=0.01#0.1 
+runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
   *content*)
     # Do stuff

@@ -254,7 +254,7 @@ def train(config_file, **kwargs):
         if not k in exp_info:
             exp_info[k] = v
 
-    exp_info["tag"] = mylogs.tag() 
+    exp_info["tag"], exp_info["taginfo"] = mylogs.tag() 
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
