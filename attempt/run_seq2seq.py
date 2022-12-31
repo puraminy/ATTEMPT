@@ -820,6 +820,8 @@ def train(config_file, **kwargs):
                 df["langs"] = "en2en"
                 df["prefix"] = task
                 for key, info in exp_info.items():
+                    if type(info) == list:
+                        info = "@".join(info)
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
