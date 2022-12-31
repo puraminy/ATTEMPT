@@ -73,9 +73,9 @@ log=${home}/logs
 echo "log: ${log}"
 
 # data 
-var="data_path=ATTEMPT/attempt/data/atomic2020/sel"
+var="data_path=ATTEMPT/attempt/data/atomic2020"
 
-var="${var}--use_all_data=True"
+var="${var}--use_all_data=False"
 var="${var}--max_train_samples=$train_num"
 var="${var}--max_val_samples=$val_num"
 var="${var}--max_test_samples=$test_num"
@@ -111,7 +111,7 @@ var="${var}--prefix_dim=100"
 # prompt tuning
 var="${var}--prompt_tuning=True"
 var="${var}--prompt_learning_rate=0.5"
-var="${var}--num_prompt_encoders=2"
+var="${var}--num_prompt_encoders=1"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
 

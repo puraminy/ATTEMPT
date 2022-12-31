@@ -680,7 +680,7 @@ def train(config_file, **kwargs):
     _lr = model_args.prompt_learning_rate
     no_decay = ['bias', 'LayerNorm.weight']
     grouped_params = [
-            {'params': [p for n, p in model.named_parameters() if p.requires_grad and not any(nd in n for nd in no_decay)], 'weight_decay': model_args.weight_decay, "lr":_lr},
+            {'params': [p for n, p in model.named_parameters() if p.requires_grad and not any(nd in n for nd in no_decay)], 'weight_decay': training_args.weight_decay, "lr":_lr},
             {'params': [p for n, p in model.named_parameters() if p.requires_grad and any(nd in n for nd in no_decay)], 'weight_decay': 0.0, "lr":_lr}
         ]
     optim = AdamW(grouped_params,eps=1e-8)
@@ -742,6 +742,9 @@ def train(config_file, **kwargs):
             start.record()
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        if adapter_args.prompt_tuning:
+            with torch.no_grad():
+                model.update_model_weight()
 
         if training_args.compute_time:
             end.record()
