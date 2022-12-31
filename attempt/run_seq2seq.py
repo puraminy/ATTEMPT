@@ -650,7 +650,6 @@ def train(config_file, **kwargs):
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     if model_args.attn_learning_rate is not None:
-        model_args.use_optimizer = True
         for name, param in model.named_parameters():
             if name == "encoder.attn_W_up" or name == "encoder.attn_W_down" or name == "encoder.layer_norm":
                 attn_params += list(param)
@@ -662,7 +661,6 @@ def train(config_file, **kwargs):
     ########### My Code
     prompt_params = []
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
-        model_args.use_optimizer = True
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
            prompt_params.extend(para_list)
