@@ -81,12 +81,13 @@ var="${var}--max_val_samples=$val_num"
 var="${var}--max_test_samples=$test_num"
 
 # task
-task="xIntent@"
+task="xAttr@"
 var="${var}--task_name=$task"
 var="${var}--eval_dataset_name=$task" 
 var="${var}--test_dataset_name=$task" 
 
 exp=att-$task-$m
+exp=xint-com
 
 # operations
 var="${var}--do_train=True"
@@ -108,8 +109,8 @@ var="${var}--prefix_tuning=False"
 var="${var}--prefix_dim=100"
 
 # prompt tuning
-var="${var}--prompt_tuning=False#True"
-var="${var}--prompt_learning_rate=0.1"
+var="${var}--prompt_tuning=True"
+var="${var}--prompt_learning_rate=0.5"
 var="${var}--num_prompt_encoders=2"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
