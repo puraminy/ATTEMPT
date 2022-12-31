@@ -73,17 +73,20 @@ log=${home}/logs
 echo "log: ${log}"
 
 # data 
-var="data_path=ATTEMPT/attempt/data/atomic2020/sel2"
+var="data_path=ATTEMPT/attempt/data/atomic2020/sel"
 
+var="${var}--use_all_data=True"
 var="${var}--max_train_samples=$train_num"
 var="${var}--max_val_samples=$val_num"
 var="${var}--max_test_samples=$test_num"
 
 # task
-task="xAttr@"
+task="xIntent@"
 var="${var}--task_name=$task"
 var="${var}--eval_dataset_name=$task" 
 var="${var}--test_dataset_name=$task" 
+
+exp=att-$task-$m
 
 # operations
 var="${var}--do_train=True"
@@ -111,7 +114,6 @@ var="${var}--num_prompt_encoders=2"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
 
-exp=att-$task-$m
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
