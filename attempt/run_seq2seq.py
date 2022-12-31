@@ -676,7 +676,14 @@ def train(config_file, **kwargs):
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
-    optim = AdamW(grouped_params, lr=training_args.learning_rate)
+    
+    _lr = model_args.prompt_learning_rate
+    grouped_params = [
+            {'params': [p for n, p in model.named_parameters() if p.requires_grad and not any(nd in n for nd in no_decay)], 'weight_decay': model_args.weight_decay, "lr":_lr},
+            {'params': [p for n, p in model.named_parameters() if  in n and p.requires_grad and any(nd in n for nd in no_decay)], 'weight_decay': 0.0, "lr":_lr},
+        ]
+    optim = AdamW(grouped_params,eps=1e-8)
+    #optim = AdamW(grouped_params, lr=training_args.learning_rate)
 
     scheduler = get_linear_schedule_with_warmup(
         optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
