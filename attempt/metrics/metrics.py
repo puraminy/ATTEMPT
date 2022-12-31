@@ -12,6 +12,7 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 ## My imports
+import torch
 from sentence_transformers import SentenceTransformer, util
 from rouge import Rouge
 from mylogs import *
@@ -272,7 +273,7 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
 
 ######## My functions
 
-def bert_score(bert_scorer, hyps, refs):
+def bert_score(bert_scorer, hyps, refs, device):
         if bert_scorer == None:
             return 0, 0, 0.0
 
@@ -350,6 +351,7 @@ def do_score(df, scorers, save_path, reval=False):
     #smoothie = SmoothingFunction().method4 # a function for smooth
     hyp_counter = [0]*5
 
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     all_predictions = []
     all_golds = []
     if not reval:
@@ -380,7 +382,7 @@ def do_score(df, scorers, save_path, reval=False):
             all_predictions.append(top_hyp)
             all_golds.append(tails[0])
             hi, ri = 0, 0
-            hi, ri, cur_score = bert_score(bert_scorer, preds, tails)
+            hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
             #summary = bert_score2(bert_metric, preds, tails)
             #cur_score = summary["bertscore_f1"]
             best_hyp = preds[hi]
