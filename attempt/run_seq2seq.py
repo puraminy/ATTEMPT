@@ -451,6 +451,8 @@ def train(config_file, **kwargs):
     padding = "max_length" if data_args.pad_to_max_length else False
 
     def preprocess_function(examples, max_target_length, task_id=None):
+        if not adapter_args.prompt_tuning:
+           examples["source"] = [re.sub(r'<.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
         # Setup the tokenizer for targets
