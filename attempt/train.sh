@@ -43,7 +43,7 @@ case "$HOME" in
     ;;
 esac
 if [ -z $config ]; then
-   config=configs/baselines/prompt_tuning.json 
+   config=configs/baselines/base.json 
 fi 
 echo "Config: ${config}"
 home=$HOME
@@ -63,17 +63,38 @@ elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
   config=configs/baselines/test.json 
 fi
-exp=att-xint-4
+exp=att-xattr-1
 log=${home}/logs   
 echo "log: ${log}"
-var="max_train_samples=200#300"
+
+# data 
+var="data_path=ATTEMPT/attempt/data/atomic2020/sel2"
+
+var="${var}--max_train_samples=200"
 var="${var}--max_val_samples=10"
 var="${var}--max_test_samples=100"
+
+# task
+task="xAttr@"
+var="${var}--task_name=$task"
+var="${var}--eval_dataset_name=$task" 
+var="${var}--test_dataset_name=$task" 
+
+# training 
+var="${var}--learning_rate=0.0003"
+var="${var}--use_optimizer=False"
 var="${var}--num_train_epochs=3"
+
+# prefix tuning
+var="${var}--prefix_tuning=False"
+var="${var}--prefix_dim=100"
+
+# prompt tuning
+var="${var}--prompt_tuning=False"
 var="${var}--prompt_learning_rate=0.1"
-var="${var}--learning_rate=0.1"
-var="${var}--use_optimizer=False#True"
-var="${var}--data_path=ATTEMPT/attempt/data/atomic2020/sel2"
+var="${var}--num_prompt_encoders=2"
+var="${var}--num_prompt_tokens=8"
+var="${var}--prompt_encoder_type=lstm"
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
