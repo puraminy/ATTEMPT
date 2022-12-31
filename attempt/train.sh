@@ -54,6 +54,7 @@ folder=${PWD##*/}
 train_num=200
 val_num=10
 test_num=100
+epochs=3
 
 if [ -z $m ]; then
    m=11
@@ -66,6 +67,7 @@ elif [ "$m" -eq "1" ]; then
   train_num=2
   val_num=1
   test_num=1 
+  epochs=1
 fi
 exp=att-xattr-1
 log=${home}/logs   
@@ -92,7 +94,7 @@ var="${var}--do_eval=False"
 # training 
 var="${var}--learning_rate=0.0003"
 var="${var}--use_optimizer=False"
-var="${var}--num_train_epochs=3"
+var="${var}--num_train_epochs=$epochs"
 var="${var}--per_device_train_batch_size=1"
 var="${var}--per_device_eval_batch_size=1"
 
