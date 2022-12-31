@@ -62,6 +62,8 @@ import mylogs
 import itertools, collections
 from metrics.metrics import do_score
 from encoders.encoders import *
+from comet.train.eval import evaluate
+
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
@@ -467,10 +469,13 @@ def train(config_file, **kwargs):
             ]
         model_inputs["labels"] = labels["input_ids"]
         model_inputs["extra_fields"] = examples['extra_fields']
+        model_inputs["query"] = examples['source']
+        model_inputs["event"] = examples["source"] 
+        model_inputs["target"] = examples['target']
+        model_inputs["resp"] = examples['target']
         if task_id is not None:
             model_inputs["task_ids"] = [
                 task_id for _ in examples['extra_fields']]
-
         return model_inputs
 
     column_names = ['source', 'target', 'extra_fields']
@@ -807,6 +812,11 @@ def train(config_file, **kwargs):
     # Test
     mylogs.bp("test")
     if training_args.do_test:
+        logger.info("*** My Test ***")
+        save_path = training_args.output_dir
+        for task, test_dataset in test_datasets.items():
+            evaluate(test_dataset, None, save_path, exp_info, gen_param="top_p", scorers = "rouge@bert", model=model, tokenizer=tokenizer)  
+    else:
         logger.info("*** Test ***")
         # multi-task evaluations
         results = {}
