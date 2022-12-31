@@ -136,7 +136,6 @@ def cli():
     help="Remove the existing experiment folder"
 )
 @click.pass_context
-#rrrrrrrrrrr
 def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, trial, rem):
    if debug:
        port = "1234"
@@ -165,17 +164,13 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
    args["preview"] = preview 
    tags = [] # tags used to distinguish experiments
    mylogs.BREAK_POINT = break_point
-   extra_args = ""
-   for _item in ctx.args:
-       print("arg = %s", _item)
-       _key,_val = _item.split("=")
-       _val = _val.strip()
-       _key=_key.strip("--")
-       if not _key in exclude_list:
-            _ks = "".join([k[0] for k in _key.split("_")])
-            extra_args += "@" + (_ks + "=" + _val if not str(_val)=="True" else _key)
-       logger.info("set %s = %s", _key, _val)
-       args[_key] = strval(_val)
+   for item in ctx.args: #extra arguments
+       print("arg = %s", item)
+       key,val = item.split("=")
+       val = val.strip()
+       key=key.strip("--")
+       logger.info("set %s = %s", key, val)
+       args[key] = strval(val)
 
    if not exp_vars:
        args["tag"] = "@".join(tags)

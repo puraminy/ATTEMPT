@@ -28,6 +28,7 @@ def isfloat(element: any) -> bool:
 def strval(val):
    if type(val) != str:
        return val
+   ret = val
    if val.lower() == "none": 
        ret= None 
    elif val.lower() == "false":

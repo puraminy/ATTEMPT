@@ -377,10 +377,13 @@ class Atomic(AbstractTask):
     def __init__(self, config, data_args):
         super().__init__(config, data_args)
         self.use_all_data = data_args.use_all_data
+        self.data_path = data_args.data_path
 
     def load_dataset(self, split):
-        path= op.join(HOME, 'mt5-comet', 'comet', 'data', 
-                'atomic2020', 'sel', split + '.tsv')
+        path = self.data_path
+        if not path.startswith("/"):
+            path= op.join(HOME, self.data_path)
+        path = op.join(path, split + '.tsv')
         df = pd.read_table(path)
         if not self.use_all_data:
             df = self.filter(df)
