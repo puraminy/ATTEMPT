@@ -13,12 +13,14 @@ def args(key):
 def tag():
     tag = main_args["tag"]
     _tag = ""
+    info = ""
     for _t in tag.split("@"):
         if _t in main_args:
-            _tag += "_" + str(main_args[_t])
+            _tag += "|" + str(main_args[_t])
         else:
-            _tag += "_" + _t  
-    return _tag.strip("_")
+            _tag += "|" + _t  
+        info += "|" + _t 
+    return _tag.strip("|"), info.strip("|")
 
 tehran = timezone('Asia/Tehran')
 now = datetime.datetime.now(tehran)
