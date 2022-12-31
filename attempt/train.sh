@@ -104,7 +104,7 @@ var="${var}--prefix_tuning=False"
 var="${var}--prefix_dim=100"
 
 # prompt tuning
-var="${var}--prompt_tuning=True"
+var="${var}--prompt_tuning=False#True"
 var="${var}--prompt_learning_rate=0.1"
 var="${var}--num_prompt_encoders=2"
 var="${var}--num_prompt_tokens=8"
