@@ -70,7 +70,9 @@ var="max_train_samples=200"
 var="${var}--max_val_samples=10"
 var="${var}--max_test_samples=100"
 var="${var}--num_train_epochs=3#5"
-echo "var: ${var}"
+var="${var}--prompt_learning_rate=0.1"
+var="${var}--learning_rate=0.1"
+var="${var}--use_optimizer=False#True"
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
 case "$home" in 
