@@ -447,8 +447,9 @@ def do_score(df, scorers, save_path, reval=False):
             pbar.update()
             rows.append(data)
 
-    #if not reval:
-    #    df = pd.concat([df, df2], axis=1)
+    scored_df = pd.DataFrame(rows)
+    if not reval:
+        df = pd.concat([df, scored_df], axis=1)
 
     mlog.info("Saving results %s", save_path)
     save_fname = now + "_full_results.tsv"

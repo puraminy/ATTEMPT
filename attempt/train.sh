@@ -95,8 +95,8 @@ var="${var}--do_eval=False"
 var="${var}--learning_rate=0.0003"
 var="${var}--use_optimizer=False"
 var="${var}--num_train_epochs=$epochs"
-var="${var}--per_device_train_batch_size=1"
-var="${var}--per_device_eval_batch_size=1"
+var="${var}--per_device_train_batch_size=8"
+var="${var}--per_device_eval_batch_size=8"
 
 # Saving
 var="${var}--save_total_limit=0"
