@@ -268,13 +268,13 @@ def train(config_file, **kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
+            print("Skiping experiment:", training_args.output_dir)
+            return 
             last_checkpoint = None
             out = training_args.output_dir
             out += "_" + mylogs.now
             Path(out).mkdir(parents = True, exist_ok=True)
             training_args.output_dir = out
-            print("Skiping experiment:", training_args.output_dir)
-            return 
         elif last_checkpoint is not None:
             logger.info(
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
@@ -791,6 +791,7 @@ def train(config_file, **kwargs):
                 trainer.save_metrics("eval", metrics)
 
     # Test
+    mylogs.bp("test")
     if training_args.do_test:
         logger.info("*** Test ***")
         # multi-task evaluations
@@ -834,6 +835,7 @@ def train(config_file, **kwargs):
                     pred = pred.strip()
                     df.at[i, "pred_text1"] = pred
                 df.drop(columns=["input_ids","labels","attention_mask"])
+                mylogs.bp("test")
                 do_score(df, "rouge", training_args.output_dir)
 
     if model_args.save_prefix_only:

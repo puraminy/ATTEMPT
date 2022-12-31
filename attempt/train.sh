@@ -51,8 +51,9 @@ alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
 
-test=100
-train=200
+train_num=200
+test_num=100
+
 if [ -z $m ]; then
    m=11
 fi
@@ -61,7 +62,8 @@ if [ "$m" -eq "0" ]; then
   echo "testing train"
 elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
-  config=configs/baselines/test.json 
+  train_num=2
+  test_num=3 
 fi
 exp=att-xattr-1
 log=${home}/logs   
@@ -70,9 +72,9 @@ echo "log: ${log}"
 # data 
 var="data_path=ATTEMPT/attempt/data/atomic2020/sel2"
 
-var="${var}--max_train_samples=200"
+var="${var}--max_train_samples=$train_num"
 var="${var}--max_val_samples=10"
-var="${var}--max_test_samples=100"
+var="${var}--max_test_samples=$test_num"
 
 # task
 task="xAttr@"
@@ -84,6 +86,11 @@ var="${var}--test_dataset_name=$task"
 var="${var}--learning_rate=0.0003"
 var="${var}--use_optimizer=False"
 var="${var}--num_train_epochs=3"
+var="${var}--per_device_train_batch_size=1"
+var="${var}--per_device_eval_batch_size=1"
+
+# Saving
+var="${var}--save_total_limit=0"
 
 # prefix tuning
 var="${var}--prefix_tuning=False"
