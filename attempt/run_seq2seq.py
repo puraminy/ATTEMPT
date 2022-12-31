@@ -678,9 +678,10 @@ def train(config_file, **kwargs):
     grouped_params.append({'params': other_params})
     
     _lr = model_args.prompt_learning_rate
+    no_decay = ['bias', 'LayerNorm.weight']
     grouped_params = [
             {'params': [p for n, p in model.named_parameters() if p.requires_grad and not any(nd in n for nd in no_decay)], 'weight_decay': model_args.weight_decay, "lr":_lr},
-            {'params': [p for n, p in model.named_parameters() if  in n and p.requires_grad and any(nd in n for nd in no_decay)], 'weight_decay': 0.0, "lr":_lr},
+            {'params': [p for n, p in model.named_parameters() if p.requires_grad and any(nd in n for nd in no_decay)], 'weight_decay': 0.0, "lr":_lr}
         ]
     optim = AdamW(grouped_params,eps=1e-8)
     #optim = AdamW(grouped_params, lr=training_args.learning_rate)
