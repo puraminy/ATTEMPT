@@ -631,9 +631,10 @@ def train(config_file, **kwargs):
         data_args.eval_dataset_name, tokenizer, data_args.ignore_pad_token_for_loss) if training_args.predict_with_generate else None
     print(compute_metrics_fn)
 
-    data_info = {"eval": eval_datasets[data_args.eval_dataset_name[0]]['extra_fields'],
-                 "test": test_datasets[data_args.test_dataset_name[0]]['extra_fields'] if training_args.do_test else None,
-                 "train": train_dataset['extra_fields'] if training_args.do_train else None}
+    data_info = {}
+    data_info["eval"] = eval_datasets[data_args.eval_dataset_name[0]]['extra_fields'] if training_args.do_eval else None
+    data_info["test"] = test_datasets[data_args.test_dataset_name[0]]['extra_fields'] if training_args.do_test else None
+    data_info["train"] = train_dataset['extra_fields'] if training_args.do_train else None
 
     def compute_metrics(eval_preds):
         preds, labels, data_info = eval_preds
