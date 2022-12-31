@@ -63,7 +63,7 @@ elif [ "$m" -eq "1" ]; then
   echo "testing train and test"
   config=configs/baselines/test.json 
 fi
-exp=att-xint3
+exp=att-xint-4
 log=${home}/logs   
 echo "log: ${log}"
 var="max_train_samples=200"
