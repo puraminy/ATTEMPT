@@ -50,20 +50,20 @@ FORMAT2 = logging.Formatter("%(message)s")
 #logging.basicConfig(filename=logFilename)
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(FORMAT2)
-mlog = logging.getLogger("comet.main")
+mlog = logging.getLogger("att.main")
 mlog.setLevel(logging.INFO)
 mlog.addHandler(consoleHandler)
-clog = logging.getLogger("comet.cfg")
-dlog = logging.getLogger("comet.data")
-vlog = logging.getLogger("comet.eval")
-tlog = logging.getLogger("comet.train")
-ttlog = logging.getLogger("comet.train")
-timelog = logging.getLogger("comet.time")
+clog = logging.getLogger("att.cfg")
+dlog = logging.getLogger("att.data")
+vlog = logging.getLogger("att.eval")
+tlog = logging.getLogger("att.train")
+ttlog = logging.getLogger("att.train")
+timelog = logging.getLogger("att.time")
 
 def getFname(name, path=""):
     if not path:
         if "ahmad" in home or "pouramini" in home:
-            path = os.path.join(home, "mt5-comet", "comet", "output")
+            path = os.path.join(home, "logs")
         else:
             path = "/content"
     logFilename = os.path.join(path, f"{name}.log")
@@ -76,7 +76,12 @@ def tinfo(text, *args, **kwargs):
 import inspect
 import sys
 BREAK_POINT = 0
-def mbp(sl=-1):
+
+def setbp(bpoint):
+    global BREAK_POINT
+    BREAK_POINT=bpoint
+
+def bp(sl=-1):
     if colab: return
     if str(sl) == str(BREAK_POINT): 
         fname = sys._getframe().f_back.f_code.co_name

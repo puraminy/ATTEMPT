@@ -10,11 +10,9 @@ import torch.nn.functional as F
 import os
 import math
 from os.path import expanduser
-import comet.train.mylogs as logs
-from comet.train.mylogs import tinfo, getFname, tlog
+import attempt.mylogs as mylogs
 
 from transformers import AddedToken 
-from comet.train.mylogs import mbp 
 from transformers.optimization import Adafactor, AdamW
 from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 
@@ -96,21 +94,21 @@ class PromptEncoder(torch.nn.Module):
         if training and (not self.router.requires_grad or not self.is_learned):
             return router
         if self.init_flag:
-            tinfo("Initial Router: %s", self.router)
+            mylogs.tinfo("Initial Router: %s", self.router)
             self.init_flag = False
         if training:
             router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()            # layer * n_prompts
         else:
             if logs.args("trunc_router") == "sigmoid":
-                tinfo("Trunc:===================TRUNC=====Sigmoid===========")
+                mylogs.tinfo("Trunc:===================TRUNC=====Sigmoid===========")
                 router = torch.sigmoid(router)  # layer * n_prompts
             elif logs.main_args["trunc_router"] == "sign":
                 with torch.no_grad():
-                    tinfo("Trunc:===================TRUNC======SIGN======")
-                    tinfo("Router Before relu: %s", router)
+                    mylogs.tinfo("Trunc:===================TRUNC======SIGN======")
+                    mylogs.tinfo("Router Before relu: %s", router)
                     router[router <= 0] = 0
                     router[router > 0] = 1
-                    tinfo("Router After relu: %s", router)
+                    mylogs.tinfo("Router After relu: %s", router)
         router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
         # layer * 1 * n_prompts
         return router
@@ -124,7 +122,7 @@ class PromptEncoder(torch.nn.Module):
             return lambda x: (x>=self.id_offset)&(x<self.id_offset+self.length)
 
     def dump_embeddings_into(self, weight, task_ids = None):
-        tinfo("%s ) Final Router (before forward): %s", self.name, self.router)
+        mylogs.tinfo("%s ) Final Router (before forward): %s", self.name, self.router)
         if task_ids == None:
             task_ids = [0]
         with torch.no_grad():
@@ -200,9 +198,9 @@ class MergePromptEncoderOld(MergePromptEncoderBase):
         if self.wandb:
             wandb.log({'tid': task_id})
         if self.flag:
-            tinfo("Initial Router: %s", self.router)
+            mylogs.tinfo("Initial Router: %s", self.router)
             self.flag = False
-        #tinfo("Task ids: %s", tids)
+        #mylogs.tinfo("Task ids: %s", tids)
         router = self.router[task_id]
         if training:
             router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()  # layer * n_prompts
@@ -211,11 +209,11 @@ class MergePromptEncoderOld(MergePromptEncoderBase):
             #router = torch.sigmoid(router)  # layer * n_prompts
             if self.trunc_router:
                 with torch.no_grad():
-                    tinfo("Router:========================================")
-                    tinfo("Router Before relu: %s", router)
+                    mylogs.tinfo("Router:========================================")
+                    mylogs.tinfo("Router Before relu: %s", router)
                     router[router <= 0] = 0
                     router[router > 0] = 1
-                    tinfo("Router After relu: %s", router)
+                    mylogs.tinfo("Router After relu: %s", router)
             #router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
         # layer * 1 * n_prompts
         #ret_embeds = torch.matmul(router.unsqueeze(0), z).view(-1, self.embedding_dim)
@@ -243,10 +241,10 @@ class MergePromptEncoderOld(MergePromptEncoderBase):
         return ret_embeds 
 
     def dump_embeddings_into(self, weight, task_ids = None):
-        tinfo("Final Router (before forward): %s", self.router)
+        mylogs.tinfo("Final Router (before forward): %s", self.router)
         if task_ids == None:
             task_ids = [0]
-        tinfo("Gen ids %s", task_ids)
+        mylogs.tinfo("Gen ids %s", task_ids)
         with torch.no_grad():
             embs= self.forward(self.input_ids, tids=task_ids, training=False)
             detached_embeddings = embs.detach()
@@ -395,7 +393,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
 
     enc_plen =len(task_tokens) 
-    tinfo("** len tokenizer before extend: %s", len(tokenizer))
+    mylogs.tinfo("** len tokenizer before extend: %s", len(tokenizer))
     extend_tokenizer(tokenizer, task_tokens)
     model.resize_token_embeddings(len(tokenizer))
     rel_ids = tokenizer.convert_tokens_to_ids(task_tokens)

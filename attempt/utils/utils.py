@@ -25,9 +25,9 @@ def isfloat(element: any) -> bool:
     except ValueError:
         return False
 
-def strval(val):
+def convert(val):
    if type(val) != str:
-       return val
+       return val 
    ret = val
    if val.lower() == "none": 
        ret= None 
@@ -40,6 +40,19 @@ def strval(val):
    elif val.isdigit():
        ret= int(val)
    return ret
+
+def strval(inp):
+   arr = []
+   vals = inp.split("@")
+   for val in vals:
+       if not val:
+           continue
+       ret = convert(val)
+       arr.append(ret)
+   if len(arr) == 1 and not "@" in inp:
+       return arr[0]
+   return arr
+
 ##### My utils end
 
 def create_dir(output_dir):

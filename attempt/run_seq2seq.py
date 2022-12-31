@@ -57,9 +57,10 @@ from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
 ###### My imports
-import itertools, collections
-from comet.train.eval import do_score
+import json
 import mylogs 
+import itertools, collections
+from metrics.metrics import do_score
 from encoders.encoders import *
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
@@ -163,9 +164,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
    args["break_point"] = break_point 
    args["preview"] = preview 
    tags = [] # tags used to distinguish experiments
-   mylogs.BREAK_POINT = break_point
+   if break_point:
+       mylogs.setbp(break_point)
    for item in ctx.args: #extra arguments
-       print("arg = %s", item)
        key,val = item.split("=")
        val = val.strip()
        key=key.strip("--")
@@ -185,6 +186,8 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        values = [x.split("=")[1].split("#") for x in all_vars]
        assert not preview or preview in var_names, "Preview :" + preview + " is not in " + str(var_names)
        for vv, cc in zip(var_names, values):
+           if len(cc) == 1:
+               exclude_list.append(vv)
            if len(cc) > 1:
                tags.append(vv)
                if preview and not vv in preview:
@@ -206,6 +209,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
            ii += 1
            args["output_dir"] = os.path.join(save_path, *_output_dir)
            args["expid"] = ii
+           print(json.dumps(args, indent=2))
+           # break point before running to check arguments (breakpoint must be check)
+           mylogs.bp("check")
            ctx.invoke(train, config_file=config_file, **args)
 
 @cli.command()
