@@ -422,9 +422,11 @@ class Atomic(AbstractTask):
         tokens = []
         n = 0
         for m in range(8):
-           tokens.append("<" + self.name +str(n) + "@" + \
-                   "lstm" + \
-                   "_" + str(m)+ ">") 
+           tokens.append("<com" +
+                       "_" + str(m)+ ">") 
+           #tokens.append("<" + self.name +str(n) + "@" + \
+           #        "lstm" + \
+           #        "_" + str(m)+ ">") 
         prompt = "".join(tokens)
         src_texts = [prompt, example["input_text"], "<extra_id_0>"]
         tgt_texts = ["<extra_id_0>",str(example['target_text'])]
