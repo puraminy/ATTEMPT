@@ -3,7 +3,7 @@
 *.iml
 *.~lock*
 *.pyc
-*.sh
+**/**/*.sh
 *.ipynb
 *.bin
 .ipynb_checkpoints
