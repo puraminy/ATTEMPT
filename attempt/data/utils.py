@@ -1,5 +1,8 @@
 import numpy as np
 
+def prompt(task, enc_id, enc_type, id):
+   prompt = "<pr-" + task + "-" + enc_id + "@" + enc_type + "_" + id + ">"
+   return prompt
 
 def round_stsb_target(label):
     """STSB maps two sentences to a floating point number between 1 and 5

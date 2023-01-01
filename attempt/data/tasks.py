@@ -6,7 +6,7 @@ import functools
 from typing import Callable, List, Mapping
 from utils import pad_punctuation
 from metrics import metrics
-from .utils import round_stsb_target
+from .utils import round_stsb_target,prompt
 import datasets
 import logging
 import numpy as np
@@ -422,16 +422,12 @@ class Atomic(AbstractTask):
         tokens = []
         n = 0
         for m in range(8):
-           tokens.append("<com" +
-                       "_" + str(m)+ ">") 
-           #tokens.append("<" + self.name +str(n) + "@" + \
-           #        "lstm" + \
-           #        "_" + str(m)+ ">") 
+           tokens.append(prompt(self.name, str(n), "lstm", str(m)))
         prompt = "".join(tokens)
         src_texts = [example["input_text"], prompt , "<extra_id_0>"]
         src_texts = [prompt, example["input_text"], "<extra_id_0>"]
         src_texts = [prompt, example["input_text"], ", they are seen as ", "<extra_id_0>"]
-        src_texts = [example["input_text"], prompt , "<extra_id_0>"]
+        #src_texts = [example["input_text"], prompt , "<extra_id_0>"]
         #src_texts = [prompt, example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         tgt_texts = ["<extra_id_0>",str(example['target_text'])]

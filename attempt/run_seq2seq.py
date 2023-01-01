@@ -16,7 +16,8 @@
 Fine-tuning the library models for sequence to sequence.
 """
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
-from utils import modify_model_after_init, save_training_config, save_prompts, strval
+from utils import * 
+from data.utils import prompt
 import shutil
 from pathlib import Path
 import glob
@@ -62,17 +63,15 @@ import mylogs
 import itertools, collections
 from metrics.metrics import do_score
 from encoders.encoders import *
-from comet.train.eval import evaluate
-
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
 logger = logging.getLogger(__name__)
 
-def mbp(*arg):
+def mbp(bp="all",*arg):
     print("info:",*arg)
-    breakpoint()
+    mylogs.bp(bp)
 
 def run_command(command):
     output = subprocess.getoutput(command)
@@ -413,8 +412,8 @@ def train(config_file, **kwargs):
             for n in range(adapter_args.num_prompt_encoders):
                 tokens = []
                 for m in range(adapter_args.num_prompt_tokens):
-                   tokens.append("<com" +
-                           "_" + str(m)+ ">") 
+                   tokens.append(prompt(task, str(n), 
+                                        adapter_args.prompt_encoder_type, str(m))) 
                 prompts[task +str(n) + "@" + adapter_args.prompt_encoder_type]  = tokens 
         ii = 1
         prompt_encoders = []
@@ -456,10 +455,11 @@ def train(config_file, **kwargs):
     padding = "max_length" if data_args.pad_to_max_length else False
 
     def preprocess_function(examples, max_target_length, task_id=None):
-        #if not adapter_args.prompt_tuning:
-       #   examples["source"] = [re.sub(r'<.*?>','', x).strip() for x in examples["source"]]
+        if not adapter_args.prompt_tuning:
+           examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
+        mbp("data", data)
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
@@ -472,10 +472,6 @@ def train(config_file, **kwargs):
             ]
         model_inputs["labels"] = labels["input_ids"]
         model_inputs["extra_fields"] = examples['extra_fields']
-        model_inputs["query"] = examples['source']
-        model_inputs["event"] = examples["source"] 
-        model_inputs["target"] = examples['target']
-        model_inputs["resp"] = examples['target']
         if task_id is not None:
             model_inputs["task_ids"] = [
                 task_id for _ in examples['extra_fields']]
@@ -810,12 +806,7 @@ def train(config_file, **kwargs):
 
     # Test
     mylogs.bp("test")
-    if False: #training_args.do_test:
-        logger.info("*** My Test ***")
-        save_path = training_args.output_dir
-        for task, test_dataset in test_datasets.items():
-            evaluate(test_dataset, None, save_path, exp_info, gen_param="top_p", scorers = "rouge@bert", model=model, tokenizer=tokenizer)  
-    else:
+    if training_args.do_test:
         logger.info("*** Test ***")
         # multi-task evaluations
         results = {}

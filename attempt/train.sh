@@ -54,7 +54,7 @@ folder=${PWD##*/}
 train_num=-1
 val_num=-1
 test_num=-1
-epochs=5
+epochs=3
 
 if [ -z $m ]; then
    m=11
@@ -87,7 +87,7 @@ var="${var}--eval_dataset_name=$task"
 var="${var}--test_dataset_name=$task" 
 
 exp=att-$task-$m
-exp=xattr-1
+exp=xattr-2
 
 # operations
 var="${var}--do_train=True"
@@ -95,7 +95,7 @@ var="${var}--do_test=True"
 var="${var}--do_eval=False"
 
 # training 
-var="${var}--learning_rate=0.3"
+var="${var}--learning_rate=0.3#0.5#0.01#0.1"
 var="${var}--use_optimizer=False"
 var="${var}--num_train_epochs=$epochs"
 var="${var}--per_device_train_batch_size=8"
