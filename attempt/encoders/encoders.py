@@ -351,7 +351,7 @@ class LSTMEmbeddingPromptEncoder(PromptEncoder):
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds
 
-def add_specials(tokenizer, prompt_tokens = [], model_id=""):
+def add_specials(tokenizer):
     cur_list = tokenizer.additional_special_tokens
     num_added_toks: dict = {}
     if tokenizer.bos_token is None:
