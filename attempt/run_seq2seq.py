@@ -459,7 +459,10 @@ def train(config_file, **kwargs):
            examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
-        mbp("data", examples["source"][:2], examples["target"][:2])
+        logger.info("sourece: %s", examples["source"][:2])
+        logger.info("target: %s", examples["target"][:2])
+        logger.info("extra: %s", examples["extra_fields"][:2])
+        mylogs.bp("data")
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
@@ -831,6 +834,7 @@ def train(config_file, **kwargs):
                 #df["bert_score"] = 0.0
                 df["method"] = "ptun" 
                 df["resp"] = ""
+                df["query"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
                 for key, info in exp_info.items():

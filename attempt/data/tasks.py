@@ -431,7 +431,12 @@ class Atomic(AbstractTask):
         #src_texts = [prompt, example["input_text"]]
         tgt_texts = [str(example['target_text'])]
         tgt_texts = ["<extra_id_0>",str(example['target_text'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
+        extra_fields = {}
+        extra_fields["event"] = example["input_text"]
+        extra_fields["query"] = " ".join(src_texts)
+        extra_fields["resp"] = example["target_text"]
+        return self.seq2seq_format(src_texts, tgt_texts, 
+                add_prefix=False, extra_fields=extra_fields)
 
 class xIntent(Atomic):
     name = "xIntent"
