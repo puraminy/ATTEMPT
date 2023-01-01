@@ -396,7 +396,7 @@ class Atomic(AbstractTask):
         return range(num_samples)
 
     def check_n_obs(self, n_obs, total_size):
-        if self.use_all_data:
+        if self.use_all_data or n_obs < 0:
             return total_size
         df = self.df
         lst = df['input_text'].value_counts()[:n_obs].index
@@ -429,7 +429,7 @@ class Atomic(AbstractTask):
            #        "_" + str(m)+ ">") 
         prompt = "".join(tokens)
         src_texts = [prompt, example["input_text"], "<extra_id_0>"]
-        tgt_texts = ["<extra_id_0>",str(example['target_text'])]
+        tgt_texts = ["PersonX is seen as <extra_id_0>",str(example['target_text'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
 
 class xIntent(Atomic):
