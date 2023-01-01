@@ -385,6 +385,8 @@ class Atomic(AbstractTask):
 
     def load_dataset(self, split):
         path = self.data_path
+        if split != "train":
+            self.do_shuffle = False
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
         path = op.join(path, split + '.tsv')
