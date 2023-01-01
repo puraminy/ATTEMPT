@@ -44,6 +44,7 @@ def convert(val):
        ret= int(val)
    return ret
 
+
 def strval(inp):
    arr = []
    vals = inp.split("@")
