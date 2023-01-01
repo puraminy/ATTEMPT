@@ -189,7 +189,6 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        all_vars = exp_vars.split("--")
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]
-       assert not preview or preview in var_names, "Preview :" + preview + " is not in " + str(var_names)
        for vv, cc in zip(var_names, values):
            if len(cc) == 1:
                exclude_list.append(vv)
@@ -199,6 +198,8 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
                    if not vv in preview:
                        var_names.remove(vv)
                        values.remove(cc)
+
+       assert not preview or preview in tags, "Preview:" + preview + " must be in " + str(tags) + " which have multiple values"
 
        args["tag"] = "@".join(tags)
        tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -461,8 +462,6 @@ def train(config_file, **kwargs):
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     mylogs.bp("freeze")
-    if preview == "prompt_tuning":
-        return
 
     data_args.dataset_name = data_args.task_name
     data_args.eval_dataset_name = data_args.eval_dataset_name
@@ -487,9 +486,10 @@ def train(config_file, **kwargs):
            examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
-        logger.info("sourece: %s", examples["source"][:2])
-        logger.info("target: %s", examples["target"][:2])
-        logger.info("extra: %s", examples["extra_fields"][:2])
+        if preview:
+            mylogs.plog.info("sourece: %s", examples["source"][:2])
+            mylogs.plog.info("target: %s", examples["target"][:2])
+            mylogs.plog.info("extra: %s", examples["extra_fields"][:2])
         mylogs.bp("data")
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
@@ -607,7 +607,6 @@ def train(config_file, **kwargs):
                 )
 
     if training_args.do_test:
-        model.eval()
         if data_args.test_files is not None:
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
                                                         data_args=data_args).get(
@@ -754,6 +753,9 @@ def train(config_file, **kwargs):
             multi_task_compute_metrics=compute_metrics_fn,
             shared=model_args.shared_attn)
 
+    # Exit program if user wants to check some settings 
+    if preview:
+        return
     # Saves training config.
     if trainer.is_world_process_zero():
         os.makedirs(training_args.output_dir, exist_ok=True)
