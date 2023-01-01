@@ -441,8 +441,17 @@ def train(config_file, **kwargs):
     mylogs.bp("tokens")
     model.resize_token_embeddings(len(tokenizer))
     mylogs.bp("tokens")
+
+    rgrad = [p for p in wrapped_model.parameters() if p.requires_grad]
+    nrgrad = [p for p in wrapped_model.parameters() if not p.requires_grad]
+    logger.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
+
+    rgrad = [p for p in wrapped_model.parameters() if p.requires_grad]
+    nrgrad = [p for p in wrapped_model.parameters() if not p.requires_grad]
+    logger.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
+    mylogs.bp("freeze")
 
     data_args.dataset_name = data_args.task_name
     data_args.eval_dataset_name = data_args.eval_dataset_name
