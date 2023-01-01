@@ -59,6 +59,7 @@ vlog = logging.getLogger("att.eval")
 tlog = logging.getLogger("att.train")
 ttlog = logging.getLogger("att.train")
 timelog = logging.getLogger("att.time")
+plog = logging.getLogger("att.preview")
 
 def getFname(name, path=""):
     if not path:
@@ -101,14 +102,16 @@ def trace(frame, event, arg):
 
 mlog.info(now)
 #sys.settrace(trace)
+def add_handler(logger, fname):
+    logger.setLevel(logging.INFO)
+    logFilename = os.path.join("logs", fname + ".log")
+    handler = logging.FileHandler(logFilename, mode="w")
+    handler.setFormatter(FORMAT)
+    logger.addHandler(handler)
 
-if False:
-    for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["all_main","all_data","all_cfg","all_eval","all_train", "all_time"]):
-        logger.setLevel(logging.INFO)
-        logFilename = os.path.join(logPath, fname + ".log")
-        handler = logging.FileHandler(logFilename, mode="w")
-        handler.setFormatter(FORMAT)
-        logger.addHandler(handler)
+
+for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
+    add_handler(logger, fname)
 
 def set_args(args):
     global main_args 
