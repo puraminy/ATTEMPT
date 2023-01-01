@@ -35,8 +35,11 @@ def convert(val):
        ret = False
    elif val.lower() == "true":
        ret= True
-   elif "." in val and isfloat(val):
-       ret = float(val)
+   elif isfloat(val):
+       if "." in val:
+           ret = float(val)
+       else:
+           ret = int(val)
    elif val.isdigit():
        ret= int(val)
    return ret

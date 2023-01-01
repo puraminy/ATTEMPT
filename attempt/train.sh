@@ -51,9 +51,9 @@ alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
 
-train_num=200
-val_num=10
-test_num=100
+train_num=-1
+val_num=-1
+test_num=-1
 epochs=3
 
 if [ -z $m ]; then
@@ -73,7 +73,7 @@ log=${home}/logs
 echo "log: ${log}"
 
 # data 
-var="data_path=mt5-comet/comet/data/atomic2020"
+var="data_path=logs/xattr-1"
 
 var="${var}--use_all_data=False"
 var="${var}--max_train_samples=$train_num"
@@ -87,7 +87,7 @@ var="${var}--eval_dataset_name=$task"
 var="${var}--test_dataset_name=$task" 
 
 exp=att-$task-$m
-exp=xint-com
+exp=xattr-1
 
 # operations
 var="${var}--do_train=True"
@@ -110,7 +110,7 @@ var="${var}--prefix_dim=100"
 
 # prompt tuning
 var="${var}--prompt_tuning=True"
-var="${var}--prompt_learning_rate=0.01"
+var="${var}--prompt_learning_rate=0.3"
 var="${var}--num_prompt_encoders=1"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
