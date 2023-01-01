@@ -430,9 +430,12 @@ def do_score(df, scorers, save_path, reval=False):
                 m_top_hyp = top_hyp.replace(omit, "") 
                 m_tails = m_tails.replace(omit,"")
             if rouge_scorer and m_top_hyp.strip() and m_tails.strip():
-                rouge_score = rouge_scorer.get_scores(m_top_hyp, m_tails, 
-                                                avg=True, ignore_empty=True)
-                rouge_score = rouge_score["rouge-l"]["f"]
+                try:
+                    rouge_score = rouge_scorer.get_scores(m_top_hyp, m_tails, 
+                                                    avg=True, ignore_empty=True)
+                    rouge_score = rouge_score["rouge-l"]["f"]
+                except:
+                    rouge_score = 0
             match_score = 0
             inp_key = inp + rel
             mean_match[scope] = "{:.4f}".format(sum_match[scope] / counter[scope])
