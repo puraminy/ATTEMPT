@@ -73,7 +73,7 @@ log=${home}/logs
 echo "log: ${log}"
 
 # data 
-var="data_path=logs/xattr-1"
+var="data_path=logs/xattr-1#mt5-comet/comet/data/atomic2020"
 
 var="${var}--use_all_data=False"
 var="${var}--max_train_samples=$train_num"

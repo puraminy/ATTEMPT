@@ -404,9 +404,14 @@ def train(config_file, **kwargs):
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
     ######################## My code
+    added = add_specials(tokenizer)
+    logger.info("%s tokens was addded", added)
+    mylogs.bp("tokens")
+    model.resize_token_embeddings(len(tokenizer))
     n_tasks = len(data_args.task_name)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     prompts = {}
+    # mmmmmmmmmmmmm
     if adapter_args.prompt_tuning:
         for task in data_args.task_name:
             for n in range(adapter_args.num_prompt_encoders):
@@ -432,7 +437,9 @@ def train(config_file, **kwargs):
         model.set_encoders(prompt_encoders, [], id_offset)
 
     ##############################
+    mylogs.bp("tokens")
     model.resize_token_embeddings(len(tokenizer))
+    mylogs.bp("tokens")
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
 
@@ -684,9 +691,9 @@ def train(config_file, **kwargs):
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
-    
-    #optim = AdamW(grouped_params,eps=1e-8)
-    optim = AdamW(grouped_params, lr=training_args.learning_rate)
+    #### ooooo 
+    optim = AdamW(grouped_params,eps=1e-8)
+    #optim = AdamW(grouped_params, lr=training_args.learning_rate)
 
     scheduler = get_linear_schedule_with_warmup(
         optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
