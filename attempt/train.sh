@@ -54,7 +54,7 @@ folder=${PWD##*/}
 train_num=-1
 val_num=-1
 test_num=-1
-epochs=3
+epochs=5
 
 if [ -z $m ]; then
    m=11
@@ -95,8 +95,8 @@ var="${var}--do_test=True"
 var="${var}--do_eval=False"
 
 # training 
-var="${var}--learning_rate=0.0003"
-var="${var}--use_optimizer=True"
+var="${var}--learning_rate=0.3"
+var="${var}--use_optimizer=False"
 var="${var}--num_train_epochs=$epochs"
 var="${var}--per_device_train_batch_size=8"
 var="${var}--per_device_eval_batch_size=8"
@@ -110,13 +110,17 @@ var="${var}--prefix_dim=100"
 
 # prompt tuning
 var="${var}--prompt_tuning=True"
-var="${var}--prompt_learning_rate=0.3"
+var="${var}--prompt_learning_rate=0.5"
 var="${var}--num_prompt_encoders=1"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
 
 
 runat run $g2 -exp $exp -cfg $config -var ${var} 
+
+alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full "
+show_results --path=${log}/${exp}
+
 case "$home" in 
   *content*)
     # Do stuff
