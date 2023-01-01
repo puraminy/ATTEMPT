@@ -286,13 +286,14 @@ def train(config_file, **kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
-            print("Skiping experiment:", training_args.output_dir)
-            return 
-            last_checkpoint = None
-            out = training_args.output_dir
-            out += "_" + mylogs.now
-            Path(out).mkdir(parents = True, exist_ok=True)
-            training_args.output_dir = out
+            if not preview:
+                print("Skipping experiment:", training_args.output_dir)
+                return 
+            #last_checkpoint = None
+            #out = training_args.output_dir
+            #out += "_" + mylogs.now
+            #Path(out).mkdir(parents = True, exist_ok=True)
+            #training_args.output_dir = out
         elif last_checkpoint is not None:
             logger.info(
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "

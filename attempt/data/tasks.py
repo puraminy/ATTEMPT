@@ -62,6 +62,9 @@ class AbstractTask(abc.ABC):
         return n_obs
 
     def shuffled_indices(self, dataset):
+        if not self.do_shuffle:
+            num_samples = len(dataset)
+            return range(num_samples)
         num_samples = len(dataset)
         generator = torch.Generator()
         generator.manual_seed(self.seed)
@@ -372,7 +375,7 @@ class Atomic(AbstractTask):
     name = "atomic"
     metric = [metrics.rouge]
     metric_names = ["rouge"]
-    do_shuffle = False
+    do_shuffle = True
     samples_per_head = 3
     def __init__(self, config, data_args):
         super().__init__(config, data_args)
@@ -391,10 +394,6 @@ class Atomic(AbstractTask):
             self.df = self.preproc(df)
         ds = Dataset.from_pandas(df)
         return ds
-
-    def shuffled_indices(self, dataset):
-        num_samples = len(dataset)
-        return range(num_samples)
 
     def check_n_obs(self, n_obs, total_size):
         if self.use_all_data or n_obs < 0:
