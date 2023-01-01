@@ -728,6 +728,9 @@ def train(config_file, **kwargs):
             train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     )
     if model_args.use_optimizer:
+        if len(grouped_params) == 1:
+            print("Warning: No need to use optimizer")
+            return 
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
