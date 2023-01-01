@@ -195,9 +195,10 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
                exclude_list.append(vv)
            if len(cc) > 1:
                tags.append(vv)
-               if preview and not vv in preview:
-                   var_names.remove(vv)
-                   values.remove(cc)
+               if preview: 
+                   if not vv in preview:
+                       var_names.remove(vv)
+                       values.remove(cc)
 
        args["tag"] = "@".join(tags)
        tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -214,7 +215,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
            ii += 1
            args["output_dir"] = os.path.join(save_path, *_output_dir)
            args["expid"] = ii
-           print(json.dumps(args, indent=2))
+           exp_conf = json.dumps(args, indent=2)
+           mylogs.clog.info(exp_conf)
+           print(exp_conf)
            # break point before running to check arguments (breakpoint must be check)
            mylogs.bp("check")
            ctx.invoke(train, config_file=config_file, **args)
@@ -244,6 +247,12 @@ def train(config_file, **kwargs):
 
     #### My code: overwrite kwargs over arguments read from parser
     preview = kwargs.setdefault("preview","")
+    exp_conf = json.dumps(kwargs, indent=2)
+    if preview:
+       mylogs.plog.handlers.clear()
+       mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
+       mylogs.plog.info(exp_conf)
+
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
         #v = strval(v)
@@ -442,16 +451,18 @@ def train(config_file, **kwargs):
     model.resize_token_embeddings(len(tokenizer))
     mylogs.bp("tokens")
 
-    rgrad = [p for p in wrapped_model.parameters() if p.requires_grad]
-    nrgrad = [p for p in wrapped_model.parameters() if not p.requires_grad]
-    logger.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
+    rgrad = len([p for p in model.parameters() if p.requires_grad])
+    nrgrad = len([p for p in model.parameters() if not p.requires_grad])
+    mylogs.plog.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
 
-    rgrad = [p for p in wrapped_model.parameters() if p.requires_grad]
-    nrgrad = [p for p in wrapped_model.parameters() if not p.requires_grad]
-    logger.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
+    rgrad = len([p for p in model.parameters() if p.requires_grad])
+    nrgrad = len([p for p in model.parameters() if not p.requires_grad])
+    mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     mylogs.bp("freeze")
+    if preview == "prompt_tuning":
+        return
 
     data_args.dataset_name = data_args.task_name
     data_args.eval_dataset_name = data_args.eval_dataset_name
