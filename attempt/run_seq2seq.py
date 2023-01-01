@@ -250,11 +250,17 @@ def train(config_file, **kwargs):
 
     #### My code: overwrite kwargs over arguments read from parser
     preview = kwargs.setdefault("preview","")
+    break_point = kwargs.setdefault("break_point","")
     exp_conf = json.dumps(kwargs, indent=2)
     if preview:
        mylogs.plog.handlers.clear()
        mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
        mylogs.plog.info(exp_conf)
+
+    ds_conf = kwargs.setdefault("ds_config", ["en"])
+    data_args.dataset_config_name = ds_conf
+    data_args.eval_dataset_config_name = ds_conf
+    data_args.test_dataset_config_name = ds_conf
 
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
@@ -496,7 +502,11 @@ def train(config_file, **kwargs):
             mylogs.plog.info("sourece: %s", examples["source"][:2])
             mylogs.plog.info("target: %s", examples["target"][:2])
             mylogs.plog.info("extra: %s", examples["extra_fields"][:2])
-        mylogs.bp("data")
+        if break_point == "data":
+            logger.info("sourece: %s", examples["source"][:5])
+            logger.info("target: %s", examples["target"][:5])
+            logger.info("extra: %s", examples["extra_fields"][:5])
+            breakpoint()
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
