@@ -57,7 +57,8 @@ from data.tasks import TASK_MAPPING
 from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
-###### My imports
+###### my imports
+from conflicts import check_conflicts
 import json
 import mylogs 
 import itertools, collections
@@ -249,6 +250,9 @@ def train(config_file, **kwargs):
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     #### My code: overwrite kwargs over arguments read from parser
+    check_cfls = kwargs.setdefault("check_conflicts",True)
+    if check_cfls:
+        check_conflicts(model_args, data_args, training_args, adapter_args)
     preview = kwargs.setdefault("preview","")
     break_point = kwargs.setdefault("break_point","")
     exp_conf = json.dumps(kwargs, indent=2)
@@ -342,9 +346,6 @@ def train(config_file, **kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning
-    if config.prefix_tuning and config.prompt_tuning:
-        print("Both prefix tuning and prompt tuning could not be on")
-        return
     config.attn_prefix_tuning = model_args.attn_prefix_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
@@ -738,9 +739,6 @@ def train(config_file, **kwargs):
             train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     )
     if model_args.use_optimizer:
-        if len(grouped_params) == 1:
-            print("Warning: No need to use optimizer")
-            return 
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
