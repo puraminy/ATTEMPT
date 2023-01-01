@@ -875,6 +875,7 @@ def train(config_file, **kwargs):
                 trainer.log_metrics("test", metrics)
                 trainer.save_metrics("test", metrics)
 
+                # sssssssssss
                 #predictions = np.argmax(predictions, axis=1)
                 #predictions = tokenizer.batch_decode(predictions)
                 output_predict_file = os.path.join(training_args.output_dir, 
@@ -883,7 +884,7 @@ def train(config_file, **kwargs):
                 df["pred_text1"] = ""
                 #df["rouge_score"] = 0.0
                 #df["bert_score"] = 0.0
-                df["method"] = "ptun" 
+                df["template"] = data_args.template
                 df["resp"] = ""
                 df["query"] = ""
                 df["langs"] = "en2en"
@@ -894,13 +895,8 @@ def train(config_file, **kwargs):
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    inp = tokenizer.decode(row["input_ids"], skip_special_tokens=True)
-                    inp = re.sub(r'<.*?>','', inp)
-                    df.at[i, "input_text"] = inp 
-                    labels = row["labels"]
-                    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-                    labels = tokenizer.decode(labels, skip_special_tokens=True)
-                    df.at[i, "target_text"] = labels 
+                    df.at[i, "input_text"] = df.loc[i, "extra_fields"]["event"] 
+                    df.at[i, "target_text"] = df.loc[i, "extra_fields"]["resp"]  
                     pred = tokenizer.decode(predictions[i], skip_special_tokens=True)
                     pred = re.sub(r'<.*?>','',pred)
                     pred = pred.strip()
