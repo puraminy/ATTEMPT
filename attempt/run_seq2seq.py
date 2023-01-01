@@ -17,7 +17,7 @@ Fine-tuning the library models for sequence to sequence.
 """
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 from utils import * 
-from data.utils import prompt
+from data.utils import make_prompt
 import shutil
 from pathlib import Path
 import glob
@@ -412,7 +412,7 @@ def train(config_file, **kwargs):
             for n in range(adapter_args.num_prompt_encoders):
                 tokens = []
                 for m in range(adapter_args.num_prompt_tokens):
-                   tokens.append(prompt(task, str(n), 
+                   tokens.append(make_prompt(task, str(n), 
                                         adapter_args.prompt_encoder_type, str(m))) 
                 prompts[task +str(n) + "@" + adapter_args.prompt_encoder_type]  = tokens 
         ii = 1
@@ -459,7 +459,7 @@ def train(config_file, **kwargs):
            examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
-        mbp("data", data)
+        mbp("data", examples["source"][:2], examples["target"][:2])
         # Setup the tokenizer for targets
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
