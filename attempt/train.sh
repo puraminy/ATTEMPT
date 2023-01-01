@@ -71,8 +71,8 @@ elif [ "$m" -eq "1" ]; then
 fi
 log=${home}/logs   
 echo "log: ${log}"
-# local 
-# data 
+
+# local data 
 var="data_path=logs/xattr-1#mt5-comet/comet/data/atomic2020"
 
 var="${var}--use_all_data=False"
