@@ -109,6 +109,7 @@ def add_handler(logger, fname):
     handler.setFormatter(FORMAT)
     logger.addHandler(handler)
 
+Path("logs").mkdir(parents=True, exist_ok=True)
 
 for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
     add_handler(logger, fname)
