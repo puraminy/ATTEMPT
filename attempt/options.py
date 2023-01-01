@@ -446,9 +446,12 @@ class DataTrainingArguments:
     test_file: Optional[str] = field(
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
-
+    ########### my options
     data_path: Optional[List[str]] = field(
         default=None, metadata={"help": "Path to the directory containing split files."}
+    )
+    template: Optional[List[str]] = field(
+        default=None, metadata={"help": "Template used to format input to the model"}
     )
 
     train_files: Optional[List[str]] = field(

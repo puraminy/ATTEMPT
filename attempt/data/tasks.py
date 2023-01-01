@@ -378,6 +378,7 @@ class Atomic(AbstractTask):
         super().__init__(config, data_args)
         self.use_all_data = data_args.use_all_data
         self.data_path = data_args.data_path
+        self.template = data_args.template
 
     def load_dataset(self, split):
         path = self.data_path
@@ -423,16 +424,21 @@ class Atomic(AbstractTask):
         n = 0
         for m in range(8):
            tokens.append(make_prompt(self.name, str(n), "lstm", str(m)))
-        prompt = "".join(tokens)
-        src_texts = [example["input_text"], prompt , "<extra_id_0>"]
-        src_texts = [prompt, example["input_text"], "<extra_id_0>"]
-        src_texts = [prompt, example["input_text"], ", they are seen as ", "<extra_id_0>"]
-        #src_texts = [example["input_text"], prompt , "<extra_id_0>"]
-        #src_texts = [prompt, example["input_text"]]
-        tgt_texts = [str(example['target_text'])]
-        tgt_texts = ["<extra_id_0>",str(example['target_text'])]
+        rel_prompt = "".join(tokens)
+        mask = "<extra_id_0>"
+        inp = example["input_text"]
+        target = example["target_text"]
+        tn = self.template
+        if tn == "task-pre":
+            src_texts = [rel_prompt, inp, mask]
+        elif tn == "task-mid":
+            src_texts = [inp, rel_prompt , mask]
+        elif tn == "task-pre-nat" or tn is None:
+            src_texts = [rel_prompt, inp, ", they are seen as ", mask]
+        
+        tgt_texts = [mask,str(example['target_text'])]
         extra_fields = {}
-        extra_fields["event"] = example["input_text"]
+        extra_fields["event"] = inp
         extra_fields["query"] = " ".join(src_texts)
         extra_fields["resp"] = example["target_text"]
         return self.seq2seq_format(src_texts, tgt_texts, 
@@ -446,10 +452,6 @@ class xIntent(Atomic):
 
 class PersonX(Atomic):
     name = "PersonX"
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["<xNeed0@lstm_0>", example["input_text"]]
-        tgt_texts = [str(example['target_text'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix=False)
     def filter(self, df):
         df = df[(df.prefix == "xIntent") or (df.prefix == "xWant") or (df.prefix == "oWant")]
         return df
