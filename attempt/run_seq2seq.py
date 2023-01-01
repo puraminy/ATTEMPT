@@ -70,6 +70,10 @@ os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
 logger = logging.getLogger(__name__)
 
+def mbp(*arg):
+    print("info:",*arg)
+    breakpoint()
+
 def run_command(command):
     output = subprocess.getoutput(command)
     return output
@@ -409,8 +413,7 @@ def train(config_file, **kwargs):
             for n in range(adapter_args.num_prompt_encoders):
                 tokens = []
                 for m in range(adapter_args.num_prompt_tokens):
-                   tokens.append("<" + task +str(n) + "@" + \
-                           adapter_args.prompt_encoder_type + \
+                   tokens.append("<com" +
                            "_" + str(m)+ ">") 
                 prompts[task +str(n) + "@" + adapter_args.prompt_encoder_type]  = tokens 
         ii = 1
@@ -453,8 +456,8 @@ def train(config_file, **kwargs):
     padding = "max_length" if data_args.pad_to_max_length else False
 
     def preprocess_function(examples, max_target_length, task_id=None):
-        if not adapter_args.prompt_tuning:
-           examples["source"] = [re.sub(r'<.*?>','', x).strip() for x in examples["source"]]
+        #if not adapter_args.prompt_tuning:
+       #   examples["source"] = [re.sub(r'<.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
         # Setup the tokenizer for targets
@@ -577,6 +580,7 @@ def train(config_file, **kwargs):
                 )
 
     if training_args.do_test:
+        model.eval()
         if data_args.test_files is not None:
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
                                                         data_args=data_args).get(
@@ -749,7 +753,8 @@ def train(config_file, **kwargs):
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if adapter_args.prompt_tuning:
             with torch.no_grad():
-                model.update_model_weight()
+                pass
+               # model.update_model_weight()
 
         if training_args.compute_time:
             end.record()
@@ -811,7 +816,7 @@ def train(config_file, **kwargs):
 
     # Test
     mylogs.bp("test")
-    if training_args.do_test:
+    if False: #training_args.do_test:
         logger.info("*** My Test ***")
         save_path = training_args.output_dir
         for task, test_dataset in test_datasets.items():

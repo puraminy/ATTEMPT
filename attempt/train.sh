@@ -110,7 +110,7 @@ var="${var}--prefix_dim=100"
 
 # prompt tuning
 var="${var}--prompt_tuning=True"
-var="${var}--prompt_learning_rate=0.5"
+var="${var}--prompt_learning_rate=0.01"
 var="${var}--num_prompt_encoders=1"
 var="${var}--num_prompt_tokens=8"
 var="${var}--prompt_encoder_type=lstm"
