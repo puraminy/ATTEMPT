@@ -1,6 +1,6 @@
 import numpy as np
 
-def prompt(task, enc_id, enc_type, id):
+def make_prompt(task, enc_id, enc_type, id):
    prompt = "<pr-" + task + "-" + enc_id + "@" + enc_type + "_" + id + ">"
    return prompt
 
