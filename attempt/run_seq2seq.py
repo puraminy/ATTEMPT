@@ -243,6 +243,7 @@ def train(config_file, **kwargs):
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     #### My code: overwrite kwargs over arguments read from parser
+    preview = kwargs.setdefault("preview","")
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
         #v = strval(v)
@@ -460,7 +461,7 @@ def train(config_file, **kwargs):
     # Temporarily set max_target_length for training.
     #max_target_length = data_args.max_target_length
     padding = "max_length" if data_args.pad_to_max_length else False
-
+    ########### ppppppppppppp
     def preprocess_function(examples, max_target_length, task_id=None):
         if not adapter_args.prompt_tuning:
            examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
@@ -628,6 +629,8 @@ def train(config_file, **kwargs):
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
 
+    if preview == "template":
+        return
     # Data collator
     label_pad_token_id = - \
         100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
