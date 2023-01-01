@@ -199,7 +199,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
                        var_names.remove(vv)
                        values.remove(cc)
 
-       assert not preview or preview in tags, "Preview:" + preview + " must be in " + str(tags) + " which have multiple values"
+       if preview and not preview in tags: 
+          print("Eror:", preview, " must be in ", tags, " which have multiple values")
+          return
 
        args["tag"] = "@".join(tags)
        tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -333,6 +335,9 @@ def train(config_file, **kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning
+    if config.prefix_tuning and config.prompt_tuning:
+        print("Both prefix tuning and prompt tuning could not be on")
+        return
     config.attn_prefix_tuning = model_args.attn_prefix_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
