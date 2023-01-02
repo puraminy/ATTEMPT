@@ -460,7 +460,7 @@ class Atomic(AbstractTask):
         df = pd.read_table(path)
         if not self.use_all_data:
             df = self.filter(df)
-            self.df = self.preproc(df)
+            self.df = self.preproc_df(df)
         ds = Dataset.from_pandas(df)
         return ds
 
@@ -475,7 +475,7 @@ class Atomic(AbstractTask):
         n_obs = len(out)
         return n_obs
 
-    def preproc(self, df):
+    def preproc_df(self, df):
         df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         sort_by = ["freqs","input_text", "prefix"] 
