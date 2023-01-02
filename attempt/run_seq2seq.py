@@ -190,11 +190,13 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        all_vars = exp_vars.split("--")
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]
+       tag_exclude = [vv for vv in var_names if vv.startswith("$")]
+       var_names = [vv.strip("$") for vv in var_names]
        for vv, cc in zip(var_names, values):
            if len(cc) == 1:
                exclude_list.append(vv)
            if len(cc) > 1:
-               tags.append(vv)
+               if not vv in tag_exclude: tags.append(vv)
                if preview: 
                    if not vv in preview:
                        var_names.remove(vv)
@@ -896,7 +898,8 @@ def train(config_file, **kwargs):
                 df["query"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
-                df["src_path"] = op.join(data_args.data_path, "test", task + ".tsv")
+                df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                        "test", task + ".tsv")
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)
