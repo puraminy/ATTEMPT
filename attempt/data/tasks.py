@@ -525,6 +525,8 @@ class xIntent(Atomic):
             src = "<task_i> {input_text}, Because they wanted {mask}" 
         elif tn == "task-mid-nat":
             src = "{input_text}, Because they <task_i> {mask}" 
+        elif tn == "task-mid-nat2":
+            src = "{input_text}, <task_i> they intend {mask}" 
         else:
             return super().get_template()
 

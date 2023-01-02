@@ -41,7 +41,7 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 import transformers
-from datasets import concatenate_datasets
+from datasets import concatenate_datasets 
 from typing import Optional, List
 import subprocess
 import sys
@@ -253,7 +253,7 @@ def train(config_file, **kwargs):
 
     #### My code: overwrite kwargs over arguments read from parser
     preview = kwargs.setdefault("preview","")
-    break_point = kwargs.setdefault("break_point","")
+    bp = kwargs.setdefault("break_point","")
     exp_conf = json.dumps(kwargs, indent=2)
     if preview:
        mylogs.plog.handlers.clear()
@@ -281,6 +281,8 @@ def train(config_file, **kwargs):
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
 
+    if type(data_args.task_name) == list:
+        model_args.multi_task = True
     # check conflicts of options
     check_cfls = kwargs.setdefault("check_conflicts",True)
     if check_cfls:
@@ -513,7 +515,7 @@ def train(config_file, **kwargs):
             mylogs.plog.info("sourece: %s", examples["source"][:2])
             mylogs.plog.info("target: %s", examples["target"][:2])
             mylogs.plog.info("extra: %s", examples["extra_fields"][:2])
-        if break_point == "data":
+        if bp == "data":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
             logger.info("extra: %s", examples["extra_fields"][:5])
@@ -585,6 +587,7 @@ def train(config_file, **kwargs):
                     remove_columns=column_names,
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
+        bp != "concat" or breakpoint()
         train_dataset = concatenate_datasets(train_datasets)
 
     if training_args.do_eval:
@@ -889,7 +892,7 @@ def train(config_file, **kwargs):
                 output_predict_file = os.path.join(training_args.output_dir, 
                         "full_results_" + task + ".tsv")
                 df = test_dataset.to_pandas()
-                if break_point == "test": breakpoint()
+                if bp == "test": breakpoint()
                 df["pred_text1"] = ""
                 #df["rouge_score"] = 0.0
                 #df["bert_score"] = 0.0
