@@ -523,7 +523,7 @@ class xIntent(Atomic):
         target = "{mask} {target_text}"
         if tn == "task-pre-nat":
             src = "<task_i> {input_text}, Because they wanted {mask}" 
-        if tn == "task-mid-nat":
+        elif tn == "task-mid-nat":
             src = "{input_text}, Because they <task_i> {mask}" 
         else:
             return super().get_template()
@@ -545,7 +545,7 @@ class xAttr(Atomic):
         target = "{mask} {target_text}"
         if tn == "task-pre-nat":
             src = "<task_i> {input_text}, So they are seen as {mask}" 
-        if tn == "task-mid-nat":
+        elif tn == "task-mid-nat":
             src = "{input_text}, So they <task_i> {mask}" 
         else:
             return super().get_template()
