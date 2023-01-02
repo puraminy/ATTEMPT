@@ -446,16 +446,13 @@ def train(config_file, **kwargs):
     model.resize_token_embeddings(len(tokenizer))
     n_tasks = len(data_args.task_name)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    prompts = {}
     # mmmmmmmmmmmmm
+    prompts = {}
+    mylogs.bp("prompts")
     if adapter_args.prompt_tuning:
         for task in data_args.task_name:
-            for n in range(adapter_args.num_prompt_encoders):
-                tokens = []
-                for m in range(adapter_args.num_prompt_tokens):
-                   tokens.append(make_prompt(task, str(n), 
-                                        adapter_args.prompt_encoder_type, str(m))) 
-                prompts[task +str(n) + "@" + adapter_args.prompt_encoder_type]  = tokens 
+             p = AutoTask.get(task, None, data_args).get_prompts()
+             prompts = {**prompts, **p}
         ii = 1
         prompt_encoders = []
         offsets = []

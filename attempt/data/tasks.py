@@ -37,6 +37,9 @@ class AbstractTask(abc.ABC):
     def __init__(self, config, data_args):
         self.config = config
         self.seed = data_args.data_seed
+        ## list of prompts
+        self.prompt_set = {} 
+        self.prompt_length = 8 #data_args.prompt_length
 
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
@@ -145,6 +148,67 @@ class AbstractTask(abc.ABC):
                 dataset = self.subsample(dataset, n_obs)
         return self.map_dataset(dataset, add_prefix)
 
+    ######### my template functions
+    def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
+        if plen==0: plen = self.prompt_length 
+        _pholder = place_holder
+        place_holder = place_holder.replace("task", self.name)  
+        while _pholder in template:
+            if num_holder in _pholder:
+                prompt = ""
+                for i in range(plen):
+                    token = place_holder
+                    if num_holder != "_1":
+                        token = token.replace(num_holder, "_" + str(i))  
+                    else:
+                        token = token.replace(num_holder, "")  
+                    prompt += " " + token
+            else:
+                prompt = place_holder
+            prompt = prompt.strip()
+            for token in prompt.split():
+                if not name in self.prompt_set:
+                    self.prompt_set[name] = []
+                if not token in self.prompt_set[name]:
+                    self.prompt_set[name].append(token)
+            template = template.replace(_pholder,prompt, 1)
+        return template
+
+    def fill_prompt_regex(self, template, regex):
+        m = re.search(regex, template)
+        while m: 
+            if len(m.groups()) == 2:
+                name = m.groups()[0]
+                emb = m.groups()[1]
+                plen = "1"
+                if emb.isdigit():
+                    plen = emb
+                num_holder = "_" + str(plen)
+                if emb == "i":
+                    plen = 0
+                    num_holder = "_i"
+                place_holder = "<" + name + "_" + emb + ">"
+                if plen != 0:
+                    plen = [int(plen)]
+                if name == "task":
+                    name = self.name
+                template = self.fill_prompt(template, name, place_holder, plen=plen, 
+                        num_holder=num_holder)
+                m = re.search(regex, template)
+        return template
+
+    def fill_prompts(self, template):
+        template = self.fill_prompt_regex(template, "<([@a-zA-Z]+)_(\d+)>")
+        template = self.fill_prompt_regex(template, "<([@a-zA-Z]+)_([a-zA-Z]+)>")
+        return template
+
+    def get_template():
+        return "",""
+
+    def get_prompts(self):
+        src,tgt = self.get_template()
+        src_texts = self.fill_prompts(src)
+        return self.prompt_set
 
 class Squad(AbstractTask):
     name = "squad"
@@ -389,10 +453,10 @@ class Atomic(AbstractTask):
             self.do_shuffle = False
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
-        path = op.join(path, split + '.tsv')
         if split == "test":
             path = op.join(path, split, self.name  + '.tsv')
-
+        else:
+            path = op.join(path, split + '.tsv')
         df = pd.read_table(path)
         if not self.use_all_data:
             df = self.filter(df)
@@ -423,25 +487,24 @@ class Atomic(AbstractTask):
     def filter(df):
        return df
 
-    def preprocessor(self, example, add_prefix=True):
-        tokens = []
-        n = 0
-        for m in range(8):
-           tokens.append(make_prompt(self.name, str(n), "lstm", str(m)))
-        rel_prompt = "".join(tokens)
-        mask = "<extra_id_0>"
-        inp = example["input_text"]
-        target = example["target_text"]
+
+    def get_template(self):
         tn = self.template
-        src_texts = [rel_prompt, inp, ", they are seen as ", mask]
+        target = "{mask} {target_text}"
         if tn == "task-pre":
-            src_texts = [rel_prompt, inp, mask]
+            src = "<task_i> {input_text} {mask}" 
         elif tn == "task-mid":
-            src_texts = [inp, rel_prompt , mask]
-        
-        tgt_texts = [mask,str(example['target_text'])]
+            src = "{input_text} <task_i> {mask}" 
+        return src, target
+    
+    def preprocessor(self, example, add_prefix=True):
+        mask = "<extra_id_0>"
+        src,tgt = self.get_template()
+        src_texts = src.format(**example, mask=mask)
+        tgt_texts = tgt.format(**example, mask=mask)
+        src_texts = self.fill_prompts(src_texts)
         extra_fields = {}
-        extra_fields["event"] = inp
+        extra_fields["event"] = example["input_text"]
         extra_fields["query"] = " ".join(src_texts)
         extra_fields["resp"] = example["target_text"]
         return self.seq2seq_format(src_texts, tgt_texts, 
@@ -449,6 +512,7 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
+    rel_nat = ", Because they wanted "
     def filter(self, df):
         df = df[df.prefix == "xIntent"]
         return df
@@ -461,6 +525,7 @@ class PersonX(Atomic):
 
 class xAttr(Atomic):
     name = "xAttr"
+    rel_nat = ", So they are seen as "
     def filter(self, df):
         return df[df.prefix == "xAttr"]
 
