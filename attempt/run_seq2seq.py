@@ -191,7 +191,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]
        tag_exclude = [vv for vv in var_names if vv.startswith("$")]
-       var_names = [vv.strip("$") for vv in var_names]
+       var_names = [vv.strip("!") for vv in var_names]
        for vv, cc in zip(var_names, values):
            if len(cc) == 1:
                exclude_list.append(vv)
