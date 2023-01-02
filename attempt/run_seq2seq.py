@@ -263,7 +263,6 @@ def train(config_file, **kwargs):
     data_args.eval_dataset_config_name = ds_conf
     data_args.test_dataset_config_name = ds_conf
 
-
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
         #v = strval(v)
@@ -897,7 +896,7 @@ def train(config_file, **kwargs):
                 df["query"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
-                df["src_path"] = op.join(data_args.data_path, "test", data_args.task_name)
+                df["src_path"] = op.join(data_args.data_path, "test", task)
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)
