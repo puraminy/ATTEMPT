@@ -526,7 +526,7 @@ class xIntent(Atomic):
         if tn == "task-mid-nat":
             src = "{input_text}, Because they <task_i> {mask}" 
         else:
-            return super.get_template()
+            return super().get_template()
 
         return src, target
 
@@ -548,7 +548,7 @@ class xAttr(Atomic):
         if tn == "task-mid-nat":
             src = "{input_text}, So they <task_i> {mask}" 
         else:
-            return super.get_template()
+            return super().get_template()
 
 class xNeed(Atomic):
     name = "xNeed"
