@@ -39,7 +39,7 @@ class AbstractTask(abc.ABC):
         self.seed = data_args.data_seed
         ## list of prompts
         self.prompt_set = {} 
-        self.prompt_length = 8 #data_args.prompt_length
+        self.prompt_length = data_args.num_prompt_tokens
 
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
@@ -514,10 +514,21 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
-    rel_nat = ", Because they wanted "
     def filter(self, df):
         df = df[df.prefix == "xIntent"]
         return df
+
+    def get_template(self):
+        tn = self.template
+        target = "{mask} {target_text}"
+        if tn == "task-pre-nat":
+            src = "<task_i> {input_text}, Because they wanted {mask}" 
+        if tn == "task-mid-nat":
+            src = "{input_text}, Because they <task_i> {mask}" 
+        else:
+            return super.get_template()
+
+        return src, target
 
 class PersonX(Atomic):
     name = "PersonX"
@@ -527,9 +538,17 @@ class PersonX(Atomic):
 
 class xAttr(Atomic):
     name = "xAttr"
-    rel_nat = ", So they are seen as "
     def filter(self, df):
         return df[df.prefix == "xAttr"]
+    def get_template(self):
+        tn = self.template
+        target = "{mask} {target_text}"
+        if tn == "task-pre-nat":
+            src = "<task_i> {input_text}, So they are seen as {mask}" 
+        if tn == "task-mid-nat":
+            src = "{input_text}, So they <task_i> {mask}" 
+        else:
+            return super.get_template()
 
 class xNeed(Atomic):
     name = "xNeed"
