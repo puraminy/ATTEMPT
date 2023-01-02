@@ -16,7 +16,9 @@ def tag():
     info = ""
     for _t in tag.split("@"):
         if _t in main_args:
-            _tag += "|" + str(main_args[_t]).split("/")[-1]
+            val = main_args[_t]
+            if type(val) == list: val = "@".join(val)
+            _tag += "|" + str(val).split("/")[-1]
         else:
             _tag += "|" + _t  
         info += "|" + _t 
