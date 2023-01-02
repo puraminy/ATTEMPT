@@ -549,6 +549,8 @@ class xAttr(Atomic):
             src = "<task_i> {input_text}, So they are seen as {mask}" 
         elif tn == "task-mid-nat":
             src = "{input_text}, So they <task_i> {mask}" 
+        elif tn == "task-mid-nat2":
+            src = "{input_text}, <task_i> seen as {mask}" 
         else:
             return super().get_template()
 
