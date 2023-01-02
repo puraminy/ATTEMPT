@@ -430,12 +430,11 @@ class Atomic(AbstractTask):
         inp = example["input_text"]
         target = example["target_text"]
         tn = self.template
+        src_texts = [rel_prompt, inp, ", they are seen as ", mask]
         if tn == "task-pre":
             src_texts = [rel_prompt, inp, mask]
         elif tn == "task-mid":
             src_texts = [inp, rel_prompt , mask]
-        elif tn == "task-pre-nat" or tn is None:
-            src_texts = [rel_prompt, inp, ", they are seen as ", mask]
         
         tgt_texts = [mask,str(example['target_text'])]
         extra_fields = {}
