@@ -461,7 +461,9 @@ class Atomic(AbstractTask):
         if not self.use_all_data:
             df = self.filter(df)
             self.df = self.preproc_df(df)
+        breakpoint()
         ds = Dataset.from_pandas(df)
+        ds.homepage = path
         return ds
 
     def check_n_obs(self, n_obs, total_size):

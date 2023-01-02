@@ -896,6 +896,7 @@ def train(config_file, **kwargs):
                 df["query"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
+                df["src_path"] = test_dataset.homepage
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)
