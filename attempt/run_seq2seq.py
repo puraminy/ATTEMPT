@@ -888,7 +888,7 @@ def train(config_file, **kwargs):
                 output_predict_file = os.path.join(training_args.output_dir, 
                         "full_results_" + task + ".tsv")
                 df = test_dataset.to_pandas()
-                mylogs.bp("test")
+                if break_point == "test": breakpoint()
                 df["pred_text1"] = ""
                 #df["rouge_score"] = 0.0
                 #df["bert_score"] = 0.0
