@@ -897,8 +897,7 @@ def train(config_file, **kwargs):
                 df["query"] = ""
                 df["langs"] = "en2en"
                 df["prefix"] = task
-                if hasattr(test_dataset, "src_path"):
-                    df["src_path"] = test_dataset.src_path
+                df["src_path"] = op.join(data_args.data_path, "test", data_args.task_name)
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)

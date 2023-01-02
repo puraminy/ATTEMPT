@@ -462,7 +462,6 @@ class Atomic(AbstractTask):
             df = self.filter(df)
             self.df = self.preproc_df(df)
         ds = Dataset.from_pandas(df)
-        ds.src_path = path
         return ds
 
     def check_n_obs(self, n_obs, total_size):
