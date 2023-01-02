@@ -266,6 +266,7 @@ def train(config_file, **kwargs):
     data_args.eval_dataset_config_name = ds_conf
     data_args.test_dataset_config_name = ds_conf
 
+
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
         #v = strval(v)
@@ -277,6 +278,11 @@ def train(config_file, **kwargs):
             setattr(training_args, k, v)
         if hasattr(adapter_args,k):
             setattr(adapter_args, k, v)
+
+    # set other otions
+    data_args.eval_dataset_name=data_args.task_name
+    data_args.test_dataset_name=data_args.task_name
+
     ###### Collect experiment infos
     exp_info = {}
     for k,v in kwargs.items():
