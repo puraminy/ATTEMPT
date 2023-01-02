@@ -495,14 +495,16 @@ class Atomic(AbstractTask):
             src = "<task_i> {input_text} {mask}" 
         elif tn == "task-mid":
             src = "{input_text} <task_i> {mask}" 
+        else:
+            raise ValueError("Template " + tn + " is not defined!")
         return src, target
     
     def preprocessor(self, example, add_prefix=True):
         mask = "<extra_id_0>"
         src,tgt = self.get_template()
         src_texts = src.format(**example, mask=mask)
-        tgt_texts = tgt.format(**example, mask=mask)
-        src_texts = self.fill_prompts(src_texts)
+        tgt_texts = [tgt.format(**example, mask=mask)]
+        src_texts = [self.fill_prompts(src_texts)]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["query"] = " ".join(src_texts)
