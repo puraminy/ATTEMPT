@@ -390,6 +390,9 @@ class Atomic(AbstractTask):
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
         path = op.join(path, split + '.tsv')
+        if split == "test":
+            path = op.join(path, split, self.name  + '.tsv')
+
         df = pd.read_table(path)
         if not self.use_all_data:
             df = self.filter(df)
