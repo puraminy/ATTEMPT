@@ -250,9 +250,6 @@ def train(config_file, **kwargs):
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     #### My code: overwrite kwargs over arguments read from parser
-    check_cfls = kwargs.setdefault("check_conflicts",True)
-    if check_cfls:
-        check_conflicts(model_args, data_args, training_args, adapter_args)
     preview = kwargs.setdefault("preview","")
     break_point = kwargs.setdefault("break_point","")
     exp_conf = json.dumps(kwargs, indent=2)
@@ -279,9 +276,18 @@ def train(config_file, **kwargs):
         if hasattr(adapter_args,k):
             setattr(adapter_args, k, v)
 
-    # set other otions
+    # set other options
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
+
+    # check conflicts of options
+    check_cfls = kwargs.setdefault("check_conflicts",True)
+    if check_cfls:
+        try:
+            check_conflicts(model_args, data_args, training_args, adapter_args)
+        except AssertionError as e:
+            print("Conflict:", e.args)
+            return
 
     ###### Collect experiment infos
     exp_info = {}
