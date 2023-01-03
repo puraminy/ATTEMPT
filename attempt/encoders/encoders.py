@@ -67,7 +67,7 @@ class PromptEncoder(torch.nn.Module):
         self.router.requires_grad = True
 
     def forward(self,prompt_token_ids, tids=None, training=True):
-        task_id = 0
+        task_id = self.gid
         if tids is not None:
             task_id = tids[0]
         if self.gid >= 0 and task_id != self.gid:
@@ -85,7 +85,7 @@ class PromptEncoder(torch.nn.Module):
     def learn_router(self, tids=None, training=True):
         if self.router is None:
             return None
-        task_id = 0
+        task_id = self.gid
         if tids is not None:
             task_id = tids[0]
         if self.gid >= 0 and task_id != self.gid:

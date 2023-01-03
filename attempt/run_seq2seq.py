@@ -41,7 +41,7 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 import transformers
-from datasets import concatenate_datasets 
+from datasets import concatenate_datasets
 from typing import Optional, List
 import subprocess
 import sys
@@ -58,6 +58,7 @@ from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
 ###### my imports
+from myds import my_interleave_datasets
 from conflicts import check_conflicts
 import json
 import mylogs 
@@ -588,7 +589,8 @@ def train(config_file, **kwargs):
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
         bp != "concat" or breakpoint()
-        train_dataset = concatenate_datasets(train_datasets)
+        #train_dataset = concatenate_datasets(train_datasets)
+        train_dataset = my_interleave_datasets(train_datasets, batch_size=8)
 
     if training_args.do_eval:
         if data_args.validation_files is not None:
