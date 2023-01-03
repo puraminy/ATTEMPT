@@ -6,18 +6,44 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from torch.utils.data.dataset import Dataset
 from transformers import Seq2SeqTrainer
 from .trainer import BaseTrainer
+from transformers.file_utils import is_datasets_available
+
+# my import
+from torch.utils.data import DataLoader
+import datasets
 
 if version.parse(torch.__version__) >= version.parse("1.6"):
     from torch.cuda.amp import autocast
 
 
 class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
-    def __init__(self, train_dataset_sizes=None, shared=False, multiple_metrics=None, adapter_config=None, *args, **kwargs):
+    def __init__(self, train_dataset_sizes=None, shared=False, multiple_metrics=None, adapter_config=None, shuffle=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.adapter_config = adapter_config
         self.multiple_metrics = multiple_metrics
         self.train_dataset_sizes = train_dataset_sizes
         self.shared = shared
+        self.shuffle = shuffle
+
+    def get_train_dataloader(self):
+        if self.train_dataset is None:
+            raise ValueError("Trainer: training requires a train_dataset.")
+
+        train_dataset = self.train_dataset
+        if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
+            train_dataset = self._remove_unused_columns(train_dataset, description="training")
+        if isinstance(train_dataset, torch.utils.data.dataset.IterableDataset):
+            return super().get_train_dataloader()
+
+        return DataLoader(
+            train_dataset,
+            batch_size=self.args.train_batch_size,
+            shuffle=self.shuffle,
+            collate_fn=self.data_collator,
+            drop_last=self.args.dataloader_drop_last,
+            num_workers=self.args.dataloader_num_workers,
+            pin_memory=self.args.dataloader_pin_memory,
+        )
 
     def evaluate(
         self,

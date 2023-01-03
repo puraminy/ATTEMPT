@@ -65,7 +65,7 @@ class AbstractTask(abc.ABC):
         return n_obs
 
     def shuffled_indices(self, dataset):
-        if not self.do_shuffle:
+        if True: #not self.do_shuffle:
             num_samples = len(dataset)
             return range(num_samples)
         num_samples = len(dataset)

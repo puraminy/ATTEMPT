@@ -1101,7 +1101,8 @@ class T5Stack(T5PreTrainedModel):
                             #find input ids for prompt tokens
                             prompt_input_ids = input_ids[encoder_masks]
                             #call forwards on prompt encoder whose outputs are prompt embeddings
-                            prompt_embeds = encoder(prompt_input_ids, tids).to(device)
+                            out = encoder(prompt_input_ids, tids)
+                            prompt_embeds = out.to(device)
                             inputs_embeds[encoder_masks]=prompt_embeds
                     input_ids = None
             ################ My code End
