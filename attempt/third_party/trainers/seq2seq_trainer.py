@@ -26,7 +26,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self.shuffle = shuffle
 
     def get_train_dataloader(self):
-        if not self.shuffle:
+        if self.shuffle:
             return super().get_train_dataloader()
 
         if self.train_dataset is None:
