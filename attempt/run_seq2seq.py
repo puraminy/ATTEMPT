@@ -590,7 +590,8 @@ def train(config_file, **kwargs):
                 )
         bp != "concat" or breakpoint()
         #train_dataset = concatenate_datasets(train_datasets)
-        train_dataset = my_interleave_datasets(train_datasets, batch_size=8)
+        train_dataset = my_interleave_datasets(train_datasets, 
+                batch_size=training_args.per_device_train_batch_size)
 
     if training_args.do_eval:
         if data_args.validation_files is not None:
