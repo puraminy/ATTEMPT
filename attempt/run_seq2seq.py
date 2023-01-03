@@ -921,7 +921,8 @@ def train(config_file, **kwargs):
                     df.at[i, "pred_text1"] = pred
                 df.drop(columns=["input_ids","labels","attention_mask"])
                 mylogs.bp("test")
-                do_score(df, "rouge@bert", training_args.output_dir)
+                save_to = op.join(training_args.output_dir, "full_results_"+ task + ".tsv")
+                do_score(df, "rouge@bert", save_to)
 
     if model_args.save_prefix_only:
         checkpoints = glob.glob(os.path.join(
