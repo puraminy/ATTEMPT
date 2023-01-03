@@ -2,7 +2,8 @@
 ####### check conflicts of options
 def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
     n_tasks = len(data_args.task_name)
-    trainer_shuffle = kwars.setdefault("trainer_shuffle", False)
+    trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
+    breakpoint()
     if n_tasks > 1:
         assert not trainer_shuffle, "Trainer can't be shuffled for multi-task. The data is interleaved"
     if adapter_args.prompt_tuning:

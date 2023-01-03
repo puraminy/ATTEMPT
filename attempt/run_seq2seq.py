@@ -255,23 +255,13 @@ def train(config_file, **kwargs):
     #### My code: overwrite kwargs over arguments read from parser
     preview = kwargs.setdefault("preview","")
     bp = kwargs.setdefault("break_point","")
-    trainer_shuffle = kwars.setdefault("trainer_shuffle", False)
+    trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     exp_conf = json.dumps(kwargs, indent=2)
     if preview:
        mylogs.plog.handlers.clear()
        mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
        mylogs.plog.info(exp_conf)
 
-    ds_confs = kwargs.setdefault("ds_config", ["en"])
-    n_tasks = len(data_args.task_name)
-    n_confs = len(ds_confs)
-    if n_confs < n_tasks:
-        ds_confs.extend(ds_confs[-1] * (n_tasks - n_confs))
-    elif n_confs > n_tasks:
-        ds_confs = ds_confs[:n_tasks]
-    data_args.dataset_config_name = ds_confs
-    data_args.eval_dataset_config_name = ds_confs
-    data_args.test_dataset_config_name = ds_confs
 
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
@@ -288,6 +278,17 @@ def train(config_file, **kwargs):
     # set other options
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
+
+    ds_confs = kwargs.setdefault("ds_config", ["en"])
+    n_tasks = len(data_args.task_name)
+    n_confs = len(ds_confs)
+    if n_confs < n_tasks:
+        ds_confs.extend(ds_confs[-1] * (n_tasks - n_confs))
+    elif n_confs > n_tasks:
+        ds_confs = ds_confs[:n_tasks]
+    data_args.dataset_config_name = ds_confs
+    data_args.eval_dataset_config_name = ds_confs
+    data_args.test_dataset_config_name = ds_confs
 
     if type(data_args.task_name) == list:
         model_args.multi_task = True
