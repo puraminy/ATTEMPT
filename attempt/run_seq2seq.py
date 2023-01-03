@@ -261,10 +261,16 @@ def train(config_file, **kwargs):
        mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
        mylogs.plog.info(exp_conf)
 
-    ds_conf = kwargs.setdefault("ds_config", ["en"])
-    data_args.dataset_config_name = ds_conf
-    data_args.eval_dataset_config_name = ds_conf
-    data_args.test_dataset_config_name = ds_conf
+    ds_confs = kwargs.setdefault("ds_config", ["en"])
+    n_tasks = len(data_args.task_name)
+    n_confs = len(ds_confs)
+    if n_confs < n_tasks:
+        ds_confs.extend(ds_confs[-1] * (n_tasks - n_confs))
+    elif n_confs > n_tasks:
+        ds_confs = ds_confs[:n_tasks]
+    data_args.dataset_config_name = ds_confs
+    data_args.eval_dataset_config_name = ds_confs
+    data_args.test_dataset_config_name = ds_confs
 
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
@@ -770,6 +776,7 @@ def train(config_file, **kwargs):
             multi_task_compute_metrics=compute_metrics_fn,
             evaluation_metrics=TASK_TO_METRICS[data_args.dataset_name[0]],
             shared=model_args.shared_attn,
+            shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
         )
     else:
@@ -782,6 +789,7 @@ def train(config_file, **kwargs):
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
+            shuffle = trainer_shuffle,
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
             evaluation_metrics=TASK_TO_METRICS[data_args.dataset_name[0]],
             multi_task_compute_metrics=compute_metrics_fn,
