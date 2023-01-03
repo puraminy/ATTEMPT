@@ -255,6 +255,7 @@ def train(config_file, **kwargs):
     #### My code: overwrite kwargs over arguments read from parser
     preview = kwargs.setdefault("preview","")
     bp = kwargs.setdefault("break_point","")
+    trainer_shuffle = kwars.setdefault("trainer_shuffle", False)
     exp_conf = json.dumps(kwargs, indent=2)
     if preview:
        mylogs.plog.handlers.clear()
@@ -294,7 +295,7 @@ def train(config_file, **kwargs):
     check_cfls = kwargs.setdefault("check_conflicts",True)
     if check_cfls:
         try:
-            check_conflicts(model_args, data_args, training_args, adapter_args)
+            check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
             print("Conflict:", e.args)
             return
