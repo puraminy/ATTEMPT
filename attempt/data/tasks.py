@@ -553,6 +553,7 @@ class xAttr(Atomic):
             src = "{input_text}, <task_i> seen as {mask}" 
         else:
             return super().get_template()
+        return src, target
 
 class xNeed(Atomic):
     name = "xNeed"

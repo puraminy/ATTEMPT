@@ -191,7 +191,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        all_vars = exp_vars.split("--")
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]
-       tag_exclude = [vv for vv in var_names if vv.startswith("$")]
+       tag_exclude = [vv for vv in var_names if vv.startswith("!")]
        var_names = [vv.strip("!") for vv in var_names]
        for vv, cc in zip(var_names, values):
            if len(cc) == 1:
@@ -455,6 +455,7 @@ def train(config_file, **kwargs):
     mylogs.bp("prompts")
     if adapter_args.prompt_tuning:
         for task in data_args.task_name:
+             bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, data_args).get_prompts()
              prompts = {**prompts, **p}
         ii = 1
