@@ -57,6 +57,16 @@ class Scheduler:
         for sch in self.schedulers:
            sch.step()
 
+    def state_dict(self):
+        ret = {}
+        for i, sch in enumerate(self.schedulers):
+            ret['sch'+ str(i)] = sch.state_dict()
+        return ret
+
+    def load_state_dict(self, state_dict):
+        for i, sch in enumerate(self.schedulers):
+            sch.load_state_dict(state_dict['sch'+ str(i)])
+
 def get_optimizer(model, steps, prompt_lr, router_lr, Az_lr):
     paras = []
     lrs = []
