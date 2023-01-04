@@ -15,4 +15,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
             assert kwargs.use_optimizer, "Attention learning uses optimizer" 
         else:
             assert not kwargs.use_optimizer, "No need to use optimizer" 
-
+        if adapter_args.prefix_tuning:
+            assert training_args.learning_rate > 0.01, "Learning rate is too small for prefix tuning"
+        else:
+            assert training_args.learning_rate < 0.01, "Learning rate is too high for fine tuning"
