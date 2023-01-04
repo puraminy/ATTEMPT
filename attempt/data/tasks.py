@@ -579,13 +579,16 @@ class AtomicRel(Atomic):
     def get_template(self):
         tn = self.template
         if tn == "sup-rel":
+            src = "{input_text} | {target_text}" 
+            target = "{prefix}"
+        elif tn == "sup-rel2":
             src = "{input_text} {target_text}" 
             target = "{prefix}"
         elif tn == "unsup-rel":
             src = "{input_text} {mask} {target_text}" 
             target = "{mask} {prefix}"
         else:
-            raise ValueError("Invalid template "+ tn)
+            raise ValueError("Invalid template " + tn)
 
         return src, target
 
