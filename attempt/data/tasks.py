@@ -491,7 +491,13 @@ class Atomic(AbstractTask):
     def get_template(self):
         tn = self.template
         target = "{mask} {target_text}"
-        if tn == "task-pre":
+        if tn == "sup":
+            src = "{input_text}" 
+            target = "{target_text}"
+        elif tn == "unsup":
+            src = "{input_text} {mask}" 
+            target = "{mask} {target_text}"
+        elif tn == "task-pre":
             src = "<task_i> {input_text} {mask}" 
         elif tn == "task-mid":
             src = "{input_text} <task_i> {mask}" 
