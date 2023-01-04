@@ -16,6 +16,7 @@ from transformers import AddedToken
 from transformers.optimization import Adafactor, AdamW
 from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 
+from attempt.maps import *
 
 def _isin(tensor:torch.Tensor,values:torch.Tensor):
     return (tensor[..., None] == values).any(-1)
@@ -367,8 +368,18 @@ def add_specials(tokenizer):
     if tokenizer.mask_token is None:
         num_added_toks['mask_token'] = "<mask>"
 
-    num_new_tokens: int = tokenizer.add_special_tokens(num_added_toks)
-    return num_new_tokens
+    num_tokens = tokenizer.add_special_tokens(num_added_toks)
+    new_tokens = list(set(REL_TO_TOKEN.values()))+ \
+                 list(set(GEN_TOKENS.values())) 
+
+    added_tokens = [ 
+            AddedToken(tok,lstrip=True,
+                rstrip=False)
+            for tok in new_tokens if not tok in cur_list
+    ]
+    added_tokens = cur_list + added_tokens
+    num_tokens += tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
+    return num_tokens
 
 def extend_tokenizer(tokenizer, prompt_tokens = []):
     cur_list = tokenizer.additional_special_tokens

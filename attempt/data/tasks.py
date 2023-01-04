@@ -12,9 +12,9 @@ import logging
 import numpy as np
 import torch
 import re
+from attempt.maps import *
 
 logger = logging.getLogger(__name__)
-
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
@@ -507,10 +507,14 @@ class Atomic(AbstractTask):
         else:
             raise ValueError("Template " + tn + " is not defined!")
         return src, target
+
+    def extend_example(example):
+        return example
     
     def preprocessor(self, example, add_prefix=True):
         mask = "<extra_id_0>"
         src,tgt = self.get_template()
+        example = self.extend_example(example)
         src_texts = src.format(**example, mask=mask)
         tgt_texts = [tgt.format(**example, mask=mask)]
         src_texts = [self.fill_prompts(src_texts)]
@@ -554,6 +558,8 @@ class AtomicRel(Atomic):
         self.train_samples_per_rel = data_args.max_train_samples
         self.val_samples_per_rel = data_args.max_val_samples
         self.test_samples_per_rel = data_args.max_test_samples
+        
+
     def get_data_path(self, split):
         path = self.data_path
         if split != "train":
@@ -576,20 +582,29 @@ class AtomicRel(Atomic):
     def check_n_obs(self, n_obs, total_size):
         return total_size
 
+    def extend_example(self, example):
+        example["rel_tok"] = REL_TO_TOKEN[example["prefix"]]
+        example["rel_word"] = REL_TO_WORD[example["prefix"]]
+        example["rel_nat"] = REL_TO_PHRASE[example["prefix"]]
+        return example
+
     def get_template(self):
         tn = self.template
-        if tn == "sup-rel":
-            src = "{input_text} | {target_text}" 
+        src = "{input_text} | {target_text}" 
+        if "unsup" in tn:
+           src = "{input_text} {mask} {target_text}" 
+        if "-rel" in tn:
             target = "{prefix}"
-        elif tn == "sup-rel2":
-            src = "{input_text} {target_text}" 
-            target = "{prefix}"
-        elif tn == "unsup-rel":
-            src = "{input_text} {mask} {target_text}" 
-            target = "{mask} {prefix}"
+        elif "-tok" in tn:
+            target = "{rel_tok}"
+        elif "-nat" in tn:
+            target = "{rel_nat}"
+        elif "-word" in tn:
+            target = "{rel_word}"
         else:
             raise ValueError("Invalid template " + tn)
-
+        if "unsup" in tn:
+            target = "{mask}" + target
         return src, target
 
 class AllRels(AtomicRel):

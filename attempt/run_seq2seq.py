@@ -295,7 +295,7 @@ def train(config_file, **kwargs):
         model_args.multi_task = True
     # check conflicts of options
     check_cfls = kwargs.setdefault("check_conflicts",True)
-    if check_cfls:
+    if check_cfls and not preview:
         try:
             check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
