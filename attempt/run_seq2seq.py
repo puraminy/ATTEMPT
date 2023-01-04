@@ -65,6 +65,7 @@ import mylogs
 import itertools, collections
 from metrics.metrics import do_score
 from encoders.encoders import *
+from optim import *
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
@@ -756,13 +757,15 @@ def train(config_file, **kwargs):
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
     #### ooooo 
-    optim = AdamW(grouped_params,eps=1e-8)
+    steps = len(train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+ 
+    optim, scheduler = get_optimizer(model, steps,
+            model_args.prompt_learning_rate, 0.01, 0.01)
+    #optim = AdamW(grouped_params,eps=1e-8)
     #optim = AdamW(grouped_params, lr=training_args.learning_rate)
 
-    scheduler = get_linear_schedule_with_warmup(
-        optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=len(
-            train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
-    )
+    #scheduler = get_linear_schedule_with_warmup(
+    #    optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
     if model_args.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
