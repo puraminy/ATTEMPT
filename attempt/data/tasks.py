@@ -65,7 +65,7 @@ class AbstractTask(abc.ABC):
         return n_obs
 
     def shuffled_indices(self, dataset):
-        if True: #not self.do_shuffle:
+        if not self.do_shuffle:
             num_samples = len(dataset)
             return range(num_samples)
         num_samples = len(dataset)
@@ -443,7 +443,6 @@ class Atomic(AbstractTask):
     samples_per_head = 3
     def __init__(self, config, data_args):
         super().__init__(config, data_args)
-        self.use_all_data = data_args.use_all_data
         self.data_path = data_args.data_path
         self.template = data_args.template
 
@@ -458,14 +457,14 @@ class Atomic(AbstractTask):
         else:
             path = op.join(path, split + '.tsv')
         df = pd.read_table(path)
-        if not self.use_all_data:
-            df = self.filter(df)
-            self.df = self.preproc_df(df)
+        df = self.filter(df, split)
+        df = self.preproc_df(df, split)
         ds = Dataset.from_pandas(df)
+        self.df = df
         return ds
 
     def check_n_obs(self, n_obs, total_size):
-        if self.use_all_data or n_obs < 0:
+        if n_obs < 0:
             return total_size
         df = self.df
         lst = df['input_text'].value_counts()[:n_obs].index
@@ -475,7 +474,7 @@ class Atomic(AbstractTask):
         n_obs = len(out)
         return n_obs
 
-    def preproc_df(self, df):
+    def preproc_df(self, df, split):
         df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         sort_by = ["freqs","input_text", "prefix"] 
@@ -484,7 +483,7 @@ class Atomic(AbstractTask):
         df = df.sort_values(by=sort_by, ascending=False)
         return df
 
-    def filter(df):
+    def filter(self, df, split):
        return df
 
 
@@ -497,12 +496,6 @@ class Atomic(AbstractTask):
         elif tn == "unsup":
             src = "{input_text} {mask}" 
             target = "{mask} {target_text}"
-        elif tn == "sup-rel":
-            src = "{input_text} {target_text}" 
-            target = "{prefix}"
-        elif tn == "unsup-rel":
-            src = "{input_text} {mask} {target_text}" 
-            target = "{mask} {prefix}"
         elif tn == "task-pre":
             src = "<task_i> {input_text} {mask}" 
         elif tn == "task-mid":
@@ -526,7 +519,7 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
-    def filter(self, df):
+    def filter(self, df, split):
         df = df[df.prefix == "xIntent"]
         return df
 
@@ -550,15 +543,54 @@ class xIntent(Atomic):
 
         return src, target
 
-class PersonX(Atomic):
-    name = "PersonX"
-    def filter(self, df):
-        df = df[(df.prefix == "xIntent") or (df.prefix == "xWant") or (df.prefix == "oWant")]
+class AtomicRel(Atomic):
+    def get_template(self):
+        tn = self.template
+        if tn == "sup-rel":
+            src = "{input_text} {target_text}" 
+            target = "{prefix}"
+        elif tn == "unsup-rel":
+            src = "{input_text} {mask} {target_text}" 
+            target = "{mask} {prefix}"
+        else:
+            raise ValueError("Invalid template "+ tn)
+
+        return src, target
+
+class AllRels(AtomicRel):
+    name = "allRels"
+    samples_per_rel = 100
+    def __init__(self, config, data_args):
+        super().__init__(config, data_args)
+        self.train_samples_per_rel = data_args.max_train_samples
+        self.val_samples_per_rel = data_args.max_val_samples
+        self.test_samples_per_rel = data_args.max_test_samples
+
+    def filter(self, df, split):
+        return df
+
+    def preproc_df(self, df, split):
+        if split == "train":
+            samples_per_rel = self.train_samples_per_rel
+        elif split == "validation":
+            samples_per_rel = self.val_samples_per_rel
+        else:
+            samples_per_rel = self.test_samples_per_rel
+        df = df.groupby(["prefix"]).head(samples_per_rel)
+        return df
+
+    def check_n_obs(self, n_obs, total_size):
+        return total_size
+
+class xAttrVSxIntent(AtomicRel):
+    name = "xAttrVSxIntent"
+    def filter(self, df, split):
+        df = df[(df.prefix == "xAttr") or (df.prefix == "xIntent")]
         return df
 
 class xAttr(Atomic):
     name = "xAttr"
-    def filter(self, df):
+    def filter(self, df, split):
         return df[df.prefix == "xAttr"]
     def get_template(self):
         tn = self.template
@@ -581,12 +613,12 @@ class xAttr(Atomic):
 
 class xNeed(Atomic):
     name = "xNeed"
-    def filter(self, df):
+    def filter(self, df, split):
         return df[df.prefix == "xNeed"]
 
 class xReact(Atomic):
     name = "xReact"
-    def filter(self, df):
+    def filter(self, df, split):
         return df[df.prefix == "xReact"]
 
 class QQP(AbstractTask):
@@ -1016,6 +1048,8 @@ TASK_MAPPING = OrderedDict(
         ('xAttr', xAttr),
         ('xNeed', xNeed),
         ('xReact', xReact),
+        ('allRels', AllRels),
+        ('xAttrVSxIntent', xAttrVSxIntent),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('cola', COLA),

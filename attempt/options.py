@@ -457,9 +457,6 @@ class DataTrainingArguments:
     test_files: Optional[List[str]] = field(
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
-    ########## My options
-    use_all_data: Optional[bool] = field(default=False,
-                            metadata={"help": "If set, use all available data "})
 
     def __post_init__(self):
         if self.task_name is None:
