@@ -765,6 +765,8 @@ def train(config_file, **kwargs):
         optim = AdamW(grouped_params, lr=training_args.learning_rate)
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
+    name = data_args.dataset_name[0] 
+    task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else "rouge"
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
@@ -778,7 +780,7 @@ def train(config_file, **kwargs):
             data_collator=data_collator,
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
             multi_task_compute_metrics=compute_metrics_fn,
-            evaluation_metrics=TASK_TO_METRICS[data_args.dataset_name[0]],
+            evaluation_metrics=task_metric,
             shared=model_args.shared_attn,
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
@@ -795,7 +797,7 @@ def train(config_file, **kwargs):
             data_collator=data_collator,
             shuffle = trainer_shuffle,
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
-            evaluation_metrics=TASK_TO_METRICS[data_args.dataset_name[0]],
+            evaluation_metrics=task_metric,
             multi_task_compute_metrics=compute_metrics_fn,
             shared=model_args.shared_attn)
 

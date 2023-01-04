@@ -26,7 +26,7 @@ TASK_TO_METRICS = {
                    "xIntent": ["rouge"],
                    "xAttr": ["rouge"],
                    "xNeed": ["rouge"],
-                   "allRels": ["accuracy"],
+                   "allRels": ["rouge"],
                    "xReact": ["rouge"],
                    "mrpc": ["accuracy", "f1"],
                    "cola": ['matthews_correlation'],
