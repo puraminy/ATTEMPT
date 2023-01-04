@@ -83,6 +83,8 @@ class AdapterTrainingArguments:
         default=False, metadata={"help": "If set, uses prompt tuning."})
     num_prompt_encoders: Optional[int] = field(
         default=2, metadata={"help": "Number of prompt encoders."})
+    num_prompt_tokens: Optional[int] = field(
+        default=8, metadata={"help": "Number of prompt tokens for each prompt encoder."})
     prompt_encoder_type: Optional[str] = field(
         default="lstm", metadata={"help": "the type of prompt encoder."})
     ####################
@@ -438,8 +440,6 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
     ########### my options
-    num_prompt_tokens: Optional[int] = field(
-        default=8, metadata={"help": "Number of prompt tokens for each prompt encoder."})
 
     data_path: Optional[List[str]] = field(
         default=None, metadata={"help": "Path to the directory containing split files."}
