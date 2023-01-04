@@ -728,6 +728,7 @@ def train(config_file, **kwargs):
         return result
 
     # If you want to use a different learning rate for attention layer, initialize an optimizer using the learning rate here.
+    if bp == "opt": breakpoint()
     grouped_params = []
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
@@ -762,7 +763,6 @@ def train(config_file, **kwargs):
                 model_args.prompt_learning_rate, 0.01, 0.01)
     else:
         optim = AdamW(grouped_params, lr=training_args.learning_rate)
-        optim = AdamW(grouped_params,eps=1e-8)
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
     if kwargs.use_optimizer:
