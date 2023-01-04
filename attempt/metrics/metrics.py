@@ -266,9 +266,10 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
 
     def tasks_metrics(task):
         from data.tasks import TASK_MAPPING
+        task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else "rouge" 
         post_processor = AutoPostProcessor.get(
             task, tokenizer, ignore_pad_token_for_loss)
-        return functools.partial(compute_metrics, metrics=TASK_TO_METRICS[task], post_processor=post_processor)
+        return functools.partial(compute_metrics, metrics=task_metric, post_processor=post_processor)
 
     return {task: tasks_metrics(task) for task in task_names}
 
