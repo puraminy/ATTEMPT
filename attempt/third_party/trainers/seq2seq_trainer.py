@@ -17,13 +17,14 @@ if version.parse(torch.__version__) >= version.parse("1.6"):
 
 
 class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
-    def __init__(self, train_dataset_sizes=None, shared=False, multiple_metrics=None, adapter_config=None, shuffle=False, *args, **kwargs):
+    def __init__(self, train_dataset_sizes=None, shared=False, multiple_metrics=None, adapter_config=None, shuffle=False, save_checkpoint=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.adapter_config = adapter_config
         self.multiple_metrics = multiple_metrics
         self.train_dataset_sizes = train_dataset_sizes
         self.shared = shared
         self.shuffle = shuffle
+        self.save_checkpoint = save_checkpoint
 
     def get_train_dataloader(self):
         if self.shuffle:
@@ -47,6 +48,12 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
             num_workers=self.args.dataloader_num_workers,
             pin_memory=self.args.dataloader_pin_memory,
         )
+
+    def _save_checkpoint(self, model, trial, metrics=None):
+        if not self.save_checkpoint:
+            pass
+        else:
+            super._save_checkpoint(model, trial, metrics)
 
     def evaluate(
         self,
