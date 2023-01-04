@@ -520,7 +520,7 @@ class Atomic(AbstractTask):
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["query"] = " ".join(src_texts)
-        extra_fields["resp"] = example["target_text"]
+        extra_fields["resp"] = tgt_texts
         return self.seq2seq_format(src_texts, tgt_texts, 
                 add_prefix=False, extra_fields=extra_fields)
 
