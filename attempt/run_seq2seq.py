@@ -242,6 +242,7 @@ def train(config_file, **kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+    kwargs = dotdict(kwargs)
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
@@ -262,7 +263,6 @@ def train(config_file, **kwargs):
        mylogs.plog.handlers.clear()
        mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
        mylogs.plog.info(exp_conf)
-
 
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
@@ -758,14 +758,15 @@ def train(config_file, **kwargs):
     grouped_params.append({'params': other_params})
     #### ooooo 
     steps = len(train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
- 
-    optim, scheduler = get_optimizer(model, steps,
-            model_args.prompt_learning_rate, 0.01, 0.01)
-    #optim = AdamW(grouped_params,eps=1e-8)
-    #optim = AdamW(grouped_params, lr=training_args.learning_rate)
 
-    #scheduler = get_linear_schedule_with_warmup(
-    #    optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
+    if kwargs.opt_type == "sep":
+        optim, scheduler = get_optimizer(model, steps,
+                model_args.prompt_learning_rate, 0.01, 0.01)
+    else:
+        optim = AdamW(grouped_params, lr=training_args.learning_rate)
+        optim = AdamW(grouped_params,eps=1e-8)
+        scheduler = get_linear_schedule_with_warmup(
+            optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
     if model_args.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
