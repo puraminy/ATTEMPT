@@ -497,6 +497,12 @@ class Atomic(AbstractTask):
         elif tn == "unsup":
             src = "{input_text} {mask}" 
             target = "{mask} {target_text}"
+        elif tn == "sup-rel":
+            src = "{input_text} {target_text}" 
+            target = "{prefix}"
+        elif tn == "unsup-rel":
+            src = "{input_text} {mask} {target_text}" 
+            target = "{mask} {prefix}"
         elif tn == "task-pre":
             src = "<task_i> {input_text} {mask}" 
         elif tn == "task-mid":
@@ -529,6 +535,12 @@ class xIntent(Atomic):
         target = "{mask} {target_text}"
         if tn == "task-pre-nat":
             src = "<task_i> {input_text}, Because they wanted {mask}" 
+        elif tn == "sup-nat":
+            src = "{prefix} {input_text}, Because they want" 
+            target = "{target_text}"
+        elif tn == "unsup-nat":
+            src = "{prefix} {input_text}, Because they want {mask}" 
+            target = "{mask} {target_text}"
         elif tn == "task-mid-nat":
             src = "{input_text}, Because they <task_i> {mask}" 
         elif tn == "task-mid-nat2":
@@ -551,7 +563,13 @@ class xAttr(Atomic):
     def get_template(self):
         tn = self.template
         target = "{mask} {target_text}"
-        if tn == "task-pre-nat":
+        if tn == "sup-nat":
+            src = "{prefix} {input_text}, So they are seen as" 
+            target = "{target_text}"
+        elif tn == "unsup-nat":
+            src = "{prefix} {input_text}, So they are seen as {mask}" 
+            target = "{mask} {target_text}"
+        elif tn == "task-pre-nat":
             src = "<task_i> {input_text}, So they are seen as {mask}" 
         elif tn == "task-mid-nat":
             src = "{input_text}, So they <task_i> {mask}" 

@@ -4,7 +4,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
     n_tasks = len(data_args.task_name)
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     if not adapter_args.prompt_tuning:
-        assert data_args.template in ["sup", "unsup"], "The template must be one of sup or unsup"
+        assert "sup" in data_args.template, "The template must be one of sup or unsup methods"
     if n_tasks > 1:
         assert not trainer_shuffle, "Trainer can't be shuffled for multi-task. The data is interleaved"
     if adapter_args.prompt_tuning:
