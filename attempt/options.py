@@ -298,13 +298,6 @@ class ModelArguments:
         },
     )
 
-    use_optimizer: bool = field(
-        default=False,
-        metadata={
-            "help": "use optimizer."
-        },
-    )
-
     load_layer_norm: bool = field(
         default=False,
         metadata={

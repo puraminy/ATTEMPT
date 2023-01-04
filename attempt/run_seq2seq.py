@@ -518,8 +518,6 @@ def train(config_file, **kwargs):
     padding = "max_length" if data_args.pad_to_max_length else False
     ########### ppppppppppppp
     def preprocess_function(examples, max_target_length, task_id=None):
-        if not adapter_args.prompt_tuning:
-           examples["source"]=[re.sub(r'<pr.*?>','', x).strip() for x in examples["source"]]
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
         if preview:
@@ -767,7 +765,7 @@ def train(config_file, **kwargs):
         optim = AdamW(grouped_params,eps=1e-8)
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
-    if model_args.use_optimizer:
+    if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
