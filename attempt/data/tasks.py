@@ -548,6 +548,12 @@ class xIntent(Atomic):
         return src, target
 
 class AtomicRel(Atomic):
+    samples_per_rel = 100
+    def __init__(self, config, data_args):
+        super().__init__(config, data_args)
+        self.train_samples_per_rel = data_args.max_train_samples
+        self.val_samples_per_rel = data_args.max_val_samples
+        self.test_samples_per_rel = data_args.max_test_samples
     def get_data_path(self, split):
         path = self.data_path
         if split != "train":
@@ -556,6 +562,19 @@ class AtomicRel(Atomic):
             path= op.join(HOME, self.data_path)
         path = op.join(path, split + '.tsv')
         return path
+
+    def preproc_df(self, df, split):
+        if split == "train":
+            samples_per_rel = self.train_samples_per_rel
+        elif split == "validation":
+            samples_per_rel = self.val_samples_per_rel
+        else:
+            samples_per_rel = self.test_samples_per_rel
+        df = df.groupby(["prefix"]).head(samples_per_rel)
+        return df
+
+    def check_n_obs(self, n_obs, total_size):
+        return total_size
 
     def get_template(self):
         tn = self.template
@@ -572,28 +591,10 @@ class AtomicRel(Atomic):
 
 class AllRels(AtomicRel):
     name = "allRels"
-    samples_per_rel = 100
-    def __init__(self, config, data_args):
-        super().__init__(config, data_args)
-        self.train_samples_per_rel = data_args.max_train_samples
-        self.val_samples_per_rel = data_args.max_val_samples
-        self.test_samples_per_rel = data_args.max_test_samples
 
     def filter(self, df, split):
         return df
 
-    def preproc_df(self, df, split):
-        if split == "train":
-            samples_per_rel = self.train_samples_per_rel
-        elif split == "validation":
-            samples_per_rel = self.val_samples_per_rel
-        else:
-            samples_per_rel = self.test_samples_per_rel
-        df = df.groupby(["prefix"]).head(samples_per_rel)
-        return df
-
-    def check_n_obs(self, n_obs, total_size):
-        return total_size
 
 class xAttrVSxIntent(AtomicRel):
     name = "xAttrVSxIntent"
