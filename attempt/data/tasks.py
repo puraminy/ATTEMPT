@@ -446,7 +446,7 @@ class Atomic(AbstractTask):
         self.data_path = data_args.data_path
         self.template = data_args.template
 
-    def load_dataset(self, split):
+    def get_data_path(self, split):
         path = self.data_path
         if split != "train":
             self.do_shuffle = False
@@ -456,6 +456,10 @@ class Atomic(AbstractTask):
             path = op.join(path, split, self.name  + '.tsv')
         else:
             path = op.join(path, split + '.tsv')
+        return path
+
+    def load_dataset(self, split):
+        path = self.get_data_path(split)
         df = pd.read_table(path)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
@@ -544,6 +548,15 @@ class xIntent(Atomic):
         return src, target
 
 class AtomicRel(Atomic):
+    def get_data_path(self, split):
+        path = self.data_path
+        if split != "train":
+            self.do_shuffle = False
+        if not path.startswith("/"):
+            path= op.join(HOME, self.data_path)
+        path = op.join(path, split + '.tsv')
+        return path
+
     def get_template(self):
         tn = self.template
         if tn == "sup-rel":
