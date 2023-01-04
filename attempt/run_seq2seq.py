@@ -279,6 +279,16 @@ def train(config_file, **kwargs):
     # set other options
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
+    task_args = {}
+    task_args["data_seed"] = data_args.data_seed
+    task_args["train_samples"] = data_args.max_train_samples
+    task_args["val_samples"] = data_args.max_val_samples
+    task_args["test_samples"] = data_args.max_test_samples
+    task_args["num_prompt_tokens"] = adapter_args.num_prompt_tokens
+    task_args["template"] = data_args.template
+    task_args["data_path"] = data_args.data_path
+    task_args["rels"] = kwargs.rels
+    task_args = dotdict(task_args)
 
     ds_confs = kwargs.setdefault("ds_config", ["en"])
     n_tasks = len(data_args.task_name)
@@ -465,7 +475,7 @@ def train(config_file, **kwargs):
     if adapter_args.prompt_tuning:
         for task in data_args.task_name:
              bp != "prompts" or breakpoint()
-             p = AutoTask.get(task, None, data_args).get_prompts()
+             p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
         ii = 1
         prompt_encoders = []
@@ -553,7 +563,7 @@ def train(config_file, **kwargs):
         if data_args.train_files is not None:
             train_datasets = [AutoTask.get(dataset_name,
                                            dataset_config_name,
-                                           data_args=data_args).get(
+                                           task_args=task_args).get(
                 split="train",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -563,7 +573,7 @@ def train(config_file, **kwargs):
         else:
             train_datasets = [AutoTask.get(dataset_name,
                                            dataset_config_name,
-                                           data_args=data_args).get(
+                                           task_args=task_args).get(
                 split="train",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -571,7 +581,7 @@ def train(config_file, **kwargs):
                 for dataset_name, dataset_config_name
                 in zip(data_args.dataset_name, data_args.dataset_config_name)]
 
-        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name, data_args=data_args).get_max_target_length(
+        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name, task_args=task_args).get_max_target_length(
             tokenizer=tokenizer, default_max_length=data_args.max_target_length, )
             for dataset_name, dataset_config_name in zip(data_args.dataset_name, data_args.dataset_config_name)]
 
@@ -604,7 +614,7 @@ def train(config_file, **kwargs):
     if training_args.do_eval:
         if data_args.validation_files is not None:
             eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                        data_args=data_args).get(
+                                                        task_args=task_args).get(
                 split="validation",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -612,7 +622,7 @@ def train(config_file, **kwargs):
                 for eval_dataset, eval_dataset_config, validation_file in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name, data_args.validation_files)}
         else:
             eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                        data_args=data_args).get(
+                                                        task_args=task_args).get(
                 split="validation",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -621,7 +631,7 @@ def train(config_file, **kwargs):
 
         max_target_lengths = [AutoTask.get(dataset_name, 
             dataset_config_name,
-            data_args=data_args).get_max_target_length(
+            task_args=task_args).get_max_target_length(
             tokenizer=tokenizer, default_max_length=data_args.max_target_length)
             for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
 
@@ -650,7 +660,7 @@ def train(config_file, **kwargs):
     if training_args.do_test:
         if data_args.test_files is not None:
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
-                                                        data_args=data_args).get(
+                                                        task_args=task_args).get(
                 split="test",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -658,7 +668,7 @@ def train(config_file, **kwargs):
                 for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
         else:
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
-                                                        data_args=data_args).get(
+                                                        task_args=task_args).get(
                 split="test",
                 split_validation_test=training_args.split_validation_test,
                 add_prefix=False if adapter_args.train_task_adapters else True,
@@ -666,7 +676,7 @@ def train(config_file, **kwargs):
                 for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)}
 
         max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name,
-            data_args=data_args).get_max_target_length(
+            task_args=task_args).get_max_target_length(
             tokenizer=tokenizer, default_max_length=data_args.max_target_length)
             for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
         for k, name in enumerate(test_datasets):
@@ -703,7 +713,7 @@ def train(config_file, **kwargs):
             pad_to_multiple_of=8 if training_args.fp16 else None,
         )
     eval_metrics = [AutoTask.get(dataset_name, 
-                    dataset_config_name, data_args=data_args).metric
+                    dataset_config_name, task_args=task_args).metric
                     for dataset_name, dataset_config_name in zip(data_args.dataset_name, data_args.dataset_config_name)][0]
 
     print(data_args.eval_dataset_name)

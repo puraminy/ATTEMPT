@@ -34,12 +34,13 @@ class AbstractTask(abc.ABC):
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
                                      "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
-    def __init__(self, config, data_args):
+    def __init__(self, config, task_args):
         self.config = config
-        self.seed = data_args.data_seed
+        self.seed = task_args.data_seed
         ## list of prompts
         self.prompt_set = {} 
-        self.prompt_length = data_args.num_prompt_tokens
+        self.prompt_length = task_args.num_prompt_tokens
+        self.task_args = task_args
 
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
@@ -441,10 +442,10 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     do_shuffle = True
     samples_per_head = 3
-    def __init__(self, config, data_args):
-        super().__init__(config, data_args)
-        self.data_path = data_args.data_path
-        self.template = data_args.template
+    def __init__(self, config, task_args):
+        super().__init__(config, task_args)
+        self.data_path = task_args.data_path
+        self.template = task_args.template
 
     def get_data_path(self, split):
         path = self.data_path
@@ -552,13 +553,22 @@ class xIntent(Atomic):
         return src, target
 
 class AtomicRel(Atomic):
+    name = "atomic-rels"
     samples_per_rel = 100
-    def __init__(self, config, data_args):
-        super().__init__(config, data_args)
-        self.train_samples_per_rel = data_args.max_train_samples
-        self.val_samples_per_rel = data_args.max_val_samples
-        self.test_samples_per_rel = data_args.max_test_samples
-        
+    def __init__(self, config, task_args):
+        super().__init__(config, task_args)
+        self.train_samples_per_rel = task_args.train_samples
+        self.val_samples_per_rel = task_args.val_samples
+        self.test_samples_per_rel = task_args.test_samples
+        self.rels = task_args.rels
+
+    def filter(self, df, split):
+        cond = ""
+        for val in self.rels: 
+            cond += f"| (df['prefix'] == '{val}') "
+        cond = cond.strip("|")
+        if cond: df = df[eval(cond)]
+        return df
 
     def get_data_path(self, split):
         path = self.data_path
@@ -606,19 +616,6 @@ class AtomicRel(Atomic):
         if "unsup" in tn:
             target = "{mask}" + target
         return src, target
-
-class AllRels(AtomicRel):
-    name = "allRels"
-
-    def filter(self, df, split):
-        return df
-
-
-class xAttrVSxIntent(AtomicRel):
-    name = "xAttrVSxIntent"
-    def filter(self, df, split):
-        df = df[(df.prefix == "xAttr") | (df.prefix == "xIntent")]
-        return df
 
 class xAttr(Atomic):
     name = "xAttr"
@@ -1080,8 +1077,7 @@ TASK_MAPPING = OrderedDict(
         ('xAttr', xAttr),
         ('xNeed', xNeed),
         ('xReact', xReact),
-        ('allRels', AllRels),
-        ('xAttrVSxIntent', xAttrVSxIntent),
+        ('atomic-rels', AtomicRel),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('cola', COLA),
@@ -1122,9 +1118,9 @@ TASK_MAPPING = OrderedDict(
 
 class AutoTask:
     @classmethod
-    def get(self, task, config, data_args=None):
+    def get(self, task, config, task_args=None):
         if task in TASK_MAPPING:
-            return TASK_MAPPING[task](config, data_args)
+            return TASK_MAPPING[task](config, task_args)
         raise ValueError(
             "Unrecognized task {} for AutoTask Model: {}.\n"
             "Task name should be one of {}.".format(
