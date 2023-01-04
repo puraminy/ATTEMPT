@@ -598,7 +598,7 @@ class AllRels(AtomicRel):
 class xAttrVSxIntent(AtomicRel):
     name = "xAttrVSxIntent"
     def filter(self, df, split):
-        df = df[(df.prefix == "xAttr") or (df.prefix == "xIntent")]
+        df = df[(df.prefix == "xAttr") | (df.prefix == "xIntent")]
         return df
 
 class xAttr(Atomic):
