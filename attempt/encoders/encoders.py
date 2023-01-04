@@ -374,7 +374,7 @@ def add_specials(tokenizer):
 
     added_tokens = [ 
             AddedToken(tok,lstrip=True,
-                rstrip=False)
+                rstrip=True, single_word=True)
             for tok in new_tokens if not tok in cur_list
     ]
     added_tokens = cur_list + added_tokens
