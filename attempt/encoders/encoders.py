@@ -410,6 +410,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
     rel_ids = tokenizer.convert_tokens_to_ids(task_tokens)
     cur_embeddings = model.get_input_embeddings()
     init_embs = {}
+    mylogs.bp("encoder")
     if "@" in name:
         name, encoder_type = name.split("@") 
     for p in task_tokens:
