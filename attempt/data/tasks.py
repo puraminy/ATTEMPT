@@ -212,6 +212,7 @@ class AbstractTask(abc.ABC):
 
     def get_prompts(self):
         src,tgt = self.get_template()
+        #src = src.format(**self.task_args)
         src_texts = self.fill_prompts(src)
         return self.prompt_set
 
