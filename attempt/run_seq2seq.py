@@ -310,6 +310,7 @@ def train(config_file, **kwargs):
             check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
             print("Conflict:", e.args)
+            mylogs.dlog.info("Conflict: %s", e.args)
             return
 
     ###### Collect experiment infos
