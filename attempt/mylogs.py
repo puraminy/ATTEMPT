@@ -107,11 +107,12 @@ def trace(frame, event, arg):
 
 mlog.info(now)
 #sys.settrace(trace)
-def add_handler(logger, fname):
+def add_handler(logger, fname, set_format=False):
     logger.setLevel(logging.INFO)
     logFilename = os.path.join("logs", fname + ".log")
     handler = logging.FileHandler(logFilename, mode="w")
-    handler.setFormatter(FORMAT)
+    if set_format:
+        handler.setFormatter(FORMAT)
     logger.addHandler(handler)
 
 Path("logs").mkdir(parents=True, exist_ok=True)
