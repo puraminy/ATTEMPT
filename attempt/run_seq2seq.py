@@ -172,6 +172,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
    args["break_point"] = break_point 
    args["preview"] = preview 
    tags = [] # tags used to distinguish experiments
+   full_tags = []
    if break_point:
        mylogs.setbp(break_point)
    for item in ctx.args: #extra arguments
@@ -182,7 +183,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        args[key] = strval(val)
 
    if not exp_vars:
-       args["tag"] = "@".join(tags)
+       args["tag"] = tags
        args["expid"] = 1 
 
        args["output_dir"] = save_path
@@ -198,6 +199,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
            if len(cc) == 1:
                exclude_list.append(vv)
            if len(cc) > 1:
+               full_tags.append(vv)
                if not vv in tag_exclude: tags.append(vv)
                if preview: 
                    if not vv in preview:
@@ -208,7 +210,8 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
           print("Eror:", preview, " must be in ", tags, " which have multiple values")
           return
 
-       args["tag"] = "@".join(tags)
+       args["tag"] = tags 
+       args["full_tag"] = full_tags 
        tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
        ii = 0
        orig_args = args.copy()
@@ -290,6 +293,9 @@ def train(config_file, **kwargs):
     task_args["rels"] = kwargs.rels
     task_args = dotdict(task_args)
 
+    # an option to explicitly specify the method of training 
+    # (pt: prompt-tuning, ft:fine-tuning, prt:prefix-tuning etc.)
+    method = kwargs.setdefault("method", [])
     ds_confs = kwargs.setdefault("ds_config", ["en"])
     n_tasks = len(data_args.task_name)
     n_confs = len(ds_confs)
@@ -303,6 +309,10 @@ def train(config_file, **kwargs):
 
     if type(data_args.task_name) == list:
         model_args.multi_task = True
+
+    # tags are variables that are varied among experiments. 
+    tag = kwargs.setdefault("tag",[]) # the selected tags
+    full_tag = kwargs.setdefault("full_tag",[]) # the full list of tags
     # check conflicts of options
     check_cfls = kwargs.setdefault("check_conflicts",True)
     if check_cfls and not preview:
@@ -310,8 +320,11 @@ def train(config_file, **kwargs):
             check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
             print("Conflict:", e.args)
-            mylogs.dlog.info("================= %s ===============", mylogs.tag(True)[0])
+            title = mylogs.get_tag(tag)
+            title = json.dumps(title, indent=4)
+            mylogs.dlog.info(title)
             mylogs.dlog.info("Conflict: %s", e.args)
+            mylogs.dlog.info("-------------------------------------")
             return
 
     ###### Collect experiment infos
@@ -320,7 +333,12 @@ def train(config_file, **kwargs):
         if not k in exp_info:
             exp_info[k] = v
 
-    exp_info["tag"], exp_info["taginfo"] = mylogs.tag() 
+    _tag = mylogs.get_tag(tag)  
+    _ftag = mylogs.get_tag(full_tag)  
+    exp_info["tag"] = list(_tag.values())
+    exp_info["taginfo"] = list(_tag.keys())
+    exp_info["ftag"] = list(_ftag.values())
+    exp_info["ftaginfo"] = list(_ftag.keys())
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:

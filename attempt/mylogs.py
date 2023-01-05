@@ -10,22 +10,17 @@ main_args = {}
 def args(key):
     return main_args[key]
 
-def tag(with_label=False):
-    tag = main_args["tag"]
-    _tag = ""
-    info = ""
-    for _t in tag.split("@"):
+def get_tag(tag, with_label=False):
+    _tag = {}
+    for _t in tag:
         if _t in main_args:
             val = main_args[_t]
             if type(val) == list: val = "@".join(val)
-            if with_label:
-                _tag += "|" + _t + "=" + str(val).split("/")[-1]
-            else:
-                _tag += "|" + str(val).split("/")[-1]
+            val = str(val).split("/")[-1]
+            _tag[_t] = val
         else:
-            _tag += "|" + _t  
-        info += "|" + _t 
-    return _tag.strip("|"), info.strip("|")
+            _tag[_t] = ""
+    return _tag
 
 tehran = timezone('Asia/Tehran')
 now = datetime.datetime.now(tehran)
@@ -124,7 +119,7 @@ def set_args(args):
     global main_args 
     main_args =args
     tlog.handlers.clear()
-    tags, infos = tag()
+    tags = "_".join(list(get_tag(args["tag"]).values()))
     exp = str(args["expid"]) + "_" + tags 
     tHandler = logging.FileHandler(getFname(exp + "_time", 
         path=args["save_path"]), mode='w')
