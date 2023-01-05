@@ -453,8 +453,6 @@ class Atomic(AbstractTask):
 
     def get_data_path(self, split):
         path = self.data_path
-        if split != "train":
-            self.do_shuffle = False
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
         if split == "test":
@@ -464,6 +462,8 @@ class Atomic(AbstractTask):
         return path
 
     def load_dataset(self, split):
+        if split != "train":
+            self.do_shuffle = False
         path = self.get_data_path(split)
         df = pd.read_table(path)
         df = self.filter(df, split)
@@ -585,8 +585,6 @@ class AtomicRel(Atomic):
 
     def get_data_path(self, split):
         path = self.data_path
-        if split != "train":
-            self.do_shuffle = False
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
         path = op.join(path, split + '.tsv')
