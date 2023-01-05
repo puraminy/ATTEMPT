@@ -940,6 +940,7 @@ def train(config_file, **kwargs):
                 for i, row in df.iterrows():
                     df.at[i, "input_text"] = df.loc[i, "extra_fields"]["event"] 
                     df.at[i, "target_text"] = df.loc[i, "extra_fields"]["resp"]  
+                    df.at[i, "tail"] = df.loc[i, "extra_fields"]["tail"]  
                     pred = tokenizer.decode(predictions[i], 
                             skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                     pred = re.sub(r'<.*?>','',pred)
