@@ -952,6 +952,8 @@ def train(config_file, **kwargs):
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)
+                    if type(info) == dict:
+                        info = json.dumps(info)
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
