@@ -51,7 +51,9 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
 
     def _save_checkpoint(self, model, trial, metrics=None):
         if not self.save_checkpoint:
-            pass
+            print("======================================")
+            print("Skipping save_checkpoint")
+            print("======================================")
         else:
             super._save_checkpoint(model, trial, metrics)
 
