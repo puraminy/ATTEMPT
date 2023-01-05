@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import re
 from attempt.maps import *
+import attempt.mylogs as mylogs
 
 logger = logging.getLogger(__name__)
 
@@ -201,6 +202,7 @@ class AbstractTask(abc.ABC):
         return template
 
     def fill_prompts(self, template):
+        mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z]+)\]")
         return template
@@ -515,8 +517,12 @@ class Atomic(AbstractTask):
         return example
     
     def preprocessor(self, example, add_prefix=True):
+        mylogs.bp("task_prep")
         mask = "<extra_id_0>"
         src,tgt = self.get_template()
+        # remove unused place holders
+        src = re.sub(r'(.*?)','',src)
+        tgt = re.sub(r'(.*?)','',tgt)
         example = self.extend_example(example)
         src_texts = src.format(**example, mask=mask)
         tgt_texts = [tgt.format(**example, mask=mask)]
@@ -550,6 +556,8 @@ class xIntent(Atomic):
             src = "{input_text}, Because they [task_i] {mask}" 
         elif tn == "task-mid-fw":
             src = "{input_text}, [task_because] [task_they] [task_want] {mask}" 
+        elif tn == "task-mid-3":
+            src = "{input_text}, [task_3] {mask}" 
         elif tn == "task-mid-nat2":
             src = "{input_text}, [task_i] they intend {mask}" 
         else:
@@ -605,19 +613,21 @@ class AtomicRel(Atomic):
 
     def get_template(self):
         tn = self.template
-        src = "{input_text} | {target_text}" 
+        src = "{input_text} |(prompt)| {target_text}" 
         if "unsup" in tn:
-           src = "{input_text} {mask} {target_text}" 
+           src = "{input_text} (prompt) {mask} {target_text}" 
+        if "-pr" in tn:
+           src = src.replace("(prompt)", "[task_i]")
         if "-rel" in tn:
-            target = "{prefix}"
+           target = "{prefix}"
         elif "-tok" in tn:
-            target = "{rel_tok}"
+           target = "{rel_tok}"
         elif "-nat" in tn:
-            target = "{rel_nat}"
+           target = "{rel_nat}"
         elif "-word" in tn:
-            target = "{rel_word}"
+           target = "{rel_word}"
         else:
-            raise ValueError("Invalid template " + tn)
+           raise ValueError("Invalid template " + tn)
         if "unsup" in tn:
             target = "{mask}" + target
         return src, target
