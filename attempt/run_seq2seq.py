@@ -466,7 +466,7 @@ def train(config_file, **kwargs):
     ######################## My code
     added = add_specials(tokenizer)
     logger.info("%s tokens was addded", added)
-    mylogs.bp("tokens")
+    mylogs.bp("tokens|encoder")
     model.resize_token_embeddings(len(tokenizer))
     n_tasks = len(data_args.task_name)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

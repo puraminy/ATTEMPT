@@ -310,6 +310,7 @@ class MLPPromptEncoder(PromptEncoder):
 
 class LSTMEmbeddingPromptEncoder(PromptEncoder):
     def __init__(self,name, length,embedding_dim,id_offset, init_embs=None, prompt_ids=[], num_layers=1, hidden_size=-1, **kwargs) -> None:
+        mylogs.bp("encoder|lstm")
         super().__init__(name, length,embedding_dim,id_offset, init_embs, prompt_ids, **kwargs)
         hsize = hidden_size if hidden_size > 1 else embedding_dim
         self.lstm = torch.nn.LSTM(
@@ -413,14 +414,14 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
     mylogs.bp("encoder")
     if "@" in name:
         name, encoder_type = name.split("@") 
-    for p in task_tokens:
+    for pid, p in enumerate(task_tokens):
         if "_" in p:
            q = p.strip("<").strip(">")
            w = q.split("_")[1]
            if not w.isdigit():
                wid = tokenizer.convert_tokens_to_ids([w])[0]
                emb = cur_embeddings.weight[wid,:].detach().clone() 
-               pid = tokenizer.convert_tokens_to_ids([p])[0]
+               #pid = tokenizer.convert_tokens_to_ids([p])[0]
                init_embs[pid] = emb
 
     id_offset = min(rel_ids) 
