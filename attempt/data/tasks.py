@@ -154,6 +154,8 @@ class AbstractTask(abc.ABC):
         if plen==0: plen = self.prompt_length 
         _pholder = place_holder
         place_holder = place_holder.replace("task", self.name)  
+        place_holder = place_holder.replace("[", "<")  
+        place_holder = place_holder.replace("]", ">")  
         while _pholder in template:
             if num_holder in _pholder:
                 prompt = ""
@@ -188,7 +190,7 @@ class AbstractTask(abc.ABC):
                 if emb == "i":
                     plen = 0
                     num_holder = "_i"
-                place_holder = "<" + name + "_" + emb + ">"
+                place_holder = "[" + name + "_" + emb + "]"
                 if plen != 0:
                     plen = [int(plen)]
                 if name == "task":
@@ -199,8 +201,8 @@ class AbstractTask(abc.ABC):
         return template
 
     def fill_prompts(self, template):
-        template = self.fill_prompt_regex(template, "<([@a-zA-Z]+)_(\d+)>")
-        template = self.fill_prompt_regex(template, "<([@a-zA-Z]+)_([a-zA-Z]+)>")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z]+)\]")
         return template
 
     def get_template():
@@ -502,14 +504,14 @@ class Atomic(AbstractTask):
             src = "{input_text} {mask}" 
             target = "{mask} {target_text}"
         elif tn == "task-pre":
-            src = "<task_i> {input_text} {mask}" 
+            src = "[task_i] {input_text} {mask}" 
         elif tn == "task-mid":
-            src = "{input_text} <task_i> {mask}" 
+            src = "{input_text} [task_i] {mask}" 
         else:
             raise ValueError("Template " + tn + " is not defined!")
         return src, target
 
-    def extend_example(example):
+    def extend_example(self, example):
         return example
     
     def preprocessor(self, example, add_prefix=True):
@@ -537,7 +539,7 @@ class xIntent(Atomic):
         tn = self.template
         target = "{mask} {target_text}"
         if tn == "task-pre-nat":
-            src = "<task_i> {input_text}, Because they wanted {mask}" 
+            src = "[task_i] {input_text}, Because they wanted {mask}" 
         elif tn == "sup-nat":
             src = "{prefix} {input_text}, Because they want" 
             target = "{target_text}"
@@ -545,9 +547,11 @@ class xIntent(Atomic):
             src = "{prefix} {input_text}, Because they want {mask}" 
             target = "{mask} {target_text}"
         elif tn == "task-mid-nat":
-            src = "{input_text}, Because they <task_i> {mask}" 
+            src = "{input_text}, Because they [task_i] {mask}" 
+        elif tn == "task-mid-fw":
+            src = "{input_text}, [task_because] [task_they] [task_want] {mask}" 
         elif tn == "task-mid-nat2":
-            src = "{input_text}, <task_i> they intend {mask}" 
+            src = "{input_text}, [task_i] they intend {mask}" 
         else:
             return super().get_template()
 
@@ -632,11 +636,11 @@ class xAttr(Atomic):
             src = "{prefix} {input_text}, So they are seen as {mask}" 
             target = "{mask} {target_text}"
         elif tn == "task-pre-nat":
-            src = "<task_i> {input_text}, So they are seen as {mask}" 
+            src = "[task_i] {input_text}, So they are seen as {mask}" 
         elif tn == "task-mid-nat":
-            src = "{input_text}, So they <task_i> {mask}" 
+            src = "{input_text}, So they [task_i] {mask}" 
         elif tn == "task-mid-nat2":
-            src = "{input_text}, <task_i> seen as {mask}" 
+            src = "{input_text}, [task_i] seen as {mask}" 
         else:
             return super().get_template()
         return src, target
