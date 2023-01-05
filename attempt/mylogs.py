@@ -10,7 +10,7 @@ main_args = {}
 def args(key):
     return main_args[key]
 
-def tag():
+def tag(with_label=False):
     tag = main_args["tag"]
     _tag = ""
     info = ""
@@ -18,7 +18,10 @@ def tag():
         if _t in main_args:
             val = main_args[_t]
             if type(val) == list: val = "@".join(val)
-            _tag += "|" + str(val).split("/")[-1]
+            if with_label:
+                _tag += "|" + _t + "=" + str(val).split("/")[-1]
+            else:
+                _tag += "|" + str(val).split("/")[-1]
         else:
             _tag += "|" + _t  
         info += "|" + _t 

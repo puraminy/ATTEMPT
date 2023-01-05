@@ -521,8 +521,8 @@ class Atomic(AbstractTask):
         mask = "<extra_id_0>"
         src,tgt = self.get_template()
         # remove unused place holders
-        src = re.sub(r'(.*?)','',src)
-        tgt = re.sub(r'(.*?)','',tgt)
+        src = re.sub(r'\(.*?\)','',src)
+        tgt = re.sub(r'\(.*?\)','',tgt)
         example = self.extend_example(example)
         src_texts = src.format(**example, mask=mask)
         tgt_texts = [tgt.format(**example, mask=mask)]
