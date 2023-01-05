@@ -604,9 +604,15 @@ class AtomicRel(Atomic):
         return total_size
 
     def extend_example(self, example):
+        mylogs.bp("example")
         example["rel_tok"] = REL_TO_TOKEN[example["prefix"]]
         example["rel_word"] = REL_TO_WORD[example["prefix"]]
         example["rel_nat"] = REL_TO_PHRASE[example["prefix"]]
+        rel_fw = REL_TO_PHRASE[example["prefix"]]
+        rel_fw = rel_fw.split()
+        rel_fw = ["[task_" + w + "]" for w in rel_fw]
+        rel_fw = " ".join(rel_fw)
+        example["rel_fw"] = rel_fw 
         return example
 
     def get_template(self):
@@ -616,6 +622,8 @@ class AtomicRel(Atomic):
            src = "{input_text} (prompt) {mask} {target_text}" 
         if "-pr" in tn:
            src = src.replace("(prompt)", "[task_i]")
+        if "-pfw" in tn:
+           src = src.replace("(prompt)", "{rel_fw}")
         if "-rel" in tn:
            target = "{prefix}"
         elif "-tok" in tn:
