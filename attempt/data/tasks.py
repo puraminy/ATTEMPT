@@ -512,7 +512,7 @@ class Atomic(AbstractTask):
 
     def get_template(self):
         tn = self.template
-        src = "{input_text} (prompt) (nat) (mask)" 
+        src = "{prefix}: {input_text} (prompt) (nat) (mask)" 
         target = "(mask) {target_text}"
         if "pre-" in tn:
             src = "(prompt) {input_text} (mask)" 

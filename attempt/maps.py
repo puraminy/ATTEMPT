@@ -4,7 +4,7 @@ REL_TO_PHRASE = {
     "oWant":"then, others want",
     "xAttr":"they are seen as",
     "xEffect":"effects on person are",
-    "xIntent":"they intended",
+    "xIntent":"because they intended",
     "xNeed":"before that he requires",
     "xReact":"his reaction was",
     "xWant":"after they want",
