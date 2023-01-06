@@ -17,7 +17,6 @@ Fine-tuning the library models for sequence to sequence.
 """
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
 from utils import * 
-from data.utils import make_prompt
 import shutil
 from pathlib import Path
 import glob
@@ -202,7 +201,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
                full_tags.append(vv)
                if not vv in tag_exclude: tags.append(vv)
                if preview: 
-                   if not vv in preview:
+                   if not vv in preview and not vv in tag_exclude:
                        var_names.remove(vv)
                        values.remove(cc)
 
@@ -316,7 +315,7 @@ def train(config_file, **kwargs):
             check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
             print("Conflict:", e.args)
-            title = mylogs.get_tag(tag)
+            title = mylogs.get_tag(full_tag)
             title = json.dumps(title, indent=4)
             mylogs.dlog.info(title)
             mylogs.dlog.info("Conflict: %s", e.args)
@@ -549,9 +548,8 @@ def train(config_file, **kwargs):
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
         if preview:
-            mylogs.plog.info("sourece: %s", examples["source"][:2])
-            mylogs.plog.info("target: %s", examples["target"][:2])
-            mylogs.plog.info("extra: %s", examples["extra_fields"][:2])
+            mylogs.plog.info("sourece: %s", examples["source"][:1])
+            mylogs.plog.info("target: %s", examples["target"][:1])
         if bp == "data":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
