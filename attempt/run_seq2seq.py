@@ -952,6 +952,7 @@ def train(config_file, **kwargs):
                         info = "@".join(info)
                     if type(info) == dict:
                         info = json.dumps(info)
+                        info = info.replace("\n", "@")
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
