@@ -1070,6 +1070,8 @@ TASK_MAPPING = OrderedDict(
         ('xAttr', xAttr),
         ('xNeed', xNeed),
         ('xReact', xReact),
+        ('xWant', xWant),
+        ('xEffect', xEffect),
         ('atomic-rels', AtomicRel),
         ('squad', Squad),
         ('mrpc', MRPC),
