@@ -322,6 +322,13 @@ def train(config_file, **kwargs):
             mylogs.dlog.info("-------------------------------------")
             return
 
+    if adapter_args.prompt_tuning:
+        kwargs["method"] = "PT"
+    elif adapter_args.prompt_tuning:
+        kwargs["method"] = "PRT"
+    else:
+        kwargs["method"] = "FT"
+
     if preview:
        mylogs.plog.handlers.clear()
        mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
