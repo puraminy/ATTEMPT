@@ -492,6 +492,7 @@ class Atomic(AbstractTask):
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         sort_by = ["freqs","input_text", "prefix"] 
         if "sel" in df:
+            mylogs.bp("df")
             sort_by = ["sel", "freqs","input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
         return df
@@ -555,13 +556,15 @@ class Atomic(AbstractTask):
         tgt_texts = [tgt.format_map(data)]
         src_texts = [self.fill_prompts(src_texts)]
         return src_texts, tgt_texts 
-    
+
+    #### ppppppppppppppp 
     def preprocessor(self, example, add_prefix=True):
         mylogs.bp("task_prep")
         src_texts, tgt_texts = self.fill_template(example)
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
+        extra_fields["sel"] = example["sel"] if "sel" in example else False
         extra_fields["query"] = " ".join(src_texts)
         extra_fields["resp"] = tgt_texts[0]
         return self.seq2seq_format(src_texts, tgt_texts, 
