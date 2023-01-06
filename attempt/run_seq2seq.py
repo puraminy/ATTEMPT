@@ -262,10 +262,6 @@ def train(config_file, **kwargs):
     bp = kwargs.setdefault("break_point","")
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     exp_conf = json.dumps(kwargs, indent=2)
-    if preview:
-       mylogs.plog.handlers.clear()
-       mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
-       mylogs.plog.info(exp_conf)
 
     for k,v in kwargs.items():
         logger.info("ARGS: %s=%s", k, v)
@@ -315,7 +311,7 @@ def train(config_file, **kwargs):
     full_tag = kwargs.setdefault("full_tag",[]) # the full list of tags
     # check conflicts of options
     check_cfls = kwargs.setdefault("check_conflicts",True)
-    if check_cfls and not preview:
+    if check_cfls:
         try:
             check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
         except AssertionError as e:
@@ -327,6 +323,10 @@ def train(config_file, **kwargs):
             mylogs.dlog.info("-------------------------------------")
             return
 
+    if preview:
+       mylogs.plog.handlers.clear()
+       mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
+       mylogs.plog.info(exp_conf)
     ###### Collect experiment infos
     exp_info = {}
     for k,v in kwargs.items():
