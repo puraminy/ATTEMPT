@@ -6,7 +6,7 @@ import functools
 from typing import Callable, List, Mapping
 from utils import pad_punctuation
 from metrics import metrics
-from .utils import round_stsb_target,make_prompt
+from .utils import round_stsb_target, defdict
 import datasets
 import logging
 import numpy as np
@@ -208,13 +208,13 @@ class AbstractTask(abc.ABC):
         return template
 
     def get_template():
-        return "",""
+        raise NotImplementedError()
+
+    def fill_template():
+        raise NotImplementedError()
 
     def get_prompts(self):
-        src,tgt = self.get_template()
-        #src = src.format(**self.task_args)
-        src_texts = self.fill_prompts(src)
-        return self.prompt_set
+        raise NotImplementedError()
 
 class Squad(AbstractTask):
     name = "squad"
@@ -447,10 +447,13 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     do_shuffle = True
     samples_per_head = 3
+    rels = []
     def __init__(self, config, task_args):
         super().__init__(config, task_args)
         self.data_path = task_args.data_path
         self.template = task_args.template
+        if not self.rels:
+            self.rels = [self.name]
 
     def get_data_path(self, split):
         path = self.data_path
@@ -494,40 +497,67 @@ class Atomic(AbstractTask):
         return df
 
     def filter(self, df, split):
-       return df
+        cond = ""
+        for val in self.rels: 
+            cond += f"| (df['prefix'] == '{val}') "
+        cond = cond.strip("|")
+        if cond: df = df[eval(cond)]
+        return df
 
+    def get_prompts(self):
+        data = {"prefix": self.name}
+        self.fill_template(data)
+        return self.prompt_set
 
     def get_template(self):
         tn = self.template
-        target = "{mask} {target_text}"
-        if tn == "sup":
-            src = "{input_text}" 
-            target = "{target_text}"
-        elif tn == "unsup":
-            src = "{input_text} {mask}" 
-            target = "{mask} {target_text}"
-        elif tn == "task-pre":
-            src = "[task_i] {input_text} {mask}" 
-        elif tn == "task-mid":
-            src = "{input_text} [task_i] {mask}" 
-        else:
-            raise ValueError("Template " + tn + " is not defined!")
+        src = "{input_text} (prompt) (nat) (mask)" 
+        target = "(mask) {target_text}"
+        if "pre-" in tn:
+            src = "(prompt) {input_text} (mask)" 
+        if "unsup" in tn:
+           src = src.replace("(mask)", "{mask}")
+           target = target.replace("(mask)","{mask}")
+        if "-pt-t" in tn:
+           src = src.replace("(prompt)", "[task_i]")
+        if "-pt-w" in tn:
+           src = src.replace("(prompt)", "{rel_fw}")
+        if "-nat" in tn: 
+           src = src.replace("(nat)", ", {rel_nat}")
+
         return src, target
 
-    def extend_example(self, example):
-        return example
-    
-    def preprocessor(self, example, add_prefix=True):
-        mylogs.bp("task_prep")
-        mask = "<extra_id_0>"
+    def extend_data(self, data):
+        mylogs.bp("data")
+        data["rel_tok"] = REL_TO_TOKEN[data["prefix"]]
+        data["rel_word"] = REL_TO_WORD[data["prefix"]]
+        data["rel_nat"] = REL_TO_PHRASE[data["prefix"]]
+        rel_fw = REL_TO_PHRASE[data["prefix"]]
+        rel_fw = rel_fw.split()
+        rel_fw = ["[task_" + w + "]" for w in rel_fw]
+        rel_fw = " ".join(rel_fw)
+        data["rel_fw"] = rel_fw 
+        return data
+
+    def fill_template(self, data):
+        mylogs.bp("fill")
         src,tgt = self.get_template()
         # remove unused place holders
         src = re.sub(r'\(.*?\)','',src)
         tgt = re.sub(r'\(.*?\)','',tgt)
-        example = self.extend_example(example)
-        src_texts = src.format(**example, mask=mask)
-        tgt_texts = [tgt.format(**example, mask=mask)]
+
+        mask = "<extra_id_0>"
+        data = self.extend_data(data)
+        data["mask"] = mask
+        data = defdict(data)
+        src_texts = src.format_map(data)
+        tgt_texts = [tgt.format_map(data)]
         src_texts = [self.fill_prompts(src_texts)]
+        return src_texts, tgt_texts 
+    
+    def preprocessor(self, example, add_prefix=True):
+        mylogs.bp("task_prep")
+        src_texts, tgt_texts = self.fill_template(example)
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
@@ -538,33 +568,6 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
-    def filter(self, df, split):
-        df = df[df.prefix == "xIntent"]
-        return df
-
-    def get_template(self):
-        tn = self.template
-        target = "{mask} {target_text}"
-        if tn == "task-pre-nat":
-            src = "[task_i] {input_text}, Because they wanted {mask}" 
-        elif tn == "sup-nat":
-            src = "{prefix} {input_text}, Because they want" 
-            target = "{target_text}"
-        elif tn == "unsup-nat":
-            src = "{prefix} {input_text}, Because they want {mask}" 
-            target = "{mask} {target_text}"
-        elif tn == "task-mid-nat":
-            src = "{input_text}, Because they [task_i] {mask}" 
-        elif tn == "task-mid-fw":
-            src = "{input_text}, [task_because] [task_they] [task_want] {mask}" 
-        elif tn == "task-mid-3":
-            src = "{input_text}, [task_3] {mask}" 
-        elif tn == "task-mid-nat2":
-            src = "{input_text}, [task_i] they intend {mask}" 
-        else:
-            return super().get_template()
-
-        return src, target
 
 class AtomicRel(Atomic):
     name = "atomic-rels"
@@ -575,14 +578,6 @@ class AtomicRel(Atomic):
         self.val_samples_per_rel = task_args.val_samples
         self.test_samples_per_rel = task_args.test_samples
         self.rels = task_args.rels
-
-    def filter(self, df, split):
-        cond = ""
-        for val in self.rels: 
-            cond += f"| (df['prefix'] == '{val}') "
-        cond = cond.strip("|")
-        if cond: df = df[eval(cond)]
-        return df
 
     def get_data_path(self, split):
         path = self.data_path
@@ -604,26 +599,14 @@ class AtomicRel(Atomic):
     def check_n_obs(self, n_obs, total_size):
         return total_size
 
-    def extend_example(self, example):
-        mylogs.bp("example")
-        example["rel_tok"] = REL_TO_TOKEN[example["prefix"]]
-        example["rel_word"] = REL_TO_WORD[example["prefix"]]
-        example["rel_nat"] = REL_TO_PHRASE[example["prefix"]]
-        rel_fw = REL_TO_PHRASE[example["prefix"]]
-        rel_fw = rel_fw.split()
-        rel_fw = ["[task_" + w + "]" for w in rel_fw]
-        rel_fw = " ".join(rel_fw)
-        example["rel_fw"] = rel_fw 
-        return example
-
     def get_template(self):
         tn = self.template
         src = "{input_text} |(prompt)| {target_text}" 
         if "unsup" in tn:
            src = "{input_text} (prompt) {mask} {target_text}" 
-        if "-pr" in tn:
+        if "-pt-t" in tn:
            src = src.replace("(prompt)", "[task_i]")
-        if "-pfw" in tn:
+        if "-pt-w" in tn:
            src = src.replace("(prompt)", "{rel_fw}")
         if "-rel" in tn:
            target = "{prefix}"
@@ -641,36 +624,12 @@ class AtomicRel(Atomic):
 
 class xAttr(Atomic):
     name = "xAttr"
-    def filter(self, df, split):
-        return df[df.prefix == "xAttr"]
-    def get_template(self):
-        tn = self.template
-        target = "{mask} {target_text}"
-        if tn == "sup-nat":
-            src = "{prefix} {input_text}, So they are seen as" 
-            target = "{target_text}"
-        elif tn == "unsup-nat":
-            src = "{prefix} {input_text}, So they are seen as {mask}" 
-            target = "{mask} {target_text}"
-        elif tn == "task-pre-nat":
-            src = "[task_i] {input_text}, So they are seen as {mask}" 
-        elif tn == "task-mid-nat":
-            src = "{input_text}, So they [task_i] {mask}" 
-        elif tn == "task-mid-nat2":
-            src = "{input_text}, [task_i] seen as {mask}" 
-        else:
-            return super().get_template()
-        return src, target
 
 class xNeed(Atomic):
     name = "xNeed"
-    def filter(self, df, split):
-        return df[df.prefix == "xNeed"]
 
 class xReact(Atomic):
     name = "xReact"
-    def filter(self, df, split):
-        return df[df.prefix == "xReact"]
 
 class QQP(AbstractTask):
     name = "qqp"
