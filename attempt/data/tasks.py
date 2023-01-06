@@ -544,6 +544,7 @@ class Atomic(AbstractTask):
         src,tgt = self.get_template()
         # remove unused place holders
         src = re.sub(r'\(.*?\)','',src)
+        src = re.sub(' +', ' ',src)
         tgt = re.sub(r'\(.*?\)','',tgt)
 
         mask = "<extra_id_0>"
