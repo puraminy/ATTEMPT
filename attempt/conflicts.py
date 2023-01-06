@@ -10,10 +10,12 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
         assert not trainer_shuffle, "Trainer can't be shuffled for multi-task. The data is interleaved"
     if adapter_args.prompt_tuning:
         assert "pt" in method, "Prompt tuning is not in the selected methods"
+        assert "-pt" in data_args.template, "Prompt tuning is not supported by the selected template"
         assert kwargs.use_optimizer, "Prompt tuning uses optimizer" 
         assert training_args.learning_rate > 0.01, "Learning rate is too small for prompt tuning"
         assert not adapter_args.prefix_tuning, "Prompt tuning and prefix tuning can't be both on" 
     else:
+        assert not "-pt" in data_args.template, "The selected template requires prompt tuning"
         if model_args.attn_learning_rate is not None:
             assert kwargs.use_optimizer, "Attention learning uses optimizer" 
         else:
