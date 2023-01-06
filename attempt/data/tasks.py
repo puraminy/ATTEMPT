@@ -637,6 +637,12 @@ class xNeed(Atomic):
 class xReact(Atomic):
     name = "xReact"
 
+class xWant(Atomic):
+    name = "xWant"
+
+class xEffect(Atomic):
+    name = "xEffect"
+
 class QQP(AbstractTask):
     name = "qqp"
     labels_list = ["0", "1"]
