@@ -323,11 +323,11 @@ def train(config_file, **kwargs):
             return
 
     if adapter_args.prompt_tuning:
-        kwargs["method"] = "PT"
+        kwargs["method"] = "promptT"
     elif adapter_args.prompt_tuning:
-        kwargs["method"] = "PRT"
+        kwargs["method"] = "prefixT"
     else:
-        kwargs["method"] = "FT"
+        kwargs["method"] = "fineT"
 
     if preview:
        mylogs.plog.handlers.clear()
@@ -963,9 +963,14 @@ def train(config_file, **kwargs):
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    df.at[i, "input_text"] = df.loc[i, "extra_fields"]["event"] 
-                    df.at[i, "target_text"] = df.loc[i, "extra_fields"]["resp"]  
-                    df.at[i, "tail"] = df.loc[i, "extra_fields"]["tail"]  
+                    extra = df.loc[i, "extra_fields"]
+                    df.at[i, "input_text"] = extra["event"] 
+                    df.at[i, "target_text"] = extra["resp"]  
+                    sel = False
+                    if "sel" in extra:
+                        sel = extra["sel"] 
+                    df.at[i, "sel"] = sel 
+                    df.at[i, "tail"] = extra["tail"]  
                     pred = tokenizer.decode(predictions[i], 
                             skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                     pred = re.sub(r'<.*?>','',pred)
