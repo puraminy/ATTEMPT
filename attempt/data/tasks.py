@@ -512,13 +512,15 @@ class Atomic(AbstractTask):
 
     def get_template(self):
         tn = self.template
-        src = "{prefix}: {input_text} (prompt) (nat) (mask)" 
+        src = "{prefix}: (com) {input_text} (prompt) (nat) (mask)" 
         target = "(mask) {target_text}"
         if "pre-" in tn:
             src = "(prompt) {input_text} (mask)" 
         if "unsup" in tn:
            src = src.replace("(mask)", "{mask}")
            target = target.replace("(mask)","{mask}")
+        if "-com" in tn:
+           src = src.replace("(com)", "[com_i]")
         if "-pt-t" in tn:
            src = src.replace("(prompt)", "[task_i]")
         if "-pt-w" in tn:
