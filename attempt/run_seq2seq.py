@@ -692,7 +692,6 @@ def train(config_file, **kwargs):
 
     if training_args.do_test:
         if data_args.test_files is not None:
-            breakpoint()
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
                 split="test",
@@ -938,7 +937,7 @@ def train(config_file, **kwargs):
         # multi-task evaluations
         results = {}
         if model_args.shared_attn is False:
-            for task, test_dataset in test_datasets.items():
+            for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                 predictions, labels, metrics = trainer.predict(test_dataset=test_dataset,
                                            max_length=data_args.test_max_target_length, 
                                            num_beams=data_args.num_beams,
@@ -947,12 +946,14 @@ def train(config_file, **kwargs):
                 
                 trainer.log_metrics("test", metrics)
                 trainer.save_metrics("test", metrics)
+                ds_conf = data_args.test_dataset_config_name[idx]
+                ds_name = data_args.test_dataset_name[idx]
 
                 # sssssssssss
                 #predictions = np.argmax(predictions, axis=1)
                 #predictions = tokenizer.batch_decode(predictions)
                 output_predict_file = os.path.join(training_args.output_dir, 
-                        "full_results_" + task + ".tsv")
+                        ds_conf + "_results_" + ds_name + ".tsv")
                 df = test_dataset.to_pandas()
                 if bp == "test": breakpoint()
                 df["pred_text1"] = ""
