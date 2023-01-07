@@ -26,3 +26,4 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
         else:
             assert training_args.learning_rate < 0.01, "Learning rate is too high for fine tuning"
             assert "ft" in method, "fine tuning is not in the selected methods"
+            assert kwargs.opt_type == "regular", "Fine tuning needs regular optimizer"
