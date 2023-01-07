@@ -276,7 +276,7 @@ def train(config_file, **kwargs):
 
     # set other options
     data_args.eval_dataset_name=data_args.task_name
-    data_args.test_dataset_name=data_args.task_name
+    #data_args.test_dataset_name=data_args.task_name
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
@@ -299,6 +299,17 @@ def train(config_file, **kwargs):
 
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
+
+    test_ds_confs = kwargs.setdefault("test_ds_config", ["test"])
+    test_ds_names = data_args.test_dataset_name
+    mylogs.bp("conf")
+    test_combs = itertools.product(test_ds_confs, test_ds_names)
+    _confs = []
+    _names = []
+    for c, n in test_combs:
+        _confs.append(c)
+        _names.append(n)
+    data_args.test_dataset_name = _names
     data_args.test_dataset_config_name = _confs
 
     if type(data_args.task_name) == list:
@@ -681,6 +692,7 @@ def train(config_file, **kwargs):
 
     if training_args.do_test:
         if data_args.test_files is not None:
+            breakpoint()
             test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
                 split="test",

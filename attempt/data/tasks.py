@@ -460,7 +460,8 @@ class Atomic(AbstractTask):
         if not path.startswith("/"):
             path= op.join(HOME, self.data_path)
         if split == "test":
-            path = op.join(path, split, self.name  + '.tsv')
+            mylogs.bp("path")
+            path = op.join(path, self.config, split  + '.tsv')
         else:
             path = op.join(path, split + '.tsv')
         return path
