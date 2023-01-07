@@ -692,7 +692,7 @@ def train(config_file, **kwargs):
 
     if training_args.do_test:
         if data_args.test_files is not None:
-            test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
+            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
                 split="test",
                 split_validation_test=training_args.split_validation_test,
@@ -700,7 +700,8 @@ def train(config_file, **kwargs):
                 n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=test_file)
                 for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
         else:
-            test_datasets = {test_dataset: AutoTask.get(test_dataset, test_dataset_config,
+            mylogs.bp("test")
+            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
                 split="test",
                 split_validation_test=training_args.split_validation_test,
@@ -756,7 +757,7 @@ def train(config_file, **kwargs):
 
     data_info = {}
     data_info["eval"] = eval_datasets[data_args.eval_dataset_name[0]]['extra_fields'] if training_args.do_eval else None
-    data_info["test"] = test_datasets[data_args.test_dataset_name[0]]['extra_fields'] if training_args.do_test else None
+    data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
     data_info["train"] = train_dataset['extra_fields'] if training_args.do_train else None
 
     def compute_metrics(eval_preds):
@@ -938,6 +939,7 @@ def train(config_file, **kwargs):
         results = {}
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                mylogs.bp("test")
                 predictions, labels, metrics = trainer.predict(test_dataset=test_dataset,
                                            max_length=data_args.test_max_target_length, 
                                            num_beams=data_args.num_beams,
@@ -963,7 +965,7 @@ def train(config_file, **kwargs):
                 df["langs"] = "en2en"
                 df["prefix"] = task
                 df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                        "test", task + ".tsv")
+                                        ds_conf,"test.tsv")
                 for key, info in exp_info.items():
                     if type(info) == list:
                         info = "@".join(info)
