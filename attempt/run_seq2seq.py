@@ -963,7 +963,7 @@ def train(config_file, **kwargs):
                 df["resp"] = ""
                 df["query"] = ""
                 df["langs"] = "en2en"
-                df["prefix"] = task
+                df["prefix"] = ds_name
                 df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                         ds_conf,"test.tsv")
                 for key, info in exp_info.items():
