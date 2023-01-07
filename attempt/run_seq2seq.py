@@ -952,8 +952,6 @@ def train(config_file, **kwargs):
                 # sssssssssss
                 #predictions = np.argmax(predictions, axis=1)
                 #predictions = tokenizer.batch_decode(predictions)
-                output_predict_file = os.path.join(training_args.output_dir, 
-                        ds_conf + "_results_" + ds_name + ".tsv")
                 df = test_dataset.to_pandas()
                 if bp == "test": breakpoint()
                 df["pred_text1"] = ""
@@ -990,7 +988,8 @@ def train(config_file, **kwargs):
                     df.at[i, "pred_text1"] = pred
                 df.drop(columns=["input_ids","labels","attention_mask"])
                 mylogs.bp("test")
-                save_to = op.join(training_args.output_dir, "full_results_"+ task + ".tsv")
+                save_to = os.path.join(training_args.output_dir, 
+                        ds_conf + "_results_" + ds_name + ".tsv")
                 do_score(df, "rouge@bert", save_to)
 
     if model_args.save_prefix_only:
