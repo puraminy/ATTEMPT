@@ -291,8 +291,8 @@ def train(config_file, **kwargs):
     task_args = dotdict(task_args)
 
     # an option to explicitly specify the method of training 
-    # (pt: prompt-tuning, ft:fine-tuning, prt:prefix-tuning etc.)
-    method = kwargs.setdefault("method", [])
+    # (pt: prompt-tuning, ft:fine-tuning, px:prefix-tuning etc.)
+    method = kwargs.setdefault("method", "")
     ds_confs = kwargs.setdefault("ds_config", ["en"])
     n_tasks = len(data_args.task_name)
     _confs =["en"] * n_tasks
@@ -333,13 +333,6 @@ def train(config_file, **kwargs):
             mylogs.dlog.info("Conflict: %s", e.args)
             mylogs.dlog.info("-------------------------------------")
             return
-
-    if adapter_args.prompt_tuning:
-        kwargs["method"] = "promptT"
-    elif adapter_args.prompt_tuning:
-        kwargs["method"] = "prefixT"
-    else:
-        kwargs["method"] = "fineT"
 
     if preview:
        mylogs.plog.handlers.clear()
