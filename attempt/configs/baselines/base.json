@@ -18,7 +18,6 @@
     "non_linearity": "gelu_new",
     "overwrite_output_dir": false,
     "init_prefix_from_vocab": true,
-    "prompt_tuning": true,
     "prefix_dim": 100,
     "max_source_length": 256,
     "prompt_learning_rate": 0.01,
