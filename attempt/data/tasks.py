@@ -271,6 +271,12 @@ class AbstractTask(abc.ABC):
                 'target': ' '.join(targets),
                 'task': self.name,
                 ** extra_fields}
+        if not "event" in extra_fields:
+            extra_fields["event"] = " ".join(sources) 
+        if not "tail" in extra_fields:
+            extra_fields["tail"] = " ".join(targets)  
+        if not "sel" in extra_fields:
+            extra_fields["sel"] = False
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
         extra_fields["resp"] = tgt_text

@@ -578,7 +578,7 @@ def train(config_file, **kwargs):
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
             ]
         model_inputs["labels"] = labels["input_ids"]
-        #model_inputs["extra_fields"] = examples['extra_fields']  
+        model_inputs["extra_fields"] = examples['extra_fields']  
         if task_id is not None:
             model_inputs["task_ids"] = [
                 task_id for _ in examples['extra_fields']]
@@ -751,7 +751,7 @@ def train(config_file, **kwargs):
     print(compute_metrics_fn)
 
     data_info = {}
-    has_extra = kwargs.setdefault("has_extra", False)
+    has_extra = kwargs.setdefault("has_extra", True)
     if has_extra:
         data_info["eval"] = eval_datasets[data_args.eval_dataset_name[0]]['extra_fields'] if training_args.do_eval else None
         data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
