@@ -200,13 +200,13 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
            if len(cc) > 1:
                full_tags.append(vv)
                if not vv in tag_exclude: tags.append(vv)
-               if preview: 
+               if preview and not preview == "all": 
                    if not vv in preview and not vv in tag_exclude:
                        var_names.remove(vv)
                        values.remove(cc)
 
-       if preview and not preview in tags: 
-          print("Eror:", preview, " must be in ", tags, " which have multiple values")
+       if preview and not preview in tags and not preview == "all": 
+          print("Eror:", preview, " must be all or one of ", tags, " which have multiple values")
           return
 
        args["tag"] = tags 
@@ -225,9 +225,6 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
            ii += 1
            args["output_dir"] = os.path.join(save_path, *_output_dir)
            args["expid"] = ii
-           exp_conf = json.dumps(args, indent=2)
-           mylogs.clog.info(exp_conf)
-           print(exp_conf)
            # break point before running to check arguments (breakpoint must be check)
            mylogs.bp("check")
            ctx.invoke(train, config_file=config_file, **args)
@@ -244,6 +241,12 @@ def train(config_file, **kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+    exp_conf = json.dumps(kwargs, indent=2)
+    mylogs.clog.info(exp_conf)
+    print(exp_conf)
+    preview = kwargs.setdefault("preview","")
+    if preview == "all":
+        return
     kwargs = dotdict(kwargs)
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
@@ -257,7 +260,6 @@ def train(config_file, **kwargs):
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     #### My code: overwrite kwargs over arguments read from parser
-    preview = kwargs.setdefault("preview","")
     bp = kwargs.setdefault("break_point","")
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     exp_conf = json.dumps(kwargs, indent=2)
