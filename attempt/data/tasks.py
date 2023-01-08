@@ -93,7 +93,8 @@ class AbstractTask(abc.ABC):
     def map_dataset(self, dataset, add_prefix):
         mylogs.bp("map")
         return dataset.map(functools.partial(self.preprocessor, add_prefix=add_prefix),
-                           remove_columns=dataset.column_names)
+                           remove_columns=dataset.column_names,
+                           load_from_cache_file=False)
 
     def get(self, split, add_prefix=True, n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
@@ -206,12 +207,15 @@ class AbstractTask(abc.ABC):
     def get_template(self):
         tn = self.template
         src = "{task}: (com) {source} (prompt) (nat) (mask)" 
-        target = "(mask) {taret}"
+        target = "(mask) {target}"
         if "pre-" in tn:
             src = "(prompt) {source} (mask)" 
         if "unsup" in tn:
            src = src.replace("(mask)", "{mask}")
            target = target.replace("(mask)","{mask}")
+        elif "sup" in tn:
+           src = src.replace("(mask)", "")
+           target = target.replace("(mask)","")
         if "-com" in tn:
            src = src.replace("(com)", "[com_i]")
         if "-pt-t" in tn:
@@ -420,9 +424,7 @@ class COLA(AbstractTask):
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence:", example['sentence']]
         tgt_texts = [str(example['label'])]
-        breakpoint()
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
-
 
 class SST2(AbstractTask):
     name = "sst2"
