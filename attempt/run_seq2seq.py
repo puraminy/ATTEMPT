@@ -980,7 +980,7 @@ def train(config_file, **kwargs):
                     df.at[i, "input_text"] = inp #extra["event"] 
                     label = tokenizer.decode(row["labels"], 
                             skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                    label = re.sub(r'<.*?>','', label)
+                    #label = re.sub(r'<.*?>','', label)
                     label = label.strip()
                     df.at[i, "target_text"] = label 
                     sel = False
