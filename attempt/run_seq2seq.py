@@ -978,7 +978,11 @@ def train(config_file, **kwargs):
                     inp = inp.strip()
                     extra = row["extra_fields"]
                     df.at[i, "input_text"] = inp #extra["event"] 
-                    df.at[i, "target_text"] = extra["tail"]  
+                    label = tokenizer.decode(row["labels"], 
+                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                    label = re.sub(r'<.*?>','', label)
+                    label = label.strip()
+                    df.at[i, "target_text"] = label 
                     sel = False
                     if "sel" in extra:
                         sel = extra["sel"] 
