@@ -822,6 +822,7 @@ def train(config_file, **kwargs):
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
             multi_task_compute_metrics=compute_metrics_fn,
             evaluation_metrics=task_metric,
+            save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             shared=model_args.shared_attn,
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
@@ -837,6 +838,7 @@ def train(config_file, **kwargs):
             tokenizer=tokenizer,
             data_collator=data_collator,
             shuffle = trainer_shuffle,
+            save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
             evaluation_metrics=task_metric,
             multi_task_compute_metrics=compute_metrics_fn,
