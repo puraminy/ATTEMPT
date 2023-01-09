@@ -15,7 +15,7 @@ from data.postprocessors import AutoPostProcessor
 import torch
 from sentence_transformers import SentenceTransformer, util
 from rouge import Rouge
-from mylogs import *
+from attempt.mylogs import *
 from tqdm import tqdm
 import re
 import pandas as pd
