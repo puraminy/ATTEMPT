@@ -51,7 +51,7 @@ class AbstractTask(abc.ABC):
 
 
     def check_n_obs(self, n_obs, total_size):
-        if na_obs < 0 or (n_obs is not None and n_obs > total_size):
+        if n_obs < 0 or (n_obs is not None and n_obs > total_size):
             n_obs = total_size
             logger.warning("n_obs is set to %s", n_obs)
         return n_obs
