@@ -99,6 +99,7 @@ class AbstractTask(abc.ABC):
     def get(self, split, add_prefix=True, n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
+        mylogs.bp("get")
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
             mapped_split = self.split_to_data_split["validation"]
@@ -273,6 +274,8 @@ class AbstractTask(abc.ABC):
                 ** extra_fields}
         extra_fields["event"] = " ".join(sources) 
         extra_fields["tail"] = " ".join(targets)  
+        mylogs.vlog.info("========================")
+        mylogs.vlog.info("%s", extra_fields)
         extra_fields["sel"] = False
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
