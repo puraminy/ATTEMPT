@@ -972,8 +972,12 @@ def train(config_file, **kwargs):
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    extra = df.loc[i, "extra_fields"]
-                    df.at[i, "input_text"] = extra["event"] 
+                    inp = tokenizer.decode(row["input_ids"], 
+                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                    inp = re.sub(r'<.*?>','', inp)
+                    inp = inp.strip()
+                    extra = row["extra_fields"]
+                    df.at[i, "input_text"] = inp #extra["event"] 
                     df.at[i, "target_text"] = extra["tail"]  
                     sel = False
                     if "sel" in extra:
