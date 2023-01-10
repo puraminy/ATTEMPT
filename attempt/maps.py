@@ -46,7 +46,8 @@ REL_TO_WORD = {
     'isAfter':"is after", 
     'isBefore':"is before", 
     'isFilledBy': "is filled by",
-    'HinderedBy':"hindered by"
+    'HinderedBy':"hindered by",
+    'cola':"Is it grammatical or meaningful?",
 }
 REL_TO_TOKEN = {
     "cb":"<cb>",
