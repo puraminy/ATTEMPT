@@ -873,8 +873,7 @@ def train(config_file, **kwargs):
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         if adapter_args.prompt_tuning:
             with torch.no_grad():
-                pass
-               # model.update_model_weight()
+               model.update_model_weight()
 
         if training_args.compute_time:
             end.record()
