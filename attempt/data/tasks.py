@@ -197,7 +197,7 @@ class AbstractTask(abc.ABC):
     def fill_prompts(self, template):
         mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z]+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z\?]+)\]")
         return template
 
     def get_prompts(self):
