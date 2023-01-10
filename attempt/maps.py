@@ -21,7 +21,7 @@ REL_TO_PHRASE = {
     'isAfter':"<isAfter>", 
     'isBefore':"<isBefore>", 
     'isFilledBy': "<isFilledBy>",
-    'HinderedBy':"<HinderedBy>"
+    'HinderedBy':"<HinderedBy>",
     'cola':"Is it grammatical or meaningful?",
 }
 REL_TO_WORD = {
