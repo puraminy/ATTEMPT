@@ -179,7 +179,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        val = val.strip()
        key=key.strip("--")
        logger.info("set %s = %s", key, val)
-       args[key] = strval(val)
+       args[key] = strval(val) if not val.startswith("!") else val[1:]
 
    if not exp_vars:
        args["tag"] = tags
@@ -218,7 +218,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        for comb in tot_comb:
            _output_dir = [output_dir]
            for var_name,var_item in comb.items():
-               var_item = strval(var_item)
+               var_item =strval(var_item) if not var_item.startswith("!") else var_item[1:]
                args[var_name]=var_item
                if not var_name in exclude_list:
                    _output_dir.append(var_name + "=" + str(var_item))
@@ -399,7 +399,8 @@ def train(config_file, **kwargs):
     # Load a model config
     model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
     load_path = kwargs.setdefault("load_path", "")
-    if load_path:
+    assert False, model_name_or_path
+    if not model_name_or_path.startswith("/") and load_path:
         model_name_or_path = op.join(load_path, model_name_or_path)
     config = T5Config.from_pretrained(
         model_name_or_path,
@@ -1036,8 +1037,10 @@ def train(config_file, **kwargs):
     # Evaluate all checkpoints on all tasks if training_args.eval_all_at_last==True
     results = {}
     if training_args.eval_all_at_last:
+        mylogs.bp("eval")
         for checkpoint_dir in glob.glob(os.path.join(training_args.output_dir, "checkpoint-*_prompt_only")):
             print(checkpoint_dir)
+            mylogs.bp("eval")
             attention_paths = [os.path.join(checkpoint_dir, "attn_W_down.pt"), os.path.join(
                 checkpoint_dir, "attn_W_up.pt")]
             trainer.model.update_attention_weights_sub(attention_paths)
