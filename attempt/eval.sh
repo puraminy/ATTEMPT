@@ -77,7 +77,6 @@ fi
 onError=break
 params="${params} --model_name_or_path=!${PWD}"
 echo $params
-exit
 
 methods=$(echo $others | xargs)
 if [ -z "$methods" ]; then

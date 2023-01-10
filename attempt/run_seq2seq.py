@@ -175,7 +175,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
    if break_point:
        mylogs.setbp(break_point)
    for item in ctx.args: #extra arguments
-       key,val = item.split("=")
+       sp = item.split("=")
+       key = sp[0]
+       val = "=".join(sp[1:])
        val = val.strip()
        key=key.strip("--")
        logger.info("set %s = %s", key, val)
@@ -399,7 +401,6 @@ def train(config_file, **kwargs):
     # Load a model config
     model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
     load_path = kwargs.setdefault("load_path", "")
-    assert False, model_name_or_path
     if not model_name_or_path.startswith("/") and load_path:
         model_name_or_path = op.join(load_path, model_name_or_path)
     config = T5Config.from_pretrained(
