@@ -1,13 +1,13 @@
 
 #!/bin/sh
 
-g1=""
+params=""
 g2=""
 for i in $@
 do
    case $i in
        # -- option
-       --*) g1="${g1} $i"; g=1;;
+       --*) params="${params} $i"; g=1;;
        
        -m) echo "------"; g=3;;
        # - option
@@ -17,7 +17,7 @@ do
        *) p=$i
           if [ "$g" = 1 ]
           then
-            g1="${g1} $p"
+            params="${params} $p"
             g=0
           elif [ "$g" = 2 ]
           then
@@ -75,6 +75,10 @@ else
   epochs=8
 fi
 onError=break
+params="${params} --model_name_or_path=!${PWD}"
+echo $params
+exit
+
 methods=$(echo $others | xargs)
 if [ -z "$methods" ]; then
   methods="ft pt px"
@@ -104,7 +108,6 @@ exp=$task-$m
 var="${var}--do_train=Fals"
 var="${var}--do_test=True"
 var="${var}--do_eval=True"
-var="${var}--model_name_or_path=${PATH}"
 
 # Saving
 var="${var}--save_total_limit=1"
@@ -148,7 +151,7 @@ if [ "$method" = "pt" ]; then
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
 fi
-runat run $g2 -exp $exp -cfg $config -var ${var} 
+runat run $g2 -exp $exp -cfg $config -var ${var} ${params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"
