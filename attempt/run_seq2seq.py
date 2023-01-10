@@ -797,7 +797,9 @@ def train(config_file, **kwargs):
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
     #### ooooo 
-    steps = len(train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+    steps = 0
+    if training_args.do_train:
+        steps = len(train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
 
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
