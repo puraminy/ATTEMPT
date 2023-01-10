@@ -42,8 +42,8 @@ case "$HOME" in
     ;;
 esac
 
-config=configs/baselines/base.json 
 home=$HOME
+config=$HOME/ATTEMPT/attempt/configs/baselines/base.json 
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
