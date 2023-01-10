@@ -22,6 +22,7 @@ REL_TO_PHRASE = {
     'isBefore':"<isBefore>", 
     'isFilledBy': "<isFilledBy>",
     'HinderedBy':"<HinderedBy>"
+    'cola':"Is it grammatical or meaningful?",
 }
 REL_TO_WORD = {
     "oEffect":"effect on others",
