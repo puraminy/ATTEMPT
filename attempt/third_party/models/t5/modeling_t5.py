@@ -1832,12 +1832,12 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
         cur_embeddings = self.get_input_embeddings()
         if self.merge_encoder:
-            self.merge_encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
+            #self.merge_encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
             self.merge_encoder.save(output_dir)
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
-            encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
+            #encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
             encoder.save(output_dir)
 
     ################## End my functions
