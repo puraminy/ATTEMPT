@@ -60,14 +60,16 @@ class PromptEncoder(torch.nn.Module):
     def save(self, output_dir):
         if not output_dir:
             return
-        torch.save(self.embedding, os.path.join(
-            output_dir, "prompt_" + self.name + ".pt"))
+        for name, param in self.named_parameters():
+            if "embedding.weight" in name:
+                torch.save(param, os.path.join(
+                    output_dir, "prompt_" + self.name + ".pt"))
 
     def load(self, load_dir):
         if not load_dir:
             return
-        self.embeddings.weight.data = torch.load(os.path.join(load_dir, 
-            "prompt_" + self.name + ".pt"))
+        w = torch.load(os.path.join(load_dir, "prompt_" + self.name + ".pt"))
+        self.embedding.weight.data = w
 
     def update_embs_from(self, embeds):
         embs = {}
