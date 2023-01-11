@@ -1,5 +1,5 @@
-from comet.third_party.models.t5 import T5LayerNorm
-from comet.adapters import (AutoAdapterConfig, AdapterController, Adapter)
+from attempt.third_party.models.t5 import T5LayerNorm
+from attempt.adapters import (AutoAdapterConfig, AdapterController, Adapter)
 import os
 import regex as re
 import logging
