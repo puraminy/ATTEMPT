@@ -143,8 +143,15 @@ def cli():
     is_flag=True,
     help="Remove the existing experiment folder"
 )
+@click.option(
+    "--download_model",
+    "-dm",
+    is_flag=True,
+    help="Whether download pretrained model or load it from a directory"
+)
 @click.pass_context
-def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, trial, rem):
+def run(ctx, experiment, config_file, exp_vars, break_point, preview, 
+        debug, trial, rem, download_model):
    if debug:
        port = "1234"
        debugpy.listen(('0.0.0.0', int(port)))
@@ -165,7 +172,9 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview, debug, tri
        os.remove(save_path)
    Path(save_path).mkdir(exist_ok=True, parents=True)
    args["save_path"] = save_path
-   args["load_path"] = mylogs.pretPath 
+   args["load_path"] = "" 
+   if not download_model:
+       args["load_path"] = mylogs.pretPath 
    args["experiment"] = experiment 
    args["trial"] = trial
    args["break_point"] = break_point 
