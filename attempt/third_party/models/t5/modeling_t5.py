@@ -1825,12 +1825,15 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
     def update_prompt_encoders_embeds(self, load_dir = None):
         if not load_dir: return
-        lst = self.encoder.prompt_encoders 
-        lst.extend(self.encoder.skill_encoders)
-        for encoder in lst:
+        #lst = self.encoder.prompt_encoders 
+        #lst.extend(self.encoder.skill_encoders)
+        lst = []
+        for encoder in self.prompt_encoders:
             load_file = os.path.join(load_dir, "prompt_" + encoder.name + ".pt")
-            encoder=torch.load(load_file)
+            enc=torch.load(load_file)
+            lst.append(enc)
             #encoder.load(load_path)
+        self.encoder.prompt_encoders = torch.nn.ModuleList(lst)
 
     def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
         cur_embeddings = self.get_input_embeddings()
