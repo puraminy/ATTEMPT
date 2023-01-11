@@ -23,14 +23,13 @@ logs/*
 **/**/outputs/*
 **/output*/**/**
 **/**/runs/*
-**/**/source_prompts/*
+**/**/*_prompts/*
 **/**/images/*
 **/**/tmp_*/*
 **/**/plogs/*
 **/**/.rouge/*
 **/**/*sels/*
 **/**/*logs/*
-**/**/*prompts/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

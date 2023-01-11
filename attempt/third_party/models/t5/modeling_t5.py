@@ -1823,16 +1823,23 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.encoder.skill_encoders = torch.nn.ModuleList(skill_encoders)
         self.encoder.id_offset = offset 
 
-    def update_model_weight(self, task_ids = None):
-        self.cur_embeddings = self.get_input_embeddings()
-        if self.merge_encoder:
-            self.merge_encoder.dump_embeddings_into(self.cur_embeddings.weight, task_ids)
+    def update_prompt_encoders_embeds(self, load_dir = None):
+        lst = self.encoder.prompt_encoders 
+        lst.extend(self.encoder.skill_encoders)
+        for encoder in lst:
+            encoder.load(load_dir)
 
-        for encoder in self.prompt_encoders:
-            # fill the current embeddings with weights of encoder
-            encoder.dump_embeddings_into(self.cur_embeddings.weight, task_ids)
-            #model_embeddings = self.get_input_embeddings()
-            #self.prompt_encoder.dump_embeddings_into(model_embeddings.weight)
+    def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
+        cur_embeddings = self.get_input_embeddings()
+        if self.merge_encoder:
+            self.merge_encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
+            self.merge_encoder.save(output_dir)
+        lst = self.encoder.prompt_encoders 
+        lst.extend(self.encoder.skill_encoders)
+        for encoder in lst:
+            encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
+            encoder.save(output_dir)
+
     ################## End my functions
 
     def init_prefix_weights(self):
