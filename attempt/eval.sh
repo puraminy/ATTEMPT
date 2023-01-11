@@ -104,7 +104,7 @@ var="${var}--test_ds_config=full-test@" #@sel-test"
 exp=$task-$m
 
 # operations
-var="${var}--do_train=Fals"
+var="${var}--do_train=False"
 var="${var}--do_test=True"
 var="${var}--do_eval=True"
 
