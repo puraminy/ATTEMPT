@@ -1,13 +1,13 @@
 
 #!/bin/sh
 
-g1=""
+params=""
 g2=""
 for i in $@
 do
    case $i in
        # -- option
-       --*) g1="${g1} $i"; g=1;;
+       --*) params="${params} $i"; g=1;;
        
        -m) echo "------"; g=3;;
        # - option
@@ -17,7 +17,7 @@ do
        *) p=$i
           if [ "$g" = 1 ]
           then
-            g1="${g1} $p"
+            params="${params} $p"
             g=0
           elif [ "$g" = 2 ]
           then
@@ -109,7 +109,7 @@ if [ "$m" = "self" ]; then
   echo "cur folder: ${exp}"
 fi
 # operations
-var="${var}--do_train=True"
+var="${var}--do_train=False"
 var="${var}--do_test=True"
 var="${var}--do_eval=True"
 # Saving
@@ -142,6 +142,7 @@ if [ "$method" = "px" ]; then
 	var="${var}--use_optimizer=False"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=20"
+	params="${params} --prompt_encoders_dir=trial=4/prompts"
 fi
 
 # pppppppppppp
@@ -156,9 +157,11 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_tokens=8"
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
-	var="${var}--num_train_epochs=2"
+	var="${var}--num_train_epochs=5"
+	params="${params} --prompt_encoders_dir=trial=4/prompts"
 fi
-runat run $g2 -exp $exp -cfg $config -var ${var} 
+echo ${params}
+runat run $g2 -exp $exp -cfg $config -var ${var} ${params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"

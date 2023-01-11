@@ -535,7 +535,8 @@ def train(config_file, **kwargs):
 
     mylogs.bp("tokens")
     model.resize_token_embeddings(len(tokenizer))
-    model.update_prompt_encoders_embeds(load_dir= model_args.prompt_encoders_dir)
+    prompt_dir = model_args.prompt_encoders_dir
+    model.update_prompt_encoders_embeds(load_dir=prompt_dir)
     mylogs.bp("tokens")
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
