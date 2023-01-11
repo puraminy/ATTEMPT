@@ -36,9 +36,9 @@ done
 echo "Others: ${others}"
 model=t5-base
 
-config=configs/baselines/base.json 
-#config=configs/attempt/single_task.json 
 home=$HOME
+config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
+#config=configs/attempt/single_task.json 
 case "$HOME" in 
   *ahmad*)
     # Do stuff
@@ -74,9 +74,9 @@ echo "log: ${log}"
 if [ "$m" = "test" ]; then
    echo "testing"
 else
-  train_num=-1
+  train_num=200
   val_num=10
-  test_num=-1
+  test_num=100
   epochs=5
 fi
 onError=break
@@ -96,7 +96,7 @@ var="${var}--data_seed=42"
 var="${var}--overwrite_cache=True"
 
 # task
-task="cola@"
+task="xAttr@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
@@ -104,7 +104,10 @@ var="${var}--test_dataset_name=$task"
 var="${var}--test_ds_config=full-test@" #@sel-test"
 
 exp=$task-$m
-
+if [ "$m" = "self" ]; then
+  exp="${PWD#$log/}"
+  echo "cur folder: ${exp}"
+fi
 # operations
 var="${var}--do_train=True"
 var="${var}--do_test=True"
@@ -112,6 +115,7 @@ var="${var}--do_eval=True"
 # Saving
 var="${var}--save_total_limit=1"
 var="${var}--save_checkpoint=True"
+var="${var}--save_model=True"
 
 # training 
 var="${var}--per_device_train_batch_size=8"
@@ -140,6 +144,7 @@ if [ "$method" = "px" ]; then
 	var="${var}--num_train_epochs=20"
 fi
 
+# pppppppppppp
 # prompt tuning
 if [ "$method" = "pt" ]; then
 	var="${var}--prompt_tuning=True"
@@ -167,7 +172,9 @@ if [ "$m" = "show" ]; then
    show_results --path=${log}/${exp}
 fi
 
-cp train.sh ${log}/$exp
+if [ "$m" != "self" ]; then
+	cp train.sh ${log}/$exp
+fi
 case "$home" in 
   *content*)
     # Do stuff
