@@ -1827,7 +1827,9 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
-            encoder.load(load_dir)
+            load_file = os.path.join(load_dir, "prompt_" + encoder.name + ".pt")
+            encoder=torch.load(load_file)
+            #encoder.load(load_path)
 
     def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
         cur_embeddings = self.get_input_embeddings()
@@ -1838,7 +1840,9 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
             #encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
-            encoder.save(output_dir)
+            out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
+            torch.save(encoder, out_file)
+            #encoder.save(output_dir)
 
     ################## End my functions
 
