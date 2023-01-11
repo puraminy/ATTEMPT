@@ -299,6 +299,12 @@ class ModelArguments:
             "help": "set prompt learning rate."
         },
     )
+    prompt_encoders_dir: str = field(
+        default=None,
+        metadata={
+            "help": "A folder name containing saved prompt encoders."
+        },
+    )
 
     load_layer_norm: bool = field(
         default=False,

@@ -533,9 +533,9 @@ def train(config_file, **kwargs):
         id_offset = min(offsets)
         model.set_encoders(prompt_encoders, [], id_offset)
 
-    ##############################
     mylogs.bp("tokens")
     model.resize_token_embeddings(len(tokenizer))
+    model.update_prompt_encoders_embeds(load_dir= model_args.prompt_encoders_dir)
     mylogs.bp("tokens")
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
@@ -880,9 +880,6 @@ def train(config_file, **kwargs):
             start.record()
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        if adapter_args.prompt_tuning:
-            with torch.no_grad():
-               model.update_model_weight()
 
         if training_args.compute_time:
             end.record()
@@ -894,9 +891,15 @@ def train(config_file, **kwargs):
         if model_args.save_prefix_only:
             save_prompts(trainer.model, output_dir=training_args.output_dir, attn_prefix_tuning=model_args.attn_prefix_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
-        else:
-            # save all model parameters and tokenizers regardless of whether they are updated or not.
-            trainer.save_model()
+        elif adapter_args.prompt_tuning:
+            prompt_dir = op.join(training_args.output_dir, "prompts")
+            Path(prompt_dir).mkdir(parents = True, exist_ok=True)
+            with torch.no_grad():
+               model.store_prompt_encoders_embeds(output_dir = prompt_dir)
+            if kwargs.setdefault("save_model", False):
+                # save all model parameters and tokenizers 
+                # regardless of whether they are updated or not.
+                trainer.save_model()
 
         train_metrics = train_result.metrics
         max_train_samples = (
