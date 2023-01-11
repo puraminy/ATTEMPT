@@ -35,16 +35,20 @@ do
 done
 echo "Others: ${others}"
 model=t5-base
+
+config=configs/baselines/base.json 
+config=configs/attempt/single_task.json 
+home=$HOME
 case "$HOME" in 
   *ahmad*)
     # Do stuff
     model=t5-base
     ;;
+  *root*)
+    # Colab 
+    home=/content/drive/MyDrive
+    ;;
 esac
-
-config=configs/baselines/base.json 
-config=configs/attempt/single_task.json 
-home=$HOME
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
