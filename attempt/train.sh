@@ -107,9 +107,11 @@ exp=$task-$m
 if [ "$m" = "self" ]; then
   exp="${PWD#$log/}"
   echo "cur folder: ${exp}"
+  var="${var}--do_train=False"
+else
+  var="${var}--do_train=True"
 fi
 # operations
-var="${var}--do_train=False"
 var="${var}--do_test=True"
 var="${var}--do_eval=True"
 # Saving
@@ -158,7 +160,7 @@ if [ "$method" = "pt" ]; then
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
 	var="${var}--num_train_epochs=5"
-	params="${params} --prompt_encoders_dir=trial=4/prompts"
+	#params="${params} --prompt_encoders_dir=trial=4/prompts"
 fi
 echo ${params}
 runat run $g2 -exp $exp -cfg $config -var ${var} ${params} 
