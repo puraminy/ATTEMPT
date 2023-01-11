@@ -47,9 +47,9 @@ from transformers.utils.model_parallel_utils import assert_device_map, get_devic
 from .configuration_t5 import T5Config
 
 #### My import
-from comet.transformers_ptuning.encoders import * 
+from attempt.transformers_ptuning.encoders import * 
 
-from comet.adapters import AdapterController
+from attempt.adapters import AdapterController
 from typing import Dict, Any
 
 
