@@ -1824,6 +1824,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.encoder.id_offset = offset 
 
     def update_prompt_encoders_embeds(self, load_dir = None):
+        if not load_dir: return
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
