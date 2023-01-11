@@ -812,6 +812,7 @@ class T5PreTrainedModel(PreTrainedModel):
             "decoder_attention_mask": input_mask,
         }
         return dummy_inputs
+        
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -910,7 +911,6 @@ class T5Stack(T5PreTrainedModel):
         self.merge_encoder = None
         self.skill_encoders = []
         self.embedding_dim = self.config.hidden_size
-        self.model_embeddings = self.get_input_embeddings()
         self.replacing_token_id = 0 #replacing_token_id
         self.id_offset = -1 # offset of prompt tokens in tokenizer
         self.prompt_token_fn = self.get_prompt_token_fn() 
@@ -1091,7 +1091,8 @@ class T5Stack(T5PreTrainedModel):
                         # replace prompt ids in input_ids with replacing token
                         input_ids_clone[prompt_masks]=self.replacing_token_id
                     # find the model embeddings of input ids except for prompt tokens
-                    inputs_embeds = self.model_embeddings(input_ids_clone)
+                    model_embeddings = self.get_input_embeddings()
+                    inputs_embeds = model_embeddings(input_ids_clone)
                     device=inputs_embeds.device
                     all_prompts_input_ids = input_ids[prompt_masks]
                     for encoder in self.prompt_encoders:
@@ -1602,6 +1603,7 @@ class T5Model(T5PreTrainedModel):
         self.device_map = None
         torch.cuda.empty_cache()
 
+
     def get_input_embeddings(self):
         return self.shared
 
@@ -1829,7 +1831,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         for encoder in self.prompt_encoders:
             # fill the current embeddings with weights of encoder
             encoder.dump_embeddings_into(self.cur_embeddings.weight, task_ids)
-            #self.prompt_encoder.dump_embeddings_into(self.model_embeddings.weight)
+            #model_embeddings = self.get_input_embeddings()
+            #self.prompt_encoder.dump_embeddings_into(model_embeddings.weight)
     ################## End my functions
 
     def init_prefix_weights(self):
@@ -1924,6 +1927,12 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
         torch.cuda.empty_cache()
+
+    ## my code for resizing embeddings
+    def resize_token_embeddings(self, new_num_tokens = None) -> torch.nn.Embedding:
+        resized_embeds = super().resize_token_embeddings(new_num_tokens)
+        self.set_input_embeddings(resized_embeds)
+        return resized_embeds
 
     def get_input_embeddings(self):
         return self.shared
