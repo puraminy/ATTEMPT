@@ -37,7 +37,7 @@ echo "Others: ${others}"
 model=t5-base
 
 config=configs/baselines/base.json 
-config=configs/attempt/single_task.json 
+#config=configs/attempt/single_task.json 
 home=$HOME
 case "$HOME" in 
   *ahmad*)
@@ -60,9 +60,9 @@ if [ "$m" = "0" ]; then
   echo "testing train"
 elif [ "$m" = "test" ]; then
   echo "testing train and test"
-  train_num=2
-  val_num=1
-  test_num=1 
+  train_num=10
+  val_num=2
+  test_num=2 
   epochs=1
 fi
 log=${home}/logs   
@@ -111,7 +111,7 @@ var="${var}--do_test=True"
 var="${var}--do_eval=True"
 # Saving
 var="${var}--save_total_limit=1"
-var="${var}--save_checkpoint=True#False"
+var="${var}--save_checkpoint=True"
 
 # training 
 var="${var}--per_device_train_batch_size=8"
