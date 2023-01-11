@@ -13,7 +13,6 @@ from data.postprocessors import AutoPostProcessor
 
 ## My imports
 import torch
-from sentence_transformers import SentenceTransformer, util
 from rouge import Rouge
 from attempt.mylogs import *
 from tqdm import tqdm
@@ -324,6 +323,7 @@ def do_score(df, scorers, save_path, reval=False):
 
     bert_scorer = None
     if "bert" in scorers:
+        from sentence_transformers import SentenceTransformer, util
         bert_scorer = SentenceTransformer(local_path)
 
     rouge_scorer = None

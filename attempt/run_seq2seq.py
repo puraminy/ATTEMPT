@@ -1008,7 +1008,7 @@ def train(config_file, **kwargs):
                 mylogs.bp("test")
                 save_to = os.path.join(training_args.output_dir, 
                         ds_conf + "_results_" + ds_name + ".tsv")
-                do_score(df, "rouge@bert", save_to)
+                do_score(df, "rouge", save_to)
 
             for task, test_dataset in test_datasets.items():
                 metrics = trainer.evaluate(eval_dataset=test_dataset,
