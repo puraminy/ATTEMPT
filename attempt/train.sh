@@ -134,7 +134,7 @@ if [ "$method" = "px" ]; then
 	var="${var}--learning_rate=0.3"
 	var="${var}--prefix_tuning=True"
 	var="${var}--prefix_dim=100"
-        var="${var}--per_device_train_batch_size=4"
+        var="${var}--per_device_train_batch_size=32"
 	var="${var}--use_optimizer=False"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=20"
