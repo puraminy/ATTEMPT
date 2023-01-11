@@ -84,6 +84,11 @@ methods=$(echo $others | xargs)
 if [ -z "$methods" ]; then
   methods="ft pt px"
 fi
+
+if [ "$m" = "self" ]; then
+   params="${params} --model_name_or_path=!${PWD}/trial=1"
+fi
+
 for method in $methods; do
 echo "=============================== $method ========================="
 var="method=$method"
@@ -159,7 +164,7 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_tokens=8"
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
-	var="${var}--num_train_epochs=5"
+	var="${var}--num_train_epochs=3"
 	#params="${params} --prompt_encoders_dir=trial=4/prompts"
 fi
 echo ${params}

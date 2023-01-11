@@ -967,6 +967,33 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode
     def get_prompt_token_fn(self):
         return lambda x: (x>=self.id_offset) #&(x<id_offset+length)
+
+    def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
+        if len(self.prompt_encoders) > 0 or len(self.skill_encoders) > 0:
+            tids = task_ids
+            prompt_masks = self.prompt_token_fn(input_ids)
+            if prompt_masks.any():
+                #input_ids_clone = input_ids.clone()
+                #if self.replacing_token_id is not None:
+                    # replace prompt ids in input_ids with replacing token
+                    #input_ids_clone[prompt_masks]=self.replacing_token_id
+                # find the model embeddings of input ids except for prompt tokens
+                #model_embeddings = self.get_input_embeddings()
+                #inputs_embeds = model_embeddings(input_ids_clone)
+                device=input_ids.device
+                #all_prompts_input_ids = input_ids[prompt_masks]
+                for encoder in self.prompt_encoders:
+                    prompt_token_fn = encoder.get_prompt_token_fn()
+                    encoder_masks = prompt_token_fn(input_ids)
+                    if encoder_masks.any():
+                        #find input ids for prompt tokens
+                        prompt_input_ids = input_ids[encoder_masks]
+                        #call forwards on prompt encoder whose outputs are prompt embeddings
+                        out = encoder(prompt_input_ids, tids)
+                        prompt_embeds = out.to(device)
+                        inputs_embeds[encoder_masks]=prompt_embeds
+                return None
+        return input_ids
     ######################################################
     def per_layer_config(self, config, layer_id, adapter_config, is_decoder):
         """Sets the train_task_adapter in the config, based on the information given."""
@@ -1082,30 +1109,7 @@ class T5Stack(T5PreTrainedModel):
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
             ################ MyCode
-            if len(self.prompt_encoders) > 0 or len(self.skill_encoders) > 0:
-                tids = task_ids
-                prompt_masks = self.prompt_token_fn(input_ids)
-                if prompt_masks.any():
-                    input_ids_clone = input_ids.clone()
-                    if self.replacing_token_id is not None:
-                        # replace prompt ids in input_ids with replacing token
-                        input_ids_clone[prompt_masks]=self.replacing_token_id
-                    # find the model embeddings of input ids except for prompt tokens
-                    model_embeddings = self.get_input_embeddings()
-                    inputs_embeds = model_embeddings(input_ids_clone)
-                    device=inputs_embeds.device
-                    all_prompts_input_ids = input_ids[prompt_masks]
-                    for encoder in self.prompt_encoders:
-                        prompt_token_fn = encoder.get_prompt_token_fn()
-                        encoder_masks = prompt_token_fn(input_ids)
-                        if encoder_masks.any():
-                            #find input ids for prompt tokens
-                            prompt_input_ids = input_ids[encoder_masks]
-                            #call forwards on prompt encoder whose outputs are prompt embeddings
-                            out = encoder(prompt_input_ids, tids)
-                            prompt_embeds = out.to(device)
-                            inputs_embeds[encoder_masks]=prompt_embeds
-                    input_ids = None
+            input_ids = self.prompt_encoders_forward(input_ids, inputs_embeds, task_ids)
             ################ My code End
 
             ######################################
@@ -1830,9 +1834,9 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst = []
         for encoder in self.prompt_encoders:
             load_file = os.path.join(load_dir, "prompt_" + encoder.name + ".pt")
-            enc=torch.load(load_file)
-            lst.append(enc)
-            #encoder.load(load_path)
+            #enc=torch.load(load_file)
+            encoder.load(load_dir)
+            lst.append(encoder)
         self.encoder.prompt_encoders = torch.nn.ModuleList(lst)
 
     def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
@@ -1844,9 +1848,13 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
             #encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
-            out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
-            torch.save(encoder, out_file)
+            inputs_embeds = cur_embeddings(encoder.input_ids)
+            self.encoder.prompt_encoders_forward(encoder.input_ids,inputs_embeds, task_ids)
+            #out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
+            #torch.save(encoder, out_file)
             #encoder.save(output_dir)
+            #self.encoder.set_input_embeddings(out)
+            self.set_input_embeddings(cur_embeddings)
 
     ################## End my functions
 
