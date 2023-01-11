@@ -1,4 +1,4 @@
-from comet.adapters import ADAPTER_CONFIG_MAPPING
+from attempt.adapters import ADAPTER_CONFIG_MAPPING
 from dataclasses import dataclass, field
 from typing import Optional, List
 from transformers import Seq2SeqTrainingArguments
