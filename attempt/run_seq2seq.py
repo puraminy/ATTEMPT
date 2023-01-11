@@ -502,17 +502,17 @@ def train(config_file, **kwargs):
     if model_args.load_layer_norm is True and model_args.layer_norm_dir is not None:
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
-    ######################## My code
-    added = add_specials(tokenizer)
-    logger.info("%s tokens was addded", added)
-    mylogs.bp("tokens|encoder")
-    model.resize_token_embeddings(len(tokenizer))
-    n_tasks = len(data_args.task_name)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # mmmmmmmmmmmmm
-    prompts = {}
-    mylogs.bp("prompts")
-    if adapter_args.prompt_tuning:
+    ######################## My code
+    if training_args.do_train and adapter_args.prompt_tuning:
+        added = add_specials(tokenizer)
+        logger.info("%s tokens was addded", added)
+        if bp and bp in "tokens|encoder": breakpoint()
+        model.resize_token_embeddings(len(tokenizer))
+        n_tasks = len(data_args.task_name)
+        # mmmmmmmmmmmmm
+        prompts = {}
+        mylogs.bp("prompts")
         for task in data_args.task_name:
              bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
@@ -532,12 +532,11 @@ def train(config_file, **kwargs):
             ii += 1
         id_offset = min(offsets)
         model.set_encoders(prompt_encoders, [], id_offset)
-
-    mylogs.bp("tokens")
-    model.resize_token_embeddings(len(tokenizer))
-    prompt_dir = model_args.prompt_encoders_dir
-    model.update_prompt_encoders_embeds(load_dir=prompt_dir)
-    mylogs.bp("tokens")
+        if bp == "tokens": breakpoint()
+        model.resize_token_embeddings(len(tokenizer))
+        prompt_dir = model_args.prompt_encoders_dir
+        model.update_prompt_encoders_embeds(load_dir=prompt_dir)
+        if bp == "tokens": breakpoint()
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
@@ -574,7 +573,7 @@ def train(config_file, **kwargs):
         if preview:
             mylogs.plog.info("sourece: %s", examples["source"][:1])
             mylogs.plog.info("target: %s", examples["target"][:1])
-        if bp == "data":
+        if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
             logger.info("extra: %s", examples["extra_fields"][:5])
@@ -889,14 +888,14 @@ def train(config_file, **kwargs):
             performance_metrics.update({"total_time in minutes ": total_time})
 
         # By setting the `save_prefix_only` True, you only save the attentions as well as the prompt components only.
+        #model.set_encoders([],[],-1)
         if model_args.save_prefix_only:
             save_prompts(trainer.model, output_dir=training_args.output_dir, attn_prefix_tuning=model_args.attn_prefix_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
         elif adapter_args.prompt_tuning:
             prompt_dir = op.join(training_args.output_dir, "prompts")
             Path(prompt_dir).mkdir(parents = True, exist_ok=True)
-            with torch.no_grad():
-               model.store_prompt_encoders_embeds(output_dir = prompt_dir)
+            model.store_prompt_encoders_embeds(output_dir = prompt_dir)
             if kwargs.setdefault("save_model", False):
                 # save all model parameters and tokenizers 
                 # regardless of whether they are updated or not.
