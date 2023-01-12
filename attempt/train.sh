@@ -93,7 +93,7 @@ var="${var}--data_seed=42"
 var="${var}--overwrite_cache=True"
 
 # task
-task="xIntent@"
+task="xAttr@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
