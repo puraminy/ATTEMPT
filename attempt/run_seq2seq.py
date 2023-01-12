@@ -461,7 +461,8 @@ def train(config_file, **kwargs):
                     shared_params = [param]
         else:
             shared_params = []
-            for path in model_args.prompt_embedding_path:
+            for rel_path in model_args.prompt_embedding_path:
+                path = op.join(mylogs.pretPath, rel_path) 
                 shared_param = torch.load(path, map_location=mapl)
                 shared_params.append(shared_param)
             if model_args.target_prompt_embedding_path is not None:
