@@ -966,20 +966,18 @@ class T5Stack(T5PreTrainedModel):
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
         if len(self.prompt_encoders) > 0 or len(self.skill_encoders) > 0:
             tids = task_ids
-            prompt_masks = self.prompt_token_fn(input_ids)
-            if prompt_masks.any():
-                device=input_ids.device
-                for encoder in self.prompt_encoders:
-                    prompt_token_fn = encoder.get_prompt_token_fn()
-                    encoder_masks = prompt_token_fn(input_ids)
-                    if encoder_masks.any():
-                        #find input ids for prompt tokens
-                        prompt_input_ids = input_ids[encoder_masks]
-                        #call forwards on prompt encoder whose outputs are prompt embeddings
-                        out = encoder(prompt_input_ids, tids)
-                        prompt_embeds = out.to(device)
-                        inputs_embeds[encoder_masks]=prompt_embeds
-                return None
+            device=input_ids.device
+            for encoder in self.prompt_encoders:
+                prompt_token_fn = encoder.get_prompt_token_fn()
+                encoder_masks = prompt_token_fn(input_ids)
+                if encoder_masks.any():
+                    #find input ids for prompt tokens
+                    prompt_input_ids = input_ids[encoder_masks]
+                    #call forwards on prompt encoder whose outputs are prompt embeddings
+                    out = encoder(prompt_input_ids, tids)
+                    prompt_embeds = out.to(device)
+                    inputs_embeds[encoder_masks]=prompt_embeds
+            return None
         return input_ids
     ######################################################
     def per_layer_config(self, config, layer_id, adapter_config, is_decoder):
@@ -1830,8 +1828,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
             out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
-            torch.save(encoder, out_file)
-
+            torch.save(encoder.state_dict(), out_file)
 
     ################## End my functions
 

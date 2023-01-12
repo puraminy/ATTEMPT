@@ -183,6 +183,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview,
    full_tags = []
    if break_point:
        mylogs.setbp(break_point)
+   extra = args.copy() 
    for item in ctx.args: #extra arguments
        sp = item.split("=")
        key = sp[0]
@@ -190,14 +191,14 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview,
        val = val.strip()
        key=key.strip("--")
        logger.info("set %s = %s", key, val)
-       args[key] = strval(val) if not val.startswith("!") else val[1:]
+       extra[key] = strval(val) if not val.startswith("!") else val[1:]
 
    if not exp_vars:
-       args["tag"] = tags
-       args["expid"] = 1 
+       extra["tag"] = tags
+       extra["expid"] = 1 
 
-       args["output_dir"] = save_path
-       ctx.invoke(train, config_file=config_file, **args)
+       extra["output_dir"] = save_path
+       ctx.invoke(train, config_file=config_file, **extra)
    else:
        output_dir = "trial=" + args["trial"]
        all_vars = exp_vars.split("--")
@@ -238,7 +239,8 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview,
            args["expid"] = ii
            # break point before running to check arguments (breakpoint must be check)
            mylogs.bp("check")
-           ctx.invoke(train, config_file=config_file, **args)
+           kwargs = {**args, **extra}
+           ctx.invoke(train, config_file=config_file, **kwargs)
 
 @cli.command()
 @click.option(
@@ -527,15 +529,14 @@ def train(config_file, **kwargs):
             prompts_dir = op.join(mylogs.pretPath, prompts_dir)
         prompt_encoders = []
         for task, prompt_tokens in prompts.items():
+            enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
+                    requires_grad=False, device=device)
+            encoder, offset = create_encoder(task, model, tokenizer, 
+                    prompt_tokens, adapter_args.prompt_encoder_type, 
+                    enc_router = enc_router)
             load_file = os.path.join(prompts_dir, "prompt_" + task + ".pt")
             if Path(load_file).is_file():
-                encoder=torch.load(load_file)
-            else:
-                enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
-                        requires_grad=False, device=device)
-                encoder, offset = create_encoder(task, model, tokenizer, 
-                        prompt_tokens, adapter_args.prompt_encoder_type, 
-                        enc_router = enc_router)
+                encoder.load_state_dict(torch.load(load_file))
             encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
             ii += 1
