@@ -2,30 +2,22 @@
 #!/bin/sh
 
 params=""
-g2=""
+run_params=""
+bash_params=""
 for i in $@
 do
    case $i in
-       # -- option
        --*) params="${params} $i"; g=1;;
        
-       -m) echo "------"; g=3;;
-       # - option
-       -*) g2="${g2} $i"; g=2;;
+       _*) bash_params="${bash_params} $i"; g=3;;
+
+       -*) run_params="${run_params} $i"; g=2;;
        
        # Parameter 
        *) p=$i
-          if [ "$g" = 1 ]
+          if [ "$g" = 2 ]
           then
-            params="${params} $p"
-            g=0
-          elif [ "$g" = 2 ]
-          then
-            g2="${g2} $p"
-            g=0
-          elif [ "$g" = 3 ]
-          then
-            m=$p 
+            run_params="${run_params} $p"
             g=0
           else
             others="$others $p"
@@ -37,8 +29,6 @@ echo "Others: ${others}"
 model=t5-base
 
 home=$HOME
-config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
-#config=configs/attempt/single_task.json 
 case "$HOME" in 
   *ahmad*)
     # Do stuff
@@ -49,16 +39,16 @@ case "$HOME" in
     home=/content/drive/MyDrive
     ;;
 esac
+eval ${bash_params}
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
-if [ -z $m ]; then
+if [ -z $_exp ]; then
    m=11
 fi
-echo "m: ${m}"
-if [ "$m" = "0" ]; then
+if [ "$_exp" = "0" ]; then
   echo "testing train"
-elif [ "$m" = "test" ]; then
+elif [ "$_exp" = "test" ]; then
   echo "testing train and test"
   train_num=10
   val_num=2
@@ -71,13 +61,13 @@ echo "log: ${log}"
 # tehran data 
 #
 
-if [ "$m" = "test" ]; then
+if [ "$_exp" = "test" ]; then
    echo "testing"
 else
-  train_num=200
+  train_num=-1
   val_num=10
-  test_num=100
-  epochs=5
+  test_num=-1
+  epochs=20
 fi
 onError=break
 methods=$(echo $others | xargs)
@@ -85,7 +75,7 @@ if [ -z "$methods" ]; then
   methods="ft pt px"
 fi
 
-if [ "$m" = "self" ]; then
+if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=!${PWD}/trial=1"
 fi
 
@@ -101,15 +91,15 @@ var="${var}--data_seed=42"
 var="${var}--overwrite_cache=True"
 
 # task
-task="xAttr@"
+task="cola@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
 var="${var}--test_dataset_name=$task"
 var="${var}--test_ds_config=full-test@" #@sel-test"
 
-exp=$task-$m
-if [ "$m" = "self" ]; then
+exp=$task-$_exp
+if [ "$_exp" = "self" ]; then
   exp="${PWD#$log/}"
   echo "cur folder: ${exp}"
   var="${var}--do_train=False"
@@ -138,6 +128,7 @@ if [ "$method" = "ft" ]; then
         var="${var}--per_device_train_batch_size=16"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=$epochs"
+	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
 
 # prefix tuning
@@ -145,11 +136,12 @@ if [ "$method" = "px" ]; then
 	var="${var}--learning_rate=0.3"
 	var="${var}--prefix_tuning=True"
 	var="${var}--prefix_dim=100"
-        var="${var}--per_device_train_batch_size=32"
-	var="${var}--use_optimizer=False"
+        var="${var}--per_device_train_batch_size=16"
+	var="${var}--opt_type=regular"
+	var="${var}--use_optimizer=True"
         var="${var}--template=sup"
-	var="${var}--num_train_epochs=20"
-	params="${params} --prompt_encoders_dir=trial=4/prompts"
+	var="${var}--num_train_epochs=$epochs"
+	config=${home}/ATTEMPT/attempt/configs/attempt/single_task.json 
 fi
 
 # pppppppppppp
@@ -164,11 +156,12 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_tokens=8"
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
-	var="${var}--num_train_epochs=3"
+	var="${var}--num_train_epochs=20"
 	#params="${params} --prompt_encoders_dir=trial=4/prompts"
+	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
-echo ${params}
-runat run $g2 -exp $exp -cfg $config -var ${var} ${params} 
+echo "other params: ${params}"
+runat run ${run_params} -exp $exp -cfg $config -var ${var} ${params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"
@@ -178,19 +171,19 @@ echo "EXIT 0"
 done
 
 alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full "
-if [ "$m" = "show" ]; then
+if [ "$_exp" = "show" ]; then
    show_results --path=${log}/${exp}
 fi
 
-if [ "$m" != "self" ]; then
+if [ "$_exp" != "self" ]; then
 	cp train.sh ${log}/$exp
 fi
 case "$home" in 
   *content*)
     # Do stuff
 	mv /content/*time*.log ${log}/$exp
-	tar -czvf /content/${exp}-$m.tar.gz ${log}/$exp
-	cp /content/${exp}-$m.tar.gz ${home}/logs 
+	tar -czvf /content/${exp}-$_exp.tar.gz ${log}/$exp
+	cp /content/${exp}-$_exp.tar.gz ${home}/logs 
     ;;
 esac
 
