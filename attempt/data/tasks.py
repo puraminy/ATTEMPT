@@ -43,6 +43,7 @@ class AbstractTask(abc.ABC):
         self.prompt_set = {} 
         self.prompt_length = task_args.num_prompt_tokens
         self.task_args = task_args
+        self.counter = {} #counter for logging items
 
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
@@ -274,12 +275,16 @@ class AbstractTask(abc.ABC):
                 ** extra_fields}
         extra_fields["event"] = " ".join(sources) 
         extra_fields["tail"] = " ".join(targets)  
-        mylogs.vlog.info("========================")
-        mylogs.vlog.info("%s", extra_fields)
         extra_fields["sel"] = False
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
         extra_fields["resp"] = tgt_text
+        if not "examples" in self.counter:
+            self.counter["examples"] = 1
+        if self.counter["examples"] < 5:
+            mylogs.vlog.info("==============================================")
+            mylogs.vlog.info("%s", extra_fields)
+            self.counter["examples"] += 1
         return {'source': src_text,
                 'target': tgt_text, 
                 'task': self.name,
