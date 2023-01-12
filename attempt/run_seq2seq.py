@@ -501,7 +501,7 @@ def train(**kwargs):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code
     prompts_dir = model_args.prompt_encoders_dir
-    if prompts_dir and prompts_dir.startswith("/"):
+    if prompts_dir and not prompts_dir.startswith("/"):
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
@@ -882,14 +882,14 @@ def train(**kwargs):
             performance_metrics.update({"total_time in minutes ": total_time})
 
         # By setting the `save_prefix_only` True, you only save the attentions as well as the prompt components only.
-        breakpoint()
         if adapter_args.prefix_tuning and model_args.save_prefix_only:
-            breakpoint()
             prefix_dir = model_args.prefix_dir
-            if prefix_dir and prefix_dir.startswith("/"):
+            if prefix_dir and not prefix_dir.startswith("/"):
                 prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
             Path(prefix_dir).mkdir(parents = True, exist_ok=True)
-            save_prompts(trainer.model, output_dir=prefix_dir, attn_prefix_tuning=model_args.attn_prefix_tuning,
+            save_prompts(trainer.model, output_dir=training_args.output_dir, 
+                         prefix_dire = prefix_dir,
+                         attn_prefix_tuning=model_args.attn_prefix_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
         elif adapter_args.prompt_tuning:
             Path(prompts_dir).mkdir(parents = True, exist_ok=True)
