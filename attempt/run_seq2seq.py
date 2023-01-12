@@ -882,7 +882,9 @@ def train(**kwargs):
             performance_metrics.update({"total_time in minutes ": total_time})
 
         # By setting the `save_prefix_only` True, you only save the attentions as well as the prompt components only.
-        if model_args.save_prefix_only:
+        breakpoint()
+        if adapter_args.prefix_tuning and model_args.save_prefix_only:
+            breakpoint()
             prefix_dir = model_args.prefix_dir
             if prefix_dir and prefix_dir.startswith("/"):
                 prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
@@ -892,10 +894,11 @@ def train(**kwargs):
         elif adapter_args.prompt_tuning:
             Path(prompts_dir).mkdir(parents = True, exist_ok=True)
             model.store_encoders(output_dir = prompts_dir)
-            if kwargs.setdefault("save_model", False):
-                # save all model parameters and tokenizers 
-                # regardless of whether they are updated or not.
-                trainer.save_model()
+
+        if kwargs.setdefault("save_model", False):
+            # save all model parameters and tokenizers 
+            # regardless of whether they are updated or not.
+            trainer.save_model()
 
         train_metrics = train_result.metrics
         max_train_samples = (
