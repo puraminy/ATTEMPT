@@ -244,6 +244,13 @@ class ModelArguments:
         },
     )
 
+    prefix_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "path to prefix prompts"
+        },
+    )
+
     attn_path: Optional[str] = field(
         default=None,
         metadata={

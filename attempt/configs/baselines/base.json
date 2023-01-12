@@ -39,7 +39,7 @@
     "eval_dataset_config_name": ["en"],
     "test_dataset_config_name": ["en"],
     "predict_with_generate": true,
-    "save_prefix_only": false,
+    "save_prefix_only": true,
     "compute_memory": true
     }
     

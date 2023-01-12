@@ -82,7 +82,7 @@ var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
 # task
-task="xAttr@"
+task="xIntent@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
@@ -119,20 +119,21 @@ if [ "$method" = "ft" ]; then
         var="${var}--per_device_train_batch_size=16"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=$_ep"
-	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
 
 # prefix tuning
+# xxxxxxxxxxxx
 if [ "$method" = "px" ]; then
 	var="${var}--learning_rate=0.3"
 	var="${var}--prefix_tuning=True"
 	var="${var}--prefix_dim=100"
-        var="${var}--per_device_train_batch_size=16"
+        var="${var}--per_device_train_batch_size=8"
 	var="${var}--opt_type=regular"
-	var="${var}--use_optimizer=True"
+	var="${var}--use_optimizer=False"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=$_ep"
-	config=${home}/ATTEMPT/attempt/configs/attempt/single_task.json 
+	var="${var}--config=base#attempt"
+	params="${params} --prefix_dir=prefixes"
 fi
 
 # pppppppppppp
@@ -149,10 +150,9 @@ if [ "$method" = "pt" ]; then
         var="${var}--template=unsup-pt-t"
 	var="${var}--num_train_epochs=$_ep"
 	params="${params} --prompt_encoders_dir=prompts"
-	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
 echo "other params: ${params}"
-runat run ${run_params} -exp $exp -cfg $config -var ${var} ${params} 
+runat run ${run_params} -exp $exp -var ${var} ${params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"
