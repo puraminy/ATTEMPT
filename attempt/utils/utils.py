@@ -320,13 +320,16 @@ def save_training_config(config_file, output_dir):
     json_data = read_json(config_file)
     save_json(os.path.join(output_dir, "training_config.json"), json_data)
 
-def save_prompts(model, output_dir, attn_prefix_tuning, shared_attn, num_target, task_name):
+def save_prompts(model, output_dir, prefix_dir, 
+                 attn_prefix_tuning, shared_attn, num_target, task_name):
     for name, param in model.named_parameters():
         # Save prompt weights.
         if attn_prefix_tuning is False and ("prefix_shared" in name or "prefix" in name):
             shared_params = param
             torch.save(shared_params, os.path.join(
                 output_dir, "prefix_embeddings.pt"))
+            torch.save(shared_params, os.path.join(
+                prefix_dir, "prefix_" + task_name + ".pt"))
         elif attn_prefix_tuning is True and name == "prefix_shared":
             shared_params = param
             if shared_attn is True:
