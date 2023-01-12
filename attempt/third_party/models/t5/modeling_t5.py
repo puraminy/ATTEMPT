@@ -912,8 +912,6 @@ class T5Stack(T5PreTrainedModel):
         self.skill_encoders = []
         self.embedding_dim = self.config.hidden_size
         self.replacing_token_id = 0 #replacing_token_id
-        self.id_offset = -1 # offset of prompt tokens in tokenizer
-        self.prompt_token_fn = self.get_prompt_token_fn() 
         #############################################################
         #######################################
         self.ignore_target = ignore_target
@@ -965,9 +963,6 @@ class T5Stack(T5PreTrainedModel):
         self.device_map = None
 
     ################# MyCode
-    def get_prompt_token_fn(self):
-        return lambda x: (x>=self.id_offset) #&(x<id_offset+length)
-
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
         if len(self.prompt_encoders) > 0 or len(self.skill_encoders) > 0:
             tids = task_ids
@@ -1814,38 +1809,29 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def merge_encoder(self):
         return self.encoder.merge_encoder
 
-    def set_encoders(self, prompt_encoders, skill_encoders, offset):
+    def set_encoders(self, prompt_encoders, skill_encoders):
         self.encoder.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.encoder.skill_encoders = torch.nn.ModuleList(skill_encoders)
-        self.encoder.id_offset = offset 
 
-    def update_prompt_encoders_embeds(self, load_dir = None):
+    def load_encoders(self, prompts=[], load_dir = None):
         if not load_dir: return
-        #lst = self.encoder.prompt_encoders 
-        #lst.extend(self.encoder.skill_encoders)
         lst = []
-        for encoder in self.prompt_encoders:
-            load_file = os.path.join(load_dir, "prompt_" + encoder.name + ".pt")
-            #enc=torch.load(load_file)
-            encoder.load(load_dir)
+        for name in prompts:
+            load_file = os.path.join(load_dir, "prompt_" + name + ".pt")
+            encoder=torch.load(load_file)
             lst.append(encoder)
         self.encoder.prompt_encoders = torch.nn.ModuleList(lst)
 
-    def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
-        cur_embeddings = self.get_input_embeddings()
+    def store_encoders(self, task_ids = None, output_dir = None):
         if self.merge_encoder:
             #torch.save(self.merge_encoder, out_file)
+            pass
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
-            breakpoint()
-            inputs_embeds = cur_embeddings(encoder.input_ids)
-            self.encoder.prompt_encoders_forward(encoder.input_ids,inputs_embeds, task_ids)
-            #out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
-            #torch.save(encoder, out_file)
-            #encoder.save(output_dir)
-            #self.encoder.set_input_embeddings(out)
-            self.set_input_embeddings(cur_embeddings)
+            out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
+            torch.save(encoder, out_file)
+
 
     ################## End my functions
 

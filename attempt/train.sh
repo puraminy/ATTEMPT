@@ -64,17 +64,19 @@ echo "log: ${log}"
 if [ "$_exp" = "test" ]; then
    echo "testing"
 else
-  train_num=-1
+  train_num=200
   val_num=10
-  test_num=-1
-  epochs=20
+  test_num=100
+  epochs=3
 fi
 onError=break
 methods=$(echo $others | xargs)
 if [ -z "$methods" ]; then
   methods="ft pt px"
 fi
-
+if [ -z $_train ]; then
+   _train=True
+fi
 if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=!${PWD}/trial=1"
 fi
@@ -91,7 +93,7 @@ var="${var}--data_seed=42"
 var="${var}--overwrite_cache=True"
 
 # task
-task="cola@"
+task="xIntent@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
@@ -104,7 +106,7 @@ if [ "$_exp" = "self" ]; then
   echo "cur folder: ${exp}"
   var="${var}--do_train=False"
 else
-  var="${var}--do_train=True"
+  var="${var}--do_train=${_train}"
 fi
 # operations
 var="${var}--do_test=True"
@@ -156,8 +158,8 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_tokens=8"
 	var="${var}--prompt_encoder_type=lstm"
         var="${var}--template=sup-pt-t"
-	var="${var}--num_train_epochs=20"
-	#params="${params} --prompt_encoders_dir=trial=4/prompts"
+	var="${var}--num_train_epochs=$epochs"
+	params="${params} --prompt_encoders_dir=prompts"
 	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
 echo "other params: ${params}"
