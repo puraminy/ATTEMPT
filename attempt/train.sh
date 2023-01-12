@@ -43,39 +43,28 @@ eval ${bash_params}
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
-if [ -z $_exp ]; then
-   m=11
-fi
-if [ "$_exp" = "0" ]; then
-  echo "testing train"
-elif [ "$_exp" = "test" ]; then
-  echo "testing train and test"
-  train_num=10
-  val_num=2
-  test_num=2 
-  epochs=1
-fi
 log=${home}/logs   
 echo "log: ${log}"
 
-# tehran data 
-#
-
-if [ "$_exp" = "test" ]; then
-   echo "testing"
-else
-  train_num=200
-  val_num=10
-  test_num=100
-  epochs=3
+if [ -z "$_tn" ]; then  _tn=200; fi
+if [ -z "$_vn" ]; then  _vn=20; fi
+if [ -z "$_tsn" ]; then _tsn=100; fi
+if [ -z "$_ep" ]; then  _ep=3; fi
+if [ -n "$_test" ]; then
+  _tn=10
+  _vn=2
+  _tsn=2 
+  _ep=1
+fi
+if [ -n "$_all" ]; then
+  _tn=-1
+  _vn=20
+  _tsn=-1 
 fi
 onError=break
 methods=$(echo $others | xargs)
 if [ -z "$methods" ]; then
   methods="ft pt px"
-fi
-if [ -z $_train ]; then
-   _train=True
 fi
 if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=!${PWD}/trial=1"
@@ -86,9 +75,9 @@ echo "=============================== $method ========================="
 var="method=$method"
 var="${var}--data_path=atomic2020"
 var="${var}--use_all_data=False"
-var="${var}--max_train_samples=$train_num"
-var="${var}--max_val_samples=$val_num"
-var="${var}--max_test_samples=$test_num"
+var="${var}--max_train_samples=$_tn"
+var="${var}--max_val_samples=$_vn"
+var="${var}--max_test_samples=$_tsn"
 var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
@@ -106,7 +95,7 @@ if [ "$_exp" = "self" ]; then
   echo "cur folder: ${exp}"
   var="${var}--do_train=False"
 else
-  var="${var}--do_train=${_train}"
+  var="${var}--do_train=True"
 fi
 # operations
 var="${var}--do_test=True"
@@ -129,7 +118,7 @@ if [ "$method" = "ft" ]; then
 	var="${var}--opt_type=regular"
         var="${var}--per_device_train_batch_size=16"
         var="${var}--template=sup"
-	var="${var}--num_train_epochs=$epochs"
+	var="${var}--num_train_epochs=$_ep"
 	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
 
@@ -142,7 +131,7 @@ if [ "$method" = "px" ]; then
 	var="${var}--opt_type=regular"
 	var="${var}--use_optimizer=True"
         var="${var}--template=sup"
-	var="${var}--num_train_epochs=$epochs"
+	var="${var}--num_train_epochs=$_ep"
 	config=${home}/ATTEMPT/attempt/configs/attempt/single_task.json 
 fi
 
@@ -158,7 +147,7 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_tokens=8"
 	var="${var}--prompt_encoder_type=mlp"
         var="${var}--template=unsup-pt-t"
-	var="${var}--num_train_epochs=$epochs"
+	var="${var}--num_train_epochs=$_ep"
 	params="${params} --prompt_encoders_dir=prompts"
 	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 
 fi
