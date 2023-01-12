@@ -97,13 +97,6 @@ def cli():
     help="Experiment name"
 )
 @click.option(
-    "--config_file",
-    "-cfg",
-    default="",
-    type=str,
-    help="The experiment config file"
-)
-@click.option(
     "--exp_vars",
     "-var",
     default="",
@@ -150,7 +143,7 @@ def cli():
     help="Whether download pretrained model or load it from a directory"
 )
 @click.pass_context
-def run(ctx, experiment, config_file, exp_vars, break_point, preview, 
+def run(ctx, experiment, exp_vars, break_point, preview, 
         debug, trial, rem, download_model):
    if debug:
        port = "1234"
@@ -198,7 +191,7 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview,
        extra["expid"] = 1 
 
        extra["output_dir"] = save_path
-       ctx.invoke(train, config_file=config_file, **extra)
+       ctx.invoke(train, **extra)
    else:
        output_dir = "trial=" + args["trial"]
        all_vars = exp_vars.split("--")
@@ -240,20 +233,20 @@ def run(ctx, experiment, config_file, exp_vars, break_point, preview,
            # break point before running to check arguments (breakpoint must be check)
            mylogs.bp("check")
            kwargs = {**args, **extra}
-           ctx.invoke(train, config_file=config_file, **kwargs)
+           ctx.invoke(train, **kwargs)
 
 @cli.command()
-@click.option(
-    "--config_file",
-    "-cfg",
-    default="",
-    type=str,
-    help=""
-)
-def train(config_file, **kwargs):
+def train(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
+    config_name = kwargs.setdefault("config","base")
+    home = mylogs.home
+    if config_name == "base":
+        config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
+    elif config_name == "attempt":
+        config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
+
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     print(exp_conf)
@@ -508,7 +501,7 @@ def train(config_file, **kwargs):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code
     prompts_dir = model_args.prompt_encoders_dir
-    if prompts_dir.startswith("/"):
+    if prompts_dir and prompts_dir.startswith("/"):
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
@@ -524,9 +517,6 @@ def train(config_file, **kwargs):
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
         ii = 1
-        prompts_dir = model_args.prompt_encoders_dir
-        if prompts_dir and not prompts_dir.startswith("/"):
-            prompts_dir = op.join(mylogs.pretPath, prompts_dir)
         prompt_encoders = []
         for task, prompt_tokens in prompts.items():
             enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
@@ -893,7 +883,11 @@ def train(config_file, **kwargs):
 
         # By setting the `save_prefix_only` True, you only save the attentions as well as the prompt components only.
         if model_args.save_prefix_only:
-            save_prompts(trainer.model, output_dir=training_args.output_dir, attn_prefix_tuning=model_args.attn_prefix_tuning,
+            prefix_dir = model_args.prefix_dir
+            if prefix_dir and prefix_dir.startswith("/"):
+                prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
+            Path(prefix_dir).mkdir(parents = True, exist_ok=True)
+            save_prompts(trainer.model, output_dir=prefix_dir, attn_prefix_tuning=model_args.attn_prefix_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
         elif adapter_args.prompt_tuning:
             Path(prompts_dir).mkdir(parents = True, exist_ok=True)
@@ -997,14 +991,11 @@ def train(config_file, **kwargs):
                     inp = inp.strip()
                     extra = row["extra_fields"]
                     df.at[i, "input_text"] = inp #extra["event"] 
-                    if "tail" in extra:
-                        label = extra["tail"]
-                    else:
-                        try:
-                            label = tokenizer.decode(row["labels"], 
-                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                        except:
-                            label = "na"
+                    try:
+                        label = tokenizer.decode(row["labels"], 
+                        skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                    except:
+                        label = "na"
                     #label = re.sub(r'<.*?>','', label)
                     label = label.strip()
                     df.at[i, "target_text"] = label 
