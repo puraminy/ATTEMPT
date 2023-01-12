@@ -89,7 +89,7 @@ var="${var}--use_all_data=False"
 var="${var}--max_train_samples=$train_num"
 var="${var}--max_val_samples=$val_num"
 var="${var}--max_test_samples=$test_num"
-var="${var}--data_seed=42"
+var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
 # task
