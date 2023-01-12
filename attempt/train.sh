@@ -156,8 +156,8 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_encoders=1"
         var="${var}--per_device_train_batch_size=8"
 	var="${var}--num_prompt_tokens=8"
-	var="${var}--prompt_encoder_type=lstm"
-        var="${var}--template=sup-pt-t"
+	var="${var}--prompt_encoder_type=mlp"
+        var="${var}--template=unsup-pt-t"
 	var="${var}--num_train_epochs=$epochs"
 	params="${params} --prompt_encoders_dir=prompts"
 	config=${home}/ATTEMPT/attempt/configs/baselines/base.json 

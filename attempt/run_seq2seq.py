@@ -531,12 +531,10 @@ def train(config_file, **kwargs):
         for task, prompt_tokens in prompts.items():
             enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
                     requires_grad=False, device=device)
-            encoder, offset = create_encoder(task, model, tokenizer, 
+            encoder, enc_type = create_encoder(task, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type, 
                     enc_router = enc_router)
-            load_file = os.path.join(prompts_dir, "prompt_" + task + ".pt")
-            if Path(load_file).is_file():
-                encoder.load_state_dict(torch.load(load_file))
+            encoder.load(prompts_dir)
             encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
             ii += 1
