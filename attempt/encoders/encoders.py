@@ -22,10 +22,11 @@ def _isin(tensor:torch.Tensor,values:torch.Tensor):
     return (tensor[..., None] == values).any(-1)
 
 class PromptEncoder(torch.nn.Module):
-    def __init__(self,name, length,embedding_dim,id_offset, init_embs, prompt_ids, lr=0.01, n_tasks = 2, router=None, **kwargs) -> None:
+    enc_type = "encoder"
+    def __init__(self,name, embedding_dim, id_offset, init_embs, prompt_ids, lr=0.01, n_tasks = 2, router=None, **kwargs) -> None:
         super().__init__()
         self.learning_rate = lr
-        self.length = length
+        self.length = length = len(prompt_ids)
         self.name = name
         self.task_id = 0
         self.gid = -1
@@ -47,7 +48,6 @@ class PromptEncoder(torch.nn.Module):
         para = [p for p in self.parameters() if p.requires_grad ]
         self.n_tasks = n_tasks
         self.is_learned = False
-        self.length = length
         if router == "random":
             self.is_learned = True
             self.router = nn.Parameter(data=torch.empty((
@@ -57,19 +57,22 @@ class PromptEncoder(torch.nn.Module):
         else:
             self.router = router
 
-    def save(self, output_dir):
-        if not output_dir:
+    def get_id(self):
+        return "prompt_" + self.enc_type + "_" + self.name + "_" + str(self.length) + ".pt"
+
+    def save(self, save_dir):
+        if not save_dir:
             return
-        for name, param in self.named_parameters():
-            if "embedding.weight" in name:
-                torch.save(param, os.path.join(
-                    output_dir, "prompt_" + self.name + ".pt"))
+        fname = os.path.join(save_dir, self.get_id())
+        torch.save(self.state_dict(), fname)
 
     def load(self, load_dir):
         if not load_dir:
             return
-        w = torch.load(os.path.join(load_dir, "prompt_" + self.name + ".pt"))
-        self.embedding.weight.data = w
+        fname = os.path.join(load_dir, self.get_id())
+        if Path(fname).is_file():
+            state = torch.load(fname)
+            self.load_state_dict(state)
 
     def update_embs_from(self, embeds):
         embs = {}
@@ -306,8 +309,10 @@ class MergePromptEncoder(MergePromptEncoderBase):
         return ret_embeds 
 
 class MLPPromptEncoder(PromptEncoder):
-    def __init__(self,name,length,embedding_dim,id_offset,init_embs=None, prompt_ids=[], num_layers=1, hidden_size=-1, **kwargs) -> None:
-        super().__init__(name, length,embedding_dim,id_offset, init_embs, prompt_ids, **kwargs)
+    enc_type = "mlp"
+    def __init__(self, num_layers=1, hidden_size=-1, **kwargs) -> None:
+        super().__init__(**kwargs)
+        embedding_dim = self.embedding_dim
         hsize = hidden_size if hidden_size > 1 else embedding_dim
         if num_layers == 2:
             self.mlp = torch.nn.Sequential(
@@ -334,9 +339,11 @@ class MLPPromptEncoder(PromptEncoder):
         return ret_embeds 
 
 class LSTMEmbeddingPromptEncoder(PromptEncoder):
-    def __init__(self,name, length,embedding_dim,id_offset, init_embs=None, prompt_ids=[], num_layers=1, hidden_size=-1, **kwargs) -> None:
+    enc_type = "lstm"
+    def __init__(self,num_layers=1, hidden_size=-1, **kwargs) -> None:
         mylogs.bp("encoder|lstm")
-        super().__init__(name, length,embedding_dim,id_offset, init_embs, prompt_ids, **kwargs)
+        super().__init__(**kwargs)
+        embedding_dim = self.embedding_dim
         hsize = hidden_size if hidden_size > 1 else embedding_dim
         self.lstm = torch.nn.LSTM(
             input_size=embedding_dim,
@@ -465,29 +472,31 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
         if len(_enc_type) > 2:
             hidden_size = int(_enc_type[2])
         if enc_plen > 0:
-            prompt_encoder = MLPPromptEncoder(name, enc_plen,
-                    embedding_dim,id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, num_layers=num_layers, hidden_size=hidden_size, router=enc_router)
+            prompt_encoder = MLPPromptEncoder(name = name,
+                    embedding_dim = embedding_dim,
+                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, num_layers=num_layers, hidden_size=hidden_size, router=enc_router)
     elif encoder_type.startswith("emb"):
         if enc_plen > 0:
-            prompt_encoder = EmbeddingPromptEncoder(name, enc_plen,
-                    embedding_dim,id_offset = -1, 
+            prompt_encoder = EmbeddingPromptEncoder(name = name,
+                    embedding_dim = embedding_dim,
+                    id_offset = -1, 
                     prompt_ids=prompt_ids, init_embs=init_embs, router=enc_router)
     elif encoder_type.startswith("mold"):
         if enc_plen > 0:
-            prompt_encoder = MergePromptEncoderOld(name = name, length=enc_plen,
+            prompt_encoder = MergePromptEncoderOld(name = name, 
                     embedding_dim = embedding_dim,
                     id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
                     router=enc_router)
     elif encoder_type.startswith("merge"):
         if enc_plen > 0:
-            prompt_encoder = MergePromptEncoder(name = name, length=enc_plen,
+            prompt_encoder = MergePromptEncoder(name = name, 
                     embedding_dim = embedding_dim,
                     id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
                     router=enc_router)
     elif encoder_type.startswith("mat"):
         if enc_plen > 0:
             prompt_encoder = MatPromptEncoder(prefix_config=prefix_config, 
-                    name = name, length=enc_plen,
+                    name = name, 
                     embedding_dim = embedding_dim,
                     id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs)
     else:
@@ -499,10 +508,11 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 num_layers = int(_enc_type[1])
             if len(_enc_type) > 2:
                 hidden_size = int(_enc_type[2])
-            prompt_encoder = LSTMEmbeddingPromptEncoder(name, enc_plen,embedding_dim,
+            prompt_encoder = LSTMEmbeddingPromptEncoder(name = name, 
+                    embedding_dim = embedding_dim,
                     id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
                     num_layers=num_layers, 
                     hidden_size=hidden_size, router=enc_router)
-    return prompt_encoder, id_offset
+    return prompt_encoder, encoder_type
 
 

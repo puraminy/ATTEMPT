@@ -1827,8 +1827,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
-            out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
-            torch.save(encoder.state_dict(), out_file)
+            encoder.save(output_dir)
 
     ################## End my functions
 
