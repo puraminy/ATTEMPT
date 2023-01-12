@@ -973,15 +973,7 @@ class T5Stack(T5PreTrainedModel):
             tids = task_ids
             prompt_masks = self.prompt_token_fn(input_ids)
             if prompt_masks.any():
-                #input_ids_clone = input_ids.clone()
-                #if self.replacing_token_id is not None:
-                    # replace prompt ids in input_ids with replacing token
-                    #input_ids_clone[prompt_masks]=self.replacing_token_id
-                # find the model embeddings of input ids except for prompt tokens
-                #model_embeddings = self.get_input_embeddings()
-                #inputs_embeds = model_embeddings(input_ids_clone)
                 device=input_ids.device
-                #all_prompts_input_ids = input_ids[prompt_masks]
                 for encoder in self.prompt_encoders:
                     prompt_token_fn = encoder.get_prompt_token_fn()
                     encoder_masks = prompt_token_fn(input_ids)
@@ -1842,12 +1834,11 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def store_prompt_encoders_embeds(self, task_ids = None, output_dir = None):
         cur_embeddings = self.get_input_embeddings()
         if self.merge_encoder:
-            #self.merge_encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
-            self.merge_encoder.save(output_dir)
+            #torch.save(self.merge_encoder, out_file)
         lst = self.encoder.prompt_encoders 
         lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
-            #encoder.dump_embeddings_into(cur_embeddings.weight, task_ids)
+            breakpoint()
             inputs_embeds = cur_embeddings(encoder.input_ids)
             self.encoder.prompt_encoders_forward(encoder.input_ids,inputs_embeds, task_ids)
             #out_file = os.path.join(output_dir, "prompt_" + encoder.name + ".pt")
