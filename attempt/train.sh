@@ -86,7 +86,8 @@ var="${var}--overwrite_cache=True"
 
 # task
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-var="${var}--task_name=xAttr@"
+task="xAttr@"
+var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
 var="${var}--test_ds_config=full-test@" #@sel-test"
@@ -153,9 +154,10 @@ if [ "$method" = "pt" ]; then
 	var="${var}--num_prompt_encoders=1"
         var="${var}--per_device_train_batch_size=8"
 	var="${var}--num_prompt_tokens=8"
-	var="${var}--prompt_encoder_type=mlp"
-        var="${var}--template=unsup-pt-t"
+	var="${var}--prompt_encoder_type=mlp#lstm"
+        var="${var}--template=sup-pt-t#unsup-pt-t"
 	var="${var}--num_train_epochs=$_ep"
+	var="${var}--init_from_words=True#False"
 	params="${params} --prompt_encoders_dir=prompts"
 fi
 echo "other params: ${params}"
