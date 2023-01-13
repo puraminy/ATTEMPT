@@ -420,7 +420,10 @@ def train(**kwargs):
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
     config.shared_attn = model_args.shared_attn
-    config.prefix_num = model_args.prefix_num
+    if model_args.prompt_embedding_path:
+        config.prefix_num = len(model_args.prompt_embedding_path) 
+    else:
+        config.prefix_num = model_args.prefix_num
     config.num_target = len(data_args.task_name)
     config.temperature = model_args.temperature
     config.learned_temperature = model_args.learned_temperature
