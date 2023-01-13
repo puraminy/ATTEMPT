@@ -82,7 +82,8 @@ var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
 # task
-task="xIntent@"
+task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
+#task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
@@ -123,20 +124,24 @@ fi
 
 # prefix tuning
 # xxxxxxxxxxxx
-if [ "$method" = "px" ]; then
+if [ "$method" = "px" ] || [ "$method" = "at" ]; then
 	var="${var}--learning_rate=0.3"
 	var="${var}--prefix_tuning=True"
 	var="${var}--prefix_dim=100"
-        var="${var}--per_device_train_batch_size=1"
-	var="${var}--per_device_eval_batch_size=2"
 	var="${var}--opt_type=regular"
 	var="${var}--use_optimizer=False"
         var="${var}--template=sup"
 	var="${var}--num_train_epochs=$_ep"
-	var="${var}--config=base#attempt"
+	var="${var}--config=base"
 	params="${params} --prefix_dir=prefixes"
 fi
 
+if [ "$method" = "at" ]; then
+        var="${var}--attn_prefix_tuning=True"
+	var="${var}--config=attempt"
+	var="${var}--prompt_embedding_path=prefixes/prefix_xIntent.pt@"
+	var="${var}--attn_method=sub"
+fi
 # pppppppppppp
 # prompt tuning
 if [ "$method" = "pt" ]; then
