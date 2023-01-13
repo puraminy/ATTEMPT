@@ -87,7 +87,6 @@ task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
-var="${var}--test_dataset_name=$task"
 var="${var}--test_ds_config=full-test@" #@sel-test"
 
 exp=$task-$_exp
