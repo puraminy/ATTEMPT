@@ -284,7 +284,8 @@ def train(**kwargs):
 
     # set other options
     data_args.eval_dataset_name=data_args.task_name
-    #data_args.test_dataset_name=data_args.task_name
+    data_args.test_dataset_name=data_args.task_name
+
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
@@ -308,6 +309,7 @@ def train(**kwargs):
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
 
+    breakpoint()
     test_ds_confs = kwargs.setdefault("test_ds_config", ["test"])
     test_ds_names = data_args.test_dataset_name
     mylogs.bp("conf")
