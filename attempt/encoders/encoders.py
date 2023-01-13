@@ -44,7 +44,7 @@ class PromptEncoder(torch.nn.Module):
         self.init_flag = True
         self.temperature = 1.
         #self.embedding.weight.requires_grad = False
-        self.set_embs(init_embs)
+        self.init_embedding(init_embs)
         para = [p for p in self.parameters() if p.requires_grad ]
         self.n_tasks = n_tasks
         self.is_learned = False
@@ -74,20 +74,29 @@ class PromptEncoder(torch.nn.Module):
             state = torch.load(fname)
             self.load_state_dict(state)
 
-    def update_embs_from(self, embeds):
-        embs = {}
-        for i, pid in enumerate(self.prompt_ids):
-           if pid < len(embeds.weight):
-               emb = embeds.weight[pid,:].detach().clone() 
-               embs[i] = emb
-        self.set_embs(embs)
 
-    def set_embs(self, init_embs):
+    def init_embedding(self, init_embs):
         if init_embs:
             with torch.no_grad():
                 for _id,emb in init_embs.items():
                     if _id < len(self.embedding.weight):
                         self.embedding.weight[_id] = emb
+        else:
+            random_range = 0.5
+            self.embedding.weight.data.uniform_(-random_range, random_range)
+
+    def init_embs_from_ids(self, embeds):
+        embs = {}
+        for i, pid in enumerate(self.prompt_ids):
+           if pid < len(embeds.weight):
+               emb = embeds.weight[pid,:].detach().clone() 
+               self.embedding.weight[i] = emb
+
+    def init_embs_from_words(self, embeds):
+        indices = np.random.permutation(range(5000))[:self.length]
+        init_weight = embeds.state_dict()[
+            "weight"][indices]
+        self.embedding.weight.data = init_weight.clone().detach()
 
     def freeze_router():
         self.reouter.requires_grad = False

@@ -528,6 +528,8 @@ def train(**kwargs):
             encoder, enc_type = create_encoder(task, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type, 
                     enc_router = enc_router)
+            if kwargs.setdefault("init_from_words", False):
+                encoder.init_embs_from_words(model.get_input_embeddings())
             encoder.load(prompts_dir)
             encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
@@ -825,8 +827,7 @@ def train(**kwargs):
             model=model,
             args=training_args,
             train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=list(eval_datasets.values())[
-                0] if training_args.do_eval else None,
+            eval_dataset=list(eval_datasets.values())[0] if training_args.do_eval else None,
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
@@ -843,8 +844,7 @@ def train(**kwargs):
             model=model,
             args=training_args,
             train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=list(eval_datasets.values())[
-                0] if training_args.do_eval else None,
+            eval_dataset=list(eval_datasets.values())[0] if training_args.do_eval else None,
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
