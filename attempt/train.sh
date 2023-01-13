@@ -63,6 +63,7 @@ if [ -n "$_all" ]; then
 fi
 onError=break
 methods=$(echo $others | xargs)
+
 if [ -z "$methods" ]; then
   methods="ft pt px"
 fi
@@ -82,9 +83,8 @@ var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
 # task
-task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-var="${var}--task_name=$task"
+var="${var}--task_name=xIntent@"
 var="${var}--ds_config=en@"
 
 var="${var}--test_ds_config=full-test@" #@sel-test"
@@ -106,8 +106,8 @@ var="${var}--save_checkpoint=True"
 var="${var}--save_model=True"
 
 # training 
-var="${var}--per_device_train_batch_size=8"
-var="${var}--per_device_eval_batch_size=8"
+var="${var}--per_device_train_batch_size=$_bs"
+var="${var}--per_device_eval_batch_size=$_bs"
 var="${var}--trainer_shuffle=True"
 var="${var}--skip_specials=True"
 var="${var}--load_best_model_at_end=True"
@@ -138,7 +138,7 @@ fi
 if [ "$method" = "at" ]; then
         var="${var}--attn_prefix_tuning=True"
 	var="${var}--config=attempt"
-	var="${var}--prompt_embedding_path=prefixes/prefix_xIntent.pt@"
+	var="${var}--prompt_embedding_path=xWant.pt@xNeed.pt@xAttr.pt"
 	var="${var}--attn_method=sub"
 fi
 # pppppppppppp
