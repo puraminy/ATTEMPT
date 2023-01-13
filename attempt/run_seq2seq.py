@@ -193,7 +193,7 @@ def run(ctx, experiment, exp_vars, break_point, preview,
        extra["output_dir"] = save_path
        ctx.invoke(train, **extra)
    else:
-       output_dir = "trial-" + args["trial"]
+       output_dir = ""
        all_vars = exp_vars.split("--")
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]
@@ -228,7 +228,9 @@ def run(ctx, experiment, exp_vars, break_point, preview,
                if not var_name in exclude_list:
                    _output_dir.append(var_name + "=" + str(var_item))
            ii += 1
-           args["output_dir"] = os.path.join(save_path, args["method"], *_output_dir)
+           args["output_dir"] = os.path.join(save_path, 
+                                             args["method"] + "-" + args["trial"], 
+                                             *_output_dir)
            args["expid"] = ii
            # break point before running to check arguments (breakpoint must be check)
            mylogs.bp("check")
