@@ -309,7 +309,6 @@ def train(**kwargs):
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
 
-    breakpoint()
     test_ds_confs = kwargs.setdefault("test_ds_config", ["test"])
     test_ds_names = data_args.test_dataset_name
     mylogs.bp("conf")

@@ -269,12 +269,14 @@ class AbstractTask(abc.ABC):
         src_prefix = self.name if prefix is None else prefix
         mylogs.bp("format")
         sources = [src_prefix]+sources if add_prefix else sources
-        data = {'source': ' '.join(sources),
-                'target': ' '.join(targets),
+        src = ' '.join(sources)
+        tgt =  ' '.join(targets)
+        data = {'source': src,
+                'target': tgt,
                 'task': self.name,
                 ** extra_fields}
-        extra_fields["event"] = " ".join(sources) 
-        extra_fields["tail"] = " ".join(targets)  
+        extra_fields["event"] = src 
+        extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
@@ -545,6 +547,7 @@ class Atomic(AbstractTask):
         df = pd.read_table(path)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
+        assert len(df) > 0, "data frame is empty"
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
@@ -582,8 +585,8 @@ class Atomic(AbstractTask):
     #### ppppppppppppppp 
     def preprocessor(self, example, add_prefix=True):
         mylogs.bp("task_prep")
-        src_texts = [example["input_text"]]
-        tgt_texts = [example["target_text"]]
+        src_texts = [str(example["input_text"])]
+        tgt_texts = [str(example["target_text"])]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
