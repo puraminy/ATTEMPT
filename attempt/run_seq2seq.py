@@ -193,7 +193,7 @@ def run(ctx, experiment, exp_vars, break_point, preview,
        extra["output_dir"] = save_path
        ctx.invoke(train, **extra)
    else:
-       output_dir = "trial=" + args["trial"]
+       output_dir = args["method"] + "-trial=" + args["trial"]
        all_vars = exp_vars.split("--")
        var_names = [x.split("=")[0] for x in all_vars]
        values = [x.split("=")[1].split("#") for x in all_vars]

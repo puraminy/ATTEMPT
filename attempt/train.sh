@@ -46,6 +46,8 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
+if [ -z "$_bs" ]; then  _bs=8; fi
+
 if [ -z "$_tn" ]; then  _tn=200; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
@@ -84,7 +86,7 @@ var="${var}--overwrite_cache=True"
 
 # task
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-var="${var}--task_name=xIntent@"
+var="${var}--task_name=xAttr@"
 var="${var}--ds_config=en@"
 
 var="${var}--test_ds_config=full-test@" #@sel-test"
@@ -138,7 +140,7 @@ fi
 if [ "$method" = "at" ]; then
         var="${var}--attn_prefix_tuning=True"
 	var="${var}--config=attempt"
-	var="${var}--prompt_embedding_path=xWant.pt@xNeed.pt@xAttr.pt"
+	var="${var}--prompt_embedding_path=xWant.pt@xNeed.pt@xIntent.pt"
 	var="${var}--attn_method=sub"
 fi
 # pppppppppppp
