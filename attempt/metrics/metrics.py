@@ -12,6 +12,7 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 ## My imports
+from sentence_transformers import SentenceTransformer, util
 import torch
 from rouge import Rouge
 from attempt.mylogs import *
@@ -325,7 +326,6 @@ def do_score(df, scorers, save_path, reval=False):
 
     bert_scorer = None
     if "bert" in scorers:
-        from sentence_transformers import SentenceTransformer, util
         bert_scorer = SentenceTransformer(local_path)
 
     rouge_scorer = None

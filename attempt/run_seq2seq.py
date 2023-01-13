@@ -505,7 +505,7 @@ def train(**kwargs):
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    ######################## My code
+    ######################## My code pppppp
     prompts_dir = model_args.prompt_encoders_dir
     if prompts_dir and not prompts_dir.startswith("/"):
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
@@ -532,7 +532,8 @@ def train(**kwargs):
                     enc_router = enc_router)
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            encoder.load(prompts_dir)
+            if kwargs.setdefault("load_prompts", False):
+                encoder.load(prompts_dir)
             encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
             ii += 1
@@ -568,7 +569,7 @@ def train(**kwargs):
     # Temporarily set max_target_length for training.
     #max_target_length = data_args.max_target_length
     padding = "max_length" if data_args.pad_to_max_length else False
-    ########### ppppppppppppp
+    ########### rrrrrr
     def preprocess_function(examples, max_target_length, task_id=None):
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
