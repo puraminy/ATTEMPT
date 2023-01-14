@@ -248,8 +248,6 @@ def train(**kwargs):
         config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
     elif config_name == "attempt":
         config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
-    else:
-        config_file =config_name
 
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
@@ -270,22 +268,30 @@ def train(**kwargs):
         model_args, data_args, training_args, adapter_args = parser.parse_args_into_dataclasses()
 
     #### My code: overwrite kwargs over arguments read from parser
-    bp = kwargs.setdefault("break_point","")
+    def overwrite_conf(kwargs):
+        for k,v in kwargs.items():
+            logger.info("ARGS: %s=%s", k, v)
+            #v = strval(v)
+            if hasattr(model_args,k):
+                setattr(model_args, k, v)
+            if hasattr(data_args,k):
+                setattr(data_args, k, v)
+            if hasattr(training_args,k):
+                setattr(training_args, k, v)
+            if hasattr(adapter_args,k):
+                setattr(adapter_args, k, v)
+
+    post_config = kwargs.setdefault("post_config","")
+    if post_confg:
+        with open(post_config, "w") as f:
+            pconf = json.load(f)
+        overwrite_conf(pconf)
+    #### My code: overwrite kwargs over arguments read from parser
+    overwrite_conf(kwargs)
+
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
+    bp = kwargs.setdefault("break_point","")
     exp_conf = json.dumps(kwargs, indent=2)
-
-    for k,v in kwargs.items():
-        logger.info("ARGS: %s=%s", k, v)
-        #v = strval(v)
-        if hasattr(model_args,k):
-            setattr(model_args, k, v)
-        if hasattr(data_args,k):
-            setattr(data_args, k, v)
-        if hasattr(training_args,k):
-            setattr(training_args, k, v)
-        if hasattr(adapter_args,k):
-            setattr(adapter_args, k, v)
-
     # set other options
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
