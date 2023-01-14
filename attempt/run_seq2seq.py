@@ -251,11 +251,10 @@ def train(**kwargs):
 
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
-    print(exp_conf)
     preview = kwargs.setdefault("preview","")
     if preview == "all":
+        print(exp_conf)
         return
-    kwargs = dotdict(kwargs)
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
@@ -282,16 +281,21 @@ def train(**kwargs):
                 setattr(adapter_args, k, v)
 
     post_config = kwargs.setdefault("post_config","")
-    if post_confg:
-        with open(post_config, "w") as f:
+    pconf = {}
+    if post_config:
+        with open(post_config) as f:
             pconf = json.load(f)
         overwrite_conf(pconf)
     #### My code: overwrite kwargs over arguments read from parser
     overwrite_conf(kwargs)
+    kwargs = {**pconf, **kwargs}
+    kwargs = dotdict(kwargs)
+    exp_conf = json.dumps(kwargs, indent=2)
+    print("============ CONF ===========")
+    print(exp_conf)
 
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     bp = kwargs.setdefault("break_point","")
-    exp_conf = json.dumps(kwargs, indent=2)
     # set other options
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
