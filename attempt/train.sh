@@ -51,7 +51,7 @@ if [ -z "$_bs" ]; then  _bs=8; fi
 if [ -z "$_tn" ]; then  _tn=100#150; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=5#8; fi
+if [ -z "$_ep" ]; then  _ep=5#10; fi
 if [ -n "$_test" ]; then
   _tn=10
   _vn=2
@@ -101,7 +101,7 @@ task="xIntent@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
-var="${var}--test_ds_config=sel-test@" #@sel-test"
+var="${var}--test_ds_config=sel-test@full-test"
 
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
