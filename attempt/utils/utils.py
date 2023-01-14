@@ -52,7 +52,12 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 def strval(inp):
+   if type(inp) != str:
+      return inp
+   if inp.startswith("!"): 
+      return inp[1:]
    arr = []
+   inp = str(inp)
    vals = inp.split("@")
    for val in vals:
        if not val:

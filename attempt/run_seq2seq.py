@@ -194,13 +194,13 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        val = val.strip()
        key=key.strip("--")
        logger.info("set %s = %s", key, val)
-       extra[key] = strval(val) if not val.startswith("!") else val[1:]
+       extra[key] = val 
 
    if not exp_vars:
        extra["tag"] = tags
        extra["expid"] = 1 
 
-       extra["output_dir"] = save_path
+       extra["output_dir"] = "!" + save_path
        ctx.invoke(train, **extra)
    else:
        output_dir = ""
@@ -233,12 +233,12 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        for comb in tot_comb:
            _output_dir = [output_dir]
            for var_name,var_item in comb.items():
-               var_item =strval(var_item) if not var_item.startswith("!") else var_item[1:]
+               var_item =var_item 
                args[var_name]=var_item
                if not var_name in exclude_list:
                    _output_dir.append(var_name + "=" + str(var_item))
            ii += 1
-           args["output_dir"] = os.path.join(save_path, 
+           args["output_dir"] = "!" + os.path.join(save_path, 
                                              args["method"] + "-" + args["trial"], 
                                              *_output_dir)
            args["expid"] = ii
@@ -278,9 +278,11 @@ def train(**kwargs):
 
     #### My code: overwrite kwargs over arguments read from parser
     def overwrite_conf(kwargs):
+        new_kwargs = {}
         for k,v in kwargs.items():
             logger.info("ARGS: %s=%s", k, v)
-            #v = strval(v)
+            v = strval(v)
+            new_kwargs[k] = v
             if hasattr(model_args,k):
                 setattr(model_args, k, v)
             if hasattr(data_args,k):
@@ -289,8 +291,9 @@ def train(**kwargs):
                 setattr(training_args, k, v)
             if hasattr(adapter_args,k):
                 setattr(adapter_args, k, v)
+        return new_kwargs
 
-    overwrite_conf(kwargs)
+    kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
     print("============ CONF ===========")
