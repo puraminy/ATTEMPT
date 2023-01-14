@@ -48,10 +48,10 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=8; fi
 
-if [ -z "$_tn" ]; then  _tn=100#200#300; fi
+if [ -z "$_tn" ]; then  _tn=100#150; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=3#5#10; fi
+if [ -z "$_ep" ]; then  _ep=5#8; fi
 if [ -n "$_test" ]; then
   _tn=10
   _vn=2
@@ -77,7 +77,12 @@ for method in $methods; do
 echo "=============================== $method ========================="
 if [ "$method" = "files" ]; then
    for file in $PWD/*.json; do
+	echo "Config file=${file}"
 	runat run ${run_params} -exp $_exp -cfg $file ${params} 
+	if [ $? != 0 ] && [ "$onError" = "break" ]; then
+	    echo "exit 1"
+	    break
+	fi
    done
    break
 fi
@@ -156,14 +161,14 @@ if [ "$method" = "pt" ]; then
 	var="${var}--prompt_tuning=True"
 	var="${var}--use_optimizer=True"
 	var="${var}--opt_type=regular"
-	var="${var}--prompt_learning_rate=0.1#0.01#0.05#0.2"
+	var="${var}--prompt_learning_rate=0.01#0.05#0.1"
 	var="${var}--num_prompt_encoders=1"
-        var="${var}--per_device_train_batch_size=8"
-	var="${var}--num_prompt_tokens=8#16"
-	var="${var}--prompt_encoder_type=mlp#lstm"
-        var="${var}--template=sup-pt-t#unsup-pt-t"
+        var="${var}--per_device_train_batch_size=$_bs"
+	var="${var}--num_prompt_tokens=8#16#24"
+	var="${var}--prompt_encoder_type=mlp"
+        var="${var}--template=sup-pt-t"
 	var="${var}--num_train_epochs=$_ep"
-	var="${var}--init_from_words=True#False"
+	var="${var}--init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 fi
 echo "other params: ${params}"
