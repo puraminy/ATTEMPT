@@ -48,10 +48,10 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=8; fi
 
-if [ -z "$_tn" ]; then  _tn=200; fi
+if [ -z "$_tn" ]; then  _tn=100#200#300; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=3; fi
+if [ -z "$_ep" ]; then  _ep=3#5#10; fi
 if [ -n "$_test" ]; then
   _tn=10
   _vn=2
@@ -86,11 +86,11 @@ var="${var}--overwrite_cache=True"
 
 # task
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xAttr@"
+task="xIntent@"
 var="${var}--task_name=$task"
 var="${var}--ds_config=en@"
 
-var="${var}--test_ds_config=full-test@" #@sel-test"
+var="${var}--test_ds_config=sel-test@" #@sel-test"
 
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
@@ -105,7 +105,7 @@ var="${var}--do_test=True"
 var="${var}--do_eval=True"
 # Saving
 var="${var}--save_total_limit=1"
-var="${var}--save_checkpoint=True"
+var="${var}--save_checkpoint=False"
 var="${var}--save_model=True"
 
 # training 
@@ -150,10 +150,10 @@ if [ "$method" = "pt" ]; then
 	var="${var}--prompt_tuning=True"
 	var="${var}--use_optimizer=True"
 	var="${var}--opt_type=regular"
-	var="${var}--prompt_learning_rate=0.1"
+	var="${var}--prompt_learning_rate=0.1#0.01#0.05#0.2"
 	var="${var}--num_prompt_encoders=1"
         var="${var}--per_device_train_batch_size=8"
-	var="${var}--num_prompt_tokens=8"
+	var="${var}--num_prompt_tokens=8#16"
 	var="${var}--prompt_encoder_type=mlp#lstm"
         var="${var}--template=sup-pt-t#unsup-pt-t"
 	var="${var}--num_train_epochs=$_ep"

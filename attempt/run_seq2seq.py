@@ -248,6 +248,8 @@ def train(**kwargs):
         config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
     elif config_name == "attempt":
         config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
+    else:
+        config_file =config_name
 
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
