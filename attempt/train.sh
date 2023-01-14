@@ -75,6 +75,12 @@ fi
 
 for method in $methods; do
 echo "=============================== $method ========================="
+if [ "$method" = "files" ]; then
+   for file in $PWD/*.json; do
+	runat run ${run_params} -exp $_exp -cfg $file ${params} 
+   done
+   break
+fi
 var="method=$method"
 var="${var}--data_path=atomic2020"
 var="${var}--use_all_data=False"

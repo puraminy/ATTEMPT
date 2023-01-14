@@ -97,6 +97,13 @@ def cli():
     help="Experiment name"
 )
 @click.option(
+    "--config",
+    "-cfg",
+    default="",
+    type=str,
+    help="A file containing configs"
+)
+@click.option(
     "--exp_vars",
     "-var",
     default="",
@@ -143,7 +150,7 @@ def cli():
     help="Whether download pretrained model or load it from a directory"
 )
 @click.pass_context
-def run(ctx, experiment, exp_vars, break_point, preview, 
+def run(ctx, experiment, config, exp_vars, break_point, preview, 
         debug, trial, rem, download_model):
    if debug:
        port = "1234"
@@ -152,6 +159,9 @@ def run(ctx, experiment, exp_vars, break_point, preview,
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
    args = {}
+   if config:
+        with open(config) as f:
+            args = json.load(f)
    save_path = os.path.join(mylogs.logPath, experiment)
    if Path(save_path).exists() and rem:
        #if input("Are you sure you want to delete the experiment folder?") == "y":
@@ -280,19 +290,13 @@ def train(**kwargs):
             if hasattr(adapter_args,k):
                 setattr(adapter_args, k, v)
 
-    post_config = kwargs.setdefault("post_config","")
-    pconf = {}
-    if post_config:
-        with open(post_config) as f:
-            pconf = json.load(f)
-        overwrite_conf(pconf)
-    #### My code: overwrite kwargs over arguments read from parser
     overwrite_conf(kwargs)
-    kwargs = {**pconf, **kwargs}
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
     print("============ CONF ===========")
     print(exp_conf)
+    with open(op.join(training_args.output_dir,"config.json"), "w") as f:
+        print(exp_conf, file=f)
 
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     bp = kwargs.setdefault("break_point","")
