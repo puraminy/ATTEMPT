@@ -268,6 +268,8 @@ class AbstractTask(abc.ABC):
                        extra_fields={}):
         src_prefix = self.name if prefix is None else prefix
         mylogs.bp("format")
+        add_prefix = self.task_args.setdefault("add_prefix", False)
+        orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
@@ -275,7 +277,7 @@ class AbstractTask(abc.ABC):
                 'target': tgt,
                 'task': self.name,
                 ** extra_fields}
-        extra_fields["event"] = src 
+        extra_fields["event"] = orig_src 
         extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
         src_text, tgt_text = self.fill_template(data) 

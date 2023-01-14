@@ -60,6 +60,7 @@ from metrics.metrics import build_compute_metrics_fn
 from myds import my_interleave_datasets
 from conflicts import check_conflicts
 import json
+import glob
 import mylogs 
 import itertools, collections
 from metrics.metrics import do_score
@@ -298,7 +299,8 @@ def train(**kwargs):
     exp_conf = json.dumps(kwargs, indent=2)
     print("============ CONF ===========")
     print(exp_conf)
-    with open(op.join(training_args.output_dir,"config.json"), "w") as f:
+    Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
+    with open(op.join(training_args.output_dir,"exp.json"), "w") as f:
         print(exp_conf, file=f)
 
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
@@ -388,7 +390,8 @@ def train(**kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
-            if not preview:
+            existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
+            if existing_results and not preview:
                 print("Skipping experiment:", training_args.output_dir)
                 return 
             #last_checkpoint = None
@@ -1014,11 +1017,14 @@ def train(**kwargs):
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    inp = tokenizer.decode(row["input_ids"], 
-                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                    inp = re.sub(r'<.*?>','', inp)
-                    inp = inp.strip()
                     extra = row["extra_fields"]
+                    if "event" in extra:
+                        inp = extra["event"]
+                    else:
+                        inp = tokenizer.decode(row["input_ids"], 
+                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                        inp = re.sub(r'<.*?>','', inp)
+                        inp = inp.strip()
                     df.at[i, "input_text"] = inp #extra["event"] 
                     try:
                         label = tokenizer.decode(row["labels"], 
