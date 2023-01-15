@@ -89,6 +89,7 @@ if [ "$method" = "files" ]; then
 	    echo "exit 1"
 	    break
 	fi
+	run_params=${run_params//"-rem"/}
    done
    break
 fi
