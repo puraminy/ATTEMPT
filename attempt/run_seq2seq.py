@@ -199,11 +199,11 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        extra[key] = val 
 
    if not exp_vars:
-       if not "tag" in extra: 
+       if not "tag" in exp_args: 
            extra["tag"] = tags
-       extra = {**exp_args, **extra}
-       if not "expid" in extra: 
+       if not "expid" in exp_args: 
            extra["expid"] = 1 
+       extra = {**exp_args, **extra}
        output_dir = os.path.join(save_path, 
                                  extra["method"] + "-" + str(extra["trial"]), 
                                  str(extra["expid"])) 
