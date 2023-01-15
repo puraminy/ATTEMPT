@@ -75,7 +75,7 @@ fi
 if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
 echo "=============================== $method ========================="
-task="xAttr@"
+task="xAttr@#xIntent@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
