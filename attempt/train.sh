@@ -72,13 +72,14 @@ if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=!${PWD}/trial=1"
 fi
 
+if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
 echo "=============================== $method ========================="
 task="xAttr@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
-   for file in $PWD/*.json; do
+   for file in $PWD/$_pat; do
 	echo "Config file=${file}"
 	params="${main_params} --task_name=$task"
 	params="${params} --test_ds_config=full-test@"
