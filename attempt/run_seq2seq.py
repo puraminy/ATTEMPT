@@ -199,7 +199,8 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        extra[key] = val 
 
    if not exp_vars:
-       extra["tag"] = tags
+       if not "tag" in extra: 
+           extra["tag"] = tags
        extra = {**exp_args, **extra}
        if not "expid" in extra: 
            extra["expid"] = 1 
