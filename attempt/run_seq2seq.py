@@ -177,8 +177,8 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
-   tags = [] # tags used to distinguish experiments
-   full_tags = []
+   tags = exp_args["tags"] if "tags" in exp_args else [] 
+   full_tags = exp_args["full_tags"] if "full_tags" in exp_args else [] 
    if break_point:
        mylogs.setbp(break_point)
 
@@ -217,14 +217,14 @@ def run(ctx, experiment, exp_conf, break_point, preview,
            if not var_name in exclude_list:
                _output_dir.append(var_name + "=" + str(var_item))
        ii += 1
+       args["expid"] = ii
+       args = {**exp_args, **args}
        args["output_dir"] = "!" + os.path.join(save_path, 
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
-       args["expid"] = ii
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
-       kwargs = {**exp_args, **args}
-       ctx.invoke(train, **kwargs)
+       ctx.invoke(train, **args)
 
 @cli.command()
 def train(**kwargs):
