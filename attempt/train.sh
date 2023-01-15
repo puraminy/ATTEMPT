@@ -1,6 +1,4 @@
-
-#!/bin/sh
-
+#!/bin/bash
 params=""
 run_params=""
 bash_params=""
