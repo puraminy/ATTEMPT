@@ -75,9 +75,15 @@ fi
 
 for method in $methods; do
 echo "=============================== $method ========================="
+task="xAttr@"
+main_params=$params
 if [ "$method" = "files" ]; then
    for file in $PWD/*.json; do
 	echo "Config file=${file}"
+	params="${main_params} --task_name=$task"
+	params="${params} --test_ds_config=full-test@"
+	params="${params} --per_device_train_batch_size=$_bs"
+	params="${params} --per_device_eval_batch_size=$_bs"
 	runat run ${run_params} -exp $_exp -cfg $file ${params} 
 	if [ $? != 0 ] && [ "$onError" = "break" ]; then
 	    echo "exit 1"
@@ -86,8 +92,8 @@ if [ "$method" = "files" ]; then
    done
    break
 fi
-var="method=$method"
-var="${var}--data_path=atomic2020"
+
+var="data_path=atomic2020"
 var="${var}--use_all_data=False"
 var="${var}--max_train_samples=$_tn"
 var="${var}--max_val_samples=$_vn"
@@ -95,7 +101,9 @@ var="${var}--max_test_samples=$_tsn"
 var="${var}--data_seed=123"
 var="${var}--overwrite_cache=True"
 
+var="${var}--method=$method"
 # task
+var="${var}--task_name=$task"
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 task="xIntent@"
 var="${var}--task_name=$task"
