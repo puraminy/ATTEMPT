@@ -159,10 +159,10 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        print("Waiting for client at run...port:", port)
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
-   args = {}
+   exp_args = {}
    if config:
         with open(config) as f:
-            args = json.load(f)
+            exp_args = json.load(f)
    save_path = os.path.join(mylogs.logPath, experiment)
    if Path(save_path).exists() and rem:
        #if input("Are you sure you want to delete the experiment folder?") == "y":
@@ -175,6 +175,7 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
    if Path(save_path).is_file():
        os.remove(save_path)
    Path(save_path).mkdir(exist_ok=True, parents=True)
+   args = {}
    args["save_path"] = save_path
    args["load_path"] = "" 
    if not download_model:
@@ -199,9 +200,13 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
 
    if not exp_vars:
        extra["tag"] = tags
-       extra["expid"] = 1 
-
-       extra["output_dir"] = "!" + save_path
+       extra = {**exp_args, **extra}
+       if not "expid" in extra: 
+           extra["expid"] = 1 
+       output_dir = os.path.join(save_path, 
+                                 extra["method"] + "-" + str(extra["trial"]), 
+                                 str(extra["expid"])) 
+       extra["output_dir"] = "!" + output_dir 
        ctx.invoke(train, **extra)
    else:
        output_dir = ""
@@ -302,6 +307,7 @@ def train(**kwargs):
     Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
     with open(op.join(training_args.output_dir,"exp.json"), "w") as f:
         print(exp_conf, file=f)
+    mylogs.bp("conf")
 
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     bp = kwargs.setdefault("break_point","")
