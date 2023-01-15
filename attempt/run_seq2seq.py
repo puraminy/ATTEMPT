@@ -98,18 +98,11 @@ def cli():
     help="Experiment name"
 )
 @click.option(
-    "--config",
+    "--exp_conf",
     "-cfg",
     default="",
     type=str,
     help="A file containing configs"
-)
-@click.option(
-    "--exp_vars",
-    "-var",
-    default="",
-    type=str,
-    help="Experiment variables (can be combined or override variables in config file)"
 )
 @click.option(
     "--break_point",
@@ -151,7 +144,7 @@ def cli():
     help="Whether download pretrained model or load it from a directory"
 )
 @click.pass_context
-def run(ctx, experiment, config, exp_vars, break_point, preview, 
+def run(ctx, experiment, exp_conf, break_point, preview, 
         debug, trial, rem, download_model):
    if debug:
        port = "1234"
@@ -160,8 +153,8 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
    exp_args = {}
-   if config:
-        with open(config) as f:
+   if exp_conf:
+        with open(exp_conf) as f:
             exp_args = json.load(f)
    save_path = os.path.join(mylogs.logPath, experiment)
    if Path(save_path).exists() and rem:
@@ -188,71 +181,50 @@ def run(ctx, experiment, config, exp_vars, break_point, preview,
    full_tags = []
    if break_point:
        mylogs.setbp(break_point)
-   extra = args.copy() 
-   for item in ctx.args: #extra arguments
-       sp = item.split("=")
-       key = sp[0]
-       val = "=".join(sp[1:])
-       val = val.strip()
-       key=key.strip("--")
-       logger.info("set %s = %s", key, val)
-       extra[key] = val 
 
-   if not exp_vars:
-       if not "tag" in exp_args: 
-           extra["tag"] = tags
-       if not "expid" in exp_args: 
-           extra["expid"] = 1 
-       extra = {**exp_args, **extra}
-       output_dir = os.path.join(save_path, 
-                                 extra["method"] + "-" + str(extra["trial"]), 
-                                 str(extra["expid"])) 
-       extra["output_dir"] = "!" + output_dir 
-       ctx.invoke(train, **extra)
-   else:
-       output_dir = ""
-       all_vars = exp_vars.split("--")
-       var_names = [x.split("=")[0] for x in all_vars]
-       values = [x.split("=")[1].split("#") for x in all_vars]
-       tag_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
-       var_names = [vv.strip("!") for vv in var_names]
-       for vv, cc in zip(var_names, values):
-           if len(cc) == 1:
-               exclude_list.append(vv)
-           if len(cc) > 1:
-               full_tags.append(vv)
-               if not vv in tag_exclude: tags.append(vv)
-               if preview and not preview == "all": 
-                   if not vv in preview and not vv in tag_exclude:
-                       var_names.remove(vv)
-                       values.remove(cc)
+   output_dir = ""
+   all_vars = [x.strip("--") for x in ctx.args]
+   var_names = [x.split("=")[0] for x in all_vars]
+   values = [x.split("=")[1].split("#") for x in all_vars]
+   tag_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
+   var_names = [vv.strip("!") for vv in var_names]
+   for vv, cc in zip(var_names, values):
+       if len(cc) == 1:
+           exclude_list.append(vv)
+       if len(cc) > 1:
+           full_tags.append(vv)
+           if not vv in tag_exclude: tags.append(vv)
+           if preview and not preview == "all": 
+               if not vv in preview and not vv in tag_exclude:
+                   var_names.remove(vv)
+                   values.remove(cc)
 
-       if preview and not preview in tags and not preview == "all": 
-          print("Eror:", preview, " must be all or one of ", tags, " which have multiple values")
-          return
+   if preview and not preview in tags and not preview == "all": 
+      print("Eror:", preview, " must be all or one of ", tags, " which have multiple values")
+      return
 
-       args["tag"] = tags 
-       args["full_tag"] = full_tags 
-       tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
-       ii = 0
-       orig_args = args.copy()
-       logger.info("Total experiments:%s", len(tot_comb))
-       for comb in tot_comb:
-           _output_dir = [output_dir]
-           for var_name,var_item in comb.items():
-               var_item =var_item 
-               args[var_name]=var_item
-               if not var_name in exclude_list:
-                   _output_dir.append(var_name + "=" + str(var_item))
-           ii += 1
-           args["output_dir"] = "!" + os.path.join(save_path, 
-                                             args["method"] + "-" + args["trial"], 
-                                             *_output_dir)
-           args["expid"] = ii
-           # break point before running to check arguments (breakpoint must be check)
-           mylogs.bp("check")
-           kwargs = {**args, **extra}
-           ctx.invoke(train, **kwargs)
+   args["tag"] = tags 
+   args["full_tag"] = full_tags 
+   tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
+   ii = 0
+   orig_args = args.copy()
+   logger.info("Total experiments:%s", len(tot_comb))
+   for comb in tot_comb:
+       _output_dir = [output_dir]
+       for var_name,var_item in comb.items():
+           var_item =var_item 
+           args[var_name]=var_item
+           if not var_name in exclude_list:
+               _output_dir.append(var_name + "=" + str(var_item))
+       ii += 1
+       args["output_dir"] = "!" + os.path.join(save_path, 
+                                         args["method"] + "-" + args["trial"], 
+                                         *_output_dir)
+       args["expid"] = ii
+       # break point before running to check arguments (breakpoint must be check)
+       mylogs.bp("check")
+       kwargs = {**exp_args, **args}
+       ctx.invoke(train, **kwargs)
 
 @cli.command()
 def train(**kwargs):
