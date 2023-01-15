@@ -217,7 +217,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
            if not var_name in exclude_list:
                _output_dir.append(var_name + "=" + str(var_item))
        ii += 1
-       args["expid"] = ii
+       args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
        args["output_dir"] = "!" + os.path.join(save_path, 
@@ -539,7 +539,7 @@ def train(**kwargs):
             encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
             ii += 1
-        model.set_encoders(prompt_encoders, [])
+        model.set_encoders(prompt_encoders)
         model.resize_token_embeddings(len(tokenizer))
         if bp == "tokens": breakpoint()
 
