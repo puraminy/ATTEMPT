@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/sh
+alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full"
+alias runat="python3 ${HOME}/ATTEMPT/attempt/run_seq2seq.py"
 params=""
 run_params=""
 bash_params=""
@@ -38,7 +40,6 @@ case "$HOME" in
     ;;
 esac
 eval ${bash_params}
-alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 # wrap experiments
 folder=${PWD##*/}          
 log=${home}/logs   
@@ -76,6 +77,7 @@ echo "=============================== $method ========================="
 task="xAttr@"
 main_params=$params
 if [ "$method" = "files" ]; then
+   if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
    for file in $PWD/*.json; do
 	echo "Config file=${file}"
 	params="${main_params} --task_name=$task"
@@ -87,7 +89,7 @@ if [ "$method" = "files" ]; then
 	    echo "exit 1"
 	    break
 	fi
-	run_params=${run_params//"-rem"/}
+	#run_params=${run_params//"-rem"/}
    done
    break
 fi
@@ -188,7 +190,7 @@ fi
 echo "EXIT 0"
 done
 
-alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full "
+
 if [ "$_exp" = "show" ]; then
    show_results --path=${log}/${exp}
 fi
