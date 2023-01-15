@@ -82,7 +82,7 @@ if [ "$method" = "files" ]; then
    for file in $PWD/$_pat; do
 	echo "Config file=${file}"
 	params="${main_params} --task_name=$task"
-	params="${params} --test_ds_config=full-test@"
+	params="${params} --test_ds_config=full-test@sel-test"
 	params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --per_device_eval_batch_size=$_bs"
 	runat run ${run_params} -exp $_exp -cfg $file ${params} 
