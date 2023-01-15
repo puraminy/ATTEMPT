@@ -94,94 +94,94 @@ if [ "$method" = "files" ]; then
    break
 fi
 
-var="data_path=atomic2020"
-var="${var}--use_all_data=False"
-var="${var}--max_train_samples=$_tn"
-var="${var}--max_val_samples=$_vn"
-var="${var}--max_test_samples=$_tsn"
-var="${var}--data_seed=123"
-var="${var}--overwrite_cache=True"
+params="${params} --data_path=atomic2020"
+params="${params} --use_all_data=False"
+params="${params} --max_train_samples=$_tn"
+params="${params} --max_val_samples=$_vn"
+params="${params} --max_test_samples=$_tsn"
+params="${params} --data_seed=123"
+params="${params} --overwrite_cache=True"
 
-var="${var}--method=$method"
+params="${params} --method=$method"
 # task
-var="${var}--task_name=$task"
+params="${params} --task_name=$task"
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 task="xIntent@"
-var="${var}--task_name=$task"
-var="${var}--ds_config=en@"
+params="${params} --task_name=$task"
+params="${params} --ds_config=en@"
 
-var="${var}--test_ds_config=sel-test@full-test"
+params="${params} --test_ds_config=sel-test@full-test"
 
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
   exp="${PWD#$log/}"
   echo "cur folder: ${exp}"
-  var="${var}--do_train=False"
+  params="${params} --do_train=False"
 else
-  var="${var}--do_train=True"
+  params="${params} --do_train=True"
 fi
 # operations
-var="${var}--do_test=True"
-var="${var}--do_eval=True"
+params="${params} --do_test=True"
+params="${params} --do_eval=True"
 # Saving
-var="${var}--save_total_limit=1"
-var="${var}--save_checkpoint=False"
-var="${var}--save_model=True"
+params="${params} --save_total_limit=1"
+params="${params} --save_checkpoint=False"
+params="${params} --save_model=True"
 
 # training 
-var="${var}--per_device_train_batch_size=$_bs"
-var="${var}--per_device_eval_batch_size=$_bs"
-var="${var}--trainer_shuffle=True"
-var="${var}--skip_specials=True"
-var="${var}--load_best_model_at_end=True"
+params="${params} --per_device_train_batch_size=$_bs"
+params="${params} --per_device_eval_batch_size=$_bs"
+params="${params} --trainer_shuffle=True"
+params="${params} --skip_specials=True"
+params="${params} --load_best_model_at_end=True"
 
 
 if [ "$method" = "ft" ]; then
-	var="${var}--learning_rate=0.0003"
-	var="${var}--opt_type=regular"
-        var="${var}--per_device_train_batch_size=16"
-        var="${var}--template=sup"
-	var="${var}--num_train_epochs=$_ep"
+	params="${params} --learning_rate=0.0003"
+	params="${params} --opt_type=regular"
+        params="${params} --per_device_train_batch_size=16"
+        params="${params} --template=sup"
+	params="${params} --num_train_epochs=$_ep"
 fi
 
 # prefix tuning
 # xxxxxxxxxxxx
 if [ "$method" = "px" ] || [ "$method" = "at" ]; then
-	var="${var}--learning_rate=0.3"
-	var="${var}--prefix_tuning=True"
-	var="${var}--prefix_dim=100"
-	var="${var}--opt_type=regular"
-	var="${var}--use_optimizer=False"
-        var="${var}--template=sup"
-	var="${var}--num_train_epochs=$_ep"
-	var="${var}--config=base"
+	params="${params} --learning_rate=0.3"
+	params="${params} --prefix_tuning=True"
+	params="${params} --prefix_dim=100"
+	params="${params} --opt_type=regular"
+	params="${params} --use_optimizer=False"
+        params="${params} --template=sup"
+	params="${params} --num_train_epochs=$_ep"
+	params="${params} --config=base"
 	params="${params} --prefix_dir=prefixes"
 fi
 
 if [ "$method" = "at" ]; then
-        var="${var}--attn_prefix_tuning=True"
-	var="${var}--config=attempt"
-	var="${var}--prompt_embedding_path=xWant.pt@xNeed.pt@xIntent.pt"
-	var="${var}--attn_method=sub"
+        params="${params} --attn_prefix_tuning=True"
+	params="${params} --config=attempt"
+	params="${params} --prompt_embedding_path=xWant.pt@xNeed.pt@xIntent.pt"
+	params="${params} --attn_method=sub"
 fi
 # pppppppppppp
 # prompt tuning
 if [ "$method" = "pt" ]; then
-	var="${var}--prompt_tuning=True"
-	var="${var}--use_optimizer=True"
-	var="${var}--opt_type=regular"
-	var="${var}--prompt_learning_rate=0.01#0.05#0.1"
-	var="${var}--num_prompt_encoders=1"
-        var="${var}--per_device_train_batch_size=$_bs"
-	var="${var}--num_prompt_tokens=8#16#24"
-	var="${var}--prompt_encoder_type=mlp"
-        var="${var}--template=sup-pt-t"
-	var="${var}--num_train_epochs=$_ep"
-	var="${var}--init_from_words=False"
+	params="${params} --prompt_tuning=True"
+	params="${params} --use_optimizer=True"
+	params="${params} --opt_type=regular"
+	params="${params} --prompt_learning_rate=0.01#0.05#0.1"
+	params="${params} --num_prompt_encoders=1"
+        params="${params} --per_device_train_batch_size=$_bs"
+	params="${params} --num_prompt_tokens=8#16#24"
+	params="${params} --prompt_encoder_type=mlp"
+        params="${params} --template=sup-pt-t"
+	params="${params} --num_train_epochs=$_ep"
+	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 fi
 echo "other params: ${params}"
-runat run ${run_params} -exp $exp -var ${var} ${params} 
+runat run ${run_params} -exp $exp ${params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"
