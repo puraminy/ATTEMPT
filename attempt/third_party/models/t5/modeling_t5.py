@@ -1097,7 +1097,6 @@ class T5Stack(T5PreTrainedModel):
             ################ My code End
 
             ######################################
-            breakpoint()
             if self.append_prefix and self.append_attn_prefix is False:
                 inputs_embeds = torch.cat([self.prefix_emb.unsqueeze(0).repeat(
                     inputs_embeds.shape[0], 1, 1), inputs_embeds], dim=1)  # bsz, seqlen, dim
