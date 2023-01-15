@@ -909,7 +909,6 @@ class T5Stack(T5PreTrainedModel):
         ################# MyCode
         self.prompt_encoders = []
         self.merge_encoder = None
-        self.skill_encoders = []
         self.embedding_dim = self.config.hidden_size
         self.replacing_token_id = 0 #replacing_token_id
         #############################################################
@@ -964,7 +963,7 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
-        if len(self.prompt_encoders) > 0 or len(self.skill_encoders) > 0:
+        if len(self.prompt_encoders) > 0:
             tids = task_ids
             device=input_ids.device
             for encoder in self.prompt_encoders:
@@ -1098,6 +1097,7 @@ class T5Stack(T5PreTrainedModel):
             ################ My code End
 
             ######################################
+            breakpoint()
             if self.append_prefix and self.append_attn_prefix is False:
                 inputs_embeds = torch.cat([self.prefix_emb.unsqueeze(0).repeat(
                     inputs_embeds.shape[0], 1, 1), inputs_embeds], dim=1)  # bsz, seqlen, dim
@@ -1767,7 +1767,10 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
         self.mul_prefix_emb = nn.Parameter(torch.zeros(
             (self.prefix_num, self.prefix_dim, config.d_model))) if self.prefix_tuning and self.attn_prefix_tuning else None
+
         #############################################################
+        self.mul_encoders_emb = None
+
         encoder_config = copy.deepcopy(config)
         encoder_config.is_decoder = False
         encoder_config.use_cache = False
@@ -1800,16 +1803,15 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         return self.encoder.prompt_encoders
     
     @property
-    def skill_encoders(self):
-        return self.encoder.skill_encoders
-
-    @property
     def merge_encoder(self):
         return self.encoder.merge_encoder
 
-    def set_encoders(self, prompt_encoders, skill_encoders):
+    def set_encoders(self, prompt_encoders):
         self.encoder.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
-        self.encoder.skill_encoders = torch.nn.ModuleList(skill_encoders)
+        self.encoders_num = len(self.prompt_encoders)
+        self.encoders_dim = self.prompt_encoders[0].length if self.prompt_encoders else 0
+        self.mul_encoders_emb = nn.Parameter(torch.zeros(
+            (self.encoders_num, self.encoders_dim, self.model_dim))) 
 
     def load_encoders(self, prompts=[], load_dir = None):
         if not load_dir: return
@@ -1825,7 +1827,6 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             #torch.save(self.merge_encoder, out_file)
             pass
         lst = self.encoder.prompt_encoders 
-        lst.extend(self.encoder.skill_encoders)
         for encoder in lst:
             encoder.save(output_dir)
 
