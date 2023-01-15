@@ -219,6 +219,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        ii += 1
        args["expid"] = ii
        args = {**exp_args, **args}
+       _output_dir.append(str(args["expid"]))
        args["output_dir"] = "!" + os.path.join(save_path, 
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
