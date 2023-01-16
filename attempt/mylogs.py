@@ -32,7 +32,7 @@ if not colab:
     resPath = os.path.join(home, "results") 
     pretPath = os.path.join(home, "pret") 
 else:
-    home = "/content/drive/MyDrive/pouramini"
+    home = "/content/drive/MyDrive/"
     pretPath = "/content/drive/MyDrive/pret"
     logPath = "/content/drive/MyDrive/logs"
     resPath = "/content/drive/MyDrive/logs/results"
