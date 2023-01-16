@@ -107,7 +107,7 @@ params="${params} --use_all_data=False"
 params="${params} --max_train_samples=$_tn"
 params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
-params="${params} --data_seed=123"
+#params="${params} --data_seed=123"
 params="${params} --overwrite_cache=True"
 
 # task
