@@ -265,11 +265,11 @@ def train(**kwargs):
             new_kwargs[k] = v
             if hasattr(model_args,k):
                 setattr(model_args, k, v)
-            if hasattr(data_args,k):
+            elif hasattr(data_args,k):
                 setattr(data_args, k, v)
-            if hasattr(training_args,k):
+            elif hasattr(training_args,k):
                 setattr(training_args, k, v)
-            if hasattr(adapter_args,k):
+            elif hasattr(adapter_args,k):
                 setattr(adapter_args, k, v)
         return new_kwargs
 
