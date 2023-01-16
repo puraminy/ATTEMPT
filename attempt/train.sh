@@ -78,7 +78,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xAttr@xIntent"
+task="xAttr@xIntent#xAttr@#xIntent@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -136,14 +136,14 @@ params="${params} --per_device_eval_batch_size=$_bs"
 params="${params} --trainer_shuffle=True"
 params="${params} --skip_specials=True"
 params="${params} --load_best_model_at_end=True"
-
+params="${params} --num_train_epochs=$_ep"
+params="${params} --adjust_epochs=True"
 
 if [ "$method" = "ft" ]; then
 	params="${params} --learning_rate=0.0003"
 	params="${params} --opt_type=regular"
         params="${params} --per_device_train_batch_size=16"
         params="${params} --template=sup"
-	params="${params} --num_train_epochs=$_ep"
 fi
 
 # prefix tuning
@@ -155,7 +155,6 @@ if [ "$method" = "px" ] || [ "$method" = "at" ]; then
 	params="${params} --opt_type=regular"
 	params="${params} --use_optimizer=False"
         params="${params} --template=sup"
-	params="${params} --num_train_epochs=$_ep"
 	params="${params} --config=base"
 	params="${params} --prefix_dir=prefixes"
 fi
@@ -178,7 +177,6 @@ if [ "$method" = "pt" ]; then
 	params="${params} --num_prompt_tokens=20"
 	params="${params} --prompt_encoder_type=mlp"
         params="${params} --template=sup-pt-t"
-	params="${params} --num_train_epochs=$_ep"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --source_tasks=xWant@xNeed@xIntent"
