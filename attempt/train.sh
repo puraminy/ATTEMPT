@@ -107,7 +107,7 @@ params="${params} --method=$method"
 # task
 params="${params} --task_name=$task"
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@"
+task="xIntent@xAttr"
 params="${params} --task_name=$task"
 params="${params} --ds_config=en@"
 
@@ -180,6 +180,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --num_train_epochs=$_ep"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
+	params="${params} --source_tasks=xWant@xNeed@xIntent"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} 

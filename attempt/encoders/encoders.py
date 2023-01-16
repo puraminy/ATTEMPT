@@ -108,8 +108,8 @@ class PromptEncoder(torch.nn.Module):
         task_id = self.gid
         if tids is not None:
             task_id = tids[0]
-        if self.gid >= 0 and task_id != self.gid:
-            return None
+        #if self.gid >= 0 and task_id != self.gid:
+        #    return None
         if self.id_offset > 0:
             index_list = prompt_token_ids - self.id_offset
         else:
@@ -126,8 +126,9 @@ class PromptEncoder(torch.nn.Module):
         task_id = self.gid
         if tids is not None:
             task_id = tids[0]
-        if self.gid >= 0 and task_id != self.gid:
-            return None
+        #if self.gid >= 0 and task_id != self.gid:
+        #    return None
+        return self.router
         router = self.router[task_id] # torch.index_select(self.router, 0, tids)
         if training and (not self.router.requires_grad or not self.is_learned):
             return router
@@ -342,9 +343,9 @@ class MLPPromptEncoder(PromptEncoder):
         router = self.learn_router(tids, training)
         embs = self.embedding(self.net_inps)
         z = self.mlp(embs)
-        z = z.view(self.length, -1) 
-        running_weight = torch.mul(router.unsqueeze(1), z).view(-1, self.embedding_dim)
-        ret_embeds = F.embedding(index_list, running_weight)
+        #z = z.view(self.length, -1) 
+        #z = torch.mul(router.unsqueeze(1), z).view(-1, self.embedding_dim)
+        ret_embeds = F.embedding(index_list, z)
         return ret_embeds 
 
 class LSTMEmbeddingPromptEncoder(PromptEncoder):

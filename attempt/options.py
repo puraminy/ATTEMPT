@@ -453,7 +453,9 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
     ########### my options
-
+    source_tasks: Optional[List[str]] = field(
+        default=None, metadata={"help": "The name of the tasks used to train a new task based on them."}
+    )
     data_path: Optional[List[str]] = field(
         default=None, metadata={"help": "Path to the directory containing split files."}
     )

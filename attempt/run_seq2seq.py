@@ -332,16 +332,16 @@ def train(**kwargs):
     full_tag = kwargs.setdefault("full_tag",[]) # the full list of tags
     # check conflicts of options
     check_cfls = kwargs.setdefault("check_conflicts",True)
-    if check_cfls:
-        try:
-            check_conflicts(model_args, data_args, training_args, adapter_args, kwargs)
-        except AssertionError as e:
-            print("Conflict:", e.args)
-            title = mylogs.get_tag(full_tag)
-            title = json.dumps(title, indent=4)
-            mylogs.dlog.info(title)
-            mylogs.dlog.info("Conflict: %s", e.args)
-            mylogs.dlog.info("-------------------------------------")
+    if check_cfls: #check conflicts
+        resolved, msg = check_conflicts(model_args, data_args, 
+                training_args, adapter_args, kwargs)
+        print(msg)
+        title = mylogs.get_tag(full_tag)
+        title = json.dumps(title, indent=4)
+        mylogs.dlog.info(title)
+        mylogs.dlog.info("%s", msg)
+        mylogs.dlog.info("-------------------------------------")
+        if not resolved:
             return
 
     if preview:
@@ -516,11 +516,13 @@ def train(**kwargs):
         logger.info("%s tokens was addded", added)
         if bp and bp in "tokens|encoder": breakpoint()
         model.resize_token_embeddings(len(tokenizer))
-        n_tasks = len(data_args.task_name)
         # mmmmmmmmmmmmm
         prompts = {}
         mylogs.bp("prompts")
-        for task in data_args.task_name:
+        tasks = data_args.source_tasks + data_args.task_name
+        tasks = list(set(tasks))
+        n_tasks = len(tasks)
+        for task in tasks:
              bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
@@ -643,7 +645,9 @@ def train(**kwargs):
             else:
                 train_datasets[i] = train_datasets[i].map(
                     functools.partial(preprocess_function,
-                                      max_target_length=max_target_lengths[i]),
+                                      max_target_length=max_target_lengths[i]
+                                      #mycode adding task ids
+                                      ,task_id=i),
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     # if train_dataset != "superglue-record" else column_names+["answers"],
@@ -651,8 +655,10 @@ def train(**kwargs):
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
         bp != "concat" or breakpoint()
-        #train_dataset = concatenate_datasets(train_datasets)
-        train_dataset = my_interleave_datasets(train_datasets, 
+        if trainer_shuffle:
+            train_dataset = concatenate_datasets(train_datasets)
+        else:
+            train_dataset = my_interleave_datasets(train_datasets, 
                 batch_size=training_args.per_device_train_batch_size)
 
     if training_args.do_eval:

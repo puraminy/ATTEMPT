@@ -1062,7 +1062,7 @@ class T5Stack(T5PreTrainedModel):
         task=None
     ):
         # Model parallel
-        task_ids=None #TODO remove it
+        #task_ids=None #TODO remove it
         #task_ids = task_ids.long()
         if self.model_parallel:
             torch.cuda.set_device(self.first_device)
@@ -1092,11 +1092,12 @@ class T5Stack(T5PreTrainedModel):
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
-            ################ MyCode
+            ################ MyCode mmmmmmmmmmmm
+            # breakpoint()
             input_ids = self.prompt_encoders_forward(input_ids, inputs_embeds, task_ids)
             ################ My code End
 
-            ######################################
+            ###################################### aaaaaaaaaaaa
             if self.append_prefix and self.append_attn_prefix is False:
                 inputs_embeds = torch.cat([self.prefix_emb.unsqueeze(0).repeat(
                     inputs_embeds.shape[0], 1, 1), inputs_embeds], dim=1)  # bsz, seqlen, dim
