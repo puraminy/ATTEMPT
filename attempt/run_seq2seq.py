@@ -273,8 +273,6 @@ def train(**kwargs):
                 setattr(adapter_args, k, v)
         return new_kwargs
 
-    if kwargs["task_name"] != list:
-        kwargs["task_name"] = [kwargs["task_name"]]
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
@@ -288,6 +286,8 @@ def train(**kwargs):
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     bp = kwargs.setdefault("break_point","")
     # set other options
+    if type(data_args.task_name) != list:
+        data_args.task_name = [data_args.task_name]
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
 
