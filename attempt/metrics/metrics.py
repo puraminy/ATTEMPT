@@ -12,10 +12,11 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 ## My imports
-from sentence_transformers import SentenceTransformer, util
 import torch
 from rouge import Rouge
 from attempt.mylogs import *
+if not colab:
+    from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
 import re
 import pandas as pd
@@ -325,6 +326,9 @@ def do_score(df, scorers, save_path, reval=False):
         local_path = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
 
     bert_scorer = None
+    if colab:
+        scorers = scorers.replace("bert","")
+
     if "bert" in scorers:
         bert_scorer = SentenceTransformer(local_path)
 
