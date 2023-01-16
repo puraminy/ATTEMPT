@@ -273,6 +273,8 @@ def train(**kwargs):
                 setattr(adapter_args, k, v)
         return new_kwargs
 
+    if kwargs["task_name"] != list:
+        kwargs["task_name"] = [kwargs["task_name"]]
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
@@ -308,6 +310,8 @@ def train(**kwargs):
     _confs =["en"] * n_tasks
     for i,c in enumerate(ds_confs):
         _confs[i] = ds_confs[i]
+    if kwargs.setdefault("adjust_epochs", False):
+        training_args.num_train_epochs *= n_tasks
 
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
