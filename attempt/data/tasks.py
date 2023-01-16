@@ -516,7 +516,6 @@ class STSB(AbstractTask):
 
 import os.path as op
 
-HOME = op.expanduser("~")
 import pandas as pd
 class Atomic(AbstractTask):
     name = "atomic"
@@ -534,7 +533,7 @@ class Atomic(AbstractTask):
     def get_data_path(self, split):
         path = self.data_path
         if not path.startswith("/"):
-            path= op.join(HOME, self.data_path)
+            path= op.join(mylogs.home, self.data_path)
         if split == "test":
             mylogs.bp("path")
             path = op.join(path, self.config, split  + '.tsv')
@@ -612,7 +611,7 @@ class AtomicRel(Atomic):
     def get_data_path(self, split):
         path = self.data_path
         if not path.startswith("/"):
-            path= op.join(HOME, self.data_path)
+            path= op.join(mylogs.home, self.data_path)
         path = op.join(path, split + '.tsv')
         return path
 
