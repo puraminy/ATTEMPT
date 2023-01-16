@@ -129,7 +129,7 @@ params="${params} --do_eval=True"
 # Saving
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
-params="${params} --save_model=True"
+params="${params} --save_model=False"
 
 # training 
 params="${params} --per_device_train_batch_size=$_bs"
@@ -176,6 +176,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=10"
+	params="${params} --num_common_tokens=3#5"
 	params="${params} --prompt_encoder_type=mlp"
         params="${params} --template=sup-pt-t-com"
 	params="${params} --init_from_words=False"

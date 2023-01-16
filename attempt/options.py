@@ -84,7 +84,9 @@ class AdapterTrainingArguments:
     num_prompt_encoders: Optional[int] = field(
         default=2, metadata={"help": "Number of prompt encoders."})
     num_prompt_tokens: Optional[int] = field(
-        default=8, metadata={"help": "Number of prompt tokens for each prompt encoder."})
+        default=8, metadata={"help": "Number of prompt tokens for each task."})
+    num_common_tokens: Optional[int] = field(
+        default=4, metadata={"help": "Number of prompt tokens common among tasks"})
     prompt_encoder_type: Optional[str] = field(
         default="lstm", metadata={"help": "the type of prompt encoder."})
     ####################

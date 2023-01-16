@@ -297,6 +297,7 @@ def train(**kwargs):
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
     task_args["num_prompt_tokens"] = adapter_args.num_prompt_tokens
+    task_args["num_common_tokens"] = adapter_args.num_common_tokens
     task_args["template"] = data_args.template
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = kwargs.rels
