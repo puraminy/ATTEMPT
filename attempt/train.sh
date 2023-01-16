@@ -37,7 +37,7 @@ case "$HOME" in
     home=/content/drive/MyDrive
     ;;
 esac
-alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full"
+alias show_results="python3 ${home}/mt5-comet/comet/train/show.py full"
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 
 eval ${bash_params}
