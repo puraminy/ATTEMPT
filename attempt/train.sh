@@ -47,10 +47,11 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=8; fi
 
-if [ -z "$_tn" ]; then  _tn=100#150; fi
+# eeeee
+if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=5#10; fi
+if [ -z "$_ep" ]; then  _ep=20; fi
 if [ -n "$_test" ]; then
   _tn=10
   _vn=2
@@ -75,7 +76,9 @@ fi
 if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
 echo "=============================== $method ========================="
-task="xAttr@#xIntent@"
+# tttttt
+#task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
+task="xAttr@xIntent"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -95,6 +98,9 @@ if [ "$method" = "files" ]; then
    break
 fi
 
+params="${params} --method=$method"
+
+# data  ddddd
 params="${params} --data_path=atomic2020"
 params="${params} --use_all_data=False"
 params="${params} --max_train_samples=$_tn"
@@ -103,14 +109,9 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --data_seed=123"
 params="${params} --overwrite_cache=True"
 
-params="${params} --method=$method"
 # task
 params="${params} --task_name=$task"
-#task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@xAttr"
-params="${params} --task_name=$task"
 params="${params} --ds_config=en@"
-
 params="${params} --test_ds_config=sel-test@full-test"
 
 exp=$task-$_exp
@@ -171,10 +172,10 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_tuning=True"
 	params="${params} --use_optimizer=True"
 	params="${params} --opt_type=regular"
-	params="${params} --prompt_learning_rate=0.01#0.05#0.1"
+	params="${params} --prompt_learning_rate=0.01"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
-	params="${params} --num_prompt_tokens=8#16#24"
+	params="${params} --num_prompt_tokens=20"
 	params="${params} --prompt_encoder_type=mlp"
         params="${params} --template=sup-pt-t"
 	params="${params} --num_train_epochs=$_ep"
