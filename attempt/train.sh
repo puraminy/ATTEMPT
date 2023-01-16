@@ -1,6 +1,4 @@
 #!/bin/sh
-alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full"
-alias runat="python3 ${HOME}/ATTEMPT/attempt/run_seq2seq.py"
 params=""
 run_params=""
 bash_params=""
@@ -39,6 +37,9 @@ case "$HOME" in
     home=/content/drive/MyDrive
     ;;
 esac
+alias show_results="python3 /home/pouramini/mt5-comet/comet/train/show.py full"
+alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
+
 eval ${bash_params}
 # wrap experiments
 folder=${PWD##*/}          
