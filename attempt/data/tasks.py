@@ -42,6 +42,7 @@ class AbstractTask(abc.ABC):
         ## list of prompts
         self.prompt_set = {} 
         self.prompt_length = task_args.num_prompt_tokens
+        self.common_length = task_args.num_common_tokens
         self.task_args = task_args
         self.counter = {} #counter for logging items
 
@@ -146,7 +147,11 @@ class AbstractTask(abc.ABC):
 
     ######### my template functions
     def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
-        if plen==0: plen = self.prompt_length 
+        if plen==0: 
+            plen = self.prompt_length 
+            if name == "com":
+                plen = self.common_length
+
         _pholder = place_holder
         place_holder = place_holder.replace("task", self.name)  
         place_holder = place_holder.replace("[", "<")  
