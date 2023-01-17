@@ -213,7 +213,7 @@ class AbstractTask(abc.ABC):
 
     def get_template(self):
         tn = self.template
-        src = "{task}: (com) {source} (prompt) (nat) (mask)" 
+        src = "{task}: {source} (com) (prompt) (nat) (mask)" 
         target = "(mask) {target}"
         if "pre-" in tn:
             src = "(prompt) {source} (mask)" 
