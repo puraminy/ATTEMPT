@@ -553,7 +553,7 @@ class Atomic(AbstractTask):
         df = pd.read_table(path)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
-        assert len(df) > 0, "data frame is empty"
+        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
