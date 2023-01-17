@@ -541,7 +541,8 @@ class Atomic(AbstractTask):
             path= op.join(mylogs.home, self.data_path)
         if split == "test":
             mylogs.bp("path")
-            path = op.join(path, self.config, split  + '.tsv')
+            path = op.join(path, self.config, split, self.name  + '.tsv')
+            print("TEST PATH:", path)
         else:
             path = op.join(path, split + '.tsv')
         return path
@@ -571,7 +572,9 @@ class Atomic(AbstractTask):
 
     def preproc_df(self, df, split):
         df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
+        print("len df:", len(df))
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
+        print("len new df:", len(df))
         sort_by = ["freqs","input_text", "prefix"] 
         if "sel" in df:
             mylogs.bp("df")
