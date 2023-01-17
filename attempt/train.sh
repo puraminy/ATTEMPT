@@ -79,7 +79,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xAttr@xIntent@xWant@xReact@xEffect#xAttr@#xIntent@#xReact@#xEffect@#xWant@"
+task="xAttr@xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
