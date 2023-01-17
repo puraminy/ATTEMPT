@@ -627,7 +627,9 @@ class AtomicRel(Atomic):
             samples_per_rel = self.val_samples_per_rel
         else:
             samples_per_rel = self.test_samples_per_rel
+        print("len df:", len(df))
         df = df.groupby(["prefix"]).head(samples_per_rel)
+        print("len new df:", len(df))
         return df
 
     def check_n_obs(self, n_obs, total_size):
