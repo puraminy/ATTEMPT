@@ -542,7 +542,7 @@ class Atomic(AbstractTask):
         if split == "test":
             mylogs.bp("path")
             if self.config == "full-test":
-                path = op.join(path, self.config, split, self.name  + '.tsv')
+                path = op.join(path, self.config, self.name  + '.tsv')
             else:
                 path = op.join(path, self.config, split  + '.tsv')
             print("TEST PATH:", path)
