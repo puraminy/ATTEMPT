@@ -79,7 +79,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xAttr@xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@"
+task="xAttr@xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@#xEffect@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -113,7 +113,7 @@ params="${params} --overwrite_cache=True"
 # task
 params="${params} --task_name=$task"
 params="${params} --ds_config=en@"
-params="${params} --test_ds_config=sel-test@full-test"
+params="${params} --test_ds_config=full-test@"
 
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then

@@ -541,7 +541,10 @@ class Atomic(AbstractTask):
             path= op.join(mylogs.home, self.data_path)
         if split == "test":
             mylogs.bp("path")
-            path = op.join(path, self.config, split, self.name  + '.tsv')
+            if self.config == "full-test":
+                path = op.join(path, self.config, split, self.name  + '.tsv')
+            else:
+                path = op.join(path, self.config, split  + '.tsv')
             print("TEST PATH:", path)
         else:
             path = op.join(path, split + '.tsv')
@@ -554,7 +557,7 @@ class Atomic(AbstractTask):
         df = pd.read_table(path)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
-        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name
+        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
