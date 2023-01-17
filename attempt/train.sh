@@ -172,7 +172,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_tuning=True"
 	params="${params} --use_optimizer=True"
 	params="${params} --opt_type=regular"
-	params="${params} --prompt_learning_rate=0.01"
+	params="${params} --prompt_learning_rate=0.1"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=10"
