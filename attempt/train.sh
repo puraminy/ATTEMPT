@@ -206,7 +206,7 @@ if [ "$_exp" != "self" ]; then
 	cp train.sh ${log}/$exp
 fi
 case "$home" in 
-  *content*)
+  *-----TODO------*)
     # Do stuff
 	mv /content/*time*.log ${log}/$exp
 	tar -czvf /content/${exp}-$_exp.tar.gz ${log}/$exp
