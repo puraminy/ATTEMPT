@@ -79,7 +79,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xAttr@xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@#xEffect@"
+task="xAttr@xIntent" #xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@#xEffect@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -165,6 +165,7 @@ if [ "$method" = "at" ]; then
 	params="${params} --config=attempt"
 	params="${params} --prompt_embedding_path=xWant.pt@xNeed.pt@xIntent.pt"
 	params="${params} --attn_method=sub"
+	params="${params} --shared_attn=True"
 fi
 # pppppppppppp
 # prompt tuning
@@ -175,13 +176,15 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_learning_rate=0.1"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
-	params="${params} --num_prompt_tokens=10"
-	params="${params} --num_common_tokens=3#5"
+	params="${params} --num_prompt_tokens=20"
+	params="${params} --num_common_tokens=10"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-pt-t-com"
+        params="${params} --template=sup-pt-tm"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
-	params="${params} --source_tasks=xWant@xNeed@xIntent"
+	params="${params} --source_tasks=xWant@xNeed"
+	params="${params} --load_prompts=True"
+	params="${params} --attn_method=sub"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} 

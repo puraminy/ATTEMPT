@@ -28,8 +28,7 @@ class PromptEncoder(torch.nn.Module):
         self.learning_rate = lr
         self.length = length = len(prompt_ids)
         self.name = name
-        self.task_id = 0
-        self.gid = -1
+        self.task_id = -1 
         self.device = "cpu"
         self.counter = 0
         self.prompt_ids = prompt_ids
@@ -73,6 +72,8 @@ class PromptEncoder(torch.nn.Module):
         if Path(fname).is_file():
             state = torch.load(fname)
             self.load_state_dict(state)
+            mylogs.tinfo("Prompt for %s was loaded ", self.name)
+            assert False, ""
 
 
     def init_embedding(self, init_embs):
@@ -105,11 +106,8 @@ class PromptEncoder(torch.nn.Module):
         self.router.requires_grad = True
 
     def forward(self,prompt_token_ids, tids=None, training=True):
-        task_id = self.gid
         if tids is not None:
             task_id = tids[0]
-        #if self.gid >= 0 and task_id != self.gid:
-        #    return None
         if self.id_offset > 0:
             index_list = prompt_token_ids - self.id_offset
         else:
@@ -123,11 +121,8 @@ class PromptEncoder(torch.nn.Module):
     def learn_router(self, tids=None, training=True):
         if self.router is None:
             return None
-        task_id = self.gid
         if tids is not None:
             task_id = tids[0]
-        #if self.gid >= 0 and task_id != self.gid:
-        #    return None
         return self.router
         router = self.router[task_id] # torch.index_select(self.router, 0, tids)
         if training and (not self.router.requires_grad or not self.is_learned):
@@ -168,6 +163,12 @@ class PromptEncoder(torch.nn.Module):
             embs = self.forward(self.input_ids, tids=task_ids, training=False)
             detached_embeddings = embs.detach()
             weight[self.prompt_ids,:]=detached_embeddings
+
+    def get_emb(self, task_ids = None):
+        with torch.no_grad():
+            embs = self.forward(self.input_ids, tids=task_ids, training=False)
+            detached_embeddings = embs.detach()
+            return detached_embeddings
 
 class EmbeddingPromptEncoder(PromptEncoder):
     def forward_step(self, index_list, tids=None, training=True):
