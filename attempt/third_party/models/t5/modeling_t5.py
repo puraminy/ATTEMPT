@@ -1055,8 +1055,7 @@ class T5Stack(T5PreTrainedModel):
         if len(self.prompt_encoders) > 0:
             tids = task_ids
             device=input_ids.device
-            breakpoint()
-            task_ids = torch.zeros(1, inputs_embeds.shape[0]).int()
+            task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
             prompt_masks = self.get_prompt_token_fn(input_ids)
             target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
             target_prompts = self.task_prompt.repeat(
@@ -1065,7 +1064,7 @@ class T5Stack(T5PreTrainedModel):
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 index_mask = (target_masks == True).any(dim=1)
-                tids = torch.zeros(len(index_mask)).int()
+                tids = torch.zeros(len(index_mask), device=device).int()
                 tids[index_mask] = encoder.task_id
                 if target_masks.any():
                     task_ids = torch.where(tids != 0, tids, task_ids)
