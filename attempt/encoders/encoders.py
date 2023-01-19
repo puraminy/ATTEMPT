@@ -69,10 +69,10 @@ class PromptEncoder(torch.nn.Module):
         if not load_dir:
             return
         fname = os.path.join(load_dir, self.get_id())
-        if Path(fname).is_file():
-            state = torch.load(fname)
-            self.load_state_dict(state)
-            mylogs.tinfo("Prompt for %s was loaded ", self.name)
+        assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
+        state = torch.load(fname)
+        self.load_state_dict(state)
+        mylogs.tinfo("Prompt for %s was loaded ", self.name)
 
     def init_embedding(self, init_embs):
         if init_embs:
