@@ -49,6 +49,7 @@ echo "log: ${log}"
 if [ -z "$_bs" ]; then  _bs=8; fi
 
 # eeeee
+if [ -z "$_train" ]; then  _train=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
@@ -119,7 +120,7 @@ exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
   exp="${PWD#$log/}"
   echo "cur folder: ${exp}"
-  params="${params} --do_train=False"
+  params="${params} --do_train=$_train"
 else
   params="${params} --do_train=True"
 fi
