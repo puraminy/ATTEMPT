@@ -1,11 +1,11 @@
 #!/bin/sh
-params=""
+extra_params=""
 run_params=""
 bash_params=""
 for i in $@
 do
    case $i in
-       --*) params="${params} $i"; g=1;;
+       --*) extra_params="${extra_params} $i"; g=1;;
        
        _*) bash_params="${bash_params} $i"; g=3;;
 
@@ -25,7 +25,6 @@ do
 done
 echo "Others: ${others}"
 model=t5-base
-
 home=$HOME
 case "$HOME" in 
   *ahmad*)
@@ -53,7 +52,7 @@ if [ -z "$_train" ]; then  _train=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=20; fi
+if [ -z "$_ep" ]; then  _ep=10; fi
 if [ -n "$_test" ]; then
   _tn=10
   _vn=2
@@ -67,6 +66,7 @@ if [ -n "$_all" ]; then
 fi
 onError=break
 methods=$(echo $others | xargs)
+params=""
 
 if [ -z "$methods" ]; then
   methods="ft pt px"
@@ -184,13 +184,13 @@ if [ "$method" = "pt" ]; then
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --load_prompts=True"
-	params="${params} --attn_prompt_tuning=True"
+	params="${params} --load_prompts=True#False"
+	params="${params} --attn_prompt_tuning=True#False"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=True#False"
 fi
 echo "other params: ${params}"
-runat run ${run_params} -exp $exp ${params} 
+runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then
     echo "exit 1"
