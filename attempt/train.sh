@@ -176,7 +176,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_learning_rate=0.1"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
-	params="${params} --num_prompt_tokens=20"
+	params="${params} --num_prompt_tokens=10"
 	params="${params} --num_common_tokens=10"
 	params="${params} --prompt_encoder_type=mlp"
         params="${params} --template=sup-pt-tm"
