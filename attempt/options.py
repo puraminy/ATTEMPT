@@ -302,6 +302,12 @@ class ModelArguments:
         },
     )
     ###### My options
+    attn_prompt_tuning: bool = field(
+        default=False,
+        metadata={
+            "help": "use attention prompt model"
+        },
+    )
     prompt_learning_rate: float = field(
         default=None,
         metadata={

@@ -426,6 +426,7 @@ def train(**kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning
+    config.attn_prompt_tuning = model_args.attn_prompt_tuning
     config.attn_prefix_tuning = model_args.attn_prefix_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
