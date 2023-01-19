@@ -1082,7 +1082,7 @@ class T5Stack(T5PreTrainedModel):
                 soft_prompts = self.attend_prompts(inputs_embeds, 
                     src_prompts = src_prompts, 
                     target_prompts = target_prompts,
-                    ignore_target = False)
+                    ignore_target = self.ignore_target)
                 inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
             else:
                 inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
