@@ -1041,7 +1041,7 @@ class T5Stack(T5PreTrainedModel):
                     src_prompts[encoder.task_id, :] = emb.clone().detach()
 
         self.src_prompts = src_prompts
-        self.task_prompt_ids = torch.tensor(task_prompt_ids)
+        self.task_prompt_ids = torch.tensor(task_prompt_ids).cuda()
 
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
