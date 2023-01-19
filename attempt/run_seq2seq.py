@@ -1160,7 +1160,6 @@ def train(**kwargs):
             results[checkpoint_dir]["test_avg"] = np.mean(test_avg)
             results[checkpoint_dir]["test_each"] = test_metrics_all
     print(results)
-    wandb.finish()
     return results
 
 if __name__ == "__main__":
