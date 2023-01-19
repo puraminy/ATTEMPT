@@ -183,9 +183,10 @@ if [ "$method" = "pt" ]; then
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --load_prompts=False#True"
-	params="${params} --attn_prompt_tuning=False#True"
-	params="${params} --attn_method=sub"
+	params="${params} --load_prompts=True"
+	params="${params} --attn_prompt_tuning=True"
+	params="${params} --attn_method=sub#linear#dot"
+	params="${params} --ignore_target=True#False"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} 
