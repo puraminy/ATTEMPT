@@ -113,7 +113,7 @@ params="${params} --overwrite_cache=True"
 # task
 params="${params} --task_name=$task"
 params="${params} --ds_config=en@"
-params="${params} --test_ds_config=full-test@"
+params="${params} --test_ds_config=full-test@sel-test"
 
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
@@ -183,7 +183,8 @@ if [ "$method" = "pt" ]; then
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --load_prompts=False"
+	params="${params} --load_prompts=False#True"
+	params="${params} --attn_prompt_tuning=False#True"
 	params="${params} --attn_method=sub"
 fi
 echo "other params: ${params}"

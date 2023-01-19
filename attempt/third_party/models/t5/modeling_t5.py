@@ -912,12 +912,12 @@ class T5Stack(T5PreTrainedModel):
         self.task_prompt_ids = []
         self.prompt_dim = None
         self.task_prompt = None
-        #############################################################
+        self.prompt_tuning = config.prompt_tuning
+        self.attn_prompt_tuning = config.attn_prompt_tuning
         #######################################
         self.ignore_target = ignore_target
         self.prefix_emb = prefix_emb if self.ignore_target is False else None
         self.prefix_tuning = config.prefix_tuning
-        self.prompt_tuning = config.prompt_tuning
         self.attn_prefix_tuning = attn_prefix_tuning
         self.mul_prefix_emb = mul_prefix_emb
         self.attn_method = attn_method
@@ -1026,8 +1026,9 @@ class T5Stack(T5PreTrainedModel):
     def set_encoders(self, prompt_encoders, source_tasks, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.task_prompt = torch.zeros(
-            (self.prompt_dim, self.embedding_dim)).cuda()
+            (self.prompt_dim, self.embedding_dim), device=device)
         task_encoders_num = len(source_tasks)
         src_prompts = nn.Parameter(torch.zeros(
             (task_encoders_num, prompt_dim, self.model_dim))) 
@@ -1041,7 +1042,7 @@ class T5Stack(T5PreTrainedModel):
                     src_prompts[encoder.task_id, :] = emb.clone().detach()
 
         self.src_prompts = src_prompts
-        self.task_prompt_ids = torch.tensor(task_prompt_ids).cuda()
+        self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
 
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
@@ -1074,14 +1075,17 @@ class T5Stack(T5PreTrainedModel):
                     out = encoder(prompt_input_ids, tids)
                     prompt_embeds = out.to(device)
                     target_prompts[target_masks] = prompt_embeds
-            src_prompts = torch.cat((self.src_prompts.repeat(
-                        inputs_embeds.shape[0], 1, 1, 1), 
-                        target_prompts.unsqueeze(1)), dim=1)
-            soft_prompts = self.attend_prompts(inputs_embeds, 
-                src_prompts = src_prompts, 
-                target_prompts = target_prompts,
-                ignore_target = False)
-            inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+            if self.attn_prompt_tuning:
+                src_prompts = torch.cat((self.src_prompts.repeat(
+                            inputs_embeds.shape[0], 1, 1, 1), 
+                            target_prompts.unsqueeze(1)), dim=1)
+                soft_prompts = self.attend_prompts(inputs_embeds, 
+                    src_prompts = src_prompts, 
+                    target_prompts = target_prompts,
+                    ignore_target = False)
+                inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+            else:
+                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
         return input_ids
     ######################################################
