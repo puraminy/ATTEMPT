@@ -542,7 +542,7 @@ def train(**kwargs):
                     enc_router = enc_router)
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if kwargs.setdefault("load_prompts", False):
+            if kwargs.setdefault("load_prompts", False) and task in data_args.source_tasks:
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
             if not "com" in task: # if it's not a shared prompt among tasks
