@@ -66,6 +66,7 @@ import itertools, collections
 from metrics.metrics import do_score
 from encoders.encoders import *
 from optim import *
+import wandb
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
@@ -173,7 +174,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    args["load_path"] = "" 
    if not download_model:
        args["load_path"] = mylogs.pretPath 
-   args["experiment"] = experiment 
+   args["experiment"] = "!" + experiment 
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
@@ -362,7 +363,16 @@ def train(**kwargs):
     _tag = mylogs.get_tag(tag)  
     exp_info["tag"] = list(_tag.values())
     exp_info["taginfo"] = list(_tag.keys())
-    exp_info["ftag"] = mylogs.get_tag(full_tag)  
+    _ftag = mylogs.get_tag(full_tag)  
+    exp_info["ftag"] = _ftag 
+    ######
+    wandb.init(
+          # Set the project where this run will be logged
+          project= kwargs.experiment,
+          name="@".join(list(_tag.values())), 
+          # Track hyperparameters and run metadata
+          config=_ftag
+    )
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
@@ -1150,7 +1160,7 @@ def train(**kwargs):
             results[checkpoint_dir]["test_avg"] = np.mean(test_avg)
             results[checkpoint_dir]["test_each"] = test_metrics_all
     print(results)
-
+    wandb.finish()
     return results
 
 if __name__ == "__main__":
