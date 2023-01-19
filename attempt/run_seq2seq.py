@@ -329,8 +329,8 @@ def train(**kwargs):
     data_args.test_dataset_name = _names
     data_args.test_dataset_config_name = _confs
 
-    if type(data_args.task_name) == list:
-        model_args.multi_task = True
+    #if type(data_args.task_name) == list:
+    #    model_args.multi_task = True
 
     # tags are variables that are varied among experiments. 
     tag = kwargs.setdefault("tag",[]) # the selected tags
@@ -524,14 +524,15 @@ def train(**kwargs):
         # mmmmmmmmmmmmm
         prompts = {}
         mylogs.bp("prompts")
+        if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
+             raise ValueError("Source tasks shoudn't intersect with target tasks")
         tasks = data_args.source_tasks + data_args.task_name
-        tasks = list(set(tasks))
         n_tasks = len(tasks)
         for task in tasks:
              bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
-        ii = 1
+        ii = 0
         prompt_encoders = []
         for task, prompt_tokens in prompts.items():
             enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
@@ -543,10 +544,12 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if kwargs.setdefault("load_prompts", False):
                 encoder.load(prompts_dir)
-            encoder.gid = (ii - 1) % n_tasks 
             prompt_encoders.append(encoder)
-            ii += 1
-        model.set_encoders(prompt_encoders)
+            if not "com" in task: # if it's not a shared prompt among tasks
+                encoder.task_id = ii
+                ii += 1
+        model.encoder.set_encoders(prompt_encoders, 
+                data_args.source_tasks, adapter_args.num_prompt_tokens)
         model.resize_token_embeddings(len(tokenizer))
         if bp == "tokens": breakpoint()
 
@@ -601,6 +604,8 @@ def train(**kwargs):
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
             ]
         model_inputs["labels"] = labels["input_ids"]
+        if "task_ids" in examples["extra_fields"]:
+            model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
         model_inputs["extra_fields"] = examples['extra_fields']  
         if task_id is not None:
             model_inputs["task_ids"] = [
@@ -652,7 +657,8 @@ def train(**kwargs):
                     functools.partial(preprocess_function,
                                       max_target_length=max_target_lengths[i]
                                       #mycode adding task ids
-                                      ,task_id=i),
+                                      ,task_id=i
+                                      ),
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     # if train_dataset != "superglue-record" else column_names+["answers"],

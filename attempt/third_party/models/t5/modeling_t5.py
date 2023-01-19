@@ -904,13 +904,14 @@ class T5Stack(T5PreTrainedModel):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
-
         self.is_decoder = config.is_decoder
         ################# MyCode
         self.prompt_encoders = []
         self.merge_encoder = None
         self.embedding_dim = self.config.hidden_size
-        self.replacing_token_id = 0 #replacing_token_id
+        self.task_prompt_ids = []
+        self.prompt_dim = None
+        self.task_prompt = None
         #############################################################
         #######################################
         self.ignore_target = ignore_target
@@ -935,7 +936,7 @@ class T5Stack(T5PreTrainedModel):
         self.append_attn_prefix = self.prefix_tuning and not self.is_decoder and self.attn_prefix_tuning
         if self.prefix_tuning:
             self.prefix_dim = adapter_config.prefix_dim
-        if self.append_attn_prefix:
+        if self.append_attn_prefix or self.prompt_tuning:
             if self.attn_method == "linear":
                 self.attn_Wa = nn.Linear(
                     self.model_dim, self.model_dim, bias=False)
@@ -961,21 +962,127 @@ class T5Stack(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
 
-    ################# MyCode
+    ################# MyCode fffffffffff
+    def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
+        avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
+        avg_src_prompts, _ = torch.max(src_prompts, 2)
+        # 1. dot product
+        if self.attn_method == "dot":
+            avg_inputs_embeds = avg_inputs_embeds.unsqueeze(-1)
+            attn_scores = avg_src_prompts.bmm(
+                avg_inputs_embeds).squeeze(-1)
+
+        elif self.attn_method == "linear":
+            # 2. linear
+            x = self.attn_Wa(avg_inputs_embeds)
+            x = self.layer_norm(x)
+            x = x.unsqueeze(-1)
+            attn_scores = avg_src_prompts.bmm(
+                x).squeeze(-1) / self.temperature
+
+        elif self.attn_method == "sub":
+            x = self.attn_W_down(avg_inputs_embeds)
+            x = self.attn_non_linear(x)
+            x = self.attn_W_up(x)
+            x = self.layer_norm(x)
+            x = x.unsqueeze(-1)
+            attn_scores = avg_src_prompts.bmm(
+                x).squeeze(-1) / self.temperature
+
+        # implement token level model
+        elif self.attn_method == "token":
+            x = self.attn_W_down(avg_inputs_embeds)
+            x = self.attn_non_linear(x)
+            x = self.attn_W_up(x)
+            x = self.layer_norm(x)
+            x = x.unsqueeze(-1)
+            attn_scores = torch.einsum(
+                "bpld,bdk->bplk", src_prompts, x) / self.temperature
+
+        elif self.attn_method == "constant":
+            # FIXME: more efficient implementation
+            attn_scores = (torch.ones(src_prompts.size(
+                0), src_prompts.size(1)) / src_prompts.size(1)).cuda()
+        else:
+            raise NotImplementedError
+
+        if self.attn_method == "sub" or self.attn_method == "constant":
+            normalized_attn_scores = F.softmax(attn_scores, -1)
+            soft_prompts = torch.einsum(
+                'bp, bpld -> bld', normalized_attn_scores, src_prompts)
+        elif self.attn_method == "token":
+            normalized_attn_scores = F.softmax(attn_scores, 1)
+            soft_prompts = torch.einsum(
+                'bplk, bpld -> bld', normalized_attn_scores, src_prompts)
+        else:
+            raise NotImplementedError
+
+        # Add target embedding when ignore_target is not True
+        if ignore_target is False:
+           soft_prompts = soft_prompts + target_prompts
+
+        return soft_prompts
+
+    def set_encoders(self, prompt_encoders, source_tasks, prompt_dim):
+        self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
+        self.prompt_dim = prompt_dim
+        self.task_prompt = torch.zeros(
+            (self.prompt_dim, self.embedding_dim))
+        task_encoders_num = len(source_tasks)
+        src_prompts = nn.Parameter(torch.zeros(
+            (task_encoders_num, prompt_dim, self.model_dim))) 
+        task_prompt_ids = []
+        for encoder in self.prompt_encoders:
+            if not "com" in encoder.name:
+                task_prompt_ids.extend(encoder.prompt_ids)
+            if encoder.task_id >= 0 and encoder.name in source_tasks: 
+                with torch.no_grad():
+                    emb = encoder(encoder.input_ids)
+                    src_prompts[encoder.task_id, :] = emb.clone().detach()
+
+        self.src_prompts = src_prompts
+        self.task_prompt_ids = torch.tensor(task_prompt_ids)
+
+    def isin(self, ar1, ar2):
+        return (ar1[..., None] == ar2).any(-1)
+
+    @property
+    def get_prompt_token_fn(self):
+        return lambda x: self.isin(x, self.task_prompt_ids)
+
+    # ppppppppppp
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
         if len(self.prompt_encoders) > 0:
             tids = task_ids
             device=input_ids.device
+            breakpoint()
+            task_ids = torch.zeros(1, inputs_embeds.shape[0]).int()
+            prompt_masks = self.get_prompt_token_fn(input_ids)
+            target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
+            target_prompts = self.task_prompt.repeat(
+                inputs_embeds.shape[0], 1, 1)
             for encoder in self.prompt_encoders:
                 prompt_token_fn = encoder.get_prompt_token_fn()
-                encoder_masks = prompt_token_fn(input_ids)
-                if encoder_masks.any():
+                target_masks = prompt_token_fn(target_prompt_ids)
+                index_mask = (target_masks == True).any(dim=1)
+                tids = torch.zeros(len(index_mask)).int()
+                tids[index_mask] = encoder.task_id
+                if target_masks.any():
+                    task_ids = torch.where(tids != 0, tids, task_ids)
                     #find input ids for prompt tokens
-                    prompt_input_ids = input_ids[encoder_masks]
+                    prompt_input_ids = target_prompt_ids[target_masks]
                     #call forwards on prompt encoder whose outputs are prompt embeddings
                     out = encoder(prompt_input_ids, tids)
                     prompt_embeds = out.to(device)
-                    inputs_embeds[encoder_masks]=prompt_embeds
+                    target_prompts[target_masks] = prompt_embeds
+            src_prompts = torch.cat((self.src_prompts.repeat(
+                        inputs_embeds.shape[0], 1, 1, 1), 
+                        target_prompts.unsqueeze(1)), dim=1)
+            soft_prompts = self.attend_prompts(inputs_embeds, 
+                src_prompts = src_prompts, 
+                target_prompts = target_prompts,
+                ignore_target = False)
+            inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
             return None
         return input_ids
     ######################################################
@@ -1093,18 +1200,16 @@ class T5Stack(T5PreTrainedModel):
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
             ################ MyCode mmmmmmmmmmmm
-            # breakpoint()
             input_ids = self.prompt_encoders_forward(input_ids, inputs_embeds, task_ids)
             ################ My code End
 
-            ###################################### aaaaaaaaaaaa
             if self.append_prefix and self.append_attn_prefix is False:
                 inputs_embeds = torch.cat([self.prefix_emb.unsqueeze(0).repeat(
                     inputs_embeds.shape[0], 1, 1), inputs_embeds], dim=1)  # bsz, seqlen, dim
                 input_shape = inputs_embeds.size()[:-1]
 
+            ##################################### aaaaaaaaaaaa
             if self.append_attn_prefix:
-                avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
                 if self.ignore_target is False:
                     if task_ids is not None:
                         target_prompts = torch.index_select(
@@ -1118,81 +1223,17 @@ class T5Stack(T5PreTrainedModel):
                                 inputs_embeds.shape[0], 1, 1)
                     mul_prefix_emb_added = torch.cat((self.mul_prefix_emb.repeat(
                         inputs_embeds.shape[0], 1, 1, 1), target_prompts.unsqueeze(1)), dim=1)
-                    avg_mul_prefix_emb, _ = torch.max(mul_prefix_emb_added, 2)
                 else:
                     mul_prefix_emb_added = self.mul_prefix_emb.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
-                    avg_mul_prefix_emb, _ = torch.max(mul_prefix_emb_added, 2)
 
-                if self.append_attn_prefix:
-                    # 1. dot product
-                    if self.attn_method == "dot":
-                        avg_inputs_embeds = avg_inputs_embeds.unsqueeze(-1)
-                        attn_scores = avg_mul_prefix_emb.bmm(
-                            avg_inputs_embeds).squeeze(-1)
-
-                    elif self.attn_method == "linear":
-                        # 2. linear
-                        x = self.attn_Wa(avg_inputs_embeds)
-                        x = self.layer_norm(x)
-                        x = x.unsqueeze(-1)
-                        attn_scores = avg_mul_prefix_emb.bmm(
-                            x).squeeze(-1) / self.temperature
-
-                    elif self.attn_method == "sub":
-                        x = self.attn_W_down(avg_inputs_embeds)
-                        x = self.attn_non_linear(x)
-                        x = self.attn_W_up(x)
-                        x = self.layer_norm(x)
-                        x = x.unsqueeze(-1)
-                        attn_scores = avg_mul_prefix_emb.bmm(
-                            x).squeeze(-1) / self.temperature
-
-                    # implement token level model
-                    elif self.attn_method == "token":
-                        x = self.attn_W_down(avg_inputs_embeds)
-                        x = self.attn_non_linear(x)
-                        x = self.attn_W_up(x)
-                        x = self.layer_norm(x)
-                        x = x.unsqueeze(-1)
-                        attn_scores = torch.einsum(
-                            "bpld,bdk->bplk", mul_prefix_emb_added, x) / self.temperature
-
-                    elif self.attn_method == "constant":
-                        # FIXME: more efficient implementation
-                        attn_scores = (torch.ones(mul_prefix_emb_added.size(
-                            0), mul_prefix_emb_added.size(1)) / mul_prefix_emb_added.size(1)).cuda()
-                    else:
-                        raise NotImplementedError
-
-                    if self.attn_method == "sub" or self.attn_method == "constant":
-                        normalized_attn_scores = F.softmax(attn_scores, -1)
-                        soft_prompts = torch.einsum(
-                            'bp, bpld -> bld', normalized_attn_scores, mul_prefix_emb_added)
-                    elif self.attn_method == "token":
-                        normalized_attn_scores = F.softmax(attn_scores, 1)
-                        soft_prompts = torch.einsum(
-                            'bplk, bpld -> bld', normalized_attn_scores, mul_prefix_emb_added)
-                    else:
-                        raise NotImplementedError
-
-                    # Add target embedding when ignore_target is not True
-                    if self.ignore_target is False:
-                        if self.shared_attn is True and task_ids is not None:
-                            soft_prompts = soft_prompts + \
-                                torch.index_select(
-                                    self.prefix_emb, 0, task_ids)
-                        elif (self.shared_attn is False and len(self.prefix_emb.size()) == 3) or (self.shared_attn is True and task_ids is None):
-                            soft_prompts = soft_prompts + \
-                                self.prefix_emb[0].unsqueeze(0).repeat(
-                                    inputs_embeds.shape[0], 1, 1)
-                        else:
-                            soft_prompts = soft_prompts + \
-                                self.prefix_emb.unsqueeze(0).repeat(
-                                    inputs_embeds.shape[0], 1, 1)
-                    inputs_embeds = torch.cat(
-                        [soft_prompts, inputs_embeds], dim=1)  # bsz, seqlen, dim
-                    input_shape = inputs_embeds.size()[:-1]
+                soft_prompts = self.attend_prompts(inputs_embeds, 
+                    src_prompts = mul_prefix_emb_added, 
+                    target_prompts = target_prompts,
+                    ignore_target = self.ignore_target)
+                inputs_embeds = torch.cat(
+                    [soft_prompts, inputs_embeds], dim=1)  # bsz, seqlen, dim
+                input_shape = inputs_embeds.size()[:-1]
 
         batch_size, seq_length = input_shape
         # required mask seq length can be calculated via length of past
@@ -1769,7 +1810,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             (self.prefix_num, self.prefix_dim, config.d_model))) if self.prefix_tuning and self.attn_prefix_tuning else None
 
         #############################################################
-        self.mul_encoders_emb = None
+        self.src_prompts = None
+        self.task_prompt_ids = []
 
         encoder_config = copy.deepcopy(config)
         encoder_config.is_decoder = False
@@ -1805,13 +1847,6 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     @property
     def merge_encoder(self):
         return self.encoder.merge_encoder
-
-    def set_encoders(self, prompt_encoders):
-        self.encoder.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
-        self.encoders_num = len(self.prompt_encoders)
-        self.encoders_dim = self.prompt_encoders[0].length if self.prompt_encoders else 0
-        self.mul_encoders_emb = nn.Parameter(torch.zeros(
-            (self.encoders_num, self.encoders_dim, self.model_dim))) 
 
     def load_encoders(self, prompts=[], load_dir = None):
         if not load_dir: return
