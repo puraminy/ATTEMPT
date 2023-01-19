@@ -162,7 +162,7 @@ if [ "$method" = "px" ] || [ "$method" = "at" ]; then
 fi
 
 if [ "$method" = "at" ]; then
-        params="${params} --attn_prefix_tuning=True"
+        params="${params} --attn_tuning=True"
 	params="${params} --config=attempt"
 	params="${params} --prompt_embedding_path=xWant.pt@xNeed.pt@xIntent.pt"
 	params="${params} --attn_method=sub"
@@ -177,17 +177,17 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_learning_rate=0.1"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
-	params="${params} --num_prompt_tokens=10"
+	params="${params} --num_prompt_tokens=20"
 	params="${params} --num_common_tokens=10"
 	params="${params} --prompt_encoder_type=mlp"
         params="${params} --template=sup-pt-tm"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --load_prompts=True#False"
-	params="${params} --attn_prompt_tuning=True#False"
+	params="${params} --load_prompts=True"
+	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
-	params="${params} --ignore_target=True#False"
+	params="${params} --ignore_target=True"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
