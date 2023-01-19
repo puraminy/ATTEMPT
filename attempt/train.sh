@@ -186,7 +186,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --source_tasks=xWant@xNeed"
 	params="${params} --load_prompts=True"
 	params="${params} --attn_prompt_tuning=True"
-	params="${params} --attn_method=sub#token"
+	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=True#False"
 fi
 echo "other params: ${params}"
