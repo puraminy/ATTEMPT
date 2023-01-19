@@ -1027,7 +1027,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim
         self.task_prompt = torch.zeros(
-            (self.prompt_dim, self.embedding_dim))
+            (self.prompt_dim, self.embedding_dim)).cuda()
         task_encoders_num = len(source_tasks)
         src_prompts = nn.Parameter(torch.zeros(
             (task_encoders_num, prompt_dim, self.model_dim))) 
