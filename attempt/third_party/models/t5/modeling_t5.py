@@ -48,7 +48,7 @@ from .configuration_t5 import T5Config
 
 #### My import
 from attempt.encoders.encoders import * 
-
+import wandb
 from attempt.adapters import AdapterController
 from typing import Dict, Any
 
@@ -1017,6 +1017,8 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
+        wandb.log({"attn_scores": attn_scores, 
+                   "norm_attn_scores": normalized_attn_scores})
         # Add target embedding when ignore_target is not True
         if ignore_target is False:
            soft_prompts = soft_prompts + target_prompts
