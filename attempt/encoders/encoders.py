@@ -73,8 +73,6 @@ class PromptEncoder(torch.nn.Module):
             state = torch.load(fname)
             self.load_state_dict(state)
             mylogs.tinfo("Prompt for %s was loaded ", self.name)
-            assert False, ""
-
 
     def init_embedding(self, init_embs):
         if init_embs:
