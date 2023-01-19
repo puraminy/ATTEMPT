@@ -900,7 +900,7 @@ class T5PreTrainedModel(PreTrainedModel):
 
 
 class T5Stack(T5PreTrainedModel):
-    def __init__(self, config, embed_tokens=None, adapter_config=None, prefix_emb=None, attn_prefix_tuning=False, mul_prefix_emb=None, model_dim=768, attn_method="linear", shared_attn=False, ignore_target=False, temperature=2000, learned_temperature=False):
+    def __init__(self, config, embed_tokens=None, adapter_config=None, prefix_emb=None, attn_tuning=False, mul_prefix_emb=None, model_dim=768, attn_method="linear", shared_attn=False, ignore_target=False, temperature=2000, learned_temperature=False):
         super().__init__(config)
 
         self.embed_tokens = embed_tokens
@@ -913,12 +913,12 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = None
         self.task_prompt = None
         self.prompt_tuning = config.prompt_tuning
-        self.attn_prompt_tuning = config.attn_prompt_tuning
+        self.attn_prompt_tuning = config.attn_tuning
         #######################################
         self.ignore_target = ignore_target
         self.prefix_emb = prefix_emb if self.ignore_target is False else None
         self.prefix_tuning = config.prefix_tuning
-        self.attn_prefix_tuning = attn_prefix_tuning
+        self.attn_tuning = attn_tuning
         self.mul_prefix_emb = mul_prefix_emb
         self.attn_method = attn_method
         self.model_dim = model_dim
@@ -932,8 +932,8 @@ class T5Stack(T5PreTrainedModel):
                 torch.Tensor([1]), requires_grad=True), min=0.005, max=5))).cuda()
         else:
             self.temperature = temperature
-        self.append_prefix = self.prefix_tuning and not self.is_decoder and not self.attn_prefix_tuning
-        self.append_attn_prefix = self.prefix_tuning and not self.is_decoder and self.attn_prefix_tuning
+        self.append_prefix = self.prefix_tuning and not self.is_decoder and not self.attn_tuning
+        self.append_attn_prefix = self.prefix_tuning and not self.is_decoder and self.attn_tuning
         if self.prefix_tuning:
             self.prefix_dim = adapter_config.prefix_dim
         if self.append_attn_prefix or self.prompt_tuning:
@@ -1025,7 +1025,7 @@ class T5Stack(T5PreTrainedModel):
 
         return soft_prompts
 
-    def set_encoders(self, prompt_encoders, source_tasks, prompt_dim):
+    def set_encoders(self, prompt_encoders, source_tasks, prompt_dim, load_prompts=False):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -1035,13 +1035,16 @@ class T5Stack(T5PreTrainedModel):
         src_prompts = nn.Parameter(torch.zeros(
             (task_encoders_num, prompt_dim, self.model_dim))) 
         task_prompt_ids = []
+        i = 0
         for encoder in self.prompt_encoders:
             if not "com" in encoder.name:
                 task_prompt_ids.extend(encoder.prompt_ids)
-            if encoder.task_id >= 0 and encoder.name in source_tasks: 
+            if encoder.task_id >= 0 and encoder.name in source_tasks and load_prompts: 
                 with torch.no_grad():
-                    emb = encoder(encoder.input_ids)
-                    src_prompts[encoder.task_id, :] = emb.clone().detach()
+                    #emb = encoder(encoder.input_ids)
+                    emb = encoder.embedding(encoder.net_inps)
+                    src_prompts[i, :] = emb.clone().detach()
+                    i+=1
 
         self.src_prompts = src_prompts
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
@@ -1058,32 +1061,37 @@ class T5Stack(T5PreTrainedModel):
         if len(self.prompt_encoders) > 0:
             tids = task_ids
             device=input_ids.device
-            task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
             prompt_masks = self.get_prompt_token_fn(input_ids)
-            target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
-            target_prompts = self.task_prompt.repeat(
-                inputs_embeds.shape[0], 1, 1)
-            for encoder in self.prompt_encoders:
-                prompt_token_fn = encoder.get_prompt_token_fn()
-                target_masks = prompt_token_fn(target_prompt_ids)
-                index_mask = (target_masks == True).any(dim=1)
-                tids = torch.zeros(len(index_mask), device=device).int()
-                tids[index_mask] = encoder.task_id
-                if target_masks.any():
-                    task_ids = torch.where(tids != 0, tids, task_ids)
-                    #find input ids for prompt tokens
-                    prompt_input_ids = target_prompt_ids[target_masks]
-                    #call forwards on prompt encoder whose outputs are prompt embeddings
-                    out = encoder(prompt_input_ids, tids)
-                    prompt_embeds = out.to(device)
-                    target_prompts[target_masks] = prompt_embeds
+            if not self.attn_prompt_tuning or not self.ignore_target:
+                task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
+                target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
+                target_prompts = self.task_prompt.repeat(
+                    inputs_embeds.shape[0], 1, 1)
+                for encoder in self.prompt_encoders:
+                    prompt_token_fn = encoder.get_prompt_token_fn()
+                    target_masks = prompt_token_fn(target_prompt_ids)
+                    index_mask = (target_masks == True).any(dim=1)
+                    tids = torch.zeros(len(index_mask), device=device).int()
+                    tids[index_mask] = encoder.task_id
+                    if target_masks.any():
+                        task_ids = torch.where(tids != 0, tids, task_ids)
+                        #find input ids for prompt tokens
+                        prompt_input_ids = target_prompt_ids[target_masks]
+                        #call forwards on prompt encoder whose outputs are prompt embeddings
+                        out = encoder(prompt_input_ids, tids)
+                        prompt_embeds = out.to(device)
+                        target_prompts[target_masks] = prompt_embeds
             if self.attn_prompt_tuning:
-                src_prompts = torch.cat((self.src_prompts.repeat(
+                if self.ignore_target is False:
+                    src_prompts = torch.cat((self.src_prompts.repeat(
                             inputs_embeds.shape[0], 1, 1, 1), 
                             target_prompts.unsqueeze(1)), dim=1)
+                else:
+                    src_prompts = self.src_prompts.repeat(
+                        inputs_embeds.shape[0], 1, 1, 1)
                 soft_prompts = self.attend_prompts(inputs_embeds, 
                     src_prompts = src_prompts, 
-                    target_prompts = target_prompts,
+                    target_prompts = target_prompts if not self.ignore_target else None,
                     ignore_target = self.ignore_target)
                 inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
             else:
@@ -1794,7 +1802,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.model_dim = config.d_model
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.prefix_tuning = config.prefix_tuning
-        self.attn_prefix_tuning = config.attn_prefix_tuning
+        self.attn_tuning = config.attn_tuning
         self.attn_method = config.attn_method
         self.ignore_target = config.ignore_target
         if self.prefix_tuning:
@@ -1812,7 +1820,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.prefix_num = config.prefix_num
 
         self.mul_prefix_emb = nn.Parameter(torch.zeros(
-            (self.prefix_num, self.prefix_dim, config.d_model))) if self.prefix_tuning and self.attn_prefix_tuning else None
+            (self.prefix_num, self.prefix_dim, config.d_model))) if self.prefix_tuning and self.attn_tuning else None
 
         #############################################################
         self.src_prompts = None
@@ -1822,7 +1830,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         encoder_config.is_decoder = False
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
-        self.encoder = T5Stack(encoder_config, self.shared, adapter_config=adapter_config, prefix_emb=self.prefix_shared, attn_prefix_tuning=self.attn_prefix_tuning, mul_prefix_emb=self.mul_prefix_emb,
+        self.encoder = T5Stack(encoder_config, self.shared, adapter_config=adapter_config, prefix_emb=self.prefix_shared, attn_tuning=self.attn_tuning, mul_prefix_emb=self.mul_prefix_emb,
                                model_dim=config.d_model, attn_method=self.attn_method, shared_attn=self.shared_attn, ignore_target=self.ignore_target, temperature=self.temperature, learned_temperature=self.learned_temperature)
 
         decoder_config = copy.deepcopy(config)
@@ -1831,7 +1839,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         decoder_config.num_layers = config.num_decoder_layers
         if config.train_task_adapters:
             decoder_config.train_task_adapters = adapter_config.task_adapter_in_decoder
-        self.decoder = T5Stack(decoder_config, self.shared, adapter_config=adapter_config, prefix_emb=self.prefix_shared, attn_prefix_tuning=self.attn_prefix_tuning, mul_prefix_emb=self.mul_prefix_emb,
+        self.decoder = T5Stack(decoder_config, self.shared, adapter_config=adapter_config, prefix_emb=self.prefix_shared, attn_tuning=self.attn_tuning, mul_prefix_emb=self.mul_prefix_emb,
                                model_dim=config.d_model, attn_method=self.attn_method, shared_attn=self.shared_attn, ignore_target=self.ignore_target, temperature=self.temperature, learned_temperature=self.learned_temperature)
 
         self.bitfit = adapter_config.bitfit if adapter_config is not None else False

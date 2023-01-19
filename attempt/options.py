@@ -109,7 +109,8 @@ class AdapterTrainingArguments:
         default="glorot-uniform", metadata={"help": "Defines the initialization for low-rank adapters."})
     low_rank_rank: Optional[int] = field(
         default=1, metadata={"help": "Defines the rank of low-rank adapters."})
-    attn_prefix: bool = field(
+    # My code changing name
+    attn_prompt: bool = field(
         default=False,
         metadata={
             "help": "use attention predix model"
@@ -119,7 +120,7 @@ class AdapterTrainingArguments:
     attn_method_name: Optional[str] = field(
         default="linear",
         metadata={
-            "help": "attention model for attn_prefix"
+            "help": "attention model for attn_prompt"
         },
     )
 
@@ -218,7 +219,7 @@ class ModelArguments:
         default=None,
         metadata={"help": "a path to the target prompt embedding"}
     )
-    attn_prefix_tuning: bool = field(
+    attn_tuning: bool = field(
         default=False,
         metadata={
             "help": "use attention prefix model"

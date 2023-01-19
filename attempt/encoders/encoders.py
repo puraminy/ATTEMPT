@@ -70,7 +70,8 @@ class PromptEncoder(torch.nn.Module):
             return
         fname = os.path.join(load_dir, self.get_id())
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
-        state = torch.load(fname)
+        mapl=torch.device('cpu')
+        state = torch.load(fname, map_location=mapl)
         self.load_state_dict(state)
         mylogs.tinfo("Prompt for %s was loaded ", self.name)
 

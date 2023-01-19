@@ -34,7 +34,7 @@
     "prompt_embedding_path":["source_prompts/mnli_prompt.pt", "source_prompts/sst2_prompt.pt" , "source_prompts/qnli_prompt.pt", "source_prompts/qqp_prompt.pt", "source_prompts/squad_prompt.pt", "source_prompts/record_prompt.pt"],
     "save_prefix_only": true,
     "load_prefix_embeddings": true, 
-    "attn_prefix_tuning": true,
+    "attn_tuning": true,
     "attn_method": "sub", 
     "prefix_num": 6,
     "shared_attn": true,

@@ -436,8 +436,7 @@ def train(**kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning
-    config.attn_prompt_tuning = model_args.attn_prompt_tuning
-    config.attn_prefix_tuning = model_args.attn_prefix_tuning
+    config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
     config.shared_attn = model_args.shared_attn
@@ -488,7 +487,7 @@ def train(**kwargs):
                 target_prompt_embedding = torch.load(
                     model_args.target_prompt_embedding_path, map_location=mapl)
 
-        if model_args.attn_prefix_tuning is True:
+        if model_args.attn_tuning is True:
             if training_args.do_train is True and model_args.multi_task is False and model_args.shared_attn is False:
                 # Initialize the prompt embeddings using the first prompts
                 # Load all of the target prompts
@@ -544,6 +543,7 @@ def train(**kwargs):
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
         ii = 0
+        load_prompts = kwargs.setdefault("load_prompts", False) 
         prompt_encoders = []
         for task, prompt_tokens in prompts.items():
             enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
@@ -553,14 +553,14 @@ def train(**kwargs):
                     enc_router = enc_router)
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if kwargs.setdefault("load_prompts", False) and task in data_args.source_tasks:
+            if load_prompts and task in data_args.source_tasks:
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
             if not "com" in task: # if it's not a shared prompt among tasks
                 encoder.task_id = ii
                 ii += 1
         model.encoder.set_encoders(prompt_encoders, 
-                data_args.source_tasks, adapter_args.num_prompt_tokens)
+            data_args.source_tasks, adapter_args.num_prompt_tokens, load_prompts)
         model.resize_token_embeddings(len(tokenizer))
         if bp == "tokens": breakpoint()
 
@@ -926,7 +926,7 @@ def train(**kwargs):
             Path(prefix_dir).mkdir(parents = True, exist_ok=True)
             save_prompts(trainer.model, output_dir=training_args.output_dir, 
                          prefix_dir = prefix_dir,
-                         attn_prefix_tuning=model_args.attn_prefix_tuning,
+                         attn_tuning=model_args.attn_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
         elif adapter_args.prompt_tuning:
             Path(prompts_dir).mkdir(parents = True, exist_ok=True)
@@ -965,7 +965,7 @@ def train(**kwargs):
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-        if model_args.attn_prefix_tuning is True:
+        if model_args.attn_tuning is True:
             attention_paths = [os.path.join(training_args.output_dir, "attn_W_down.pt"), os.path.join(
                 training_args.output_dir, "attn_W_up.pt")]
             trainer.model.update_attention_weights_sub(attention_paths)
@@ -1082,7 +1082,7 @@ def train(**kwargs):
             os.mkdir(new_dir)
             save_prompts(model, output_dir=new_dir, 
                          prefix_dir = prefix_dir,
-                         attn_prefix_tuning=model_args.attn_prefix_tuning,
+                         attn_tuning=model_args.attn_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
 
             # after saving prompts, we will remove unnecessary checkpoint dir.

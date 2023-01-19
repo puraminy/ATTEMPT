@@ -80,7 +80,10 @@ def create_dir(output_dir):
         os.makedirs(output_dir)
 
 def get_adapter_config(adapter_args, data_args, training_args, config):
-    if adapter_args.train_task_adapters or adapter_args.prefix_tuning or adapter_args.bitfit:
+    if (adapter_args.train_task_adapters 
+            or adapter_args.prefix_tuning 
+            or adapter_args.prompt_tuning 
+            or adapter_args.bitfit):
         adapter_config = AutoAdapterConfig.get(
             adapter_args.adapter_config_name)
         adapter_config.input_dim = config.d_model
@@ -100,7 +103,7 @@ def get_adapter_config(adapter_args, data_args, training_args, config):
         adapter_config.output_dir = training_args.output_dir
         adapter_config.attn_method = config.attn_method
         adapter_config.ignore_target = config.ignore_target
-        adapter_config.attn_prefix = config.attn_prefix_tuning
+        adapter_config.attn_prompt = config.attn_tuning
         adapter_config.fix_attention = config.fix_attention
     else:
         adapter_config = None
@@ -111,6 +114,37 @@ def freeze_params(model: nn.Module):
     """Set requires_grad=False for each of model.parameters()"""
     for par in model.parameters():
         par.requires_grad = False
+
+def unfreeze_attn_params(model, adapter_args, adapter_config):
+    # update attention related weights.
+    if adapter_config.attn_method == "dot":
+        for n, m in model.named_parameters():
+            if "mul_prefix_emb" == n:
+                m.requires_grad = True
+
+    elif adapter_config.attn_method == "linear":
+        for n, m in model.named_parameters():
+            if "encoder.attn_Wa.weight" == n:
+                m.requires_grad = True
+            if "prefix_shared" == n and adapter_config.ignore_target is False:
+                m.requires_grad = True
+
+    elif adapter_config.attn_method == "sub":
+        for n, m in model.named_parameters():
+            if "encoder.attn_W_down.weight" == n and adapter_config.fix_attention is False:
+                m.requires_grad = True
+            if "encoder.attn_W_up.weight" == n and adapter_config.fix_attention is False:
+                m.requires_grad = True
+            if "prefix_shared" == n and adapter_config.ignore_target is False:
+                m.requires_grad = True
+    elif adapter_config.attn_method == "constant":
+        for n, m in model.named_parameters():
+            if "prefix_shared" == n and adapter_config.ignore_target is False:
+                m.requires_grad = True
+    elif adapter_config.attn_method == "concat":
+        for n, m in model.named_parameters():
+            if "encoder.attn_Wa.weight" == n or "attn_va" == n:
+                m.requires_grad = True
 
 
 def freeze_model_params(model, adapter_args, adapter_config):
@@ -143,14 +177,9 @@ def freeze_model_params(model, adapter_args, adapter_config):
                     for param_name, param in sub_module.named_parameters():
                         param.requires_grad = True
 
-    if adapter_args.prompt_tuning:
-        for n, m in model.named_parameters():
-            if not "prompt_encoders" in n and not "general_encoders" in n:
-                m.requires_grad = False
-
     if adapter_args.prefix_tuning:
         freeze_params(model)
-        if adapter_config.attn_prefix is False:
+        if adapter_config.attn_prompt is False:
             for n, m in model.named_parameters():
                 if "prefix_shared" == n:
                     m.requires_grad = True
@@ -158,36 +187,14 @@ def freeze_model_params(model, adapter_args, adapter_config):
                 if "W_weighting" == n:
                     m.requires_grad = True
         else:
-            # update attention related weights.
-            if adapter_config.attn_method == "dot":
-                for n, m in model.named_parameters():
-                    if "mul_prefix_emb" == n:
-                        m.requires_grad = True
+            unfreeze_attn_params(model, adapter_args, adapter_config)
 
-            elif adapter_config.attn_method == "linear":
-                for n, m in model.named_parameters():
-
-                    if "encoder.attn_Wa.weight" == n:
-                        m.requires_grad = True
-                    if "prefix_shared" == n and adapter_config.ignore_target is False:
-                        m.requires_grad = True
-
-            elif adapter_config.attn_method == "sub":
-                for n, m in model.named_parameters():
-                    if "encoder.attn_W_down.weight" == n and adapter_config.fix_attention is False:
-                        m.requires_grad = True
-                    if "encoder.attn_W_up.weight" == n and adapter_config.fix_attention is False:
-                        m.requires_grad = True
-                    if "prefix_shared" == n and adapter_config.ignore_target is False:
-                        m.requires_grad = True
-            elif adapter_config.attn_method == "constant":
-                for n, m in model.named_parameters():
-                    if "prefix_shared" == n and adapter_config.ignore_target is False:
-                        m.requires_grad = True
-            elif adapter_config.attn_method == "concat":
-                for n, m in model.named_parameters():
-                    if "encoder.attn_Wa.weight" == n or "attn_va" == n:
-                        m.requires_grad = True
+    if adapter_args.prompt_tuning:
+        for n, m in model.named_parameters():
+            if not "prompt_encoders" in n:
+                m.requires_grad = False
+        if adapter_config.attn_prompt is True: 
+            unfreeze_attn_params(model, adapter_args, adapter_config)
 
     # For bitfit we freeze the whole model except for the biases and the final classifier layer.
     if adapter_args.bitfit:
@@ -326,16 +333,16 @@ def save_training_config(config_file, output_dir):
     save_json(os.path.join(output_dir, "training_config.json"), json_data)
 
 def save_prompts(model, output_dir, prefix_dir, 
-                 attn_prefix_tuning, shared_attn, num_target, task_name):
+                 attn_tuning, shared_attn, num_target, task_name):
     for name, param in model.named_parameters():
         # Save prompt weights.
-        if attn_prefix_tuning is False and ("prefix_shared" in name or "prefix" in name):
+        if attn_tuning is False and ("prefix_shared" in name or "prefix" in name):
             shared_params = param
             torch.save(shared_params, os.path.join(
                 output_dir, "prefix_embeddings.pt"))
             torch.save(shared_params, os.path.join(
                 prefix_dir, "-".join(task_name) + ".pt"))
-        elif attn_prefix_tuning is True and name == "prefix_shared":
+        elif attn_tuning is True and name == "prefix_shared":
             shared_params = param
             if shared_attn is True:
                 for i in range(num_target):
@@ -346,23 +353,23 @@ def save_prompts(model, output_dir, prefix_dir,
                     output_dir, "prefix_embeddings.pt"))
 
         # Save attention and layer norm weights.
-        if attn_prefix_tuning is True and "encoder.attn_Wa.weight" == name:
+        if attn_tuning is True and "encoder.attn_Wa.weight" == name:
             attn_weights_params = param
             torch.save(attn_weights_params, os.path.join(
                 output_dir, "attn_Wa_weights.pt"))
-        if attn_prefix_tuning is True and "encoder.attn_W_down.weight" == name:
+        if attn_tuning is True and "encoder.attn_W_down.weight" == name:
             attn_weights_params = param
             torch.save(attn_weights_params, os.path.join(
                 output_dir, "attn_W_down.pt"))
-        if attn_prefix_tuning is True and "encoder.attn_W_up.weight" == name:
+        if attn_tuning is True and "encoder.attn_W_up.weight" == name:
             attn_weights_params = param
             torch.save(attn_weights_params, os.path.join(
                 output_dir, "attn_W_up.pt"))
-        if attn_prefix_tuning is True and "encoder.layer_norm.weight" == name:
+        if attn_tuning is True and "encoder.layer_norm.weight" == name:
             attn_weights_params = param
             torch.save(attn_weights_params, os.path.join(
                 output_dir, "layer_norm_weight.pt"))
-        if attn_prefix_tuning is True and "encoder.layer_norm.bias" == name:
+        if attn_tuning is True and "encoder.layer_norm.bias" == name:
             attn_weights_params = param
             torch.save(attn_weights_params, os.path.join(
                 output_dir, "layer_norm_bias.pt"))
