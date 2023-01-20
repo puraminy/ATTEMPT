@@ -340,8 +340,9 @@ def save_prompts(model, output_dir, prefix_dir,
             shared_params = param
             torch.save(shared_params, os.path.join(
                 output_dir, "prefix_embeddings.pt"))
-            torch.save(shared_params, os.path.join(
-                prefix_dir, "-".join(task_name) + ".pt"))
+            if prefix_dir:
+                torch.save(shared_params, os.path.join(
+                    prefix_dir, "-".join(task_name) + ".pt"))
         elif attn_tuning is True and name == "prefix_shared":
             shared_params = param
             if shared_attn is True:
