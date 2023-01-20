@@ -923,7 +923,8 @@ def train(**kwargs):
         if prefix_dir and not prefix_dir.startswith("/"):
             prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
         if model_args.attn_tuning:
-            Path(prefix_dir).mkdir(parents = True, exist_ok=True)
+            if prefix_dir:
+                Path(prefix_dir).mkdir(parents = True, exist_ok=True)
             save_prompts(trainer.model, output_dir=training_args.output_dir, 
                          prefix_dir = prefix_dir,
                          attn_tuning=model_args.attn_tuning,
