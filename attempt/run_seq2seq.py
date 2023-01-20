@@ -925,7 +925,6 @@ def train(**kwargs):
         prefix_dir = model_args.prefix_dir
         if prefix_dir and not prefix_dir.startswith("/"):
             prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
-        breakpoint()
         if adapter_args.prompt_tuning or adapter_args.prefix_tuning:
             if prefix_dir:
                 Path(prefix_dir).mkdir(parents = True, exist_ok=True)
