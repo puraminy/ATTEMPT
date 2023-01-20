@@ -183,14 +183,15 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --template=sup-pt-c"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
-	params="${params} --load_prompts=True#False"
+	params="${params} --load_prompts=False"
 fi
 
 if [ "$method" = "ptat" ]; then
-	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --attn_tuning=True#False"
+	params="${params} --source_tasks=xWant@xNeed@xReact"
+	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=False"
+	params="${params} --load_prompts=True#False"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
