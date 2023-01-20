@@ -1031,22 +1031,22 @@ class T5Stack(T5PreTrainedModel):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.task_prompt = torch.zeros(
             (self.prompt_dim, self.embedding_dim), device=device)
-        task_encoders_num = len(source_tasks)
-        src_prompts = nn.Parameter(torch.zeros(
-            (task_encoders_num, prompt_dim, self.model_dim))) 
+        if source_tasks:
+            task_encoders_num = len(source_tasks) 
+            self.src_prompts = nn.Parameter(torch.zeros(
+                (task_encoders_num, prompt_dim, self.model_dim))) 
         task_prompt_ids = []
         i = 0
         for encoder in self.prompt_encoders:
             if not "com" in encoder.name:
                 task_prompt_ids.extend(encoder.prompt_ids)
-            if encoder.name in source_tasks and load_prompts: 
+            if source_tasks and encoder.name in source_tasks and load_prompts: 
                 with torch.no_grad():
                     emb = encoder(encoder.input_ids)
                     #emb = encoder.embedding(encoder.net_inps)
                     src_prompts[i, :] = emb.clone().detach()
                     i+=1
 
-        self.src_prompts = src_prompts
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
 
     def isin(self, ar1, ar2):

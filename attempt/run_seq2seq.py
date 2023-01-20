@@ -534,9 +534,12 @@ def train(**kwargs):
         # mmmmmmmmmmmmm
         prompts = {}
         mylogs.bp("prompts")
-        if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
-             raise ValueError("Source tasks shoudn't intersect with target tasks")
-        tasks = data_args.source_tasks + data_args.task_name
+        if model_args.attn_tuning:
+            if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
+                 raise ValueError("Source tasks shoudn't intersect with target tasks")
+        tasks = data_args.task_name
+        if data_args.source_tasks:
+            tasks = data_args.source_tasks + data_args.task_name
         n_tasks = len(tasks)
         for task in tasks:
              bp != "prompts" or breakpoint()
@@ -553,7 +556,7 @@ def train(**kwargs):
                     enc_router = enc_router)
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_prompts and task in data_args.source_tasks:
+            if load_prompts:
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
             if not "com" in task: # if it's not a shared prompt among tasks
