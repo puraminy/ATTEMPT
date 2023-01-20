@@ -105,12 +105,6 @@ class PromptEncoder(torch.nn.Module):
             "weight"][indices]
         self.embedding.weight.data = init_weight.clone().detach()
 
-    def freeze_router():
-        self.reouter.requires_grad = False
-
-    def unfreeze_router():
-        self.router.requires_grad = True
-
     def forward(self,prompt_token_ids, tids=None, training=True):
         if tids is not None:
             task_id = tids[0]
