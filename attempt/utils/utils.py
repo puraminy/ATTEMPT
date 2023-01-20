@@ -334,14 +334,8 @@ def save_training_config(config_file, output_dir):
 
 def save_prompts(model, output_dir, prefix_dir, 
                  attn_tuning, shared_attn, num_target, task_name):
-    breakpoint()
     for name, param in model.named_parameters():
         # Save prompt weights.
-        if "prompt_encoders" in name:
-            if prefix_dir:
-                torch.save(param, os.path.join(
-                    prefix_dir, "-".join(task_name) + ".pt"))
-
         if attn_tuning is False and ("prefix_shared" in name or "prefix" in name):
             shared_params = param
             torch.save(shared_params, os.path.join(
