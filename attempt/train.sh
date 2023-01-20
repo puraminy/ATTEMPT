@@ -52,7 +52,7 @@ if [ -z "$_train" ]; then  _train=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=10; fi
+if [ -z "$_ep" ]; then  _ep=20; fi
 if [ -n "$_test" ]; then
   _rem=True
   _tn=10
@@ -174,7 +174,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --prompt_tuning=True"
 	params="${params} --use_optimizer=True"
 	params="${params} --opt_type=regular"
-	params="${params} --prompt_learning_rate=0.1"
+	params="${params} --prompt_learning_rate=0.01"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=20"
@@ -190,7 +190,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --source_tasks=xWant@xNeed"
 	params="${params} --attn_tuning=True#False"
 	params="${params} --attn_method=sub"
-	params="${params} --ignore_target=False#True"
+	params="${params} --ignore_target=False"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
