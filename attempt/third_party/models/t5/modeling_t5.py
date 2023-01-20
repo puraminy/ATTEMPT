@@ -1044,7 +1044,7 @@ class T5Stack(T5PreTrainedModel):
                 with torch.no_grad():
                     emb = encoder(encoder.input_ids)
                     #emb = encoder.embedding(encoder.net_inps)
-                    src_prompts[i, :] = emb.clone().detach()
+                    self.src_prompts[i, :] = emb.clone().detach()
                     i+=1
 
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
