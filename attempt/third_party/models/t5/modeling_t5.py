@@ -1041,8 +1041,8 @@ class T5Stack(T5PreTrainedModel):
                 task_prompt_ids.extend(encoder.prompt_ids)
             if encoder.task_id >= 0 and encoder.name in source_tasks and load_prompts: 
                 with torch.no_grad():
-                    #emb = encoder(encoder.input_ids)
-                    emb = encoder.embedding(encoder.net_inps)
+                    emb = encoder(encoder.input_ids)
+                    #emb = encoder.embedding(encoder.net_inps)
                     src_prompts[i, :] = emb.clone().detach()
                     i+=1
 
