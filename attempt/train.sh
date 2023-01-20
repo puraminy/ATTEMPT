@@ -54,6 +54,7 @@ if [ -z "$_vn" ]; then  _vn=20; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  _ep=10; fi
 if [ -n "$_test" ]; then
+  _rem=True
   _tn=10
   _vn=2
   _tsn=2 
