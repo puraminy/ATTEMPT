@@ -32,10 +32,8 @@ class PromptEncoder(torch.nn.Module):
         self.device = "cpu"
         self.counter = 0
         self.prompt_ids = prompt_ids
-        self.input_ids = torch.nn.parameter.Parameter(torch.tensor(prompt_ids),
-             requires_grad=False)
-        self.net_inps = torch.nn.parameter.Parameter(torch.arange(length),
-            requires_grad=False)
+        self.input_ids = torch.tensor(prompt_ids)
+        self.net_inps = torch.arange(length)
         self.embedding_dim = embedding_dim
         self.id_offset = id_offset
         self.embedding = torch.nn.Embedding(length,embedding_dim)
@@ -69,7 +67,6 @@ class PromptEncoder(torch.nn.Module):
         for name, param in self.named_parameters():
             if "embedding.weight" == name:
                 torch.save(param, fname)
-                break
 
     def load(self, load_dir, load_state=False):
         if not load_dir:
