@@ -81,7 +81,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xWant@xNeed" #xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@#xEffect@"
+task="xAttr@xIntent" #xIntent@xWant@xReact@xNeed#xAttr@#xIntent@#xReact@#xNeed@#xWant@#xEffect@"
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -188,7 +188,7 @@ fi
 
 if [ "$method" = "ptat" ]; then
 	params="${params} --source_tasks=xWant@xNeed"
-	params="${params} --attn_tuning=False"
+	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=False"
 fi

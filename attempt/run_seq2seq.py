@@ -535,6 +535,7 @@ def train(**kwargs):
         prompts = {}
         mylogs.bp("prompts")
         if model_args.attn_tuning:
+            assert data_args.source_tasks,"Source tasks can't be empty for attention tuning"
             if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
                  raise ValueError("Source tasks shoudn't intersect with target tasks")
         tasks = data_args.task_name
@@ -556,7 +557,8 @@ def train(**kwargs):
                     enc_router = enc_router)
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_prompts:
+            if load_prompts and (not model_args.attn_tuning 
+                                 or task in data_args.source_tasks):
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
             if not "com" in task: # if it's not a shared prompt among tasks
