@@ -119,11 +119,10 @@ params="${params} --test_ds_config=full-test@sel-test"
 exp=$task-$_exp
 if [ "$_exp" = "self" ]; then
   exp="${PWD#$log/}"
-  echo "cur folder: ${exp}"
-  params="${params} --do_train=$_train"
-else
-  params="${params} --do_train=True"
+  _train=False
 fi
+
+params="${params} --do_train=$_train"
 # operations
 params="${params} --do_test=True"
 params="${params} --do_eval=True"
