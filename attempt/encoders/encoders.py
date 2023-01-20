@@ -431,7 +431,7 @@ def extend_tokenizer(tokenizer, prompt_tokens = []):
     new_tokens += prompt_tokens
     added_tokens = [ 
             AddedToken(tok,lstrip=True,
-                rstrip=False)
+                rstrip=False, single_word=True)
             for tok in new_tokens if not tok in cur_list
     ]
     if added_tokens:
@@ -467,6 +467,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
         if "_" in p:
            q = p.strip("<").strip(">")
            w = q.split("_")[1]
+           if "?" in w: w = w.split("?")[0]
            if not w.isdigit():
                wid = tokenizer.convert_tokens_to_ids([w])[0]
                emb = cur_embeddings.weight[wid,:].detach().clone() 

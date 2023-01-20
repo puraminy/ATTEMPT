@@ -173,8 +173,8 @@ class AbstractTask(abc.ABC):
             for token in prompt.split():
                 if not name in self.prompt_set:
                     self.prompt_set[name] = []
-                #if not token in self.prompt_set[name]:
-                self.prompt_set[name].append(token)
+                if not token in self.prompt_set[name]:
+                    self.prompt_set[name].append(token)
             template = template.replace(_pholder,prompt, 1)
         return template
 
@@ -194,8 +194,6 @@ class AbstractTask(abc.ABC):
                 place_holder = "[" + name + "_" + emb + "]"
                 if plen != 0:
                     plen = [int(plen)]
-                if name == "task":
-                    name = self.name
                 template = self.fill_prompt(template, name, place_holder, plen=plen, 
                         num_holder=num_holder)
                 m = re.search(regex, template)
@@ -204,7 +202,7 @@ class AbstractTask(abc.ABC):
     def fill_prompts(self, template):
         mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z\?]+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z\?\d]+)\]")
         return template
 
     def get_prompts(self):
@@ -246,10 +244,15 @@ class AbstractTask(abc.ABC):
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
-            rel_fw = ["[task_" + w + "]" for w in rel_fw]
-            rel_fw_cycle = list(islice(cycle(rel_fw), self.prompt_length))
-            data["rel_fw"] = " ".join(rel_fw)
-            data["rel_fwc"] = " ".join(rel_fw_cycle)
+            prompts_fw = ["[task_" + w + "]" for w in rel_fw]
+            data["rel_fw"] = " ".join(prompts_fw)
+            #rel_fw_cycle = list(islice(cycle(rel_fw), self.prompt_length))
+            prompts_fw_cycle = []
+            for i in range(self.prompt_length):
+                j = i % len(rel_fw)
+                tok = "[task" + "_" + rel_fw[j] + "?" + str(i) + "]"
+                prompts_fw_cycle.append(tok)
+            data["rel_fwc"] = " ".join(prompts_fw_cycle)
         return data
 
     def fill_template(self, data):
