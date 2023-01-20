@@ -71,6 +71,7 @@ class PromptEncoder(torch.nn.Module):
     def load(self, load_dir, load_state=False):
         if not load_dir:
             return
+        breakpoint()
         fname = os.path.join(load_dir, self.get_id())
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
         mapl=torch.device('cpu')
