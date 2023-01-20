@@ -183,11 +183,12 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --template=sup-pt-tm"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
-	params="${params} --load_prompts=True#False"
+	params="${params} --load_prompts=False"
 fi
+
 if [ "$method" = "ptat" ]; then
-	params="${params} --attn_tuning=True"
 	params="${params} --source_tasks=xWant@xNeed"
+	params="${params} --attn_tuning=False"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=False"
 fi

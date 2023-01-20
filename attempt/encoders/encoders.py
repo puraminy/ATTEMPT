@@ -83,8 +83,7 @@ class PromptEncoder(torch.nn.Module):
             mylogs.tinfo("Prompt for %s was loaded ", self.name)
             return
         weights = torch.load(fname, map_location=mapl)
-                self.embedding.weight.data = weights 
-
+        self.embedding.weight.data = weights 
 
     def init_embedding(self, init_embs):
         if init_embs:
