@@ -59,21 +59,32 @@ class PromptEncoder(torch.nn.Module):
     def get_id(self):
         return "prompt_" + self.enc_type + "_" + self.name + "_" + str(self.length) + ".pt"
 
-    def save(self, save_dir):
+    def save(self, save_dir, save_state=False):
         if not save_dir:
             return
         fname = os.path.join(save_dir, self.get_id())
-        torch.save(self.state_dict(), fname)
+        if save_state:
+            torch.save(self.state_dict(), fname)
+            return
+        for name, param in self.named_parameters():
+            if "embedding.weight" == name:
+                torch.save(param, fname)
+                break
 
-    def load(self, load_dir):
+    def load(self, load_dir, load_state=False):
         if not load_dir:
             return
         fname = os.path.join(load_dir, self.get_id())
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
         mapl=torch.device('cpu')
-        state = torch.load(fname, map_location=mapl)
-        self.load_state_dict(state)
-        mylogs.tinfo("Prompt for %s was loaded ", self.name)
+        if load_state:
+            state = torch.load(fname, map_location=mapl)
+            self.load_state_dict(state)
+            mylogs.tinfo("Prompt for %s was loaded ", self.name)
+            return
+        weights = torch.load(fname, map_location=mapl)
+                self.embedding.weight.data = weights 
+
 
     def init_embedding(self, init_embs):
         if init_embs:

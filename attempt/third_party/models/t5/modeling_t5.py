@@ -1039,7 +1039,7 @@ class T5Stack(T5PreTrainedModel):
         for encoder in self.prompt_encoders:
             if not "com" in encoder.name:
                 task_prompt_ids.extend(encoder.prompt_ids)
-            if encoder.task_id >= 0 and encoder.name in source_tasks and load_prompts: 
+            if encoder.name in source_tasks and load_prompts: 
                 with torch.no_grad():
                     emb = encoder(encoder.input_ids)
                     #emb = encoder.embedding(encoder.net_inps)
