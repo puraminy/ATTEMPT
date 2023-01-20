@@ -180,7 +180,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --num_prompt_tokens=20"
 	params="${params} --num_common_tokens=10"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-pt-tm"
+        params="${params} --template=sup-pt-c"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=True#False"

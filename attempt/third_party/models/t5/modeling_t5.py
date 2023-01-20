@@ -964,24 +964,25 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
-        avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
+        #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
+        avg_base_embeds, _ = torch.max(target_prompts, 1)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
         # 1. dot product
         if self.attn_method == "dot":
-            avg_inputs_embeds = avg_inputs_embeds.unsqueeze(-1)
+            avg_base_embeds = avg_base_embeds.unsqueeze(-1)
             attn_scores = avg_src_prompts.bmm(
-                avg_inputs_embeds).squeeze(-1)
+                avg_base_embeds).squeeze(-1)
 
         elif self.attn_method == "linear":
             # 2. linear
-            x = self.attn_Wa(avg_inputs_embeds)
+            x = self.attn_Wa(avg_base_embeds)
             x = self.layer_norm(x)
             x = x.unsqueeze(-1)
             attn_scores = avg_src_prompts.bmm(
                 x).squeeze(-1) / self.temperature
 
         elif self.attn_method == "sub":
-            x = self.attn_W_down(avg_inputs_embeds)
+            x = self.attn_W_down(avg_base_embeds)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
@@ -991,7 +992,7 @@ class T5Stack(T5PreTrainedModel):
 
         # implement token level model
         elif self.attn_method == "token":
-            x = self.attn_W_down(avg_inputs_embeds)
+            x = self.attn_W_down(avg_base_embeds)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
