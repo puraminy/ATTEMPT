@@ -29,11 +29,11 @@ class PromptEncoder(torch.nn.Module):
         self.length = length = len(prompt_ids)
         self.name = name
         self.task_id = -1 
-        self.device = "cpu"
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.counter = 0
         self.prompt_ids = prompt_ids
-        self.input_ids = torch.tensor(prompt_ids)
-        self.net_inps = torch.arange(length)
+        self.input_ids = torch.tensor(prompt_ids, device=self.device)
+        self.net_inps = torch.arange(length, device=self.device)
         self.embedding_dim = embedding_dim
         self.id_offset = id_offset
         self.embedding = torch.nn.Embedding(length,embedding_dim)
