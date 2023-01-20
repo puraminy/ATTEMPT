@@ -194,6 +194,8 @@ class AbstractTask(abc.ABC):
                 place_holder = "[" + name + "_" + emb + "]"
                 if plen != 0:
                     plen = [int(plen)]
+                if name == "task":
+                    name = self.name
                 template = self.fill_prompt(template, name, place_holder, plen=plen, 
                         num_holder=num_holder)
                 m = re.search(regex, template)
