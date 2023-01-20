@@ -14,6 +14,7 @@ import torch
 import re
 from attempt.maps import *
 import attempt.mylogs as mylogs
+from itertools import cycle, islice
 
 logger = logging.getLogger(__name__)
 
@@ -172,8 +173,8 @@ class AbstractTask(abc.ABC):
             for token in prompt.split():
                 if not name in self.prompt_set:
                     self.prompt_set[name] = []
-                if not token in self.prompt_set[name]:
-                    self.prompt_set[name].append(token)
+                #if not token in self.prompt_set[name]:
+                self.prompt_set[name].append(token)
             template = template.replace(_pholder,prompt, 1)
         return template
 
@@ -229,6 +230,8 @@ class AbstractTask(abc.ABC):
            src = src.replace("(prompt)", "[task_i]")
         if "-pt-w" in tn:
            src = src.replace("(prompt)", "{rel_fw}")
+        if "-pt-c" in tn:
+           src = src.replace("(prompt)", "{rel_fwc}")
         if "-nat" in tn: 
            src = src.replace("(nat)", ", {rel_nat}")
 
@@ -244,8 +247,9 @@ class AbstractTask(abc.ABC):
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
             rel_fw = ["[task_" + w + "]" for w in rel_fw]
-            rel_fw = " ".join(rel_fw)
-            data["rel_fw"] = rel_fw 
+            rel_fw_cycle = list(islice(cycle(rel_fw), self.prompt_length))
+            data["rel_fw"] = " ".join(rel_fw)
+            data["rel_fwc"] = " ".join(rel_fw_cycle)
         return data
 
     def fill_template(self, data):
