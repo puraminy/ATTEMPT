@@ -170,7 +170,7 @@ if [ "$method" = "at" ]; then
 fi
 # pppppppppppp
 # prompt tuning
-if [ "$method" = "pt" ]; then
+if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --prompt_tuning=True"
 	params="${params} --use_optimizer=True"
 	params="${params} --opt_type=regular"
@@ -183,9 +183,11 @@ if [ "$method" = "pt" ]; then
         params="${params} --template=sup-pt-tm"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
-	params="${params} --source_tasks=xWant@xNeed"
 	params="${params} --load_prompts=True#False"
-	params="${params} --attn_tuning=False"
+fi
+if [ "$method" = "ptat" ]; then
+	params="${params} --attn_tuning=True"
+	params="${params} --source_tasks=xWant@xNeed"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=False"
 fi
