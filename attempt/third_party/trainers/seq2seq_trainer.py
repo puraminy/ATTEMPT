@@ -11,6 +11,7 @@ from transformers.file_utils import is_datasets_available
 # my import
 from torch.utils.data import DataLoader
 import datasets
+import attempt.mylogs as mylogs
 
 if version.parse(torch.__version__) >= version.parse("1.6"):
     from torch.cuda.amp import autocast
@@ -75,6 +76,14 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
         metrics = super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
         self.log_metrics("eval", metrics)
+        logger = mylogs.tlog
+        logger.info(f"***** metrics *****")
+        metrics_formatted = self.metrics_format(metrics)
+        k_width = max(len(str(x)) for x in metrics_formatted.keys())
+        v_width = max(len(str(x)) for x in metrics_formatted.values())
+        for key in sorted(metrics_formatted.keys()):
+            logger.info(f"  {key: <{k_width}} = {metrics_formatted[key]:>{v_width}}")
+
         return metrics
 
     def prediction_step(
