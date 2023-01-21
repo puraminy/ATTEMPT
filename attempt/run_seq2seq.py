@@ -1094,6 +1094,9 @@ def train(**kwargs):
                          prefix_dir = prefix_dir,
                          attn_tuning=model_args.attn_tuning,
                          shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
+            if adapter_args.prompt_tuning:
+                Path(op.join(new_dir, "prompts")).mkdir(parents = True, exist_ok=True)
+                model.store_encoders(output_dir = prompts_dir)
 
             # after saving prompts, we will remove unnecessary checkpoint dir.
             try:

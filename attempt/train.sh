@@ -129,7 +129,7 @@ params="${params} --do_test=True"
 params="${params} --do_eval=True"
 # Saving
 params="${params} --save_total_limit=1"
-params="${params} --save_checkpoint=False"
+params="${params} --save_checkpoint=True"
 params="${params} --save_model=False"
 
 # training 
