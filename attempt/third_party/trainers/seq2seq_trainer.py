@@ -70,7 +70,11 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         print("======================================")
         print("Evaluation ")
         print("======================================")
-        return super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
+        metrics = super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
+        print(metrics)
+        self.log_metrics("eval", metrics)
+        breakpoint()
+        return metrics
 
     def prediction_step(
         self,
