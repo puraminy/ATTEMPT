@@ -57,7 +57,6 @@ clog = logging.getLogger("att.cfg")
 dlog = logging.getLogger("att.data")
 vlog = logging.getLogger("att.eval")
 tlog = logging.getLogger("att.train")
-ttlog = logging.getLogger("att.train")
 timelog = logging.getLogger("att.time")
 plog = logging.getLogger("att.preview")
 
