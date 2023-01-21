@@ -859,13 +859,17 @@ def train(**kwargs):
             optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
     name = data_args.dataset_name[0] 
     task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else "rouge"
+    if training_args.do_eval: 
+        eval_ds = list(eval_datasets.values())[0] 
+    else: 
+        eval_ds = None
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=list(eval_datasets.values())[0] if training_args.do_eval else None,
+            eval_dataset= eval_ds,
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
@@ -882,7 +886,7 @@ def train(**kwargs):
             model=model,
             args=training_args,
             train_dataset=train_dataset if training_args.do_train else None,
-            eval_dataset=list(eval_datasets.values())[0] if training_args.do_eval else None,
+            eval_dataset=eval_ds,
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,

@@ -65,6 +65,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         max_length: Optional[int] = None,
         num_beams: Optional[int] = None,
     ) -> Dict[str, float]:
+        assert False, "Evaluate"
         self._max_length = max_length
         self._num_beams = num_beams,
         return super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
