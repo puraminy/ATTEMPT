@@ -244,7 +244,15 @@ def run(ctx, experiment, exp_conf, break_point, preview,
                                          *_output_dir)
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
+       wandb.init(
+          # Set the project where this run will be logged
+          project= experiment.replace("#","-") 
+          name="@".join(tags)
+          # Track hyperparameters and run metadata
+          config=_ftag
+       )
        ctx.invoke(train, **args)
+       wandb.finish()
 
 @cli.command()
 def train(**kwargs):
@@ -386,13 +394,6 @@ def train(**kwargs):
     _ftag = mylogs.get_tag(full_tag)  
     exp_info["ftag"] = _ftag 
     ######
-    wandb.init(
-          # Set the project where this run will be logged
-          project= "attempt", #kwargs.experiment,
-          name="@".join(list(_tag.values())), 
-          # Track hyperparameters and run metadata
-          config=_ftag
-    )
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
