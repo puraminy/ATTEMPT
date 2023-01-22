@@ -246,10 +246,10 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        mylogs.bp("check")
        wandb.init(
           # Set the project where this run will be logged
-          project= experiment.replace("#","-") 
-          name="@".join(tags)
+          project= experiment.replace("#","-"), 
+          name="@".join(tags),
           # Track hyperparameters and run metadata
-          config=_ftag
+          config=args
        )
        ctx.invoke(train, **args)
        wandb.finish()
