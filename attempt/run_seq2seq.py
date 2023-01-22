@@ -370,7 +370,7 @@ def train(**kwargs):
     ######
     wandb.init(
           # Set the project where this run will be logged
-          project= "TODO" #kwargs.experiment,
+          project= "TODO", #kwargs.experiment,
           name="@".join(list(_tag.values())), 
           # Track hyperparameters and run metadata
           config=_ftag
