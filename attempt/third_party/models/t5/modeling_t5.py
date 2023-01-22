@@ -911,7 +911,6 @@ class T5Stack(T5PreTrainedModel):
         self.embedding_dim = self.config.hidden_size
         self.task_prompt_ids = []
         self.prompt_dim = None
-        self.task_prompt = None
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         #######################################
@@ -1030,8 +1029,6 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.task_prompt = torch.zeros(
-            (self.prompt_dim, self.embedding_dim), device=device)
         if source_tasks:
             task_encoders_num = len(source_tasks) 
             self.src_prompts = nn.Parameter(torch.zeros(
@@ -1049,8 +1046,6 @@ class T5Stack(T5PreTrainedModel):
                     self.src_prompts[i, :] = emb.clone().detach()
                     i+=1
 
-        self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
-
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
 
@@ -1067,8 +1062,8 @@ class T5Stack(T5PreTrainedModel):
             if not self.attn_prompt_tuning or not self.ignore_target:
                 task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
                 target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
-                target_prompts = self.task_prompt.repeat(
-                    inputs_embeds.shape[0], 1, 1)
+                target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+                                              device=device) 
                 for encoder in self.prompt_encoders:
                     prompt_token_fn = encoder.get_prompt_token_fn()
                     target_masks = prompt_token_fn(target_prompt_ids)
