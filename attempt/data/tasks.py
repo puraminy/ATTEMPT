@@ -688,11 +688,20 @@ class xNeed(Atomic):
 class xReact(Atomic):
     name = "xReact"
 
+class oReact(Atomic):
+    name = "oReact"
+
 class xWant(Atomic):
     name = "xWant"
 
+class oWant(Atomic):
+    name = "oWant"
+
 class xEffect(Atomic):
     name = "xEffect"
+
+class oEffect(Atomic):
+    name = "oEffect"
 
 class QQP(AbstractTask):
     name = "qqp"
@@ -1121,8 +1130,11 @@ TASK_MAPPING = OrderedDict(
         ('xAttr', xAttr),
         ('xNeed', xNeed),
         ('xReact', xReact),
+        ('oReact', oReact),
         ('xWant', xWant),
+        ('oWant', oWant),
         ('xEffect', xEffect),
+        ('oEffect', oEffect),
         ('atomic-rels', AtomicRel),
         ('squad', Squad),
         ('mrpc', MRPC),
