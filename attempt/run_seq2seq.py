@@ -977,7 +977,6 @@ def train(**kwargs):
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-        breakpoint()
         if model_args.attn_tuning is True:
             attention_paths = [os.path.join(training_args.output_dir, "attn_W_down.pt"), os.path.join(
                 training_args.output_dir, "attn_W_up.pt")]
