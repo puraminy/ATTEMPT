@@ -275,7 +275,7 @@ def train(**kwargs):
         return new_kwargs
 
     # sssssssss
-
+    training_args.report_to = ["tensorboard"]
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
@@ -541,8 +541,6 @@ def train(**kwargs):
             if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
                  raise ValueError("Source tasks shoudn't intersect with target tasks")
         tasks = data_args.task_name
-        if data_args.source_tasks:
-            tasks = data_args.source_tasks + data_args.task_name
         n_tasks = len(tasks)
         for task in tasks:
              bp != "prompts" or breakpoint()
