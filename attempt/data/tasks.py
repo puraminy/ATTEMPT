@@ -214,10 +214,10 @@ class AbstractTask(abc.ABC):
 
     def get_template(self):
         tn = self.template
-        src = "{task}: {source} (com) (prompt) (nat) (mask)" 
+        src = "{task}: {source} (com) (prompt1) (prompt2) (nat) (mask)" 
         target = "(mask) {target}"
         if "pre-" in tn:
-            src = "(prompt) {source} (mask)" 
+            src = "(prompt1) {source} (mask)" 
         if "unsup" in tn:
            src = src.replace("(mask)", "{mask}")
            target = target.replace("(mask)","{mask}")
@@ -227,13 +227,15 @@ class AbstractTask(abc.ABC):
         if "-com" in tn:
            src = src.replace("(com)", "[com_i]")
         if "-pt-t" in tn:
-           src = src.replace("(prompt)", "[task_i]")
+           src = src.replace("(prompt1)", "[task_i]")
         if "-pt-w" in tn:
-           src = src.replace("(prompt)", "{prompt_fw}")
+           src = src.replace("(prompt1)", "{prompt_fw}")
         if "-pt-c" in tn:
-           src = src.replace("(prompt)", "{prompt_fwc}")
+           src = src.replace("(prompt1)", "{prompt_fwc}")
         if "-pt-sh" in tn:
-           src = src.replace("(prompt)", "{prompt_sh}")
+           src = src.replace("(prompt1)", "{prompt_sh}")
+        if "-pt-t-sh" in tn:
+           src = src.replace("(prompt2)", "{prompt_sh}")
         if "-nat" in tn: 
            src = src.replace("(nat)", ", {rel_nat}")
 
@@ -658,13 +660,13 @@ class AtomicRel(Atomic):
 
     def get_template(self):
         tn = self.template
-        src = "{input_text} |(prompt)| {target_text}" 
+        src = "{input_text} |(prompt1)| {target_text}" 
         if "unsup" in tn:
-           src = "{input_text} (prompt) {mask} {target_text}" 
+           src = "{input_text} (prompt1) {mask} {target_text}" 
         if "-pt-t" in tn:
-           src = src.replace("(prompt)", "[task_i]")
+           src = src.replace("(prompt1)", "[task_i]")
         if "-pt-w" in tn:
-           src = src.replace("(prompt)", "{prompt_fw}")
+           src = src.replace("(prompt1)", "{prompt_fw}")
         if "-rel" in tn:
            target = "{prefix}"
         elif "-tok" in tn:

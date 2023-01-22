@@ -860,7 +860,7 @@ def train(**kwargs):
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
     name = data_args.dataset_name[0] 
-    task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else "rouge"
+    task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else ["rouge"]
     if training_args.do_eval: 
         eval_ds = list(eval_datasets.values())[0] 
     else: 
