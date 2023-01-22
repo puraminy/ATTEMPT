@@ -12,6 +12,7 @@ from transformers.file_utils import is_datasets_available
 from torch.utils.data import DataLoader
 import datasets
 import attempt.mylogs as mylogs
+import wandb
 
 if version.parse(torch.__version__) >= version.parse("1.6"):
     from torch.cuda.amp import autocast
@@ -78,6 +79,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self.log_metrics("eval", metrics)
         logger = mylogs.tlog
         logger.info(f"***** metrics *****")
+        wandb.log(metrics)
         metrics_formatted = self.metrics_format(metrics)
         k_width = max(len(str(x)) for x in metrics_formatted.keys())
         v_width = max(len(str(x)) for x in metrics_formatted.values())
