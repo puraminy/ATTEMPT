@@ -187,6 +187,24 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    all_vars = [x.strip("--") for x in ctx.args]
    var_names = [x.split("=")[0] for x in all_vars]
    values = [x.split("=")[1].split("#") for x in all_vars]
+   var_dict = {k:n for k,n in zip(var_names, values)} 
+   for key,val in var_dict.items():
+       multi = [item for item in val if re.match("multi-(.*)", item)]
+       members = [x.strip("@") for x in val if not x in multi]
+       if multi:
+           ext = []
+           for m in multi:
+               _, l = m.split("-")
+               l = len(members) if l == "all" else int(l)
+               val.remove(m)
+               comb = itertools.combinations(members, l)
+               ext.extend(["@".join(c) for c in comb])
+           val.extend(ext)
+           var_dict[key] = val
+
+   var_names = list(var_dict.keys())
+   values = list(var_dict.values())
+
    tag_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
    var_names = [vv.strip("!") for vv in var_names]
    for vv, cc in zip(var_names, values):
