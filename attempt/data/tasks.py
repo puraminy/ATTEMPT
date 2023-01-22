@@ -229,9 +229,11 @@ class AbstractTask(abc.ABC):
         if "-pt-t" in tn:
            src = src.replace("(prompt)", "[task_i]")
         if "-pt-w" in tn:
-           src = src.replace("(prompt)", "{rel_fw}")
+           src = src.replace("(prompt)", "{prompt_fw}")
         if "-pt-c" in tn:
-           src = src.replace("(prompt)", "{rel_fwc}")
+           src = src.replace("(prompt)", "{prompt_fwc}")
+        if "-pt-sh" in tn:
+           src = src.replace("(prompt)", "{prompt_sh}")
         if "-nat" in tn: 
            src = src.replace("(nat)", ", {rel_nat}")
 
@@ -247,14 +249,18 @@ class AbstractTask(abc.ABC):
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
             prompts_fw = ["[task_" + w + "]" for w in rel_fw]
-            data["rel_fw"] = " ".join(prompts_fw)
+            data["prompt_fw"] = " ".join(prompts_fw)
+            rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
+            rel_sh = rel_sh.split()
+            prompts_sh = ["[" + w + "_" + w + "]" for w in rel_sh]
+            data["prompt_sh"] = " ".join(prompts_sh)
             #rel_fw_cycle = list(islice(cycle(rel_fw), self.prompt_length))
             prompts_fw_cycle = []
             for i in range(self.prompt_length):
                 j = i % len(rel_fw)
                 tok = "[task" + "_" + rel_fw[j] + "?" + str(i) + "]"
                 prompts_fw_cycle.append(tok)
-            data["rel_fwc"] = " ".join(prompts_fw_cycle)
+            data["prompt_fwc"] = " ".join(prompts_fw_cycle)
         return data
 
     def fill_template(self, data):
@@ -658,7 +664,7 @@ class AtomicRel(Atomic):
         if "-pt-t" in tn:
            src = src.replace("(prompt)", "[task_i]")
         if "-pt-w" in tn:
-           src = src.replace("(prompt)", "{rel_fw}")
+           src = src.replace("(prompt)", "{prompt_fw}")
         if "-rel" in tn:
            target = "{prefix}"
         elif "-tok" in tn:
