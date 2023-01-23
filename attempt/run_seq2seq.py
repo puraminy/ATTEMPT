@@ -121,7 +121,7 @@ def cli():
 )
 @click.option(
     "--debug",
-    "-dpy",
+    "-d",
     is_flag=True,
     help="Enable debugpy"
 )
@@ -880,7 +880,7 @@ def train(**kwargs):
     name = data_args.dataset_name[0] 
     task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else ["rouge"]
     if training_args.do_eval: 
-        eval_ds = list(eval_datasets.values())[0] 
+        eval_ds = my_interleave_datasets(list(eval_datasets.values()), batch_size=2)
     else: 
         eval_ds = None
     if kwargs.use_optimizer:
