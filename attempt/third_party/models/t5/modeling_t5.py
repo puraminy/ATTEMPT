@@ -47,6 +47,7 @@ from transformers.utils.model_parallel_utils import assert_device_map, get_devic
 from .configuration_t5 import T5Config
 
 #### My import
+from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 from attempt.encoders.encoders import * 
 import wandb
 from attempt.adapters import AdapterController
@@ -966,14 +967,22 @@ class T5Stack(T5PreTrainedModel):
         #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
         avg_base_embeds, _ = torch.max(target_prompts, 1)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
-        # 1. dot product
+
+        # 1. Bernouli 
+        if self.attn_method == "rb":
+            attn_scores = RelaxedBernoulli(temperature=self.temperature, 
+                    logits=src_prompts).rsample()            
+            #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+            #attn_scores = (attn_scores / (attn_scores.sum(dim=-1, keepdim=True) + 1e-12))  
+            #soft_prompts = torch.matmul(attn_scores, src_prompts).view(-1, self.embedding_dim)
+        # 2. dot product
         if self.attn_method == "dot":
             avg_base_embeds = avg_base_embeds.unsqueeze(-1)
             attn_scores = avg_src_prompts.bmm(
                 avg_base_embeds).squeeze(-1)
 
         elif self.attn_method == "linear":
-            # 2. linear
+            # 3. linear
             x = self.attn_Wa(avg_base_embeds)
             x = self.layer_norm(x)
             x = x.unsqueeze(-1)

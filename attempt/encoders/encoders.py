@@ -23,64 +23,78 @@ def _isin(tensor:torch.Tensor,values:torch.Tensor):
 
 class PromptEncoder(torch.nn.Module):
     enc_type = "encoder"
-    def __init__(self,name, embedding_dim, id_offset, init_embs, prompt_ids, lr=0.01, n_tasks = 2, router=None, **kwargs) -> None:
+    def __init__(self, name, prompt_tokens, model, tokenizer): 
         super().__init__()
-        self.learning_rate = lr
-        self.length = length = len(prompt_ids)
         self.name = name
-        self.task_id = -1 
+        self.prompt_tokens = prompt_tokens
+        self.length = len(prompt_tokens)
+        self.embedding_dim = model.config.hidden_size
+        self.embedding = torch.nn.Embedding(self.length, self.embedding_dim)
+
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.counter = 0
-        self.prompt_ids = prompt_ids
-        self.input_ids = torch.tensor(prompt_ids, device=self.device)
-        self.net_inps = torch.arange(length, device=self.device)
-        self.embedding_dim = embedding_dim
-        self.id_offset = id_offset
-        self.embedding = torch.nn.Embedding(length,embedding_dim)
+        self.net_inps = torch.arange(self.length, device=self.device)
+
+        self.prompt_ids = self.add_tokens(prompt_tokens, model, tokenizer)
+        self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
+        self.id_offset = min(self.prompt_ids) if self.prompt_ids else -1 
+
+    def add_tokens(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
+        extend_tokenizer(tokenizer, prompt_tokens)
+        model.resize_token_embeddings(len(tokenizer))
+        prompt_ids = tokenizer.convert_tokens_to_ids(prompt_tokens)
+
+        if not init_emb_flag:
+            return prompt_ids 
+
+        cur_embeddings = model.get_input_embeddings()
+        init_embs = {}
+        mylogs.bp("encoder")
+
+        for pid, p in enumerate(prompt_ids):
+            if pid < cur_embeddings.num_embeddings:
+                emb = cur_embeddings.weight[pid,:].detach().clone() 
+                init_embs[pid] = emb
+
+        for pid, p in enumerate(prompt_tokens):
+            if "_" in p:
+               q = p.strip("<").strip(">")
+               w = q.split("_")[1]
+               if "?" in w: w = w.split("?")[0]
+               if not w.isdigit():
+                   wid = tokenizer.convert_tokens_to_ids([w])[0]
+                   emb = cur_embeddings.weight[wid,:].detach().clone() 
+                   init_embs[pid] = emb
+
         self.init_embs = init_embs
-        self.init_flag = True
-        self.temperature = 1.
-        #self.embedding.weight.requires_grad = False
         self.init_embedding(init_embs)
-        para = [p for p in self.parameters() if p.requires_grad ]
-        self.n_tasks = n_tasks
-        self.is_learned = False
-        if router == "random":
-            self.is_learned = True
-            self.router = nn.Parameter(data=torch.empty((
-                self.n_tasks,
-                length,
-            )).uniform_(-1e-3, 1e-3))
-        else:
-            self.router = router
+        return prompt_ids 
 
     def get_id(self):
-        return "prompt_" + self.enc_type + "_" + self.name + "_" + str(self.length) + ".pt"
+        return "prompt_" + self.enc_type + "_" + self.name + ".pt"
 
-    def save(self, save_dir, save_state=True):
-        if not save_dir:
-            return
+    def save(self, save_dir):
         fname = os.path.join(save_dir, self.get_id())
-        if save_state:
-            torch.save(self.state_dict(), fname)
-            return
-        for name, param in self.named_parameters():
-            if "embedding.weight" == name:
-                torch.save(param, fname)
+        dict_to_save = self.state_dict()
+        dict_to_save["prompt_tokens"] = self.prompt_tokens
+        torch.save(dict_to_save, fname)
 
-    def load(self, load_dir, load_state=True):
-        if not load_dir:
-            return
+    def load(self, load_dir, model, tokenizer):
         fname = os.path.join(load_dir, self.get_id())
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
         mapl=torch.device('cpu')
-        if load_state:
-            state = torch.load(fname, map_location=mapl)
-            self.load_state_dict(state)
-            mylogs.tinfo("Prompt for %s was loaded ", self.name)
-            return
-        weights = torch.load(fname, map_location=mapl)
-        self.embedding.weight.data = weights 
+
+        state = torch.load(fname, map_location=mapl)
+        size = state["embedding.weight"].size()
+        prompt_tokens = state["prompt_tokens"]
+        self.embedding = torch.nn.Embedding(*size)
+        self.load_state_dict(state)
+
+        self.prompt_ids = self.add_tokens(prompt_tokens, model, 
+                tokenizer, init_emb_flag=False)
+        self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
+        self.id_offset = min(self.prompt_ids) if self.prompt_ids else -1 
+
+        mylogs.tinfo("Prompt for %s was loaded ", self.name)
 
     def init_embedding(self, init_embs):
         if init_embs:
@@ -118,37 +132,9 @@ class PromptEncoder(torch.nn.Module):
     def forward_step(self, index_list, tids=None, training=True):
         raise NotImplementedError()
 
-    def learn_router(self, tids=None, training=True):
-        if self.router is None:
-            return None
-        if tids is not None:
-            task_id = tids[0]
-        return self.router
-        router = self.router[task_id] # torch.index_select(self.router, 0, tids)
-        if training and (not self.router.requires_grad or not self.is_learned):
-            return router
-        if self.init_flag:
-            mylogs.tinfo("Initial Router: %s", self.router)
-            self.init_flag = False
-        if training:
-            router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()            # layer * n_prompts
-        else:
-            if logs.args("trunc_router") == "sigmoid":
-                mylogs.tinfo("Trunc:===================TRUNC=====Sigmoid===========")
-                router = torch.sigmoid(router)  # layer * n_prompts
-            elif logs.main_args["trunc_router"] == "sign":
-                with torch.no_grad():
-                    mylogs.tinfo("Trunc:===================TRUNC======SIGN======")
-                    mylogs.tinfo("Router Before relu: %s", router)
-                    router[router <= 0] = 0
-                    router[router > 0] = 1
-                    mylogs.tinfo("Router After relu: %s", router)
-        router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
-        # layer * 1 * n_prompts
-        return router
-
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
+
     def get_prompt_token_fn(self):
         if self.input_ids is not None:
             return lambda x: self.isin(x, self.input_ids)
@@ -156,7 +142,6 @@ class PromptEncoder(torch.nn.Module):
             return lambda x: (x>=self.id_offset)&(x<self.id_offset+self.length)
 
     def dump_embeddings_into(self, weight, task_ids = None):
-        mylogs.tinfo("%s ) Final Router (before forward): %s", self.name, self.router)
         if task_ids == None:
             task_ids = [0]
         with torch.no_grad():
@@ -172,8 +157,6 @@ class PromptEncoder(torch.nn.Module):
 
 class EmbeddingPromptEncoder(PromptEncoder):
     def forward_step(self, index_list, tids=None, training=True):
-        router = self.learn_router(tids)
-        self.embedding.wight = torch.mul(router.unsqueeze(1), self.embedding.weight).view(-1, self.embedding_dim)
         ret_embeds = self.embedding(index_list)
         return ret_embeds 
 
@@ -200,123 +183,40 @@ class MatPromptEncoder(PromptEncoder):
                 prefix_config['n_prompt_tokens'] * self.embedding_dim
             )).uniform_(-bound, bound), requires_grad=False)
 
+    def learn_router(self, tids=None, training=True):
+        if self.router is None:
+            return None
+        if tids is not None:
+            task_id = tids[0]
+        router = self.router[task_id] # torch.index_select(self.router, 0, tids)
+        if training and (not self.router.requires_grad or not self.is_learned):
+            return router
+        if self.init_flag:
+            mylogs.tinfo("Initial Router: %s", self.router)
+            self.init_flag = False
+        if training:
+            router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()            # layer * n_prompts
+        else:
+            if logs.args("trunc_router") == "sigmoid":
+                mylogs.tinfo("Trunc:===================TRUNC=====Sigmoid===========")
+                router = torch.sigmoid(router)  # layer * n_prompts
+            elif logs.main_args["trunc_router"] == "sign":
+                with torch.no_grad():
+                    mylogs.tinfo("Trunc:===================TRUNC======SIGN======")
+                    mylogs.tinfo("Router Before relu: %s", router)
+                    router[router <= 0] = 0
+                    router[router > 0] = 1
+                    mylogs.tinfo("Router After relu: %s", router)
+        router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
+        # layer * 1 * n_prompts
+        return router
+
     def forward_step(self, index_list, tids=None, training=True):
         router = self.learn_router(tids)
         z = torch.mm(self.z, self.A) if not hasattr(self, 'prompt') else self.prompt
         #ret_embeds = torch.matmul(router.unsqueeze(0), z).view(-1, self.embedding_dim)
         running_weight = torch.matmul(router, z).view(-1, self.embedding_dim)
         ret_embeds = F.embedding(index_list, running_weight)
-        return ret_embeds 
-
-class MergePromptEncoderBase(PromptEncoder):
-    pass
-
-class MergePromptEncoderOld(MergePromptEncoderBase):
-    def __init__(self, encoders = [], trunc_router=False, wandb=False, **kwargs):
-        super().__init__(**kwargs)
-        self.task_id = 0
-        self.temperature = 1 
-        self.n_prompts = int(logs.main_args["prompt_token_num"]) #len(encoders) 
-        self.n_tasks = 2
-        self.flag = True
-        self.flat = False
-        self.trunc_router = trunc_router
-        self.wandb = wandb
-        self.set_encoders(encoders)
-        self.router = nn.Parameter(data=torch.empty((
-            self.n_tasks,
-            self.n_prompts
-        )).uniform_(-1e-3, 1e-3))
-
-    def set_encoders(self, encoders):
-        if encoders:
-            self.encoders = torch.nn.ModuleList(encoders)
-    def forward(self, prompt_token_ids, tids=None, training=True):
-        device = self.device
-        task_id = tids[0]
-        assert task_id == 0 or logs.main_args["rel_filter"] == "", "Check task id " + str(task_id) + " rel:" + logs.main_args["rel_filter"]
-        if self.wandb:
-            wandb.log({'tid': task_id})
-        if self.flag:
-            mylogs.tinfo("Initial Router: %s", self.router)
-            self.flag = False
-        #mylogs.tinfo("Task ids: %s", tids)
-        router = self.router[task_id]
-        if training:
-            router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()  # layer * n_prompts
-            router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
-        else:
-            #router = torch.sigmoid(router)  # layer * n_prompts
-            if self.trunc_router:
-                with torch.no_grad():
-                    mylogs.tinfo("Router:========================================")
-                    mylogs.tinfo("Router Before relu: %s", router)
-                    router[router <= 0] = 0
-                    router[router > 0] = 1
-                    mylogs.tinfo("Router After relu: %s", router)
-            #router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
-        # layer * 1 * n_prompts
-        #ret_embeds = torch.matmul(router.unsqueeze(0), z).view(-1, self.embedding_dim)
-        if self.id_offset > 0:
-            index_list = prompt_token_ids - self.id_offset
-        else:
-            index_list = (prompt_token_ids.view(-1,1) == self.input_ids).int().argmax(dim=1)
-        z = torch.zeros(len(self.prompt_ids), self.embedding_dim).to(device)
-        tl = []
-        for encoder in self.encoders:
-            pids = encoder.input_ids
-            out = encoder(pids).to(device) 
-            tl.append(out)
-            z += out
-        if self.flat:
-            z = z / len(self.encoders)
-        else:
-            z = torch.vstack(tl) 
-        z = z.view(self.n_prompts, -1) 
-        if self.flat:
-            running_weight = torch.mul(router.unsqueeze(1), z).view(-1, self.embedding_dim)
-        else:
-            running_weight = torch.matmul(router, z).view(-1, self.embedding_dim)
-        ret_embeds = F.embedding(index_list, running_weight)
-        return ret_embeds 
-
-    def dump_embeddings_into(self, weight, task_ids = None):
-        mylogs.tinfo("Final Router (before forward): %s", self.router)
-        if task_ids == None:
-            task_ids = [0]
-        mylogs.tinfo("Gen ids %s", task_ids)
-        with torch.no_grad():
-            embs= self.forward(self.input_ids, tids=task_ids, training=False)
-            detached_embeddings = embs.detach()
-            weight[self.prompt_ids,:]=detached_embeddings
-
-class MergePromptEncoder(MergePromptEncoderBase):
-    def __init__(self, encoders = [], trunc_router=False, wandb=False, **kwargs):
-        super().__init__(**kwargs)
-        self.flag = True
-        self.wandb = wandb
-        self.set_encoders(encoders)
-
-    def set_encoders(self, encoders):
-        if encoders:
-            self.encoders = torch.nn.ModuleList(encoders)
-            self.n_prompts = len(encoders)
-
-    def forward_step(self, index_list, tids=None, training=True):
-        router = self.learn_router(tids, training)
-        device = self.device
-        tl = []
-        z = torch.zeros((self.length, self.embedding_dim), device =self.device)
-        for i, encoder in enumerate(self.encoders):
-            pids = encoder.input_ids
-            out = encoder(pids, tids).to(device) 
-            z += router[i]*out
-            tl.append(out)
-        #z = torch.vstack(tl) 
-        #z = z.view(self.length, -1) 
-        #x = torch.mul(router.unsqueeze(1), z)
-        #y = y.view(-1, self.embedding_dim)
-        ret_embeds = F.embedding(index_list, z)
         return ret_embeds 
 
 class MLPPromptEncoder(PromptEncoder):
@@ -341,11 +241,8 @@ class MLPPromptEncoder(PromptEncoder):
             )
 
     def forward_step(self, index_list, tids=None, training=True):
-        router = self.learn_router(tids, training)
         embs = self.embedding(self.net_inps)
         z = self.mlp(embs)
-        #z = z.view(self.length, -1) 
-        #z = torch.mul(router.unsqueeze(1), z).view(-1, self.embedding_dim)
         ret_embeds = F.embedding(index_list, z)
         return ret_embeds 
 
@@ -384,15 +281,10 @@ class LSTMEmbeddingPromptEncoder(PromptEncoder):
         net_inputs = self.net_inps
         if self.id_offset > 0:
             net_inputs = self.input_ids - self.id_offset
-            #index_list = [((net_inputs == x).nonzero(as_tuple=True)[0]) for x in prompt_token_ids_2]
         # create embedding vectors for input ids
         embeds = self.embedding(net_inputs)
         x = self.lstm(embeds.unsqueeze(0))
         running_weight = self.mlp(x[0]).squeeze(0)
-        if self.is_learned:
-            router = self.learn_router(tids, training)
-            z = running_weight.view(self.length, -1) 
-            running_weight = torch.mul(router.unsqueeze(1), z).view(-1, self.embedding_dim)
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds
 
@@ -415,7 +307,6 @@ def add_specials(tokenizer):
     num_tokens = tokenizer.add_special_tokens(num_added_toks)
     new_tokens = list(set(REL_TO_TOKEN.values()))+ \
                  list(set(GEN_TOKENS.values())) 
-
     added_tokens = [ 
             AddedToken(tok,lstrip=True,
                 rstrip=True, single_word=True)
@@ -438,42 +329,13 @@ def extend_tokenizer(tokenizer, prompt_tokens = []):
         added_tokens = cur_list + added_tokens
         tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
 
-def create_encoder(name, model, tokenizer, prompt_tokens, 
-        encoder_type="lstm", enc_router=None):
+def create_encoder(name, model, tokenizer, prompt_tokens, encoder_type="lstm"):
     embedding_dim = model.config.hidden_size
-    enc_plen = len(prompt_tokens)
-
-    task_tokens = prompt_tokens #+ common_tokens
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
-
-    enc_plen =len(task_tokens) 
-    mylogs.tinfo("** len tokenizer before extend: %s", len(tokenizer))
-    extend_tokenizer(tokenizer, task_tokens)
-    model.resize_token_embeddings(len(tokenizer))
-    prompt_ids = tokenizer.convert_tokens_to_ids(task_tokens)
-    cur_embeddings = model.get_input_embeddings()
-    init_embs = {}
-    mylogs.bp("encoder")
     if "@" in name:
         name, encoder_type = name.split("@") 
 
-    for pid, p in enumerate(prompt_ids):
-        if pid < cur_embeddings.num_embeddings:
-            emb = cur_embeddings.weight[pid,:].detach().clone() 
-            init_embs[pid] = emb
-
-    for pid, p in enumerate(task_tokens):
-        if "_" in p:
-           q = p.strip("<").strip(">")
-           w = q.split("_")[1]
-           if "?" in w: w = w.split("?")[0]
-           if not w.isdigit():
-               wid = tokenizer.convert_tokens_to_ids([w])[0]
-               emb = cur_embeddings.weight[wid,:].detach().clone() 
-               init_embs[pid] = emb
-
-    id_offset = min(prompt_ids) 
     prompt_encoder = None
     if encoder_type.startswith("mlp"):
         _enc_type = encoder_type.split("@")
@@ -483,48 +345,36 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
         hidden_size = -1
         if len(_enc_type) > 2:
             hidden_size = int(_enc_type[2])
-        if enc_plen > 0:
-            prompt_encoder = MLPPromptEncoder(name = name,
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, num_layers=num_layers, hidden_size=hidden_size, router=enc_router)
+        prompt_encoder = MLPPromptEncoder(name = name,
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens, 
+                num_layers=num_layers, 
+                hidden_size=hidden_size)
     elif encoder_type.startswith("emb"):
-        if enc_plen > 0:
-            prompt_encoder = EmbeddingPromptEncoder(name = name,
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, 
-                    prompt_ids=prompt_ids, init_embs=init_embs, router=enc_router)
-    elif encoder_type.startswith("mold"):
-        if enc_plen > 0:
-            prompt_encoder = MergePromptEncoderOld(name = name, 
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
-                    router=enc_router)
-    elif encoder_type.startswith("merge"):
-        if enc_plen > 0:
-            prompt_encoder = MergePromptEncoder(name = name, 
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
-                    router=enc_router)
+        prompt_encoder = EmbeddingPromptEncoder(name = name,
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens) 
+
     elif encoder_type.startswith("mat"):
-        if enc_plen > 0:
-            prompt_encoder = MatPromptEncoder(prefix_config=prefix_config, 
-                    name = name, 
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs)
+        prompt_encoder = MatPromptEncoder(
+                prefix_config=prefix_config, 
+                name = name, 
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens) 
     else:
-        if enc_plen > 0:
-            _enc_type = encoder_type.split("@")
-            num_layers = 1
-            hidden_size = -1
-            if len(_enc_type) > 1:
-                num_layers = int(_enc_type[1])
-            if len(_enc_type) > 2:
-                hidden_size = int(_enc_type[2])
-            prompt_encoder = LSTMEmbeddingPromptEncoder(name = name, 
-                    embedding_dim = embedding_dim,
-                    id_offset = -1, prompt_ids=prompt_ids, init_embs=init_embs, 
-                    num_layers=num_layers, 
-                    hidden_size=hidden_size, router=enc_router)
+        _enc_type = encoder_type.split("@")
+        num_layers = 1
+        hidden_size = -1
+        if len(_enc_type) > 1:
+            num_layers = int(_enc_type[1])
+        if len(_enc_type) > 2:
+            hidden_size = int(_enc_type[2])
+        prompt_encoder = LSTMEmbeddingPromptEncoder(
+                name = name, 
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens, 
+                num_layers=num_layers, 
+                hidden_size=hidden_size)
     return prompt_encoder, encoder_type
 
 
