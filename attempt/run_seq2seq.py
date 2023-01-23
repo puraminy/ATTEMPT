@@ -247,7 +247,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        wandb.init(
           # Set the project where this run will be logged
           project= experiment.replace("#","-"), 
-          name=mylogs.get_tag(tags)
+          name=mylogs.get_tag(tags),
           # Track hyperparameters and run metadata
           config=args
        )
