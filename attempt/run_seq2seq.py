@@ -190,7 +190,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    var_dict = {k:n for k,n in zip(var_names, values)} 
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
-       members = [x.strip("@") for x in val if not x in multi]
+       members = [x.strip("@") for x in val if not x in multi and not "@" in x]
        if multi:
            ext = []
            for m in multi:
@@ -566,24 +566,25 @@ def train(**kwargs):
              bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
-        ii = 0
+
         load_prompts = kwargs.setdefault("load_prompts", False) 
         prompt_encoders = []
+        breakpoint()
         for task, prompt_tokens in prompts.items():
-            enc_router = torch.ones((n_tasks, len(prompt_tokens)), 
-                    requires_grad=False, device=device)
             encoder, enc_type = create_encoder(task, model, tokenizer, 
-                    prompt_tokens, adapter_args.prompt_encoder_type, 
-                    enc_router = enc_router)
+                    prompt_tokens, adapter_args.prompt_encoder_type) 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_prompts and (not model_args.attn_tuning 
-                                 or task in data_args.source_tasks):
+            if load_prompts: 
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
-            if not "com" in task: # if it's not a shared prompt among tasks
-                encoder.task_id = ii
-                ii += 1
+
+        for task in data_args.source_tasks:
+            encoder, enc_type = create_encoder(task, model, tokenizer, 
+                    prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
+            encoder.load(prompts_dir)
+            prompt_encoders.append(encoder)
+
         model.encoder.set_encoders(prompt_encoders, 
             data_args.source_tasks, adapter_args.num_prompt_tokens, load_prompts)
         model.resize_token_embeddings(len(tokenizer))
