@@ -199,7 +199,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
                val.remove(m)
                comb = itertools.combinations(members, l)
                ext.extend(["@".join(c) for c in comb])
-           val.extend(ext)
+           val = ext + val
            var_dict[key] = val
 
    var_names = list(var_dict.keys())
