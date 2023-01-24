@@ -190,7 +190,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    var_dict = {k:n for k,n in zip(var_names, values)} 
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
-       members = [x.strip("@") for x in val if not x in multi and not "@" in x]
+       members = [x.strip("@") for x in val if not x in multi and not "@" in x.strip("@")]
        if multi:
            ext = []
            for m in multi:
