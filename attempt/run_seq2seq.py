@@ -327,7 +327,7 @@ def train(**kwargs):
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
     task_args["num_prompt_tokens"] = adapter_args.num_prompt_tokens
-    task_args["num_common_tokens"] = adapter_args.num_common_tokens
+    task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = kwargs.rels
@@ -557,9 +557,8 @@ def train(**kwargs):
         prompts = {}
         mylogs.bp("prompts")
         if model_args.attn_tuning:
-            assert data_args.source_tasks,"Source tasks can't be empty for attention tuning"
-            if list(set(data_args.source_tasks) & set(data_args.task_name)) != []: 
-                 raise ValueError("Source tasks shoudn't intersect with target tasks")
+            assert data_args.source_prompts,"Source tasks can't be empty for attention tuning"
+
         tasks = data_args.task_name
         n_tasks = len(tasks)
         for task in tasks:
@@ -569,9 +568,9 @@ def train(**kwargs):
 
         load_prompts = kwargs.setdefault("load_prompts", False) 
         prompt_encoders = []
-        breakpoint()
-        for task, prompt_tokens in prompts.items():
-            encoder, enc_type = create_encoder(task, model, tokenizer, 
+        target_prompts = list(prompts.keys())
+        for name, prompt_tokens in prompts.items():
+            encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type) 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
@@ -579,14 +578,20 @@ def train(**kwargs):
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
 
-        for task in data_args.source_tasks:
-            encoder, enc_type = create_encoder(task, model, tokenizer, 
-                    prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
-            encoder.load(prompts_dir)
-            prompt_encoders.append(encoder)
+        source_prompts = []
+        if data_args.source_prompts:
+            source_prompts = ["source_" + sp for sp in data_args.source_prompts]
+            for prompt in source_prompts: 
+                assert not prompt in target_prompts, prompt + " exists in target prompts" 
+                encoder, enc_type = create_encoder(prompt, model, tokenizer, 
+                        prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
+                encoder.is_source =True
+                encoder.load(prompts_dir)
+                prompt_encoders.append(encoder)
 
+        load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
         model.encoder.set_encoders(prompt_encoders, 
-            data_args.source_tasks, adapter_args.num_prompt_tokens, load_prompts)
+            source_prompts, adapter_args.num_prompt_tokens, load_source_prompts)
         model.resize_token_embeddings(len(tokenizer))
         if bp == "tokens": breakpoint()
 
@@ -702,7 +707,6 @@ def train(**kwargs):
                     remove_columns=column_names,
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
-        bp != "concat" or breakpoint()
         if trainer_shuffle:
             train_dataset = concatenate_datasets(train_datasets)
         else:

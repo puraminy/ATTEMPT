@@ -81,12 +81,11 @@ class AdapterTrainingArguments:
     ########### My options
     prompt_tuning: Optional[bool] = field(
         default=False, metadata={"help": "If set, uses prompt tuning."})
-    num_prompt_encoders: Optional[int] = field(
-        default=2, metadata={"help": "Number of prompt encoders."})
-    num_prompt_tokens: Optional[int] = field(
-        default=8, metadata={"help": "Number of prompt tokens for each task."})
-    num_common_tokens: Optional[int] = field(
-        default=4, metadata={"help": "Number of prompt tokens common among tasks"})
+    num_prompt_tokens: Optional[List[int]] = field(
+        default=None, metadata={"help": "Number of prompt tokens for each task."})
+    fixed_length_prompt: Optional[bool] = field(
+        default=True, metadata={
+            "help": "If set, all prompt have length equeal to num_prompt_tokens."})
     prompt_encoder_type: Optional[str] = field(
         default="lstm", metadata={"help": "the type of prompt encoder."})
     ####################
@@ -462,8 +461,8 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
     ########### my options
-    source_tasks: Optional[List[str]] = field(
-        default=None, metadata={"help": "The name of the tasks used to train a new task based on them."}
+    source_prompts: Optional[List[str]] = field(
+        default=None, metadata={"help": "The name of the prompts used to train a new task based on them."}
     )
     data_path: Optional[List[str]] = field(
         default=None, metadata={"help": "Path to the directory containing split files."}

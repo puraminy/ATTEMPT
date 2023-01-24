@@ -42,8 +42,10 @@ class AbstractTask(abc.ABC):
         self.template = task_args.template
         ## list of prompts
         self.prompt_set = {} 
-        self.prompt_length = task_args.num_prompt_tokens
-        self.common_length = task_args.num_common_tokens
+        prompt_config = {}
+        prompt_config["length"] = task_args.num_prompt_tokens
+        prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
+        self.prompt_config = prompt_config
         self.task_args = task_args
         self.counter = {} #counter for logging items
 
@@ -148,11 +150,6 @@ class AbstractTask(abc.ABC):
 
     ######### my template functions
     def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
-        if plen==0: 
-            plen = self.prompt_length 
-            if name == "com":
-                plen = self.common_length
-
         _pholder = place_holder
         place_holder = place_holder.replace("task", self.name)  
         place_holder = place_holder.replace("[", "<")  
@@ -178,30 +175,37 @@ class AbstractTask(abc.ABC):
             template = template.replace(_pholder,prompt, 1)
         return template
 
+    def get_prompt_length(self, pnum):
+        plength = self.prompt_config["length"]
+        if type(plength) == list:
+            return plength[pnum] if pnum < len(plength) else plength[-1]
+        else:
+            return plength
+
     def fill_prompt_regex(self, template, regex):
         m = re.search(regex, template)
+        pnum = 0
         while m: 
             if len(m.groups()) == 2:
                 name = m.groups()[0]
                 emb = m.groups()[1]
-                plen = "1"
+                plen = 1
                 if emb.isdigit():
-                    plen = emb
+                    plen = int(emb)
                 num_holder = "_" + str(plen)
                 if emb == "i":
-                    plen = 0
+                    plen = self.get_prompt_length(pnum) 
                     num_holder = "_i"
                 place_holder = "[" + name + "_" + emb + "]"
-                if plen != 0:
-                    plen = [int(plen)]
                 if name == "task":
                     name = self.name
                 template = self.fill_prompt(template, name, place_holder, plen=plen, 
                         num_holder=num_holder)
                 m = re.search(regex, template)
+                pnum += 1
         return template
 
-    def fill_prompts(self, template):
+    def insert_prompts(self, template):
         mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z\?\d]+)\]")
@@ -212,12 +216,17 @@ class AbstractTask(abc.ABC):
         self.fill_template(data)
         return self.prompt_set
 
-    def get_template(self):
-        tn = self.template
+    def get_template_format(self):
         src = "{task}: {source} (com) (prompt1) (prompt2) (nat) (mask)" 
-        target = "(mask) {target}"
+        tn = self.template
         if "pre-" in tn:
             src = "(prompt1) {source} (mask)" 
+        target = "(mask) {target}"
+        return src, target
+
+    def get_template(self):
+        src, target = self.get_template_format()
+        tn = self.template
         if "unsup" in tn:
            src = src.replace("(mask)", "{mask}")
            target = target.replace("(mask)","{mask}")
@@ -226,15 +235,17 @@ class AbstractTask(abc.ABC):
            target = target.replace("(mask)","")
         if "-com" in tn:
            src = src.replace("(com)", "[com_i]")
-        if "-pt-t" in tn:
+        if "-pt1" in tn:
            src = src.replace("(prompt1)", "[task_i]")
-        if "-pt-w" in tn:
+        if "-pt2" in tn:
+           src = src.replace("(prompt2)", "[task_i]")
+        if "-pw1" in tn:
            src = src.replace("(prompt1)", "{prompt_fw}")
-        if "-pt-c" in tn:
-           src = src.replace("(prompt1)", "{prompt_fwc}")
-        if "-pt-sh" in tn:
+        if "-pw2" in tn:
+           src = src.replace("(prompt2)", "{prompt_fw}")
+        if "-psh1" in tn:
            src = src.replace("(prompt1)", "{prompt_sh}")
-        if "-pt-t-sh" in tn:
+        if "-psh2" in tn:
            src = src.replace("(prompt2)", "{prompt_sh}")
         if "-nat" in tn: 
            src = src.replace("(nat)", ", {rel_nat}")
@@ -251,18 +262,20 @@ class AbstractTask(abc.ABC):
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
             prompts_fw = ["[task_" + w + "]" for w in rel_fw]
-            data["prompt_fw"] = " ".join(prompts_fw)
-            rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
-            rel_sh = rel_sh.split()
-            prompts_sh = ["[" + w + "_" + w + "]" for w in rel_sh]
-            data["prompt_sh"] = " ".join(prompts_sh)
-            #rel_fw_cycle = list(islice(cycle(rel_fw), self.prompt_length))
             prompts_fw_cycle = []
-            for i in range(self.prompt_length):
+            for i in range(self.get_prompt_length(0)):
                 j = i % len(rel_fw)
                 tok = "[task" + "_" + rel_fw[j] + "?" + str(i) + "]"
                 prompts_fw_cycle.append(tok)
-            data["prompt_fwc"] = " ".join(prompts_fw_cycle)
+            if self.prompt_config["fixed_length"]:
+                data["prompt_fw"] = " ".join(prompts_fw_cycle)
+            else:
+                data["prompt_fw"] = " ".join(prompts_fw)
+
+            rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
+            rel_sh = rel_sh.split()
+            prompts_sh = ["[" + w + "_i]" for w in rel_sh]
+            data["prompt_sh"] = " ".join(prompts_sh)
         return data
 
     def fill_template(self, data):
@@ -280,7 +293,7 @@ class AbstractTask(abc.ABC):
         # fill the templates with data
         src_texts = src.format_map(data)
         tgt_texts = tgt.format_map(data)
-        src_texts = self.fill_prompts(src_texts)
+        src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
     def seq2seq_format(self, sources: List[str],
@@ -658,15 +671,12 @@ class AtomicRel(Atomic):
     def check_n_obs(self, n_obs, total_size):
         return total_size
 
-    def get_template(self):
-        tn = self.template
+    def get_template_format(self):
         src = "{input_text} |(prompt1)| {target_text}" 
+        target = "(mask) {target}"
+        tn = self.template
         if "unsup" in tn:
            src = "{input_text} (prompt1) {mask} {target_text}" 
-        if "-pt-t" in tn:
-           src = src.replace("(prompt1)", "[task_i]")
-        if "-pt-w" in tn:
-           src = src.replace("(prompt1)", "{prompt_fw}")
         if "-rel" in tn:
            target = "{prefix}"
         elif "-tok" in tn:

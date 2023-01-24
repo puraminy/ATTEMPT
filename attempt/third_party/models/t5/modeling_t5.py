@@ -1034,12 +1034,13 @@ class T5Stack(T5PreTrainedModel):
 
         return soft_prompts
 
-    def set_encoders(self, prompt_encoders, source_tasks, prompt_dim, load_prompts=False):
+    def set_encoders(self, prompt_encoders, source_prompts, 
+            prompt_dim, load_source_prompts=False):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
-        self.prompt_dim = prompt_dim
+        self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        if source_tasks:
-            task_encoders_num = len(source_tasks) 
+        if source_prompts:
+            task_encoders_num = len(source_prompts) 
             self.src_prompts = nn.Parameter(torch.zeros(
                 (task_encoders_num, prompt_dim, self.model_dim))) 
         task_prompt_ids = []
@@ -1048,10 +1049,9 @@ class T5Stack(T5PreTrainedModel):
             if not "com" in encoder.name:
                 task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
-            if source_tasks and encoder.name in source_tasks and load_prompts: 
+            if source_prompts and encoder.name in source_prompts and load_source_prompts: 
                 with torch.no_grad():
-                    emb = encoder(encoder.input_ids)
-                    #emb = encoder.embedding(encoder.net_inps)
+                    emb = encoder(encoder.net_inps)
                     self.src_prompts[i, :] = emb.clone().detach()
                     i+=1
 
@@ -1075,12 +1075,12 @@ class T5Stack(T5PreTrainedModel):
                 target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
                 target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                               device=device) 
-                for encoder in self.prompt_encoders:
+                for ii, encoder in enumerate(self.prompt_encoders):
                     prompt_token_fn = encoder.get_prompt_token_fn()
                     target_masks = prompt_token_fn(target_prompt_ids)
                     index_mask = (target_masks == True).any(dim=1)
                     tids = torch.zeros(len(index_mask), device=device).int()
-                    tids[index_mask] = encoder.task_id
+                    tids[index_mask] = ii
                     if target_masks.any():
                         task_ids = torch.where(tids != 0, tids, task_ids)
                         #find input ids for prompt tokens
