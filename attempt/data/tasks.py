@@ -217,38 +217,32 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "{task}: {source} (com) (prompt1) (prompt2) (nat) (mask)" 
-        tn = self.template
-        if "pre-" in tn:
-            src = "(prompt1) {source} (mask)" 
+        src = "{task}: (prompt) {source} (prompt) (nat) (prompt) (mask)" 
         target = "(mask) {target}"
         return src, target
 
     def get_template(self):
         src, target = self.get_template_format()
-        tn = self.template
-        if "unsup" in tn:
-           src = src.replace("(mask)", "{mask}")
-           target = target.replace("(mask)","{mask}")
-        elif "sup" in tn:
-           src = src.replace("(mask)", "")
-           target = target.replace("(mask)","")
-        if "-com" in tn:
-           src = src.replace("(com)", "[com_i]")
-        if "-pt1" in tn:
-           src = src.replace("(prompt1)", "[task_i]")
-        if "-pt2" in tn:
-           src = src.replace("(prompt2)", "[task_i]")
-        if "-pw1" in tn:
-           src = src.replace("(prompt1)", "{prompt_fw}")
-        if "-pw2" in tn:
-           src = src.replace("(prompt2)", "{prompt_fw}")
-        if "-psh1" in tn:
-           src = src.replace("(prompt1)", "{prompt_sh}")
-        if "-psh2" in tn:
-           src = src.replace("(prompt2)", "{prompt_sh}")
-        if "-nat" in tn: 
-           src = src.replace("(nat)", ", {rel_nat}")
+        parts = self.template.split("-")
+        for part in parts:
+            if part == "unsup": 
+               src = src.replace("(mask)", "{mask}")
+               target = target.replace("(mask)","{mask}")
+            if part == "sup":
+               src = src.replace("(mask)", "")
+               target = target.replace("(mask)","")
+            if part == "pcom":
+               src = src.replace("(prompt)", "[com_i] (prompt) ",1)
+            if part == "p0":
+               src = src.replace("(prompt)", "",1)
+            if part == "pt":
+               src = src.replace("(prompt)", "[task_i] (prompt) ",1)
+            if part == "pw":
+               src = src.replace("(prompt)", "{prompt_fw} (prompt) ",1)
+            if part == "psh":
+               src = src.replace("(prompt)", "{prompt_sh} (prompt) ",1)
+            if part == "nat": 
+               src = src.replace("(nat)", ", {rel_nat}")
 
         return src, target
 
