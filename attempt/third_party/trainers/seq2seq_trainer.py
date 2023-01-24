@@ -73,7 +73,10 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         print("Evaluation ")
         print("======================================")
         if eval_dataset is None and self.eval_dataset is None:
-            raise ValueError("Trainer: evaluation requires an eval_dataset.")
+            if self.args.do_eval:
+                raise ValueError("Trainer: evaluation requires an eval_dataset.")
+            else:
+                return None
         eval_dataset = eval_dataset if eval_dataset is not None else self.eval_dataset
         metrics = super().evaluate(eval_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
         self.log_metrics("eval", metrics)

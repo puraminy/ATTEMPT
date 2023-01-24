@@ -17,6 +17,7 @@ from transformers.optimization import Adafactor, AdamW
 from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 
 from attempt.maps import *
+from collections import OrderedDict
 
 def _isin(tensor:torch.Tensor,values:torch.Tensor):
     return (tensor[..., None] == values).any(-1)
@@ -36,7 +37,8 @@ class PromptEncoder(torch.nn.Module):
 
         self.prompt_ids = self.add_tokens(prompt_tokens, model, tokenizer)
         self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
-        self.id_offset = min(self.prompt_ids) if self.prompt_ids else -1 
+        self.id_offset = min(self.prompt_ids) if self.prompt_ids else 0 
+        self.is_source = False
 
     def add_tokens(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
         extend_tokenizer(tokenizer, prompt_tokens)
@@ -70,30 +72,31 @@ class PromptEncoder(torch.nn.Module):
         return prompt_ids 
 
     def get_id(self):
-        return "prompt_" + self.enc_type + "_" + self.name + ".pt"
+        if self.is_source:
+            return "prompt_" + self.enc_type + "_" + self.name.replace("source_","") + ".pt"
+        else:
+            return "prompt_" + self.enc_type + "_" + self.name + ".pt"
 
     def save(self, save_dir):
         fname = os.path.join(save_dir, self.get_id())
-        dict_to_save = self.state_dict()
-        dict_to_save["prompt_tokens"] = self.prompt_tokens
-        torch.save(dict_to_save, fname)
+        state_dict = self.state_dict()
+        torch.save(state_dict, fname)
 
-    def load(self, load_dir, model, tokenizer):
+    def load(self, load_dir):
         fname = os.path.join(load_dir, self.get_id())
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
         mapl=torch.device('cpu')
 
         state = torch.load(fname, map_location=mapl)
         size = state["embedding.weight"].size()
-        prompt_tokens = state["prompt_tokens"]
-        self.embedding = torch.nn.Embedding(*size)
+
+        self.length = size[0]
+        self.embedding_dim = size[1] 
+        self.embedding = torch.nn.Embedding(self.length, self.embedding_dim)
         self.load_state_dict(state)
 
-        self.prompt_ids = self.add_tokens(prompt_tokens, model, 
-                tokenizer, init_emb_flag=False)
-        self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
-        self.id_offset = min(self.prompt_ids) if self.prompt_ids else -1 
-
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.net_inps = torch.arange(self.length, device=self.device)
         mylogs.tinfo("Prompt for %s was loaded ", self.name)
 
     def init_embedding(self, init_embs):
@@ -122,9 +125,8 @@ class PromptEncoder(torch.nn.Module):
     def forward(self,prompt_token_ids, tids=None, training=True):
         if tids is not None:
             task_id = tids[0]
-        if self.id_offset > 0:
-            index_list = prompt_token_ids - self.id_offset
-        else:
+        index_list = prompt_token_ids
+        if self.input_ids.size()[0] > 0:
             index_list = (prompt_token_ids.view(-1,1) == self.input_ids).int().argmax(dim=1)
         ret_embeds = self.forward_step(index_list, tids, training)
         return ret_embeds
@@ -279,8 +281,6 @@ class LSTMEmbeddingPromptEncoder(PromptEncoder):
  #### llllllf
     def forward_step(self, index_list, tids=None, training=True):
         net_inputs = self.net_inps
-        if self.id_offset > 0:
-            net_inputs = self.input_ids - self.id_offset
         # create embedding vectors for input ids
         embeds = self.embedding(net_inputs)
         x = self.lstm(embeds.unsqueeze(0))
