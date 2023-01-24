@@ -72,10 +72,10 @@ class PromptEncoder(torch.nn.Module):
         return prompt_ids 
 
     def get_id(self):
+        fname = "prompt_" + self.enc_type + "_" + self.name + "_" + str(self.length) + ".pt"
         if self.is_source:
-            return "prompt_" + self.enc_type + "_" + self.name.replace("source_","") + ".pt"
-        else:
-            return "prompt_" + self.enc_type + "_" + self.name + ".pt"
+            fname = fname.replace("source_","") 
+        return fname
 
     def save(self, save_dir):
         fname = os.path.join(save_dir, self.get_id())
