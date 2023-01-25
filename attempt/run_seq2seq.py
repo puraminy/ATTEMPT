@@ -556,9 +556,6 @@ def train(**kwargs):
         # mmmmmmmmmmmmm
         prompts = {}
         mylogs.bp("prompts")
-        if model_args.attn_tuning:
-            assert data_args.source_prompts,"Source tasks can't be empty for attention tuning"
-
         tasks = data_args.task_name
         n_tasks = len(tasks)
         for task in tasks:
