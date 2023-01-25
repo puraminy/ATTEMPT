@@ -251,7 +251,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
           # Set the project where this run will be logged
           project= experiment.replace("#","-"), 
           name=title,
-          dir=wandb_dir,
+          #dir=wandb_dir,
           # Track hyperparameters and run metadata
           config=args
        )
