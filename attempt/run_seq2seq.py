@@ -245,10 +245,13 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
        title = "@".join(list(mylogs.get_tag(tags).values()))
+       wandb_dir = op.join("logs", experiment)
+       Path(wandb_dir).mkdir(parents=True, exist_ok=True)
        wandb.init(
           # Set the project where this run will be logged
           project= experiment.replace("#","-"), 
           name=title,
+          dir=wandb_dir,
           # Track hyperparameters and run metadata
           config=args
        )

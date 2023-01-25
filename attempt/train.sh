@@ -193,7 +193,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
 	params="${params} --ignore_target=True"
-	params="${params} --ignore_source=False"
+	params="${params} --ignore_source=True"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
