@@ -586,7 +586,7 @@ def train(**kwargs):
                 encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                         prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
                 encoder.is_source =True
-                encoder.load(prompts_dir)
+                encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
                 prompt_encoders.append(encoder)
 
         load_source_prompts = kwargs.setdefault("load_source_prompts", True) 

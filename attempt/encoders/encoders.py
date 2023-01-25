@@ -71,19 +71,20 @@ class PromptEncoder(torch.nn.Module):
         self.init_embedding(init_embs)
         return prompt_ids 
 
-    def get_id(self):
-        fname = "prompt_" + self.enc_type + "_" + self.name + ".pt"
+    def get_filename(self, length=None):
+        length = length if length is not None else self.length
+        fname = "prompt_" + self.enc_type + "_" + self.name + "_" + str(length) + ".pt"
         if self.is_source:
             fname = fname.replace("source_","") 
         return fname
 
     def save(self, save_dir):
-        fname = os.path.join(save_dir, self.get_id())
+        fname = os.path.join(save_dir, self.get_filename())
         state_dict = self.state_dict()
         torch.save(state_dict, fname)
 
-    def load(self, load_dir):
-        fname = os.path.join(load_dir, self.get_id())
+    def load(self, load_dir, length=None):
+        fname = os.path.join(load_dir, self.get_filename(length))
         assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
         mapl=torch.device('cpu')
 

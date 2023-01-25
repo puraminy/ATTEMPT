@@ -177,6 +177,7 @@ class AbstractTask(abc.ABC):
 
     def get_prompt_length(self, pnum):
         plength = self.prompt_config["length"]
+        if plength is None: return 0
         if type(plength) == list:
             return plength[pnum] if pnum < len(plength) else plength[-1]
         else:
