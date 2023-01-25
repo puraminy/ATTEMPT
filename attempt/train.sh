@@ -23,7 +23,6 @@ do
       ;;
    esac
 done
-echo "Others: ${others}"
 model=t5-base
 home=$HOME
 case "$HOME" in 
@@ -195,7 +194,6 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --ignore_target=False#True"
 	params="${params} --ignore_source=False#True"
 fi
-echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then

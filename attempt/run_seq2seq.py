@@ -227,14 +227,9 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = 0
    orig_args = args.copy()
-   logger.info("Total experiments:%s", len(tot_comb))
+   total = len(tot_comb)
+   logger.info("Total experiments:%s", total)
    for comb in tot_comb:
-       if preview == "all":
-           print(f"================ {ii} ===========================")
-           exp_conf = json.dumps(comb, indent=2)
-           print(exp_conf)
-           ii += 1
-           continue
        _output_dir = [output_dir]
        for var_name,var_item in comb.items():
            var_item =var_item 
@@ -248,6 +243,11 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        args["output_dir"] = "!" + os.path.join(save_path, 
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
+       if preview == "all":
+           print(f"================ {ii} / {total} =====================")
+           exp_conf = json.dumps(args, indent=2)
+           print(exp_conf)
+           continue
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
        title = "@".join(list(mylogs.get_tag(tags).values()))
@@ -279,9 +279,6 @@ def train(**kwargs):
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
-    if preview == "all":
-        print(exp_conf)
-        return
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
