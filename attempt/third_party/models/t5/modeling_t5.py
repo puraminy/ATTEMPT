@@ -1100,7 +1100,6 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     src_prompts = self.src_prompts.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
-                breakpoint()
                 for t in range(target_prompts.size()[1]): 
                     target_prompt = target_prompts[:,t,:,:]
                     soft_prompt = self.attend_prompts(inputs_embeds, 
