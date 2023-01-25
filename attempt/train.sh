@@ -180,7 +180,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=4"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-p0-pt"
+        params="${params} --template=sup-p0-pt#sup-p0-psh"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
@@ -192,8 +192,8 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
-	params="${params} --ignore_target=True"
-	params="${params} --ignore_source=False"
+	params="${params} --ignore_target=False#True"
+	params="${params} --ignore_source=False#True"
 fi
 echo "other params: ${params}"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
