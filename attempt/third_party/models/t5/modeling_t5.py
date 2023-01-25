@@ -965,7 +965,8 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
         #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
-        avg_base_embeds, _ = torch.max(target_prompts, 1)
+        base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
+        avg_base_embeds, _ = torch.max(base ,1)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
@@ -1090,18 +1091,24 @@ class T5Stack(T5PreTrainedModel):
                         prompt_embeds = out.to(device)
                         target_prompts[target_masks] = prompt_embeds
             if self.attn_prompt_tuning:
+                target_prompts = target_prompts.view(inputs_embeds.shape[0],
+                        -1, self.prompt_dim, self.model_dim)
                 if self.ignore_target is False:
                     src_prompts = torch.cat((self.src_prompts.repeat(
                             inputs_embeds.shape[0], 1, 1, 1), 
-                            target_prompts.unsqueeze(1)), dim=1)
+                            target_prompts), dim=1)
                 else:
                     src_prompts = self.src_prompts.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
-                soft_prompts = self.attend_prompts(inputs_embeds, 
-                    src_prompts = src_prompts, 
-                    target_prompts = target_prompts if not self.ignore_target else None,
-                    ignore_target = self.ignore_target)
-                inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                breakpoint()
+                for t in range(target_prompts.size()[1]): 
+                    target_prompt = target_prompts[:,t,:,:]
+                    soft_prompt = self.attend_prompts(inputs_embeds, 
+                        src_prompts = src_prompts, 
+                        target_prompts = target_prompt,
+                        ignore_target = self.ignore_target)
+                    target_prompts[:,t,:,:] = soft_prompt
+                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
                 inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
