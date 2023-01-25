@@ -914,6 +914,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = None
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
+        self.ignore_source = config.ignore_source
         #######################################
         self.ignore_target = ignore_target
         self.prefix_emb = prefix_emb if self.ignore_target is False else None
@@ -964,9 +965,9 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
-        avg_base_embeds, _ = torch.max(inputs_embeds, 1)
-        #base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
-        #avg_base_embeds, _ = torch.max(base ,1)
+        #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
+        base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
+        avg_base_embeds, _ = torch.max(base ,1)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
@@ -1027,8 +1028,8 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
-        wandb.log({"attn_scores": attn_scores, 
-                   "norm_attn_scores": normalized_attn_scores})
+        wandb.log({"attn_scores": 1, 
+                   "norm_attn_scores": 2})
         # Add target embedding when ignore_target is not True
         if ignore_target is False:
            soft_prompts = soft_prompts + target_prompts
@@ -1040,6 +1041,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.src_prompts = None
         if source_prompts:
             task_encoders_num = len(source_prompts) 
             self.src_prompts = nn.Parameter(torch.zeros(
@@ -1071,43 +1073,46 @@ class T5Stack(T5PreTrainedModel):
             tids = task_ids
             device=input_ids.device
             prompt_masks = self.get_prompt_token_fn(input_ids)
-            if not self.attn_prompt_tuning or not self.ignore_target:
-                task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
-                target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
-                target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
-                                              device=device) 
-                for ii, encoder in enumerate(self.prompt_encoders):
-                    prompt_token_fn = encoder.get_prompt_token_fn()
-                    target_masks = prompt_token_fn(target_prompt_ids)
-                    index_mask = (target_masks == True).any(dim=1)
-                    tids = torch.zeros(len(index_mask), device=device).int()
-                    tids[index_mask] = ii
-                    if target_masks.any():
-                        task_ids = torch.where(tids != 0, tids, task_ids)
-                        #find input ids for prompt tokens
-                        prompt_input_ids = target_prompt_ids[target_masks]
-                        #call forwards on prompt encoder whose outputs are prompt embeddings
-                        out = encoder(prompt_input_ids, tids)
-                        prompt_embeds = out.to(device)
-                        target_prompts[target_masks] = prompt_embeds
+            task_ids = torch.zeros(1, inputs_embeds.shape[0], device=device).int()
+            target_prompt_ids = input_ids[prompt_masks].view(inputs_embeds.shape[0],-1) 
+            target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+                                          device=device) 
+            for ii, encoder in enumerate(self.prompt_encoders):
+                prompt_token_fn = encoder.get_prompt_token_fn()
+                target_masks = prompt_token_fn(target_prompt_ids)
+                index_mask = (target_masks == True).any(dim=1)
+                tids = torch.zeros(len(index_mask), device=device).int()
+                tids[index_mask] = ii
+                if target_masks.any():
+                    task_ids = torch.where(tids != 0, tids, task_ids)
+                    #find input ids for prompt tokens
+                    prompt_input_ids = target_prompt_ids[target_masks]
+                    #call forwards on prompt encoder whose outputs are prompt embeddings
+                    out = encoder(prompt_input_ids, tids)
+                    prompt_embeds = out.to(device)
+                    target_prompts[target_masks] = prompt_embeds
             if self.attn_prompt_tuning:
                 target_prompts = target_prompts.view(inputs_embeds.shape[0],
                         -1, self.prompt_dim, self.model_dim)
                 if self.ignore_target is False:
-                    src_prompts = torch.cat((self.src_prompts.repeat(
+                    if self.src_prompts is not None and not self.ignore_source:
+                        src_prompts = torch.cat((self.src_prompts.repeat(
                             inputs_embeds.shape[0], 1, 1, 1), 
                             target_prompts), dim=1)
-                else:
+                    else:
+                        src_prompts = target_prompts
+                elif self.src_prompts is not None and not self.ignore_source:
                     src_prompts = self.src_prompts.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
+                soft_prompts = torch.zeros_like(target_prompts)
                 for t in range(target_prompts.size()[1]): 
                     target_prompt = target_prompts[:,t,:,:]
                     soft_prompt = self.attend_prompts(inputs_embeds, 
                         src_prompts = src_prompts, 
                         target_prompts = target_prompt,
                         ignore_target = self.ignore_target)
-                    target_prompts[:,t,:,:] = soft_prompt
-                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                    soft_prompts[:,t,:,:] = soft_prompt
+                inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
             else:
                 inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
