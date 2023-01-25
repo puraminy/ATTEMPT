@@ -1031,9 +1031,10 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
+        plot = wandb.Image(normalized_attn_scores.cpu().detach().numpy(), 
+                caption="Attention Scores")
         wandb.log({
-            "attn_scores": [wandb.Image(normalized_attn_scores.cpu().detach().numpy(), 
-                caption="Attention Scores")]
+            "attn_scores":plot
             }) 
         # Add target embedding when ignore_target is not True
         if ignore_target is False:
