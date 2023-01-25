@@ -1031,22 +1031,19 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
-        plot = wandb.Image(normalized_attn_scores.cpu().detach().numpy(), 
-                caption="Attention Scores")
-        wandb.log({
-            "attn_scores":plot
-            }) 
         # Add target embedding when ignore_target is not True
         if ignore_target is False:
            soft_prompts = soft_prompts + target_prompts
 
-        return soft_prompts
+        return soft_prompts, normalized_attn_scores
 
     def set_encoders(self, prompt_encoders, source_prompts, 
             prompt_dim, load_source_prompts=False):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.attn_scores = torch.zeros(
+            (len(prompt_encoders), len(prompt_encoders)), device=device) 
         self.src_prompts = None
         if source_prompts:
             task_encoders_num = len(source_prompts) 
@@ -1112,11 +1109,12 @@ class T5Stack(T5PreTrainedModel):
                     src_prompts = self.src_prompts.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
                 if src_prompts is not None:
-                    soft_prompts = self.attend_prompts(inputs_embeds, 
+                    soft_prompts, attn_scores = self.attend_prompts(inputs_embeds, 
                             src_prompts = src_prompts, 
                             target_prompts = target_prompts,
                             ignore_target = self.ignore_target)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                    #self.attn_scores[task_ids] = attn_scores[1,:]
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
@@ -1265,7 +1263,7 @@ class T5Stack(T5PreTrainedModel):
                     mul_prefix_emb_added = self.mul_prefix_emb.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
 
-                soft_prompts = self.attend_prompts(inputs_embeds, 
+                soft_prompts, _ = self.attend_prompts(inputs_embeds, 
                     src_prompts = mul_prefix_emb_added, 
                     target_prompts = target_prompts,
                     ignore_target = self.ignore_target)
@@ -1850,6 +1848,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         #############################################################
         self.src_prompts = None
         self.task_prompt_ids = []
+        self.attn_scores = None
 
         encoder_config = copy.deepcopy(config)
         encoder_config.is_decoder = False
