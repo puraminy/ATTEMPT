@@ -229,6 +229,12 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    orig_args = args.copy()
    logger.info("Total experiments:%s", len(tot_comb))
    for comb in tot_comb:
+       if preview == "all":
+           print(f"================ {ii} ===========================")
+           exp_conf = json.dumps(comb, indent=2)
+           print(exp_conf)
+           ii += 1
+           continue
        _output_dir = [output_dir]
        for var_name,var_item in comb.items():
            var_item =var_item 
