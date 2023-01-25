@@ -966,8 +966,8 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
         #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
-        base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
-        avg_base_embeds, _ = torch.max(base ,1)
+        base = target_prompts #.view(inputs_embeds.shape[0], -1, self.model_dim)
+        avg_base_embeds, _ = torch.max(base ,2)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
@@ -996,7 +996,8 @@ class T5Stack(T5PreTrainedModel):
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
-            x = x.unsqueeze(-1)
+            #x = x.unsqueeze(-1)
+            x = torch.transpose(x, 1,2)
             attn_scores = avg_src_prompts.bmm(
                 x).squeeze(-1) / self.temperature
 
@@ -1020,7 +1021,7 @@ class T5Stack(T5PreTrainedModel):
         if self.attn_method == "sub" or self.attn_method == "constant":
             normalized_attn_scores = F.softmax(attn_scores, -1)
             soft_prompts = torch.einsum(
-                'bp, bpld -> bld', normalized_attn_scores, src_prompts)
+                'bpq, bpld -> bqld', normalized_attn_scores, src_prompts)
         elif self.attn_method == "token":
             normalized_attn_scores = F.softmax(attn_scores, 1)
             soft_prompts = torch.einsum(
@@ -1104,14 +1105,14 @@ class T5Stack(T5PreTrainedModel):
                 elif self.src_prompts is not None and not self.ignore_source:
                     src_prompts = self.src_prompts.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
-                soft_prompts = torch.zeros_like(target_prompts)
-                for t in range(target_prompts.size()[1]): 
-                    target_prompt = target_prompts[:,t,:,:]
-                    soft_prompt = self.attend_prompts(inputs_embeds, 
+                #soft_prompts = torch.zeros_like(target_prompts)
+                #for t in range(target_prompts.size()[1]): 
+                    #target_prompt = target_prompts[:,t,:,:]
+                soft_prompts = self.attend_prompts(inputs_embeds, 
                         src_prompts = src_prompts, 
-                        target_prompts = target_prompt,
+                        target_prompts = target_prompts,
                         ignore_target = self.ignore_target)
-                    soft_prompts[:,t,:,:] = soft_prompt
+                   # soft_prompts[:,t,:,:] = soft_prompt
                 inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
             else:
                 inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
