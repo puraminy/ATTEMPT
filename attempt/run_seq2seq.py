@@ -302,6 +302,7 @@ def train(**kwargs):
         return new_kwargs
 
     # sssssssss
+    torch.autograd.set_detect_anomaly(True)
     training_args.report_to = ["tensorboard"]
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
@@ -461,6 +462,7 @@ def train(**kwargs):
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.ignore_target = model_args.ignore_target
+    config.ignore_source = model_args.ignore_source #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
         config.prefix_num = len(model_args.prompt_embedding_path) 

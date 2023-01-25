@@ -273,6 +273,13 @@ class ModelArguments:
             "help": "Whether to ignore the new target tokens."
         },
     )
+    # my option
+    ignore_source: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to ignore the source prompts."
+        },
+    )
 
     fix_attention: bool = field(
         default=False,
