@@ -964,9 +964,9 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, ignore_target):
-        #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
-        base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
-        avg_base_embeds, _ = torch.max(base ,1)
+        avg_base_embeds, _ = torch.max(inputs_embeds, 1)
+        #base = target_prompts.view(inputs_embeds.shape[0], -1, self.model_dim)
+        #avg_base_embeds, _ = torch.max(base ,1)
         avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
