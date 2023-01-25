@@ -1020,6 +1020,8 @@ class T5Stack(T5PreTrainedModel):
 
         if self.attn_method == "sub" or self.attn_method == "constant":
             normalized_attn_scores = F.softmax(attn_scores, -1)
+            if normalized_attn_scores.dim() == 2:
+                normalized_attn_scores = normalized_attn_scores.unsqueeze(2)
             soft_prompts = torch.einsum(
                 'bpq, bpld -> bqld', normalized_attn_scores, src_prompts)
         elif self.attn_method == "token":
@@ -1029,8 +1031,10 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
-        wandb.log({"attn_scores": 1, 
-                   "norm_attn_scores": 2})
+        wandb.log({
+            "attn_scores": [wandb.Image(normalized_attn_scores.cpu().detach().numpy(), 
+                caption="Attention Scores")]
+            }) 
         # Add target embedding when ignore_target is not True
         if ignore_target is False:
            soft_prompts = soft_prompts + target_prompts
