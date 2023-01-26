@@ -69,7 +69,7 @@ methods=$(echo $others | xargs)
 params=""
 
 if [ -z "$methods" ]; then
-  methods="ft pt px"
+  methods="ptat"
 fi
 if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=!${PWD}/trial=1"
@@ -179,7 +179,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=4"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-p0-pt#sup-p0-psh"
+        params="${params} --template=sup-p0-psh#sup-p0-pt"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
@@ -191,8 +191,8 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=sub"
-	params="${params} --ignore_target=False#True"
-	params="${params} --ignore_source=False#True"
+	params="${params} --attend_source=True#False"
+	params="${params} --attend_target=True#False"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];

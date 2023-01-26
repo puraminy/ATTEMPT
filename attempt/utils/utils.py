@@ -102,7 +102,7 @@ def get_adapter_config(adapter_args, data_args, training_args, config):
         adapter_config.device = training_args.device
         adapter_config.output_dir = training_args.output_dir
         adapter_config.attn_method = config.attn_method
-        adapter_config.ignore_target = config.ignore_target
+        adapter_config.attend_target = config.attend_target
         adapter_config.attn_prompt = config.attn_tuning
         adapter_config.fix_attention = config.fix_attention
     else:
@@ -126,7 +126,7 @@ def unfreeze_attn_params(model, adapter_args, adapter_config):
         for n, m in model.named_parameters():
             if "encoder.attn_Wa.weight" == n:
                 m.requires_grad = True
-            if "prefix_shared" == n and adapter_config.ignore_target is False:
+            if "prefix_shared" == n and adapter_config.attend_target is True:
                 m.requires_grad = True
 
     elif adapter_config.attn_method == "sub":
@@ -135,11 +135,11 @@ def unfreeze_attn_params(model, adapter_args, adapter_config):
                 m.requires_grad = True
             if "encoder.attn_W_up.weight" == n and adapter_config.fix_attention is False:
                 m.requires_grad = True
-            if "prefix_shared" == n and adapter_config.ignore_target is False:
+            if "prefix_shared" == n and adapter_config.attend_target is True:
                 m.requires_grad = True
     elif adapter_config.attn_method == "constant":
         for n, m in model.named_parameters():
-            if "prefix_shared" == n and adapter_config.ignore_target is False:
+            if "prefix_shared" == n and adapter_config.attend_target is True:
                 m.requires_grad = True
     elif adapter_config.attn_method == "concat":
         for n, m in model.named_parameters():

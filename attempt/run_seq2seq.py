@@ -467,8 +467,8 @@ def train(**kwargs):
     config.prompt_tuning = adapter_args.prompt_tuning
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
-    config.ignore_target = model_args.ignore_target
-    config.ignore_source = model_args.ignore_source #my option
+    config.attend_target = model_args.attend_target
+    config.attend_source = model_args.attend_source #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
         config.prefix_num = len(model_args.prompt_embedding_path) 
@@ -561,7 +561,19 @@ def train(**kwargs):
         logger.info("%s tokens was addded", added)
         if bp and bp in "tokens|encoder": breakpoint()
         model.resize_token_embeddings(len(tokenizer))
-        # mmmmmmmmmmmmm
+        # mmmmmmmmmmmmm Add source prompts
+        prompt_encoders = []
+        source_prompts = []
+        if data_args.source_prompts:
+            source_prompts = ["source_" + sp for sp in data_args.source_prompts]
+            for prompt in source_prompts: 
+                encoder, enc_type = create_encoder(prompt, model, tokenizer, 
+                        prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
+                encoder.is_source =True
+                encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
+                prompt_encoders.append(encoder)
+
+        # mmmmmmmmmmmmm Add target prompts
         prompts = {}
         mylogs.bp("prompts")
         tasks = data_args.task_name
@@ -572,7 +584,6 @@ def train(**kwargs):
              prompts = {**prompts, **p}
 
         load_prompts = kwargs.setdefault("load_prompts", False) 
-        prompt_encoders = []
         target_prompts = list(prompts.keys())
         for name, prompt_tokens in prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
@@ -582,17 +593,6 @@ def train(**kwargs):
             if load_prompts: 
                 encoder.load(prompts_dir)
             prompt_encoders.append(encoder)
-
-        source_prompts = []
-        if data_args.source_prompts:
-            source_prompts = ["source_" + sp for sp in data_args.source_prompts]
-            for prompt in source_prompts: 
-                assert not prompt in target_prompts, prompt + " exists in target prompts" 
-                encoder, enc_type = create_encoder(prompt, model, tokenizer, 
-                        prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
-                encoder.is_source =True
-                encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
-                prompt_encoders.append(encoder)
 
         load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
         model.encoder.set_encoders(prompt_encoders, 
