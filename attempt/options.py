@@ -274,6 +274,12 @@ class ModelArguments:
         },
     )
     # my option
+    add_target: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to ignore the new target tokens."
+        },
+    )
     attend_source: bool = field(
         default=False,
         metadata={

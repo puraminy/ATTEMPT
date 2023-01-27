@@ -193,6 +193,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attn_method=sub"
 	params="${params} --attend_source=True#False"
 	params="${params} --attend_target=True#False"
+	params="${params} --add_target=False#True"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];

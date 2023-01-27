@@ -917,6 +917,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         self.attend_source = config.attend_source
+        self.add_target = config.add_target
         #######################################
         self.attend_target = attend_target
         self.prefix_emb = prefix_emb if self.attend_target is True else None
@@ -966,7 +967,7 @@ class T5Stack(T5PreTrainedModel):
         self.device_map = None
 
     ################# MyCode fffffffffff
-    def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, attend_target):
+    def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, add_target):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
@@ -1039,7 +1040,7 @@ class T5Stack(T5PreTrainedModel):
             raise NotImplementedError
 
         # Add target embedding when attend_target is not True
-        if attend_target is True:
+        if add_target is True:
            soft_prompts = soft_prompts + target_prompts
 
         return soft_prompts, normalized_attn_scores
@@ -1127,7 +1128,7 @@ class T5Stack(T5PreTrainedModel):
                     soft_prompts, attn_scores = self.attend_prompts(inputs_embeds, 
                             src_prompts = src_prompts, 
                             target_prompts = target_prompts,
-                            attend_target = self.attend_target)
+                            add_target = self.add_target)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     for i in range(batch_size):
                         self.attn_scores[source_idx[i].reshape(-1,1), 
@@ -1138,7 +1139,9 @@ class T5Stack(T5PreTrainedModel):
                             xticklabels=self.prompt_names, 
                             yticklabels=self.prompt_names,
                             linewidth=0.5)
+                    plt.tight_layout()
                     wandb.log({"attn_scores":wandb.Image(ax)})
+                    plt.close("all")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
@@ -1290,7 +1293,7 @@ class T5Stack(T5PreTrainedModel):
                 soft_prompts, _ = self.attend_prompts(inputs_embeds, 
                     src_prompts = mul_prefix_emb_added, 
                     target_prompts = target_prompts,
-                    attend_target = self.attend_target)
+                    add_target = self.add_target)
                 inputs_embeds = torch.cat(
                     [soft_prompts, inputs_embeds], dim=1)  # bsz, seqlen, dim
                 input_shape = inputs_embeds.size()[:-1]
