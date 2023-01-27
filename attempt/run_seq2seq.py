@@ -562,7 +562,6 @@ def train(**kwargs):
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
-        if bp and bp in "tokens|encoder": breakpoint()
         model.resize_token_embeddings(len(tokenizer))
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
@@ -582,7 +581,6 @@ def train(**kwargs):
         tasks = data_args.task_name
         n_tasks = len(tasks)
         for task in tasks:
-             bp != "prompts" or breakpoint()
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
 
@@ -601,7 +599,6 @@ def train(**kwargs):
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, adapter_args.num_prompt_tokens, load_source_prompts)
         model.resize_token_embeddings(len(tokenizer))
-        if bp == "tokens": breakpoint()
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
@@ -851,7 +848,6 @@ def train(**kwargs):
         return result
 
     # If you want to use a different learning rate for attention layer, initialize an optimizer using the learning rate here.
-    if bp == "opt": breakpoint()
     grouped_params = []
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
@@ -964,7 +960,6 @@ def train(**kwargs):
 
         # Load best model
         if trainer.best_prompt_checkpoint is not None:
-            breakpoint()
             best_chk_path = trainer.best_prompt_checkpoint
             model.load_encoders(best_chk_path)
             attention_paths = [os.path.join(best_chk_path, "attn_W_down.pt"), 
