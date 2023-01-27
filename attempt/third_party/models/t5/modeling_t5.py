@@ -1904,10 +1904,12 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         return len(self.encoder.prompt_encoders)
     
     def load_encoders(self, load_dir = None, load_source_prompts = False):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         for encoder in self.prompt_encoders:
             if not load_source_prompts and encoder.is_source:
                 continue
             encoder.load(load_dir)
+            encoder.to(device)
 
     def store_encoders(self, output_dir = None, prompts_only=False, 
             save_source_prompts = False):
