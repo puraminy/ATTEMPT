@@ -1092,7 +1092,7 @@ class T5Stack(T5PreTrainedModel):
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] if self.attend_input else [] 
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
-                if encoder.is_source:
+                if encoder.is_source and self.attend_source:
                     source_idx_list.append(ii)
                     continue
                 prompt_token_fn = encoder.get_prompt_token_fn()
@@ -1113,17 +1113,13 @@ class T5Stack(T5PreTrainedModel):
                 source_idx = source_idx_list.repeat(batch_size, 1)
                 src_prompts = None
                 if self.attend_target is True:
-                    if self.src_prompts is not None and self.attend_source is True:
-                        sel_prompts = torch.index_select(
-                            self.src_prompts, 0, source_idx_list)
-                        src_prompts = torch.cat((sel_prompts.repeat(
-                            batch_size, 1, 1, 1), 
-                            target_prompts), dim=1)
-                        source_idx = torch.cat([source_idx, target_idx], dim=1)
-                    else:
-                        src_prompts = target_prompts
-                        source_idx = target_idx
-                elif self.src_prompts is not None and self.attend_source is True:
+                    sel_prompts = torch.index_select(
+                        self.src_prompts, 0, source_idx_list)
+                    src_prompts = torch.cat((sel_prompts.repeat(
+                        batch_size, 1, 1, 1), 
+                        target_prompts), dim=1)
+                    source_idx = torch.cat([source_idx, target_idx], dim=1)
+                else:
                     sel_prompts = torch.index_select(
                         self.src_prompts, 0, source_idx_list)
                     src_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
