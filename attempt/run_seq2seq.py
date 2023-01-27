@@ -59,6 +59,7 @@ from metrics.metrics import build_compute_metrics_fn
 ###### my imports
 from myds import my_interleave_datasets
 from conflicts import check_conflicts
+from callbacks import WBCallback
 import json
 import glob
 import mylogs 
@@ -910,6 +911,7 @@ def train(**kwargs):
             evaluation_metrics=task_metric,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             shared=model_args.shared_attn,
+            callbacks = [WBCallback()],
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
         )
@@ -922,6 +924,7 @@ def train(**kwargs):
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
+            callbacks = [WBCallback()],
             shuffle = trainer_shuffle,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,

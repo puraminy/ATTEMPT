@@ -49,10 +49,6 @@ from .configuration_t5 import T5Config
 #### My import
 from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 from attempt.encoders.encoders import * 
-import wandb
-import seaborn as sns
-#import PIL
-import matplotlib.pyplot as plt
 from attempt.adapters import AdapterController
 from typing import Dict, Any
 
@@ -1140,15 +1136,6 @@ class T5Stack(T5PreTrainedModel):
                     for i in range(batch_size):
                         self.attn_scores[source_idx[i].reshape(-1,1), 
                                 target_idx[i]] = attn_scores[i]
-                    np_scores = self.attn_scores.detach().cpu().numpy()
-                    #fig = plt.imshow(np_scores, cmap='hot', interpolation='nearest')
-                    ax = sns.heatmap(np_scores, cmap="crest", 
-                            xticklabels=self.prompt_names, 
-                            yticklabels=self.prompt_names,
-                            linewidth=0.5)
-                    plt.tight_layout()
-                    wandb.log({"attn_scores":wandb.Image(ax)})
-                    plt.close("all")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
