@@ -277,13 +277,19 @@ class ModelArguments:
     add_target: bool = field(
         default=False,
         metadata={
-            "help": "Whether to ignore the new target tokens."
+            "help": "Whether to add the target prompt to the soft prompt resulted from attention."
         },
     )
     attend_source: bool = field(
         default=False,
         metadata={
-            "help": "Whether to ignore the source prompts."
+            "help": "Whether to attend the source prompts."
+        },
+    )
+    attend_input: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to attend to the input sentence."
         },
     )
 

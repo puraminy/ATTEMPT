@@ -469,6 +469,7 @@ def train(**kwargs):
     config.attn_method = model_args.attn_method
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
+    config.attend_input = model_args.attend_input #my option
     config.add_target = model_args.add_target #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
