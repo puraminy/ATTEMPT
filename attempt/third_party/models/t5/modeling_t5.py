@@ -1912,7 +1912,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def store_encoders(self, output_dir = None, prompts_only=False, 
             save_source_prompts = False):
         for encoder in self.prompt_encoders:
-            if not load_source_prompts and encoder.is_source:
+            if not save_source_prompts and encoder.is_source:
                 continue
             encoder.save(output_dir)
         if prompts_only: return
