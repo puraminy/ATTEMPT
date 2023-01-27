@@ -1903,19 +1903,42 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def prompt_encoders_num(self):
         return len(self.encoder.prompt_encoders)
     
-    def load_encoders(self, prompts=[], load_dir = None):
-        if not load_dir: return
-        lst = []
-        for name in prompts:
-            load_file = os.path.join(load_dir, "prompt_" + name + ".pt")
-            encoder=torch.load(load_file)
-            lst.append(encoder)
-        self.encoder.prompt_encoders = torch.nn.ModuleList(lst)
+    def load_encoders(self, load_dir = None, load_source_prompts = False):
+        for encoder in self.prompt_encoders:
+            if not load_source_prompts and encoder.is_source:
+                continue
+            encoder.load(load_dir)
 
-    def store_encoders(self, task_ids = None, output_dir = None):
-        lst = self.encoder.prompt_encoders 
-        for encoder in lst:
+    def store_encoders(self, output_dir = None, prompts_only=False, 
+            save_source_prompts = False):
+        for encoder in self.prompt_encoders:
+            if not load_source_prompts and encoder.is_source:
+                continue
             encoder.save(output_dir)
+        if prompts_only: return
+        attn_tuning = self.attn_tuning
+        for name, param in self.named_parameters():
+            # Save attention and layer norm weights.
+            if attn_tuning is True and "encoder.attn_Wa.weight" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "attn_Wa_weights.pt"))
+            if attn_tuning is True and "encoder.attn_W_down.weight" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "attn_W_down.pt"))
+            if attn_tuning is True and "encoder.attn_W_up.weight" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "attn_W_up.pt"))
+            if attn_tuning is True and "encoder.layer_norm.weight" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "layer_norm_weight.pt"))
+            if attn_tuning is True and "encoder.layer_norm.bias" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "layer_norm_bias.pt"))
 
     # Before attention
     ################## End my functions

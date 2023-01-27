@@ -13,6 +13,11 @@ from torch.utils.data import DataLoader
 import datasets
 import attempt.mylogs as mylogs
 import wandb
+import numpy as np
+import os
+import glob
+import shutil
+from pathlib import Path
 
 if version.parse(torch.__version__) >= version.parse("1.6"):
     from torch.cuda.amp import autocast
@@ -27,6 +32,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self.shared = shared
         self.shuffle = shuffle
         self.save_checkpoint = save_checkpoint
+        self.best_prompt_checkpoint = None
 
     def get_train_dataloader(self):
         if self.shuffle:
@@ -52,12 +58,51 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         )
 
     def _save_checkpoint(self, model, trial, metrics=None):
-        if not self.save_checkpoint:
-            print("======================================")
-            print("Skipping save_checkpoint")
-            print("======================================")
-        else:
+        if self.save_checkpoint:
             super()._save_checkpoint(model, trial, metrics)
+        else:
+            # Determine the new best metric / best model checkpoint
+            checkpoint_folder = f"checkpoin-{self.state.global_step}_prompt_only"
+            output_dir = os.path.join(self.args.output_dir, checkpoint_folder)
+            if metrics is not None and self.args.metric_for_best_model is not None:
+                metric_to_check = self.args.metric_for_best_model
+                if not metric_to_check.startswith("eval_"):
+                    metric_to_check = f"eval_{metric_to_check}"
+                metric_value = metrics[metric_to_check]
+                operator = np.greater if self.args.greater_is_better else np.less
+                if (
+                    self.state.best_metric is None
+                    or self.best_prompt_checkpoint is None
+                    or operator(metric_value, self.state.best_metric)
+                ):
+                    checkpoints = glob.glob(os.path.join(
+                        self.args.output_dir, "checkpoint-*"))
+                    for checkpoint_dir in checkpoints:
+                        try:
+                            shutil.rmtree(checkpoint_dir)
+                        except OSError as e:
+                            print("Error: %s : %s" % (checkpoint_dir, e.strerror))
+
+                    Path(output_dir).mkdir(parents=True, exist_ok=True)
+                    self.state.best_metric = metric_value
+                    #self.state.best_model_checkpoint = output_dir
+                    self.best_prompt_checkpoint = output_dir
+                    wandb.run.summary["best_rouge"] = metric_value 
+                    wandb.run.summary["best_step"] = self.state.global_step 
+                    wandb.run.summary["best_epoch"] = self.state.epoch 
+                    wandb.run.summary["best_checkpoint"] = checkpoint_folder 
+                    
+                    print("========== Best Model detected =======")
+                    print(output_dir)
+                    model.store_encoders(output_dir = output_dir)
+                    print("======================================")
+                else:
+                    print("======================================")
+                    print("Skipping checkpoint")
+                    print("======================================")
+
+
+
 
     def evaluate(
         self,

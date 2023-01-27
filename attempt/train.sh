@@ -54,7 +54,7 @@ if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  _ep=15; fi
 if [ -n "$_test" ]; then
   _rem=True
-  _tn=10
+  _tn=2
   _vn=2
   _tsn=2 
   _ep=1
@@ -131,13 +131,13 @@ params="${params} --do_eval=True"
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
 params="${params} --save_model=False"
+params="${params} --load_best_model_at_end=True" # We handle it by loading best prompts
 
 # training 
 params="${params} --per_device_train_batch_size=$_bs"
 params="${params} --per_device_eval_batch_size=$_bs"
 params="${params} --trainer_shuffle=True"
 params="${params} --skip_specials=True"
-params="${params} --load_best_model_at_end=True"
 params="${params} --num_train_epochs=$_ep"
 params="${params} --adjust_epochs=True"
 
@@ -183,6 +183,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
+	params="${params} --save_prompts=False"
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
@@ -194,7 +195,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attend_source=True#False"
 	params="${params} --attend_target=True#False"
 	params="${params} --attend_input=True#False"
-	params="${params} --add_target=False#True"
+	params="${params} --add_target=True"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
