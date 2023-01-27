@@ -967,9 +967,14 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, attend_target):
-        #avg_base_embeds, _ = torch.max(inputs_embeds, 1)
+        #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
+        #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
+        pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
+        avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
         base = target_prompts #.view(inputs_embeds.shape[0], -1, self.model_dim)
         avg_base_embeds, _ = torch.max(base ,2)
+        #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
+        src_prompts[:,0,:,:] = avg_inputs_embeds
         avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
@@ -1045,15 +1050,15 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.attn_scores = torch.zeros(
-            (len(prompt_encoders), len(prompt_encoders)), device=device) 
+            (len(prompt_encoders) + 1, len(prompt_encoders) + 1), device=device) 
         self.src_prompts = None
-        self.prompt_names = [x.name for x in prompt_encoders]
+        self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
         if source_prompts:
-            task_encoders_num = len(source_prompts) 
+            task_encoders_num = len(source_prompts) + 1 # one for input 
             self.src_prompts = nn.Parameter(torch.zeros(
                 (task_encoders_num, prompt_dim, self.model_dim))) 
         task_prompt_ids = []
-        i = 0
+        i = 1
         for encoder in self.prompt_encoders:
             if not "com" in encoder.name:
                 task_prompt_ids.extend(encoder.prompt_ids)
@@ -1084,8 +1089,8 @@ class T5Stack(T5PreTrainedModel):
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
-            source_idx = []
-            for ii, encoder in enumerate(self.prompt_encoders):
+            source_idx = [0] # one for input
+            for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source:
                     source_idx.append(ii)
                     continue
@@ -1103,7 +1108,7 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 target_idx = torch.unique_consecutive(target_idx, dim=1)  
-                source_idx = torch.tensor(source_idx).long()
+                source_idx = torch.tensor(source_idx, device=device).long()
                 source_idx = source_idx.repeat(batch_size, 1)
                 src_prompts = None
                 if self.attend_target is True:
