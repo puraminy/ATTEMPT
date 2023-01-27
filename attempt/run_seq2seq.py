@@ -962,20 +962,24 @@ def train(**kwargs):
             total_time = start.elapsed_time(end)/(1000*60)
             performance_metrics.update({"total_time in minutes ": total_time})
 
-        # By setting the `save_prefix_only` True, you only save the attentions as well as the prompt components only.
-        prefix_dir = model_args.prefix_dir
-        if prefix_dir and not prefix_dir.startswith("/"):
-            prefix_dir = op.join(mylogs.pretPath, prefix_dir) 
-        if adapter_args.prompt_tuning or adapter_args.prefix_tuning:
-            if prefix_dir:
-                Path(prefix_dir).mkdir(parents = True, exist_ok=True)
-            save_prompts(trainer.model, output_dir=training_args.output_dir, 
-                         prefix_dir = prefix_dir,
-                         attn_tuning=model_args.attn_tuning,
-                         shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
+        # Load best model
+        if trainer.best_prompt_checkpoint is not None:
+            breakpoint()
+            best_chk_path = trainer.best_prompt_checkpoint
+            model.load_encoders(best_chk_path)
+            attention_paths = [os.path.join(best_chk_path, "attn_W_down.pt"), 
+                    os.path.join(best_chk_path, "attn_W_up.pt")]
+            trainer.model.update_attention_weights_sub(attention_paths)
+            if model_args.load_layer_norm and "layer_norm_bias.pt" in best_chk_path: 
+                trainer.model.update_layer_norm_weights(best_chk_path)
+
+        # Save prompts
         if adapter_args.prompt_tuning:
-            Path(prompts_dir).mkdir(parents = True, exist_ok=True)
-            model.store_encoders(output_dir = prompts_dir)
+            model.store_encoders(output_dir = training_args.output_dir)
+            save_prompts_flag = kwargs.setdefault("save_prompts", False) 
+            if save_prompts_flag:
+                Path(prompts_dir).mkdir(parents = True, exist_ok=True)
+                model.store_encoders(output_dir = prompts_dir, prompts_only=True)
 
         if kwargs.setdefault("save_model", False):
             # save all model parameters and tokenizers 
@@ -1011,8 +1015,8 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            attention_paths = [os.path.join(training_args.output_dir, "attn_W_down.pt"), os.path.join(
-                training_args.output_dir, "attn_W_up.pt")]
+            attention_paths = [os.path.join(training_args.output_dir, "attn_W_down.pt"), 
+                    os.path.join(training_args.output_dir, "attn_W_up.pt")]
             trainer.model.update_attention_weights_sub(attention_paths)
             if model_args.load_layer_norm is True and "layer_norm_bias.pt" in training_args.output_dir:
                 trainer.model.update_layer_norm_weights(
@@ -1125,13 +1129,16 @@ def train(**kwargs):
             model.load_state_dict(checkpoint_model)
             new_dir = "{}_prompt_only".format(checkpoint_dir)
             os.mkdir(new_dir)
-            save_prompts(model, output_dir=new_dir, 
-                         prefix_dir = prefix_dir,
-                         attn_tuning=model_args.attn_tuning,
-                         shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
+            if adapter_args.prefix_tuning:
+                save_prompts(model, output_dir=new_dir, 
+                     prefix_dir = prefix_dir,
+                     attn_tuning=model_args.attn_tuning,
+                     shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
             if adapter_args.prompt_tuning:
-                Path(op.join(new_dir, "prompts")).mkdir(parents = True, exist_ok=True)
-                model.store_encoders(output_dir = prompts_dir)
+                save_prompts_flag = kwargs.setdefault("save_prompts", False) 
+                if save_prompts_flag:
+                    Path(op.join(new_dir, "prompts")).mkdir(parents = True, exist_ok=True)
+                    model.store_encoders(output_dir = prompts_dir, prompts_only=True)
 
             # after saving prompts, we will remove unnecessary checkpoint dir.
             try:
