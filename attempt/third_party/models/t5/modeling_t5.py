@@ -917,6 +917,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         self.attend_source = config.attend_source
+        self.attend_input = config.attend_input
         self.add_target = config.add_target
         #######################################
         self.attend_target = attend_target
@@ -970,13 +971,15 @@ class T5Stack(T5PreTrainedModel):
     def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, add_target):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
-        pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
-        avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+        if self.attend_input:
+            pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
+            avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
+            src_prompts[:,0,:,:] = avg_inputs_embeds
+        avg_src_prompts, _ = torch.max(src_prompts, 2)
+
         base = target_prompts #.view(inputs_embeds.shape[0], -1, self.model_dim)
         avg_base_embeds, _ = torch.max(base ,2)
-        #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-        src_prompts[:,0,:,:] = avg_inputs_embeds
-        avg_src_prompts, _ = torch.max(src_prompts, 2)
 
         # 1. Bernouli 
         if self.attn_method == "rb":
@@ -1050,8 +1053,9 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        attend_num =len(prompt_encoders) + 1 # one for input
         self.attn_scores = torch.zeros(
-            (len(prompt_encoders) + 1, len(prompt_encoders) + 1), device=device) 
+            (attend_num, attend_num), device=device) 
         self.src_prompts = None
         self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
         if source_prompts:
@@ -1090,10 +1094,10 @@ class T5Stack(T5PreTrainedModel):
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
-            source_idx = [0] # one for input
+            source_idx_list = [0] if self.attend_input else [] 
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source:
-                    source_idx.append(ii)
+                    source_idx_list.append(ii)
                     continue
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
@@ -1109,12 +1113,14 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 target_idx = torch.unique_consecutive(target_idx, dim=1)  
-                source_idx = torch.tensor(source_idx, device=device).long()
-                source_idx = source_idx.repeat(batch_size, 1)
+                source_idx_list = torch.tensor(source_idx_list, device=device).long()
+                source_idx = source_idx_list.repeat(batch_size, 1)
                 src_prompts = None
                 if self.attend_target is True:
                     if self.src_prompts is not None and self.attend_source is True:
-                        src_prompts = torch.cat((self.src_prompts.repeat(
+                        sel_prompts = torch.index_select(
+                            self.src_prompts, 0, source_idx_list)
+                        src_prompts = torch.cat((sel_prompts.repeat(
                             batch_size, 1, 1, 1), 
                             target_prompts), dim=1)
                         source_idx = torch.cat([source_idx, target_idx], dim=1)
@@ -1122,8 +1128,9 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts = target_prompts
                         source_idx = target_idx
                 elif self.src_prompts is not None and self.attend_source is True:
-                    src_prompts = self.src_prompts.repeat(
-                        batch_size, 1, 1, 1)
+                    sel_prompts = torch.index_select(
+                        self.src_prompts, 0, source_idx_list)
+                    src_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
                 if src_prompts is not None:
                     soft_prompts, attn_scores = self.attend_prompts(inputs_embeds, 
                             src_prompts = src_prompts, 
