@@ -1029,6 +1029,11 @@ def train(**kwargs):
                                            )
                 trainer.log_metrics("eval", metrics)
                 trainer.save_metrics("eval", metrics)
+                metric_to_check = training_args.metric_for_best_model
+                if not metric_to_check.startswith("eval_"):
+                    metric_to_check = f"eval_{metric_to_check}"
+                metric_value = metrics[metric_to_check]
+                wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
     mylogs.bp("test")
