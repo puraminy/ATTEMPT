@@ -87,7 +87,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                     self.state.best_metric = metric_value
                     #self.state.best_model_checkpoint = output_dir
                     self.best_prompt_checkpoint = output_dir
-                    wandb.run.summary["best_rouge"] = metric_value 
+                    wandb.run.summary[f"best_{metric_to_check}"] = metric_value 
                     wandb.run.summary["best_step"] = self.state.global_step 
                     wandb.run.summary["best_epoch"] = self.state.epoch 
                     wandb.run.summary["best_checkpoint"] = checkpoint_folder 
