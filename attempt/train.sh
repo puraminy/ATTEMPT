@@ -187,14 +187,14 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
-	params="${params} --source_prompts=they@want@before@seen@after"
+	params="${params} --source_prompts=they@always@seen"
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
-	params="${params} --attn_method=sub"
-	params="${params} --attend_source=True#False"
-	params="${params} --attend_target=True#False"
-	params="${params} --attend_input=True#False"
+	params="${params} --attn_method=dot"
+	params="${params} --attend_source=False#True"
+	params="${params} --attend_target=False#True"
+	params="${params} --attend_input=True#True"
 	params="${params} --add_target=True"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 

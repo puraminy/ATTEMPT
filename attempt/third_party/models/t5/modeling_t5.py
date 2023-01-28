@@ -986,16 +986,16 @@ class T5Stack(T5PreTrainedModel):
             #soft_prompts = torch.matmul(attn_scores, attend_to).view(-1, self.embedding_dim)
         # 2. dot product
         if self.attn_method == "dot":
-            attn_scores = avg_attend_for.bmm(
-                avg_attend_to).squeeze(-1)
+            x = torch.transpose(avg_attend_to, 1,2)
+            attn_scores = avg_attend_for.bmm(x)
 
         elif self.attn_method == "linear":
             # 3. linear
             x = self.attn_Wa(avg_attend_to)
             x = self.layer_norm(x)
-            x = x.unsqueeze(-1)
+            x = torch.transpose(x, 1,2)
             attn_scores = avg_attend_for.bmm(
-                x).squeeze(-1) / self.temperature
+                x) / self.temperature
 
         elif self.attn_method == "sub":
             x = self.attn_W_down(avg_attend_to)
@@ -1005,7 +1005,7 @@ class T5Stack(T5PreTrainedModel):
             #x = x.unsqueeze(-1)
             x = torch.transpose(x, 1,2)
             attn_scores = avg_attend_for.bmm(
-                x).squeeze(-1) / self.temperature
+                x) / self.temperature
 
         # implement token level model
         elif self.attn_method == "token":
@@ -1024,18 +1024,14 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
-        if self.attn_method == "sub" or self.attn_method == "constant":
-            normalized_attn_scores = F.softmax(attn_scores, -1)
-            if normalized_attn_scores.dim() == 2:
-                normalized_attn_scores = normalized_attn_scores.unsqueeze(2)
-            soft_prompts = torch.einsum(
-                'bqp, bpld -> bqld', normalized_attn_scores, attend_to)
-        elif self.attn_method == "token":
+        if self.attn_method == "token":
             normalized_attn_scores = F.softmax(attn_scores, 1)
             soft_prompts = torch.einsum(
                 'bplk, bpld -> bld', normalized_attn_scores, attend_to)
         else:
-            raise NotImplementedError
+            normalized_attn_scores = F.softmax(attn_scores, -1)
+            soft_prompts = torch.einsum(
+                'bqp, bpld -> bqld', normalized_attn_scores, attend_to)
 
         # Add target embedding when attend_target is not True
         if add_target is True:
