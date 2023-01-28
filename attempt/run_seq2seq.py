@@ -1019,17 +1019,22 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            attention_paths = [os.path.join(training_args.output_dir, "attn_W_down.pt"), 
+            dpath = os.path.join(training_args.output_dir, "attn_W_down.pt") 
+            
+            attention_paths = [dpath,
                     os.path.join(training_args.output_dir, "attn_W_up.pt")]
             trainer.model.update_attention_weights_sub(attention_paths)
-            if model_args.load_layer_norm is True and "layer_norm_bias.pt" in training_args.output_dir:
+            if (model_args.load_layer_norm is True 
+                    and "layer_norm_bias.pt" in training_args.output_dir 
+                    and Path(dpath).is_file()):
                 trainer.model.update_layer_norm_weights(
                     training_args.output_dir)
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
                 metrics = trainer.evaluate(eval_dataset=eval_dataset,
-                                           max_length=data_args.val_max_target_length, num_beams=data_args.num_beams,
+                                           max_length=data_args.val_max_target_length, 
+                                           num_beams=data_args.num_beams,
                                            )
                 trainer.log_metrics("eval", metrics)
                 trainer.save_metrics("eval", metrics)
