@@ -13,6 +13,7 @@ from data.postprocessors import AutoPostProcessor
 
 ## My imports
 import torch
+import wandb
 from rouge import Rouge
 from attempt.mylogs import *
 if not colab:
@@ -468,7 +469,47 @@ def do_score(df, scorers, save_path, reval=False):
         save_path = os.path.join(save_path, save_fname) 
     print("Saving results %s", save_path)
     df.to_csv(save_path, index=False, sep="\t")
-    
+
+    group_col = "pred_text1"
+    df["rouge_score"] = df.groupby(['prefix','input_text'])["rouge_score"].transform("max")
+    df["bert_score"] = df.groupby(['prefix','input_text'])["bert_score"].transform("max")
+    df["pred_freq"] = df.groupby(['prefix','pred_text1'],
+                     sort=False)["pred_text1"].transform("count")
+    cols = ['prefix']
+    df = df.merge(df[cols+['pred_text1']]
+         .value_counts().groupby(cols).head(1)
+         .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
+       )
+
+    wandb.log({"Test": df})
+
+########################
+    col = ["prefix"]
+    _agg = {}
+    for c in df.columns:
+        if c.endswith("score"):
+            _agg[c] = "mean"
+        else:
+            _agg[c] = ["first", "nunique"]
+    gb = df.groupby(col)
+    df.columns = [ '_'.join(str(i) for i in col) for col in df.columns]
+    avg_len = 1
+    ren = {
+            "target_text_nunique":"num_targets",
+            "pred_text1_nunique":"num_preds",
+            "input_text_nunique":"num_inps",
+            }
+    for c in df.columns:
+        if c.endswith("_mean"):
+            ren[c] = c.replace("_mean","")
+        elif c.endswith("_first"):
+            ren[c] = c.replace("_first","")
+    gdf = df.rename(columns=ren)
+    wandb.log({"Summary": gdf})
+
+#################
+
+
     for metric in [mean_rouge, mean_bert, mean_match, mean_bleu]:
         s =0 
         ii = 0

@@ -81,7 +81,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@#xAttr@#multi-all" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@xAttr@xNeed@xWant@" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -177,9 +177,9 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --prompt_learning_rate=0.01"
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
-	params="${params} --num_prompt_tokens=4"
+	params="${params} --num_prompt_tokens=3"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-p0-psh#sup-p0-pt"
+        params="${params} --template=sup-p0-psh"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
@@ -187,7 +187,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
-	params="${params} --source_prompts=person@intend@before@seen@after"
+	params="${params} --source_prompts=person@want@before@seen@after"
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
