@@ -982,7 +982,8 @@ class T5Stack(T5PreTrainedModel):
         if self.attn_method == "rb":
             batch_size = inputs_embeds.shape[0]
             router = torch.zeros(target_idx.size()[1],
-                    source_idx.size()[1]).repeat(batch_size, 1, 1)
+                    source_idx.size()[1], 
+                    device=inputs_embeds.device).repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     source_idx[i]]
