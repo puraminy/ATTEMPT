@@ -10,11 +10,12 @@ main_args = {}
 def args(key):
     return main_args[key]
 
-def get_tag(tag, with_label=False):
+def get_tag(tag, args=None):
     _tag = {}
+    if args is None: args = main_args
     for _t in tag:
-        if _t in main_args:
-            val = main_args[_t]
+        if _t in args:
+            val = args[_t]
             if type(val) == list: val = "@".join(val)
             val = str(val).split("/")[-1]
             _tag[_t] = val

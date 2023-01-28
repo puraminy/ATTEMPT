@@ -1905,18 +1905,20 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     
     def load_encoders(self, load_dir = None, load_source_prompts = False):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        prefix = "pt" if not self.attn_tuning else "att"
         for encoder in self.prompt_encoders:
             if not load_source_prompts and encoder.is_source:
                 continue
-            encoder.load(load_dir)
+            encoder.load(load_dir, prefix=prefix)
             encoder.to(device)
 
     def store_encoders(self, output_dir = None, prompts_only=False, 
             save_source_prompts = False):
+        prefix = "pt" if not self.attn_tuning else "att"
         for encoder in self.prompt_encoders:
             if not save_source_prompts and encoder.is_source:
                 continue
-            encoder.save(output_dir)
+            encoder.save(output_dir, prefix=prefix)
         if prompts_only: return
         attn_tuning = self.attn_tuning
         for name, param in self.named_parameters():

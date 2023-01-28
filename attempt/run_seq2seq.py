@@ -251,7 +251,8 @@ def run(ctx, experiment, exp_conf, break_point, preview,
            continue
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
-       title = "@".join(list(mylogs.get_tag(tags).values()))
+       tags_dict = mylogs.get_tag(tags, args)
+       title = "@".join(list(tags_dict.values()))
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
        wandb.init(
@@ -260,7 +261,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
           name=title,
           dir=wandb_dir,
           # Track hyperparameters and run metadata
-          config=args
+          config=tags_dict
        )
        ctx.invoke(train, **args)
        wandb.finish()
@@ -964,9 +965,10 @@ def train(**kwargs):
             model.load_encoders(best_chk_path)
             attention_paths = [os.path.join(best_chk_path, "attn_W_down.pt"), 
                     os.path.join(best_chk_path, "attn_W_up.pt")]
-            trainer.model.update_attention_weights_sub(attention_paths)
-            if model_args.load_layer_norm and "layer_norm_bias.pt" in best_chk_path: 
-                trainer.model.update_layer_norm_weights(best_chk_path)
+            if model_args.attn_tuning:
+                trainer.model.update_attention_weights_sub(attention_paths)
+                if model_args.load_layer_norm and "layer_norm_bias.pt" in best_chk_path: 
+                    trainer.model.update_layer_norm_weights(best_chk_path)
 
         # Save prompts
         if adapter_args.prompt_tuning:
@@ -1101,7 +1103,7 @@ def train(**kwargs):
                     pred = re.sub(r'<.*?>','',pred)
                     pred = pred.strip()
                     df.at[i, "pred_text1"] = pred
-                df.drop(columns=["input_ids","labels","attention_mask"])
+                df = df.drop(columns=["input_ids","labels","attention_mask"])
                 mylogs.bp("test")
                 save_to = os.path.join(training_args.output_dir, 
                         ds_conf + "_results_" + ds_name + ".tsv")
