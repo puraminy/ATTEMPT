@@ -969,9 +969,10 @@ def train(**kwargs):
         if trainer.best_prompt_checkpoint is not None:
             best_chk_path = trainer.best_prompt_checkpoint
             model.load_encoders(best_chk_path)
-            attention_paths = [os.path.join(best_chk_path, "attn_W_down.pt"), 
+            dpath = os.path.join(best_chk_path, "attn_W_down.pt")
+            attention_paths = [dpath, 
                     os.path.join(best_chk_path, "attn_W_up.pt")]
-            if model_args.attn_tuning:
+            if model_args.attn_tuning is True and Path(dpath).is_file():
                 trainer.model.update_attention_weights_sub(attention_paths)
                 if model_args.load_layer_norm and "layer_norm_bias.pt" in best_chk_path: 
                     trainer.model.update_layer_norm_weights(best_chk_path)
