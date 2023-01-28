@@ -461,14 +461,14 @@ def do_score(df, scorers, save_path, reval=False):
 
     scored_df = pd.DataFrame(rows)
     if not reval:
-        df = pd.concat([df, scored_df], axis=1)
+        merged_df = pd.concat([df, scored_df], axis=1)
 
     mlog.info("Saving results %s", save_path)
     save_fname = now + "_full_results.tsv"
     if not save_path.endswith("tsv"):
         save_path = os.path.join(save_path, save_fname) 
     print("Saving results %s", save_path)
-    df.to_csv(save_path, index=False, sep="\t")
+    merged_df.to_csv(save_path, index=False, sep="\t")
 #################
     for metric in [mean_rouge, mean_bert, mean_match, mean_bleu]:
         s =0 
@@ -505,41 +505,49 @@ def do_score(df, scorers, save_path, reval=False):
         logger.info("Distinct preds:{}".format(len(pred_counts)))
 
 #################
+    gdf = scored_df
+    gdf["prefix"] = df["prefix"]
+    gdf["input_text"] = df["input_text"]
+    gdf["target_text"] = df["target_text"]
+    gdf["pred_text1"] = df["pred_text1"]
     group_col = "pred_text1"
-    df["rouge_score"] = df.groupby(['prefix','input_text'])["rouge_score"].transform("max")
-    df["bert_score"] = df.groupby(['prefix','input_text'])["bert_score"].transform("max")
-    df["pred_freq"] = df.groupby(['prefix','pred_text1'],
+    gdf["rouge_score"] = gdf.groupby(['prefix','input_text'])["rouge_score"].transform("max")
+    gdf["bert_score"] = gdf.groupby(['prefix','input_text'])["bert_score"].transform("max")
+    gdf["pred_freq"] = gdf.groupby(['prefix','pred_text1'],
                      sort=False)["pred_text1"].transform("count")
     cols = ['prefix']
-    df = df.merge(df[cols+['pred_text1']]
+    gdf = gdf.merge(gdf[cols+['pred_text1']]
          .value_counts().groupby(cols).head(1)
          .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
        )
 
-    wandb.log({"Test": df})
+    wandb.log({"Test": gdf})
 
 ########################
     col = ["prefix"]
     _agg = {}
-    for c in df.columns:
+    for c in gdf.columns:
         if c.endswith("score"):
             _agg[c] = "mean"
         else:
             _agg[c] = ["first", "nunique"]
-    gb = df.groupby(col)
-    df.columns = [ '_'.join(str(i) for i in col) for col in df.columns]
+    gb = gdf.groupby(col)
+    #counts = gb.size().to_frame(name='group_records')
+    #gdf = (counts.join(gb.agg(_agg)))
+    gdf = gb.agg(_agg)
+    gdf.columns = [ '_'.join(str(i) for i in col) for col in gdf.columns]
     avg_len = 1
     ren = {
             "target_text_nunique":"num_targets",
             "pred_text1_nunique":"num_preds",
             "input_text_nunique":"num_inps",
             }
-    for c in df.columns:
+    for c in gdf.columns:
         if c.endswith("_mean"):
             ren[c] = c.replace("_mean","")
         elif c.endswith("_first"):
             ren[c] = c.replace("_first","")
-    gdf = df.rename(columns=ren)
+    gdf = gdf.rename(columns=ren)
     wandb.log({"Summary": gdf})
 
-    return df
+    return merged_df

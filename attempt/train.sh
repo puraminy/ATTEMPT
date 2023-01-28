@@ -48,16 +48,18 @@ if [ -z "$_bs" ]; then  _bs=8; fi
 
 # eeeee
 if [ -z "$_train" ]; then  _train=True; fi
+if [ -z "$_eval" ]; then  _eval=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  _ep=15; fi
 if [ -n "$_test" ]; then
   _rem=True
-  _tn=2
+  _tn=4
   _vn=2
   _tsn=2 
   _ep=1
+  _eval=False
 fi
 if [ -n "$_all" ]; then
   _tn=-1
@@ -82,6 +84,10 @@ echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 task="xIntent@xAttr@xNeed@xWant@" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+
+if [ -n "$_test" ]; then
+  task="xIntent@"
+fi
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -126,7 +132,7 @@ fi
 params="${params} --do_train=$_train"
 # operations
 params="${params} --do_test=True"
-params="${params} --do_eval=True"
+params="${params} --do_eval=$_eval"
 # Saving
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
@@ -191,11 +197,11 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
-	params="${params} --attn_method=dot"
+	params="${params} --attn_method=rb"
 	params="${params} --attend_source=False#True"
 	params="${params} --attend_target=False#True"
-	params="${params} --attend_input=True#True"
-	params="${params} --add_target=True"
+	params="${params} --attend_input=False#True"
+	params="${params} --add_target=False#True"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
