@@ -909,6 +909,8 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = []
         self.embedding_dim = self.config.hidden_size
         self.task_prompt_ids = []
+        self.router = None
+        self.trunc_router = None
         self.prompt_dim = None
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
