@@ -44,7 +44,7 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
-if [ -z "$_bs" ]; then  _bs=8; fi
+if [ -z "$_bs" ]; then  _bs=32; fi
 
 # eeeee
 if [ -z "$_train" ]; then  _train=True; fi
@@ -52,7 +52,7 @@ if [ -z "$_eval" ]; then  _eval=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=15; fi
+if [ -z "$_ep" ]; then  _ep=10; fi
 if [ -n "$_test" ]; then
   _rem=True
   _tn=4
@@ -83,7 +83,7 @@ for method in $methods; do
 echo "=============================== $method ========================="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@xAttr@xNeed@xWant@" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@xAttr@" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
 if [ -n "$_test" ]; then
   task="xIntent@"
@@ -185,7 +185,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=3"
 	params="${params} --prompt_encoder_type=mlp"
-        params="${params} --template=sup-p0-psh"
+        params="${params} --template=unsup-p0-pt#sup-p0-pt"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
@@ -193,15 +193,15 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
-	params="${params} --source_prompts=they@always@seen"
+	params="${params} --source_prompts=they@always@seen@want@before@after"
 	params="${params} --load_source_prompts=True"
-	params="${params} --attn_learning_rate=0.01"
+	params="${params} --attn_learning_rate=0.001"
 	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=rb"
 	params="${params} --attend_source=True#False"
 	params="${params} --attend_target=False#True"
 	params="${params} --attend_input=False#True"
-	params="${params} --add_target=False#True"
+	params="${params} --add_target=True#False"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];

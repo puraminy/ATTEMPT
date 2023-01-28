@@ -31,7 +31,7 @@ REL_TO_SHARED_TOKENS = {
     "xAttr":"always they seen",
     "xEffect":"after they effect",
     "xIntent":"before they want",
-    "xNeed":"before they require",
+    "xNeed":"before they need",
     "xReact":"after they react",
     "xWant":"after they want",
     'AtLocation':"is located", 
