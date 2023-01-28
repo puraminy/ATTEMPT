@@ -197,7 +197,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.001"
 	params="${params} --attn_tuning=True"
-	params="${params} --attn_method=rb"
+	params="${params} --attn_method=linear"
 	params="${params} --attend_source=True#False"
 	params="${params} --attend_target=False#True"
 	params="${params} --attend_input=False#True"
