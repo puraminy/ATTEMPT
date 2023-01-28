@@ -469,7 +469,42 @@ def do_score(df, scorers, save_path, reval=False):
         save_path = os.path.join(save_path, save_fname) 
     print("Saving results %s", save_path)
     df.to_csv(save_path, index=False, sep="\t")
+#################
+    for metric in [mean_rouge, mean_bert, mean_match, mean_bleu]:
+        s =0 
+        ii = 0
+        jj = 0
+        for key,val in metric.items():
+            metric[key] = str(val) + "--" + str(counter[key])
+            s += float(val)
+            ii += 1
+            jj += counter[key]
+        metric["AVG"] = "{:.2f}--{}".format(s/ii, jj)
 
+    mean_bert_str = json.dumps(mean_bert, indent=2)
+    mean_rouge_str = json.dumps(mean_rouge, indent=2)
+    mean_bleu_str = json.dumps(mean_bleu, indent=2)
+    mean_match_str = json.dumps(mean_match, indent=2)
+    mlog.info("-----------------------------------------------------")
+    pbar.close()
+    pred_counts = df['pred_text1'].unique()
+    mlog.info("Pred counts")
+    vlog.info("Pred counts")
+    if len(pred_counts) < 100:
+        for  r in pred_counts:
+            mlog.info(r)
+            vlog.info(r)
+
+    for logger in [mlog, vlog, clog]:
+        logger.info("Len data frame: {}".format(len(df)))
+        logger.info("Rouge:{} ".format(mean_rouge_str)) 
+        if "bert" in scorers:
+            logger.info("BERT:{} ".format(mean_bert_str)) 
+        #logger.info("nli_counter: {}".format(nli_counter))
+        #logger.info("hyp_counter: {}".format(hyp_counter))
+        logger.info("Distinct preds:{}".format(len(pred_counts)))
+
+#################
     group_col = "pred_text1"
     df["rouge_score"] = df.groupby(['prefix','input_text'])["rouge_score"].transform("max")
     df["bert_score"] = df.groupby(['prefix','input_text'])["bert_score"].transform("max")
@@ -506,42 +541,5 @@ def do_score(df, scorers, save_path, reval=False):
             ren[c] = c.replace("_first","")
     gdf = df.rename(columns=ren)
     wandb.log({"Summary": gdf})
-
-#################
-
-
-    for metric in [mean_rouge, mean_bert, mean_match, mean_bleu]:
-        s =0 
-        ii = 0
-        jj = 0
-        for key,val in metric.items():
-            metric[key] = str(val) + "--" + str(counter[key])
-            s += float(val)
-            ii += 1
-            jj += counter[key]
-        metric["AVG"] = "{:.2f}--{}".format(s/ii, jj)
-
-    mean_bert_str = json.dumps(mean_bert, indent=2)
-    mean_rouge_str = json.dumps(mean_rouge, indent=2)
-    mean_bleu_str = json.dumps(mean_bleu, indent=2)
-    mean_match_str = json.dumps(mean_match, indent=2)
-    mlog.info("-----------------------------------------------------")
-    pbar.close()
-    pred_counts = df['pred_text1'].unique()
-    mlog.info("Pred counts")
-    vlog.info("Pred counts")
-    if len(pred_counts) < 100:
-        for  r in pred_counts:
-            mlog.info(r)
-            vlog.info(r)
-
-    for logger in [mlog, vlog, clog]:
-        logger.info("Len data frame: {}".format(len(df)))
-        logger.info("Rouge:{} ".format(mean_rouge_str)) 
-        if "bert" in scorers:
-            logger.info("BERT:{} ".format(mean_bert_str)) 
-        #logger.info("nli_counter: {}".format(nli_counter))
-        #logger.info("hyp_counter: {}".format(hyp_counter))
-        logger.info("Distinct preds:{}".format(len(pred_counts)))
 
     return df

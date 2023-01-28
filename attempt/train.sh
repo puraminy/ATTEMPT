@@ -187,7 +187,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
-	params="${params} --source_prompts=person@want@before@seen@after"
+	params="${params} --source_prompts=they@want@before@seen@after"
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"

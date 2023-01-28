@@ -586,6 +586,7 @@ def train(**kwargs):
              prompts = {**prompts, **p}
 
         load_prompts = kwargs.setdefault("load_prompts", False) 
+        prompts_prefix = kwargs.setdefault("prompts_prefix", "pt") 
         target_prompts = list(prompts.keys())
         for name, prompt_tokens in prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
@@ -593,7 +594,7 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 
-                encoder.load(prompts_dir)
+                encoder.load(prompts_dir, prompts_prefix)
             prompt_encoders.append(encoder)
 
         load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
