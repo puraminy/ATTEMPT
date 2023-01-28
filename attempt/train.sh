@@ -198,7 +198,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attn_learning_rate=0.01"
 	params="${params} --attn_tuning=True"
 	params="${params} --attn_method=rb"
-	params="${params} --attend_source=False#True"
+	params="${params} --attend_source=True#False"
 	params="${params} --attend_target=False#True"
 	params="${params} --attend_input=False#True"
 	params="${params} --add_target=False#True"
