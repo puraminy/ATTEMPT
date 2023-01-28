@@ -1023,12 +1023,12 @@ def train(**kwargs):
             
             attention_paths = [dpath,
                     os.path.join(training_args.output_dir, "attn_W_up.pt")]
-            trainer.model.update_attention_weights_sub(attention_paths)
-            if (model_args.load_layer_norm is True 
-                    and "layer_norm_bias.pt" in training_args.output_dir 
-                    and Path(dpath).is_file()):
-                trainer.model.update_layer_norm_weights(
-                    training_args.output_dir)
+            if Path(dpath).is_file():
+                trainer.model.update_attention_weights_sub(attention_paths)
+                if (model_args.load_layer_norm is True 
+                        and "layer_norm_bias.pt" in training_args.output_dir):
+                    trainer.model.update_layer_norm_weights(
+                        training_args.output_dir)
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
