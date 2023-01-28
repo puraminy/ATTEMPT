@@ -981,17 +981,18 @@ class T5Stack(T5PreTrainedModel):
         # 1. Bernouli 
         if self.attn_method == "rb":
             batch_size = inputs_embeds.shape[0]
-            router = torch.zeros_like(self.router).repeat(batch_size, 1, 1)
+            router = torch.zeros(target_idx.size()[1],
+                    source_idx.size()[1]).repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     source_idx[i]]
             attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
 
-            z = torch.mm(self.z, self.A) 
-            soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
+            #z = torch.mm(self.z, self.A) 
+            #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         # 2. dot product
-        if self.attn_method == "dot":
+        elif self.attn_method == "dot":
             x = torch.transpose(avg_attend_to, 1,2)
             attn_scores = avg_attend_for.bmm(x)
 
@@ -1078,17 +1079,17 @@ class T5Stack(T5PreTrainedModel):
             attend_num 
         )).uniform_(-1e-3, 1e-3))
 
-        self.z = nn.Parameter(data=torch.empty((
-            attend_num, 
-            intrinsic_dim
-        )).uniform_(-1e-3, 1e-3))
-
-        bound = 1 / math.sqrt(prompt_dim * self.model_dim)
-        self.A = nn.Parameter(data=torch.empty((
-            intrinsic_dim,
-            prompt_dim * self.model_dim 
-        )).uniform_(-bound, bound))
-
+#        self.z = nn.Parameter(data=torch.empty((
+#            attend_num, 
+#            intrinsic_dim
+#        )).uniform_(-1e-3, 1e-3))
+#
+#        bound = 1 / math.sqrt(prompt_dim * self.model_dim)
+#        self.A = nn.Parameter(data=torch.empty((
+#            intrinsic_dim,
+#            prompt_dim * self.model_dim 
+#        )).uniform_(-bound, bound))
+#
 
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)

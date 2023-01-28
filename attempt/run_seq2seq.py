@@ -855,8 +855,13 @@ def train(**kwargs):
     attn_params = []
     if model_args.attn_learning_rate is not None:
         for name, param in model.named_parameters():
-            if name == "encoder.attn_W_up" or name == "encoder.attn_W_down" or name == "encoder.layer_norm":
-                attn_params += list(param)
+            if (name == "encoder.attn_W_up.weight" 
+                or name == "encoder.attn_W_down.weight" 
+                or name == "encoder.layer_norm.weight"):
+                attn_params.append(param)
+            if name == "encoder.router":
+                attn_params.append(param)
+
         attn_params = set(attn_params)
         grouped_params.append({'params': list(attn_params), 
             'lr': model_args.attn_learning_rate})

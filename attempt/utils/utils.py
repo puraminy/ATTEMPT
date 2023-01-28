@@ -129,6 +129,11 @@ def unfreeze_attn_params(model, adapter_args, adapter_config):
             if "prefix_shared" == n and adapter_config.attend_target is True:
                 m.requires_grad = True
 
+    elif adapter_config.attn_method == "rb":
+        for n, m in model.named_parameters():
+            if "encoder.router" == n:
+                m.requires_grad = True
+
     elif adapter_config.attn_method == "sub":
         for n, m in model.named_parameters():
             if "encoder.attn_W_down.weight" == n and adapter_config.fix_attention is False:
