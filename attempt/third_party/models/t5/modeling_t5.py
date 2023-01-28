@@ -972,56 +972,55 @@ class T5Stack(T5PreTrainedModel):
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             src_prompts[:,0,:,:] = avg_inputs_embeds
-        avg_src_prompts, _ = torch.max(src_prompts, 2)
-
-        base = target_prompts #.view(inputs_embeds.shape[0], -1, self.model_dim)
-        avg_base_embeds, _ = torch.max(base ,2)
+        attend_to = src_prompts
+        attend_for = target_prompts
+        avg_attend_to, _ = torch.max(src_prompts, 2)
+        avg_attend_for, _ = torch.max(target_prompts ,2)
 
         # 1. Bernouli 
         if self.attn_method == "rb":
             attn_scores = RelaxedBernoulli(temperature=self.temperature, 
-                    logits=src_prompts).rsample()            
+                    logits=attend_to).rsample()            
             #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
             #attn_scores = (attn_scores / (attn_scores.sum(dim=-1, keepdim=True) + 1e-12))  
-            #soft_prompts = torch.matmul(attn_scores, src_prompts).view(-1, self.embedding_dim)
+            #soft_prompts = torch.matmul(attn_scores, attend_to).view(-1, self.embedding_dim)
         # 2. dot product
         if self.attn_method == "dot":
-            avg_base_embeds = avg_base_embeds.unsqueeze(-1)
-            attn_scores = avg_src_prompts.bmm(
-                avg_base_embeds).squeeze(-1)
+            attn_scores = avg_attend_for.bmm(
+                avg_attend_to).squeeze(-1)
 
         elif self.attn_method == "linear":
             # 3. linear
-            x = self.attn_Wa(avg_base_embeds)
+            x = self.attn_Wa(avg_attend_to)
             x = self.layer_norm(x)
             x = x.unsqueeze(-1)
-            attn_scores = avg_src_prompts.bmm(
+            attn_scores = avg_attend_for.bmm(
                 x).squeeze(-1) / self.temperature
 
         elif self.attn_method == "sub":
-            x = self.attn_W_down(avg_base_embeds)
+            x = self.attn_W_down(avg_attend_to)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
             #x = x.unsqueeze(-1)
             x = torch.transpose(x, 1,2)
-            attn_scores = avg_src_prompts.bmm(
+            attn_scores = avg_attend_for.bmm(
                 x).squeeze(-1) / self.temperature
 
         # implement token level model
         elif self.attn_method == "token":
-            x = self.attn_W_down(avg_base_embeds)
+            x = self.attn_W_down(avg_attend_to)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
             x = x.unsqueeze(-1)
             attn_scores = torch.einsum(
-                "bpld,bdk->bplk", src_prompts, x) / self.temperature
+                "bpld,bdk->bplk", attend_for, x) / self.temperature
 
         elif self.attn_method == "constant":
             # FIXME: more efficient implementation
-            attn_scores = (torch.ones(src_prompts.size(
-                0), src_prompts.size(1)) / src_prompts.size(1)).cuda()
+            attn_scores = (torch.ones(attend_to.size(
+                0), attend_to.size(1)) / attend_to.size(1)).cuda()
         else:
             raise NotImplementedError
 
@@ -1030,11 +1029,11 @@ class T5Stack(T5PreTrainedModel):
             if normalized_attn_scores.dim() == 2:
                 normalized_attn_scores = normalized_attn_scores.unsqueeze(2)
             soft_prompts = torch.einsum(
-                'bpq, bpld -> bqld', normalized_attn_scores, src_prompts)
+                'bqp, bpld -> bqld', normalized_attn_scores, attend_to)
         elif self.attn_method == "token":
             normalized_attn_scores = F.softmax(attn_scores, 1)
             soft_prompts = torch.einsum(
-                'bplk, bpld -> bld', normalized_attn_scores, src_prompts)
+                'bplk, bpld -> bld', normalized_attn_scores, attend_to)
         else:
             raise NotImplementedError
 
@@ -1130,8 +1129,8 @@ class T5Stack(T5PreTrainedModel):
                             add_target = self.add_target)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     for i in range(batch_size):
-                        self.attn_scores[source_idx[i].reshape(-1,1), 
-                                target_idx[i]] = attn_scores[i]
+                        self.attn_scores[target_idx[i].reshape(-1,1), 
+                                source_idx[i]] = attn_scores[i]
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
