@@ -521,7 +521,8 @@ def do_score(df, scorers, save_path, reval=False):
          .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
        )
 
-    wandb.log({"Test": gdf})
+    res_table = wandb.Table(dataframe=gdf)
+    wandb.log({"Results": res_table})
 
 ########################
     col = ["prefix"]
@@ -548,6 +549,7 @@ def do_score(df, scorers, save_path, reval=False):
         elif c.endswith("_first"):
             ren[c] = c.replace("_first","")
     gdf = gdf.rename(columns=ren)
-    wandb.log({"Summary": gdf})
+    gtable = wandb.Table(dataframe=gdf)
+    wandb.log({"Summary": gtable})
 
     return merged_df
