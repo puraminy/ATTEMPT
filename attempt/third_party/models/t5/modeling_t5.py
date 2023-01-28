@@ -987,9 +987,15 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     source_idx[i]]
-            attn_scores = RelaxedBernoulli(temperature=self.temperature, 
+            if True:
+                attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
-
+            elif self.trunc_router == "sigmoid":
+                attn_scores = torch.sigmoid(router)  # layer * n_prompts
+            else:
+                with torch.no_grad():
+                    attn_scores[attn_scores <= 0] = 0
+                    attn_scores[attn_scores > 0] = 1
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         # 2. dot product

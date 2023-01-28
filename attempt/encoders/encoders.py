@@ -169,12 +169,6 @@ class MatPromptEncoder(PromptEncoder):
         self.prefix_config = prefix_config
         if prefix_config is not None:
             self.temperature = self.prefix_config['temperature']
-
-            self.router = nn.Parameter(data=torch.empty((
-                prefix_config['n_tasks'],
-                prefix_config['n_prompts']
-            )).uniform_(-1e-3, 1e-3))
-
             self.z = nn.Parameter(data=torch.empty((
                 prefix_config['n_prompts'],
                 prefix_config['intrinsic_dim']
@@ -186,39 +180,8 @@ class MatPromptEncoder(PromptEncoder):
                 prefix_config['n_prompt_tokens'] * self.embedding_dim
             )).uniform_(-bound, bound), requires_grad=False)
 
-    def learn_router(self, tids=None, training=True):
-        if self.router is None:
-            return None
-        if tids is not None:
-            task_id = tids[0]
-        router = self.router[task_id] # torch.index_select(self.router, 0, tids)
-        if training and (not self.router.requires_grad or not self.is_learned):
-            return router
-        if self.init_flag:
-            mylogs.tinfo("Initial Router: %s", self.router)
-            self.init_flag = False
-        if training:
-            router = RelaxedBernoulli(temperature=self.temperature, logits=router).rsample()            # layer * n_prompts
-        else:
-            if logs.args("trunc_router") == "sigmoid":
-                mylogs.tinfo("Trunc:===================TRUNC=====Sigmoid===========")
-                router = torch.sigmoid(router)  # layer * n_prompts
-            elif logs.main_args["trunc_router"] == "sign":
-                with torch.no_grad():
-                    mylogs.tinfo("Trunc:===================TRUNC======SIGN======")
-                    mylogs.tinfo("Router Before relu: %s", router)
-                    router[router <= 0] = 0
-                    router[router > 0] = 1
-                    mylogs.tinfo("Router After relu: %s", router)
-        router = (router / (router.sum(dim=-1, keepdim=True) + 1e-12))  
-        # layer * 1 * n_prompts
-        return router
-
     def forward_step(self, index_list, tids=None, training=True):
-        router = self.learn_router(tids)
-        z = torch.mm(self.z, self.A) if not hasattr(self, 'prompt') else self.prompt
-        #ret_embeds = torch.matmul(router.unsqueeze(0), z).view(-1, self.embedding_dim)
-        running_weight = torch.matmul(router, z).view(-1, self.embedding_dim)
+        running_weight = torch.mm(self.z, self.A) 
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds 
 
