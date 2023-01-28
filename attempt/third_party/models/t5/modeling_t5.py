@@ -964,7 +964,8 @@ class T5Stack(T5PreTrainedModel):
         self.device_map = None
 
     ################# MyCode fffffffffff
-    def attend_prompts(self, inputs_embeds, src_prompts, target_prompts, add_target):
+    def attend_prompts(self, inputs_embeds, src_prompts, 
+            target_prompts, add_target, source_idx=None, target_idx =None):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         if self.attend_input:
@@ -979,11 +980,16 @@ class T5Stack(T5PreTrainedModel):
 
         # 1. Bernouli 
         if self.attn_method == "rb":
+            batch_size = inputs_embeds.shape[0]
+            router = torch.zeros_like(self.router).repeat(batch_size, 1, 1)
+            for i in range(batch_size):
+                router[i] = self.router[target_idx[i].reshape(-1,1), 
+                                    source_idx[i]]
             attn_scores = RelaxedBernoulli(temperature=self.temperature, 
-                    logits=attend_to).rsample()            
-            #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-            #attn_scores = (attn_scores / (attn_scores.sum(dim=-1, keepdim=True) + 1e-12))  
-            #soft_prompts = torch.matmul(attn_scores, attend_to).view(-1, self.embedding_dim)
+                    logits=router).rsample()            
+
+            z = torch.mm(self.z, self.A) 
+            soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         # 2. dot product
         if self.attn_method == "dot":
             x = torch.transpose(avg_attend_to, 1,2)
@@ -1066,6 +1072,23 @@ class T5Stack(T5PreTrainedModel):
                     i+=1
 
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
+        intrinsic_dim = 200
+        self.router = nn.Parameter(data=torch.empty((
+            attend_num,
+            attend_num 
+        )).uniform_(-1e-3, 1e-3))
+
+        self.z = nn.Parameter(data=torch.empty((
+            attend_num, 
+            intrinsic_dim
+        )).uniform_(-1e-3, 1e-3))
+
+        bound = 1 / math.sqrt(prompt_dim * self.model_dim)
+        self.A = nn.Parameter(data=torch.empty((
+            intrinsic_dim,
+            prompt_dim * self.model_dim 
+        )).uniform_(-bound, bound))
+
 
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
@@ -1122,7 +1145,8 @@ class T5Stack(T5PreTrainedModel):
                     soft_prompts, attn_scores = self.attend_prompts(inputs_embeds, 
                             src_prompts = src_prompts, 
                             target_prompts = target_prompts,
-                            add_target = self.add_target)
+                            add_target = self.add_target, 
+                            source_idx=source_idx, target_idx=target_idx)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
