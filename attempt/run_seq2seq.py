@@ -188,7 +188,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["load_path"] = "" 
    if not download_model:
        args["load_path"] = mylogs.pretPath 
-   args["experiment"] = "!" + experiment 
+   args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
@@ -218,11 +218,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
 
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
-
+   inp_exp_vars = exp_vars
    if not exp_vars:
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
-       exp_vars = [exp_vars]
+       exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
        log_var = exp_vars[0]
    args["log_var"] = log_var 
@@ -232,10 +232,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            exclude_list.append(vv)
       if len(cc) > 1:
            full_tags.append(vv)
+           values[ii] = [x.strip("!") for x in cc if not x.startswith("!")] 
            if exp_vars and not vv in exp_vars:
-               values[ii] = [cc[0]] # ignore the rest of values for this item 
+               values[ii] = [cc[0].strip("!")] # ignore the rest of values for this item 
 
-   for pv in exp_vars:
+   for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
    tags = full_tags if not exp_vars else exp_vars
 
@@ -258,7 +259,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
-       args["output_dir"] = "!" + os.path.join(save_path, 
+       args["output_dir"] = "%" + os.path.join(save_path, 
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
        if preview == "conf":

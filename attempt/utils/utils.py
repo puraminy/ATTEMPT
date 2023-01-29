@@ -54,7 +54,7 @@ class dotdict(dict):
 def strval(inp):
    if type(inp) != str:
       return inp
-   if inp.startswith("!"): 
+   if inp.startswith("%"): 
       return inp[1:]
    arr = []
    inp = str(inp)
