@@ -117,6 +117,7 @@ def add_handler(logger, fname, set_format=False):
     if set_format:
         handler.setFormatter(FORMAT)
     logger.addHandler(handler)
+    return logFilename
 
 Path("logs").mkdir(parents=True, exist_ok=True)
 

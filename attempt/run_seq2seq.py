@@ -192,7 +192,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
-   args["log_var"] = log_var 
    tags = exp_args["tag"] if "tag" in exp_args else [] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else [] 
    if break_point:
@@ -226,6 +225,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        exp_vars = [exp_vars]
    if exp_vars and not log_var:
        log_var = exp_vars[0]
+   args["log_var"] = log_var 
    var_names = [vv.strip("!") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) == 1:
@@ -632,6 +632,15 @@ def train(**kwargs):
             source_prompts, adapter_args.num_prompt_tokens, load_source_prompts)
         model.resize_token_embeddings(len(tokenizer))
 
+    if log_var and preview == "encoders":
+        mylogs.plog.info("======== Number of encoders: %s", len(prompt_encoders))
+        for ii, e in enumerate(prompt_encoders):
+            mylogs.plog.info("%s) Name:%s, length: %s", ii, e.name, e.length)
+            mylogs.plog.info("Tokens:%s", e.prompt_tokens)
+            mylogs.plog.info("Ids:%s ", e.prompt_ids)
+            mylogs.plog.info(e)
+        return 
+
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
@@ -667,7 +676,7 @@ def train(**kwargs):
         if preview == "data":
             mylogs.plog.info("sourece: %s", examples["source"][:3])
             mylogs.plog.info("target: %s", examples["target"][:3])
-            exit()
+
         if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
@@ -750,7 +759,8 @@ def train(**kwargs):
         else:
             train_dataset = my_interleave_datasets(train_datasets, 
                 batch_size=training_args.per_device_train_batch_size)
-
+    if preview == "data":
+       return 
     if training_args.do_eval:
         if data_args.validation_files is not None:
             eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
