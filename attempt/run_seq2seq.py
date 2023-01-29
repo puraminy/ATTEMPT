@@ -245,6 +245,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    ii = 0
    orig_args = args.copy()
    total = len(tot_comb)
+   args["total_exp"] = total
    logger.info("Total experiments:%s", total)
    for comb in tot_comb:
        _output_dir = [output_dir]

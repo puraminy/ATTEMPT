@@ -114,9 +114,10 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
     ) -> Dict[str, float]:
         self._max_length = max_length
         self._num_beams = num_beams,
-        print("======================================")
-        print("Evaluation ")
-        print("======================================")
+        print("=================== Evaluation ==================")
+        print("Experiment: ", mylogs.args("expid"), " of ", mylogs.args("total_exp"))
+        print("Tags: ", mylogs.get_tag(as_str=True)
+        print("=================================================")
         if eval_dataset is None and self.eval_dataset is None:
             if self.args.do_eval:
                 raise ValueError("Trainer: evaluation requires an eval_dataset.")
