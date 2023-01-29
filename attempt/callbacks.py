@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from transformers.integrations import WandbCallback
 from math import floor
+import attempt.mylogs as mylogs
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
@@ -19,10 +20,17 @@ class WBCallback(WandbCallback):
                     xticklabels=labels,
                     yticklabels=labels,
                     linewidth=0.5)
+            title = mylogs.get_tag(as_str=True)
+            if not "attend_source" in title: 
+                title += " | attend_source:" + str(encoder.attend_source) 
+            if not "attend_input" in title: 
+                title += " | attend_input:" + str(encoder.attend_input) 
+            if not "attend_target" in title: 
+                title += " | attend_target:" + str(encoder.attend_target) 
+            if not "attn_method" in title: 
+                title += " | attn_method:" + str(encoder.attn_method)
+            ax.set_title(title)
             plt.tight_layout()
-            ax.set_title("attend_source:" + str(encoder.attend_source) \
-                      + " | attend_input:" + str(encoder.attend_input) \
-                      + " | attend_target:" + str(encoder.attend_target))
             wandb.log({"attn_scores":wandb.Image(ax)})
             plt.close("all")
 
