@@ -7,7 +7,7 @@ from pathlib import Path
 
 main_args = {}
 
-def args(key, default):
+def args(key, default="no_default"):
     if key in main_args:
         return main_args[key]
     else:

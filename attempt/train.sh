@@ -88,7 +88,7 @@ for method in $methods; do
 echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@#xAttr@#xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@#xAttr@" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
 if [ -n "$_test" ]; then
   task="xIntent@"
