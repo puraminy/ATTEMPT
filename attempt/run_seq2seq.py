@@ -221,13 +221,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
 
    if not exp_vars:
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
-   exp_vars_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
    elif type(exp_vars) != list:
        exp_vars = [exp_vars]
    if exp_vars and not log_var:
        log_var = exp_vars[0]
    args["log_var"] = log_var 
+   exp_vars_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
    var_names = [vv.strip("!") for vv in var_names]
+   var_names = [vv.strip("@") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) == 1:
            exclude_list.append(vv)
