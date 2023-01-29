@@ -581,14 +581,27 @@ def train(**kwargs):
         mylogs.bp("prompts")
         tasks = data_args.task_name
         n_tasks = len(tasks)
+        task_prompts = {}
         for task in tasks:
              p = AutoTask.get(task, None, task_args=task_args).get_prompts()
              prompts = {**prompts, **p}
+             if not task in task_prompts:
+                 task_prompts[task] = []
+             for k,v in p.items():
+                 task_prompts[task].extend(v)
 
+        for name, prompt_tokens in prompts.items():
+            extend_tokenizer(tokenizer, prompt_tokens)
+
+        per_task_encoders = kwargs.setdefault("per_task_encoders", False) 
+        encoders_prompts = prompts
+        if per_task_encoders is True:
+            encoders_prompts = task_prompts
+        model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         prompts_prefix = kwargs.setdefault("prompts_prefix", "pt") 
         target_prompts = list(prompts.keys())
-        for name, prompt_tokens in prompts.items():
+        for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type) 
             if kwargs.setdefault("init_from_words", False):

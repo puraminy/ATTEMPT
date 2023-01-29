@@ -35,14 +35,12 @@ class PromptEncoder(torch.nn.Module):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.net_inps = torch.arange(self.length, device=self.device)
 
-        self.prompt_ids = self.add_tokens(prompt_tokens, model, tokenizer)
+        self.prompt_ids = self.get_prompt_ids(prompt_tokens, model, tokenizer)
         self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
         self.id_offset = min(self.prompt_ids) if self.prompt_ids else 0 
         self.is_source = False
 
-    def add_tokens(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
-        extend_tokenizer(tokenizer, prompt_tokens)
-        model.resize_token_embeddings(len(tokenizer))
+    def get_prompt_ids(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
         prompt_ids = tokenizer.convert_tokens_to_ids(prompt_tokens)
 
         if not init_emb_flag:
@@ -57,6 +55,7 @@ class PromptEncoder(torch.nn.Module):
                 emb = cur_embeddings.weight[pid,:].detach().clone() 
                 init_embs[pid] = emb
 
+        # init from words
         for pid, p in enumerate(prompt_tokens):
             if "_" in p:
                q = p.strip("<").strip(">")
