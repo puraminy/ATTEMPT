@@ -610,9 +610,9 @@ def train(**kwargs):
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
 
-        per_task_encoders = kwargs.setdefault("per_task_encoders", False) 
+        prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
         encoders_prompts = prompts
-        if per_task_encoders is True:
+        if prompt_sharing == "shared_tokens":
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
