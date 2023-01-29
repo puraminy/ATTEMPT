@@ -113,6 +113,7 @@ if [ "$method" = "files" ]; then
 fi
 
 params="${params} --method=$method"
+params="${params} --!tt=True#False"
 
 # data  ddddd
 params="${params} --data_path=atomic2020"
