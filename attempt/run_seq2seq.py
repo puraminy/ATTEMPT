@@ -273,16 +273,18 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        title = "@".join(list(tags_dict.values()))
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
-       wandb.init(
-          # Set the project where this run will be logged
-          project= experiment.replace("#","-"), 
-          name=title,
-          dir=wandb_dir,
-          # Track hyperparameters and run metadata
-          config=tags_dict
-       )
+       if not preview:
+           wandb.init(
+              # Set the project where this run will be logged
+              project= experiment.replace("#","-"), 
+              name=title,
+              dir=wandb_dir,
+              # Track hyperparameters and run metadata
+              config=tags_dict
+           )
        ctx.invoke(train, **args)
-       wandb.finish()
+       if not preview:
+           wandb.finish()
 
 @cli.command()
 def train(**kwargs):
@@ -597,7 +599,7 @@ def train(**kwargs):
 
         # mmmmmmmmmmmmm Add target prompts
         prompts = {}
-        mylogs.bp("prompts")
+        prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
         tasks = data_args.task_name
         n_tasks = len(tasks)
         task_prompts = {}
@@ -612,7 +614,6 @@ def train(**kwargs):
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
 
-        prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
         encoders_prompts = prompts
         if prompt_sharing == "shared_tokens":
             encoders_prompts = task_prompts
