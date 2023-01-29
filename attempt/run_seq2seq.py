@@ -206,22 +206,25 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
 
-   tag_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
+   if not preview:
+       preview = [vv.strip("!") for vv in var_names if vv.startswith("!")]
+   elif type(preview) != list and preview != "all":
+       preview = [preview]
    var_names = [vv.strip("!") for vv in var_names]
-   for vv, cc in zip(var_names, values):
-       if len(cc) == 1:
+   for ii, (vv, cc) in enumerate(zip(var_names, values)):
+      if len(cc) == 1:
            exclude_list.append(vv)
-       if len(cc) > 1:
+      if len(cc) > 1:
            full_tags.append(vv)
-           if not vv in tag_exclude: tags.append(vv)
-           if preview and not preview == "all": 
-               if not vv in preview and not vv in tag_exclude:
-                   var_names.remove(vv)
-                   values.remove(cc)
+           if preview and not vv in preview:
+               values[ii] = [cc[0]] # ignore the rest of values for this item 
 
-   if preview and not preview in tags and not preview == "all": 
-      print("Eror:", preview, " must be all or one of ", tags, " which have multiple values")
-      return
+   if preview and not preview == "all": 
+      for pv in preview:
+         assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
+      tags = preview
+   else:
+      tags = full_tags
 
    args["tag"] = tags 
    args["full_tag"] = full_tags 

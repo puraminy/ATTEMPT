@@ -51,6 +51,7 @@ from torch.distributions.relaxed_bernoulli import RelaxedBernoulli
 from attempt.encoders.encoders import * 
 from attempt.adapters import AdapterController
 from typing import Dict, Any
+import attempt.mylogs as mylogs
 
 
 logger = logging.get_logger(__name__)
@@ -1117,6 +1118,8 @@ class T5Stack(T5PreTrainedModel):
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
+            tt = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+                                          device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] if self.attend_input else [] 
             target_prompts_list = []
@@ -1134,11 +1137,15 @@ class T5Stack(T5PreTrainedModel):
                     prompt_embeds = out.to(device)
                     target_prompts_clone = target_prompts.clone()
                     target_prompts_clone[target_masks] = prompt_embeds
+                    tt[target_masks] = prompt_embeds
                     target_prompts_list.append(target_prompts_clone)
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 
             mask = target_prompts !=0
-            target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+            if mylogs.args("tt"):
+                target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+            else:
+                target_prompts = tt
             if self.attn_prompt_tuning:
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
