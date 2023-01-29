@@ -115,7 +115,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self._max_length = max_length
         self._num_beams = num_beams,
         print("=================== Evaluation ==================")
-        print("Experiment: ", mylogs.args("expid"), " of ", mylogs.args("total_exp"))
+        print("Experiment: ", mylogs.args("expid"), "/", mylogs.args("total_exp"))
         print("Tags: ", mylogs.get_tag(as_str=True))
         print("=================================================")
         if eval_dataset is None and self.eval_dataset is None:

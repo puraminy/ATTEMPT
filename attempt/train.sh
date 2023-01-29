@@ -53,7 +53,7 @@ if [ -z "$_bs" ]; then  _bs=32; fi
 
 # eeeee
 if [ -z "$_train" ]; then  _train=True; fi
-if [ -z "$_eval" ]; then  _eval=True; fi
+if [ -z "$_eval" ]; then  _eval=False; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
@@ -189,8 +189,8 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=3"
-	params="${params} --prompt_encoder_type=mlp"
-	params="${params} --prompt_sharing=shared_tokens#shared_encoders"
+	params="${params} --!prompt_encoder_type=mlp#lstm"
+	params="${params} --!prompt_sharing=shared_tokens#shared_encoders"
         params="${params} --template=unsup-p0-psh#sup-p0-pt#sup-p0-psh#unsup-p0-pt"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"

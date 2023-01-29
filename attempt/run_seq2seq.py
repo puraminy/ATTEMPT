@@ -262,7 +262,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
        if preview == "conf":
-           print(f"================ {ii} / {total} =====================")
+           print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
            print(exp_conf)
            continue
