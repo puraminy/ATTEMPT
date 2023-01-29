@@ -971,6 +971,7 @@ class T5Stack(T5PreTrainedModel):
             target_prompts, add_target, source_idx=None, target_idx =None):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
+        mylogs.bp("att")
         if self.attend_input:
             pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
@@ -1111,14 +1112,13 @@ class T5Stack(T5PreTrainedModel):
     # ppppppppppp
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
         if len(self.prompt_encoders) > 0:
+            mylogs.bp("fwd")
             tids = task_ids
             device=input_ids.device
             batch_size = inputs_embeds.shape[0]
             prompt_masks = self.get_prompt_token_fn(input_ids)
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
-                                          device=device) 
-            tt = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] if self.attend_input else [] 
@@ -1137,7 +1137,6 @@ class T5Stack(T5PreTrainedModel):
                     prompt_embeds = out.to(device)
                     target_prompts_clone = target_prompts.clone()
                     target_prompts_clone[target_masks] = prompt_embeds
-                    tt[target_masks] = prompt_embeds
                     target_prompts_list.append(target_prompts_clone)
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 

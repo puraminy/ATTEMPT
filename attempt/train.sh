@@ -90,9 +90,6 @@ echo "==================method: $method === epochs: $_ep ===== samples: $_train 
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 task="xIntent@xAttr@xNeed" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
-if [ -n "$_test" ]; then
-  task="xIntent@"
-fi
 main_params=$params
 if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
@@ -124,7 +121,11 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --overwrite_cache=True"
 
 # task
-params="${params} --@task_name=$task"
+if [ -n "$_test" ]; then
+   params="${params} --task_name=$task"
+else
+   params="${params} --@task_name=$task"
+fi
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
 
@@ -191,7 +192,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --num_prompt_tokens=3#1"
 	params="${params} --prompt_encoder_type=mlp#emb#!lstm"
 	params="${params} --prompt_sharing=shared_tokens#shared_encoders"
-        params="${params} --template=unsup-p0-psht#unsup-p0-psh#!sup-p0-psh" 
+        params="${params} --template=unsup-p0-psh#unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
