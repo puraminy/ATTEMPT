@@ -13,18 +13,23 @@ def args(key, default):
     else:
         return default
 
-def get_tag(tag, args=None):
-    _tag = {}
+def get_tag(tags=None, args=None, as_str=False):
     if args is None: args = main_args
-    for _t in tag:
+    if tags is None: tags = args["tag"]
+    tag_dict = {}
+    tag_str = ""
+    for _t in tags:
         if _t in args:
             val = args[_t]
             if type(val) == list: val = "@".join(val)
             val = str(val).split("/")[-1]
-            _tag[_t] = val
+            tag_dict[_t] = val
+            tag_str += "|" + _t + "=" + val
         else:
-            _tag[_t] = ""
-    return _tag
+            tag_dict[_t] = ""
+    if as_str:
+        return tag_str
+    return tag_dict
 
 tehran = timezone('Asia/Tehran')
 now = datetime.datetime.now(tehran)
