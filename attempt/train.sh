@@ -57,7 +57,7 @@ if [ -z "$_eval" ]; then  _eval=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=10; fi
+if [ -z "$_ep" ]; then  _ep=20; fi
 if [ -n "$_test" ]; then
   _rem=True
   _tn=4
@@ -85,7 +85,7 @@ fi
 if [ -z "$_exp" ]; then _exp=noname; fi
 if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
-echo "=============================== $method ========================="
+echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
 task="xIntent@#xAttr@#xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
