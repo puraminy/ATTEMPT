@@ -1002,6 +1002,10 @@ def train(**kwargs):
             end = torch.cuda.Event(enable_timing=True)
             start.record()
 
+        print("=================== Training ====================")
+        print("Experiment: ", mylogs.args("expid"), "/", mylogs.args("total_exp"))
+        print("Tags: ", mylogs.get_tag(as_str=True))
+        print("=================================================")
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
 
         if training_args.compute_time:
