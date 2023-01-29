@@ -1119,6 +1119,7 @@ class T5Stack(T5PreTrainedModel):
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] if self.attend_input else [] 
+            target_prompts_list = []
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
                     source_idx_list.append(ii)
@@ -1131,8 +1132,13 @@ class T5Stack(T5PreTrainedModel):
                     #call forwards on prompt encoder whose outputs are prompt embeddings
                     out = encoder(prompt_input_ids, tids)
                     prompt_embeds = out.to(device)
-                    target_prompts[target_masks] = prompt_embeds
+                    target_prompts_clone = target_prompts.clone()
+                    target_prompts_clone[target_masks] = prompt_embeds
+                    target_prompts_list.append(target_prompts_clone)
                     target_idx[target_masks] = ii
+            target_prompts = torch.stack(target_prompts_list) 
+            mask = target_prompts !=0
+            target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
