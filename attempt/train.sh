@@ -124,7 +124,7 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --overwrite_cache=True"
 
 # task
-params="${params} --task_name=$task"
+params="${params} --@task_name=$task"
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
 
