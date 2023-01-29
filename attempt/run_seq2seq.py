@@ -220,7 +220,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    values = list(var_dict.values())
 
    if not exp_vars:
-       exp_vars = [vv.strip("!") for vv in var_names if vv.startswith("!")]
+       exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
+   exp_vars_exclude = [vv.strip("!") for vv in var_names if vv.startswith("!")]
    elif type(exp_vars) != list:
        exp_vars = [exp_vars]
    if exp_vars and not log_var:
@@ -232,7 +233,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            exclude_list.append(vv)
       if len(cc) > 1:
            full_tags.append(vv)
-           if exp_vars and not vv in exp_vars:
+           if ((exp_vars and not vv in exp_vars) 
+               or (exp_vars_exclude and vv in exp_vars_exclude)):
                values[ii] = [cc[0]] # ignore the rest of values for this item 
 
    for pv in exp_vars:
