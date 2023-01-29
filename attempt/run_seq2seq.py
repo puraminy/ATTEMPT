@@ -116,9 +116,22 @@ def cli():
 @click.option(
     "--preview",
     "-pv",
-    default="",
     type=str,
-    help="The name of an experiment variable for which you want to check the difference of its values"
+    help="Show only experiment configuraton or some data"
+)
+@click.option(
+    "--exp_vars",
+    "-ev",
+    type=str,
+    default="",
+    help="The name of experiment multi-valued variables for which you want to check the difference of their values, if not given it runs all combinations"
+)
+@click.option(
+    "--log_var",
+    "-lv",
+    type=str,
+    default="",
+    help="The name of an experiment multi-valued variables for which you want to log some data in a logfile names varied with the different values of the varibale"
 )
 @click.option(
     "--debug",
@@ -146,7 +159,7 @@ def cli():
     help="Whether download pretrained model or load it from a directory"
 )
 @click.pass_context
-def run(ctx, experiment, exp_conf, break_point, preview, 
+def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, 
         debug, trial, rem, download_model):
    if debug:
        port = "1234"
@@ -179,6 +192,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
+   args["log_var"] = log_var 
    tags = exp_args["tag"] if "tag" in exp_args else [] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else [] 
    if break_point:
@@ -206,25 +220,24 @@ def run(ctx, experiment, exp_conf, break_point, preview,
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
 
-   if not preview:
-       preview = [vv.strip("!") for vv in var_names if vv.startswith("!")]
-   elif type(preview) != list and preview != "all":
-       preview = [preview]
+   if not exp_vars:
+       exp_vars = [vv.strip("!") for vv in var_names if vv.startswith("!")]
+   elif type(exp_vars) != list:
+       exp_vars = [exp_vars]
+   if exp_vars and not log_var:
+       log_var = exp_vars[0]
    var_names = [vv.strip("!") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) == 1:
            exclude_list.append(vv)
       if len(cc) > 1:
            full_tags.append(vv)
-           if preview and not vv in preview:
+           if exp_vars and not vv in exp_vars:
                values[ii] = [cc[0]] # ignore the rest of values for this item 
 
-   if preview and not preview == "all": 
-      for pv in preview:
-         assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
-      tags = preview
-   else:
-      tags = full_tags
+   for pv in exp_vars:
+       assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
+   tags = full_tags if not exp_vars else exp_vars
 
    args["tag"] = tags 
    args["full_tag"] = full_tags 
@@ -247,7 +260,7 @@ def run(ctx, experiment, exp_conf, break_point, preview,
        args["output_dir"] = "!" + os.path.join(save_path, 
                                          args["method"] + "-" + args["trial"], 
                                          *_output_dir)
-       if preview == "all":
+       if preview == "conf":
            print(f"================ {ii} / {total} =====================")
            exp_conf = json.dumps(args, indent=2)
            print(exp_conf)
@@ -284,6 +297,7 @@ def train(**kwargs):
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
+    log_var = kwargs.setdefault("log_var","")
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
@@ -391,9 +405,9 @@ def train(**kwargs):
         if not resolved:
             return
 
-    if preview:
+    if log_var:
        mylogs.plog.handlers.clear()
-       mylogs.add_handler(mylogs.plog, preview + "_" + str(kwargs[preview]))
+       mylogs.add_handler(mylogs.plog, log_var + "_" + str(kwargs[log_var]))
        mylogs.plog.info(exp_conf)
     ###### Collect experiment infos
     exp_info = {}
@@ -650,9 +664,10 @@ def train(**kwargs):
     def preprocess_function(examples, max_target_length, task_id=None):
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
-        if preview:
-            mylogs.plog.info("sourece: %s", examples["source"][:1])
-            mylogs.plog.info("target: %s", examples["target"][:1])
+        if preview == "data":
+            mylogs.plog.info("sourece: %s", examples["source"][:3])
+            mylogs.plog.info("target: %s", examples["target"][:3])
+            exit()
         if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
