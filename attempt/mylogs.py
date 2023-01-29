@@ -7,8 +7,11 @@ from pathlib import Path
 
 main_args = {}
 
-def args(key):
-    return main_args[key]
+def args(key, default):
+    if key in main_args:
+        return main_args[key]
+    else:
+        return default
 
 def get_tag(tag, args=None):
     _tag = {}

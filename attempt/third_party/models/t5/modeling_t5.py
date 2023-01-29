@@ -1142,10 +1142,7 @@ class T5Stack(T5PreTrainedModel):
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 
             mask = target_prompts !=0
-            if mylogs.args("tt"):
-                target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
-            else:
-                target_prompts = tt
+            target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)

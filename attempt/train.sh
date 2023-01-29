@@ -113,7 +113,6 @@ if [ "$method" = "files" ]; then
 fi
 
 params="${params} --method=$method"
-params="${params} --!tt=True#False"
 
 # data  ddddd
 params="${params} --data_path=atomic2020"
@@ -191,6 +190,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=3"
 	params="${params} --prompt_encoder_type=mlp"
+	params="${params} --per_task_encoders=True#False"
         params="${params} --template=unsup-p0-psh#sup-p0-pt#sup-p0-psh#unsup-p0-pt"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
