@@ -88,7 +88,7 @@ for method in $methods; do
 echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@#xAttr@" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@xAttr@xNeed" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
 if [ -n "$_test" ]; then
   task="xIntent@"
@@ -124,7 +124,7 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --overwrite_cache=True"
 
 # task
-params="${params} --@task_name=$task"
+params="${params} --task_name=$task"
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
 
@@ -189,9 +189,9 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
 	params="${params} --num_prompt_encoders=1"
         params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --num_prompt_tokens=3"
-	params="${params} --!prompt_encoder_type=mlp#lstm"
-	params="${params} --@prompt_sharing=shared_tokens#shared_encoders"
-        params="${params} --template=unsup-p0-pt#sup-p0-pt" #sup-p0-psh#unsup-p0-pt"
+	params="${params} --prompt_encoder_type=mlp" #lstm"
+	params="${params} --prompt_sharing=shared_tokens#shared_encoders"
+        params="${params} --template=unsup-p0-psh#sup-p0-psh" #sup-p0-psh#unsup-p0-pt"
 	params="${params} --init_from_words=False"
 	params="${params} --prompt_encoders_dir=prompts"
 	params="${params} --load_prompts=False"
