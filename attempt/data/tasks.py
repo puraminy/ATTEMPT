@@ -218,7 +218,7 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "{task}: (prompt) {source} (prompt) (nat) (prompt) (mask)" 
+        src = "(prompt) {source} (prompt) (nat) (prompt) (mask)" 
         target = "(mask) {target}"
         return src, target
 
@@ -303,6 +303,7 @@ class AbstractTask(abc.ABC):
                        prefix: str = None,
                        extra_fields={}):
         src_prefix = self.name if prefix is None else prefix
+        src_prefix += ":"
         mylogs.bp("format")
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)

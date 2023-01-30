@@ -126,6 +126,7 @@ if [ -n "$_test" ]; then
 else
    params="${params} --@task_name=$task"
 fi
+params="${params} --add_prefix=True"
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
 
@@ -201,6 +202,7 @@ fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
 	params="${params} --source_prompts=they@always@seen@want@before@after"
+	params="${params} --num_prompt_tokens=3"
 	params="${params} --load_source_prompts=True"
 	params="${params} --attn_learning_rate=0.001"
 	params="${params} --attn_tuning=True"
