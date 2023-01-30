@@ -1047,7 +1047,7 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = torch.einsum(
                 'bplk, bpld -> bld', normalized_attn_scores, attend_to)
         elif self.attn_method == "rb":
-            normalized_attn_scores = (attn_scores / (attn_scores.sum(dim=-1, keepdim=True) + 1e-12))  
+            normalized_attn_scores = (attn_scores / (attn_scores.sum(dim=1, keepdim=True) + 1e-12))  
             soft_prompts = torch.einsum(
                 'bqp, bpld -> bqld', normalized_attn_scores, attend_to)
         else:
