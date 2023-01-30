@@ -60,6 +60,7 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=32; fi
 if [ -z "$_sp" ]; then  _sp=none; fi
+if [ -z "$_lsp" ]; then  _lsp=True; fi
 
 # eeeee
 if [ -z "$_train" ]; then  _train=True; fi
@@ -105,7 +106,7 @@ if [ "$method" = "files" ]; then
    if [ -n $_rem ]; then rm -rf ${log}/$_exp/*; fi
    for file in $PWD/$_pat; do
 	echo "Config file=${file}"
-	params="${main_params} --task_name=$task"
+	params="${main_params} --@task_name=$task"
 	params="${params} --test_ds_config=full-test@"
 	params="${params} --per_device_train_batch_size=$_bs"
 	params="${params} --per_device_eval_batch_size=$_bs"
@@ -131,11 +132,7 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --overwrite_cache=True"
 
 # task
-if [ -n "$_test" ]; then
-   params="${params} --task_name=$task"
-else
-   params="${params} --@task_name=$task"
-fi
+params="${params} --@task_name=$task"
 params="${params} --add_prefix=False"
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
@@ -210,9 +207,9 @@ fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
 	params="${params} --source_prompts=they@others@before@after"
-	params="${params} --num_prompt_tokens=9"
+	params="${params} --num_prompt_tokens=3#9#1"
         params="${params} --template=unsup-p0-pt#unsup-p0-psh#!sup-p0-psh" 
-	params="${params} --load_source_prompts=True"
+	params="${params} --load_source_prompts=$_lsp"
 	params="${params} --attn_tuning=True"
 	params="${params} --@attend_target=True#False"
 	params="${params} --@attend_input=True#False"
