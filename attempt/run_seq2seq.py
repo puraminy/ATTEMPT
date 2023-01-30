@@ -155,7 +155,7 @@ def cli():
 )
 @click.option(
     "--download_model",
-    "-dm",
+    "-mod",
     is_flag=True,
     help="Whether download pretrained model or load it from a directory"
 )
@@ -287,6 +287,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
               project= experiment.replace("#","-"), 
               name=title,
               dir=wandb_dir,
+              settings=wandb.Settings(symlink=False),
               # Track hyperparameters and run metadata
               config=tags_dict
            )
