@@ -126,7 +126,7 @@ if [ -n "$_test" ]; then
 else
    params="${params} --@task_name=$task"
 fi
-params="${params} --add_prefix=True"
+params="${params} --add_prefix=False"
 params="${params} --ds_config=en@"
 params="${params} --test_ds_config=full-test@"
 

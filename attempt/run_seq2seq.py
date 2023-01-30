@@ -1158,6 +1158,7 @@ def train(**kwargs):
                     if "sel" in extra:
                         sel = extra["sel"] 
                     df.at[i, "sel"] = sel 
+                    df.at[i, "query"] = extra["query"]  
                     df.at[i, "resp"] = extra["resp"]  
                     pred = tokenizer.decode(predictions[i], 
                             skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
