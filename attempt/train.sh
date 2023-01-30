@@ -219,8 +219,8 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --attend_source=True#False"
 	params="${params} --add_target=True#False"
 	params="${params} --prompt_learning_rate=0.01"
-	params="${params} --@attn_learning_rate=0.01#0.001"
-	params="${params} --@attn_method=rb#sub#dot#linear"
+	params="${params} --@attn_learning_rate=0.001"
+	params="${params} --@attn_method=sub#rb#dot#linear"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
