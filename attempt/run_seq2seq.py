@@ -228,6 +228,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
        log_var = exp_vars[0]
+   full_tags.extend(exp_vars)
    args["log_var"] = log_var 
    var_names = [vv.strip("@") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
@@ -239,6 +240,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
       if len(values[ii]) == 1:
            exclude_list.append(vv)
 
+   full_tags = list(set(full_tags))
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
    tags = full_tags if not exp_vars else exp_vars
@@ -599,13 +601,15 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
+        load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
             for prompt in source_prompts: 
                 encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                         prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
                 encoder.is_source =True
-                encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
+                if load_source_prompts is True:
+                    encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
                 prompt_encoders.append(encoder)
 
         # mmmmmmmmmmmmm Add target prompts
@@ -641,7 +645,6 @@ def train(**kwargs):
                 encoder.load(prompts_dir, prompts_prefix)
             prompt_encoders.append(encoder)
 
-        load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, adapter_args.num_prompt_tokens, load_source_prompts)
         model.resize_token_embeddings(len(tokenizer))
