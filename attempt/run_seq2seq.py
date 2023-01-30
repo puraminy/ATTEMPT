@@ -1129,7 +1129,7 @@ def train(**kwargs):
                                         ds_conf,"test.tsv")
                 for key, info in exp_info.items():
                     if type(info) == list:
-                        info = "@".join(info)
+                        info = "@".join([str(inf) for inf in info])
                     if type(info) == dict:
                         info = json.dumps(info)
                         info = info.replace("\n", "@")
