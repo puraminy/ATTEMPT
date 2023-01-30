@@ -273,10 +273,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
        tags_dict = mylogs.get_tag(tags, args)
+       full_tags_dict = mylogs.get_tag(full_tags, args)
        title = "@".join(list(tags_dict.values()))
        if preview == "tag":
            print(f"================ {ii}/{total} =====================")
-           print(json.dumps(tags_dict, indent=2))
+           print(json.dumps(full_tags_dict, indent=2))
            continue
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
