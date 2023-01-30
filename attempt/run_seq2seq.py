@@ -359,6 +359,7 @@ def train(**kwargs):
     task_args["num_prompt_tokens"] = adapter_args.num_prompt_tokens
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
+    task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = kwargs.rels
     task_args = dotdict(task_args)

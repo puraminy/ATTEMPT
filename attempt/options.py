@@ -480,6 +480,12 @@ class DataTrainingArguments:
         default=None, metadata={"help": "A csv or a json file containing the test data."}
     )
     ########### my options
+    add_prefix: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether add prefix to samples for each task"
+        },
+    )
     source_prompts: Optional[List[str]] = field(
         default=None, metadata={"help": "The name of the prompts used to train a new task based on them."}
     )
