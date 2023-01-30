@@ -92,7 +92,8 @@ def setbp(bpoint):
 
 def bp(break_point):
     if colab: return
-    if str(BREAK_POINT) in str(break_point): 
+    if (str(BREAK_POINT) in str(break_point) 
+        or str(break_point) in str(BREAK_POINT)): 
         fname = sys._getframe().f_back.f_code.co_name
         line = sys._getframe().f_back.f_lineno
         mlog.info("break point at %s line %s",fname, line)
