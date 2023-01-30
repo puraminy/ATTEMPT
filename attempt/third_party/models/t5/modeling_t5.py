@@ -1060,6 +1060,7 @@ class T5Stack(T5PreTrainedModel):
     def set_encoders(self, prompt_encoders, source_prompts, 
             prompt_dim, load_source_prompts=False):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
+        mylogs.bp("set")
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(prompt_encoders) + 1 # one for input
@@ -1074,8 +1075,7 @@ class T5Stack(T5PreTrainedModel):
         task_prompt_ids = []
         i = 1
         for encoder in self.prompt_encoders:
-            if not "com" in encoder.name:
-                task_prompt_ids.extend(encoder.prompt_ids)
+            task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
             if source_prompts and encoder.name in source_prompts and load_source_prompts: 
                 with torch.no_grad():

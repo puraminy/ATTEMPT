@@ -136,8 +136,9 @@ def cli():
 @click.option(
     "--debug",
     "-d",
-    is_flag=True,
-    help="Enable debugpy"
+    default="",
+    type=str,
+    help="Enable debugpy, you can specify a breakpoint too"
 )
 @click.option(
     "--trial",
@@ -163,6 +164,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
         debug, trial, rem, download_model):
    if debug:
        port = "1234"
+       if not break_point: break_point = debug
        debugpy.listen(('0.0.0.0', int(port)))
        print("Waiting for client at run...port:", port)
        debugpy.wait_for_client()  # blocks execution until client is attached
