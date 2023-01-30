@@ -289,6 +289,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
               dir=wandb_dir,
               settings=wandb.Settings(symlink=False),
               # Track hyperparameters and run metadata
+              id=title,
               config=tags_dict
            )
        ctx.invoke(train, **args)
