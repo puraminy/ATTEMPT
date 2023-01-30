@@ -221,6 +221,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
    inp_exp_vars = exp_vars
+   mylogs.bp("run")
    if not exp_vars:
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
@@ -230,13 +231,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["log_var"] = log_var 
    var_names = [vv.strip("@") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
-      if len(cc) == 1:
-           exclude_list.append(vv)
       if len(cc) > 1:
            full_tags.append(vv)
-           values[ii] = [x.strip("!") for x in cc if not x.startswith("!")] 
+           values[ii] = [x for x in cc if not x.startswith("!")] 
            if exp_vars and not vv in exp_vars:
-               values[ii] = [cc[0].strip("!")] # ignore the rest of values for this item 
+               values[ii] = [values[ii][0]] # ignore the rest of values for this item 
+      if len(values[ii]) == 1:
+           exclude_list.append(vv)
 
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
@@ -273,6 +274,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        mylogs.bp("check")
        tags_dict = mylogs.get_tag(tags, args)
        title = "@".join(list(tags_dict.values()))
+       if preview == "tag":
+           print(f"================ {ii}/{total} =====================")
+           print(json.dumps(tags_dict, indent=2))
+           continue
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
        if not preview:
@@ -1031,10 +1036,11 @@ def train(**kwargs):
         # Save prompts
         if adapter_args.prompt_tuning:
             model.store_encoders(output_dir = training_args.output_dir)
-            save_prompts_flag = kwargs.setdefault("save_prompts", False) 
-            if save_prompts_flag:
+            prompts_to_save = kwargs.setdefault("save_prompts", []) 
+            if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
-                model.store_encoders(output_dir = prompts_dir, prompts_only=True)
+                model.store_encoders(output_dir = prompts_dir, 
+                        prompts_only=True, prompts_to_save = prompts_to_save)
 
         if kwargs.setdefault("save_model", False):
             # save all model parameters and tokenizers 

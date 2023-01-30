@@ -1951,10 +1951,12 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             encoder.to(device)
 
     def store_encoders(self, output_dir = None, prompts_only=False, 
-            save_source_prompts = False):
+            save_source_prompts = False, prompts_to_save=None):
         prefix = "pt" if not self.attn_tuning else "att"
         for encoder in self.prompt_encoders:
             if not save_source_prompts and encoder.is_source:
+                continue
+            if prompts_to_save and not encoder.name in prompts_to_save:
                 continue
             encoder.save(output_dir, prefix=prefix)
         if prompts_only: return
