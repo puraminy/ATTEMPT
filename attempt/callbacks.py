@@ -64,14 +64,15 @@ class WBCallback(WandbCallback):
             #plt.tight_layout()
             mylogs.bp("wand")
             wandb.log({"attn_scores":wandb.Image(fig)})
-            np_router = encoder.router.detach().cpu().numpy()
-            labels = model.encoder.prompt_names
-            ax2.clear()
-            sns.heatmap(np_router, cmap="crest", annot=False, ax=ax2, 
-                    xticklabels=labels,
-                    yticklabels=labels,
-                    linewidth=0.5)
-            wandb.log({"router":wandb.Image(fig)})
+            if encoder.attn_method == "rb":
+                ax2.clear()
+                np_router = encoder.router.detach().cpu().numpy()
+                labels = model.encoder.prompt_names
+                sns.heatmap(np_router, cmap="crest", annot=False, ax=ax2, 
+                        xticklabels=labels,
+                        yticklabels=labels,
+                        linewidth=0.5)
+                wandb.log({"router":wandb.Image(fig)})
             mylogs.bp("wand")
             plt.close("all")
 
