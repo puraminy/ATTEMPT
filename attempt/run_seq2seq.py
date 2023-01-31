@@ -154,6 +154,13 @@ def cli():
     help="Remove the existing experiment folder"
 )
 @click.option(
+    "--repeat",
+    "-rep",
+    default="Repeat an experiment even if the folder already exists",
+    type=str,
+    help=""
+)
+@click.option(
     "--download_model",
     "-mod",
     is_flag=True,
@@ -161,7 +168,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, 
-        debug, trial, rem, download_model):
+        debug, trial, rem, repeat, download_model):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -194,6 +201,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["trial"] = trial
    args["break_point"] = break_point 
    args["preview"] = preview 
+   args["repeat"] = repeat 
    tags = exp_args["tag"] if "tag" in exp_args else [] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else [] 
    if break_point:
@@ -312,6 +320,7 @@ def train(**kwargs):
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
+    repeat = kwargs.setdefault("repeat",False)
     log_var = kwargs.setdefault("log_var","")
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
@@ -450,7 +459,7 @@ def train(**kwargs):
             )
             '''
             existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
-            if existing_results and not preview:
+            if existing_results and not preview and not repeat:
                 print("Skipping experiment:", training_args.output_dir)
                 return 
             #last_checkpoint = None
