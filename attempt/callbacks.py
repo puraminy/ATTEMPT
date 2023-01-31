@@ -55,7 +55,7 @@ class WBCallback(WandbCallback):
             ax1, ax2 = axes["A"], axes["B"]
             fig.set_size_inches(12.5, 6.5)
             ax1.axis("off")
-            ax2.axis("off")
+            # ax2.axis("off")
             fig.figimage(self.tag_dict_img, 5, 200)
             sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
                     xticklabels=labels,
