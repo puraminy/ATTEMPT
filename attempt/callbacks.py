@@ -59,9 +59,9 @@ class WBCallback(WandbCallback):
             fig.set_size_inches(12.5, 6.5)
             ax1.axis("off")
             # ax2.axis("off")
-            fig.figimage(self.tag_dict_img, 5, 200)
-            #fig.figimage(self.tag_labels_img, 5, 120)
-            #fig.figimage(self.tag_values_img, 50, 100)
+            #fig.figimage(self.tag_dict_img, 5, 200)
+            fig.figimage(self.tag_labels_img, 5, 120)
+            fig.figimage(self.tag_values_img, 50, 100)
             sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
                     xticklabels=labels,
                     yticklabels=labels,
