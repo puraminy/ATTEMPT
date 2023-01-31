@@ -35,10 +35,12 @@ class WBCallback(WandbCallback):
     def __init__(self, **kwargs):
         super().__init__()
         tags = mylogs.get_full_tag()
-        tag_labels = "=\n".join(list(tags.keys()))
-        tag_values = "\n".join(list(tags.values()))
-        self.tag_labels_img = text_to_rgba(tag_labels, color="blue", fontsize=14, dpi=100)
-        self.tag_values_img = text_to_rgba(tag_values, color="green", fontsize=14, dpi=100)
+        tags = dict(sorted(tags.items()))
+        tag_labels = ":\n\n".join(list(tags.keys()))
+        tag_values = "\n\n".join(list(tags.values()))
+        self.tag_labels_img = text_to_rgba(tag_labels, color="gray", fontsize=14, dpi=100)
+        self.tag_values_img = text_to_rgba(tag_values, color="blue", 
+                weight="bold", fontsize=14, dpi=100)
         tag_dict_str = json.dumps(tags, indent=2)
         self.tag_dict_img = text_to_rgba(tag_dict_str, color="blue", fontsize=14, dpi=100)
 
@@ -58,6 +60,8 @@ class WBCallback(WandbCallback):
             ax1.axis("off")
             # ax2.axis("off")
             fig.figimage(self.tag_dict_img, 5, 200)
+            #fig.figimage(self.tag_labels_img, 5, 120)
+            #fig.figimage(self.tag_values_img, 50, 100)
             sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
                     xticklabels=labels,
                     yticklabels=labels,
