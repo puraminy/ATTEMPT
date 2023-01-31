@@ -523,7 +523,7 @@ def do_score(df, scorers, save_path, reval=False):
 
     res_df = gdf[["prefix","input_text","pred_text1","target_text","rouge_score"]]
     res_table = wandb.Table(dataframe=res_df)
-    wandb.run.log({"Results": res_table})
+    #wandb.run.log({"Results": res_table})
 
 ########################
     col = ["prefix"]
@@ -553,7 +553,7 @@ def do_score(df, scorers, save_path, reval=False):
     gdf = gdf[["prefix","rouge_score","bert_score","num_preds",
         "pred_max_num","pred_max","num_inps","num_targets"]]
     gtable = wandb.Table(dataframe=gdf)
-    wandb.run.log({"Summary": gtable})
+    #wandb.run.log({"Summary": gtable})
     wandb.run.summary["test_rouge"] = gdf.iloc[0]["rouge_score"]
     wandb.run.summary["test_bert"] = gdf.iloc[0]["bert_score"]
     wandb.run.summary["num_preds"] = gdf.iloc[0]["num_preds"]
