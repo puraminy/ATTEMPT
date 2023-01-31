@@ -19,7 +19,7 @@ def text_to_rgba(s, *, dpi, **kwargs):
     # - load the buffer using ``plt.imread``.
     #
     # (If desired, one can also directly save the image to the filesystem.)
-    fig = Figure(facecolor="white")
+    fig = Figure(facecolor="none")
     fig.text(10, 0, s, **kwargs)
     with BytesIO() as buf:
         fig.savefig(buf, dpi=dpi, format="png", bbox_inches="tight",
