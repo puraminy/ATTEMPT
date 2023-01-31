@@ -207,7 +207,7 @@ fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
 	params="${params} --source_prompts=they@others@before@after"
-	params="${params} --num_prompt_tokens=3#9#1"
+	params="${params} --num_prompt_tokens=9#1"
         params="${params} --template=unsup-p0-pt#unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --load_source_prompts=$_lsp"
 	params="${params} --attn_tuning=True"
