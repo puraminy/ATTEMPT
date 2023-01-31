@@ -63,8 +63,7 @@ class WBCallback(WandbCallback):
                     linewidth=0.5)
             #plt.tight_layout()
             mylogs.bp("wand")
-            lname = "attn_scores"
-            wandb.log({lname:wandb.Image(fig)})
+            wandb.log({"attn_scores":wandb.Image(fig)})
             np_router = encoder.router.detach().cpu().numpy()
             labels = model.encoder.prompt_names
             ax2.clear()
@@ -72,8 +71,7 @@ class WBCallback(WandbCallback):
                     xticklabels=labels,
                     yticklabels=labels,
                     linewidth=0.5)
-            lname = "router"
-            wandb.log({lname:wandb.Image(fig)})
+            wandb.log({"router":wandb.Image(fig)})
             mylogs.bp("wand")
             plt.close("all")
 
