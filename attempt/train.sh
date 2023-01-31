@@ -68,7 +68,7 @@ if [ -z "$_eval" ]; then  _eval=False; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
-if [ -z "$_ep" ]; then  _ep=20; fi
+if [ -z "$_ep" ]; then  _ep=10; fi
 if [ -n "$_test" ]; then
   _rem=True
   _tn=4
@@ -99,7 +99,7 @@ for method in $methods; do
 echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@xAttr@xNeed" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@xAttr@xNeed@xWant" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
 main_params=$params
 if [ "$method" = "files" ]; then
