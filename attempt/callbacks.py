@@ -19,8 +19,8 @@ def text_to_rgba(s, *, dpi, **kwargs):
     # - load the buffer using ``plt.imread``.
     #
     # (If desired, one can also directly save the image to the filesystem.)
-    fig = Figure(facecolor="none")
-    fig.text(0, 0, s, **kwargs)
+    fig = Figure(facecolor="white")
+    fig.text(10, 0, s, **kwargs)
     with BytesIO() as buf:
         fig.savefig(buf, dpi=dpi, format="png", bbox_inches="tight",
                     pad_inches=0)
@@ -35,8 +35,12 @@ class WBCallback(WandbCallback):
     def __init__(self, **kwargs):
         super().__init__()
         tags = mylogs.get_full_tag()
-        tags = json.dumps(tags, indent=2)
-        self.tags_img = text_to_rgba(tags, color="blue", fontsize=14, dpi=100)
+        tag_labels = "=\n".join(list(tags.keys()))
+        tag_values = "\n".join(list(tags.values()))
+        self.tag_labels_img = text_to_rgba(tag_labels, color="blue", fontsize=14, dpi=100)
+        self.tag_values_img = text_to_rgba(tag_values, color="green", fontsize=14, dpi=100)
+        tag_dict_str = json.dumps(tags, indent=2)
+        self.tag_dict_img = text_to_rgba(tag_dict_str, color="blue", fontsize=14, dpi=100)
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)
@@ -52,7 +56,7 @@ class WBCallback(WandbCallback):
             fig.set_size_inches(12.5, 6.5)
             ax1.axis("off")
             ax2.axis("off")
-            fig.figimage(self.tags_img, 20, 100)
+            fig.figimage(self.tag_dict_img, 5, 200)
             sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
                     xticklabels=labels,
                     yticklabels=labels,
