@@ -532,7 +532,7 @@ def do_score(df, scorers, save_path, reval=False):
     scores = scores.sort_values(by = ["bert_score"], ascending=False)
     scores = scores.to_numpy()
     mylogs.bp("met")
-    fig = df_to_image(scores)
+    fig = df_to_image(scores, annot=False)
     wandb.run.log({"attn_scores": wandb.Image(fig)})
     #res_table = wandb.Table(dataframe=res_df)
     #wandb.run.log({"attn_scores": res_table})
