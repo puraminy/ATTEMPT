@@ -37,11 +37,12 @@ def tag_to_image():
 
     return tag_labels_img, tag_values_img, tag_dict_img
 
-def df_to_image(df, annot=True):
+def df_to_image(df, annot=True, title="results"):
     # Set background to white
     tag_labels_img, tag_values_img, tag_dict_img = tag_to_image()
     fig, axes = plt.subplot_mosaic("ABB")
     ax1, ax2 = axes["A"], axes["B"]
+    ax1.set_title(title)
     fig.set_size_inches(12.5, 6.5)
     ax1.axis("off")
     sns.heatmap(df, ax=ax2, annot=annot, cbar=False)

@@ -527,13 +527,14 @@ def do_score(df, scorers, save_path, reval=False):
          .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
        )
 
-    res_df = gdf[["prefix","input_text","pred_text1","target_text","rouge_score"]]
-    scores = gdf[["rouge_score","bert_score"]]
+    res_df = gdf[["prefix","input_text","pred_text1",
+                  "target_text","rouge_score","bert_score"]]
+    res_df = res_df.groupby(["prefix","input_text"]).first()
+    scores = res_df[["rouge_score","bert_score"]]
     scores = scores.sort_values(by = ["bert_score"], ascending=False)
-    scores = scores.to_numpy()
-    mylogs.bp("met")
-    fig = df_to_image(scores, annot=False)
-    wandb.run.log({"attn_scores": wandb.Image(fig)})
+    #scores = scores.to_numpy()
+    #fig = df_to_image(scores, annot=False)
+    #wandb.run.log({"results": wandb.Image(fig)})
     #res_table = wandb.Table(dataframe=res_df)
     #wandb.run.log({"attn_scores": res_table})
 
@@ -562,14 +563,23 @@ def do_score(df, scorers, save_path, reval=False):
         elif c.endswith("_first"):
             ren[c] = c.replace("_first","")
     gdf = gdf.rename(columns=ren)
-    gdf = gdf[["rouge_score","bert_score","num_preds",
-        "pred_max_num","num_inps","num_targets"]]
+    gdf = gdf.reset_index(drop=True)
+    prefix = gdf.iloc[0]["prefix"]
+    num_preds = gdf.iloc[0]["num_preds"]
+    pred_max = gdf.iloc[0]["pred_max"]
+    pred_max_num = gdf.iloc[0]["pred_max_num"]
+    gdf = gdf[["rouge_score","bert_score"]]
+    # [["num_preds","pred_max_num","num_inps","num_targets"]]
     #gtable = wandb.Table(dataframe=gdf)
     #wandb.run.log({"Summary": gtable})
-    fig = df_to_image(gdf.to_numpy())
-    wandb.run.log({"attn_scores": wandb.Image(fig)})
+    title = f"{prefix}: {num_preds} up, mp: {pred_max_num}: {pred_max}"
+    tdf = {"rouge_score":0, "bert_score":1}
+    gdf = gdf.append(tdf, ignore_index = True)
+    gdf = pd.concat([gdf, scores])
+    fig = df_to_image(gdf.to_numpy(), title = title)
+    wandb.run.log({prefix: wandb.Image(fig)})
     wandb.run.summary["test_rouge"] = gdf.iloc[0]["rouge_score"]
     wandb.run.summary["test_bert"] = gdf.iloc[0]["bert_score"]
-    wandb.run.summary["num_preds"] = gdf.iloc[0]["num_preds"]
+    wandb.run.summary["num_preds"] = num_preds 
 
     return merged_df
