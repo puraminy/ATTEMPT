@@ -5,44 +5,15 @@ import matplotlib.pyplot as plt
 from transformers.integrations import WandbCallback
 from math import floor
 import attempt.mylogs as mylogs
-from matplotlib.figure import Figure
+from attempt.myutil import tag_to_image
 import matplotlib.pyplot as plt
-from matplotlib.transforms import IdentityTransform
 import json
-from io import BytesIO
-
-def text_to_rgba(s, *, dpi, **kwargs):
-    # To convert a text string to an image, we can:
-    # - draw it on an empty and transparent figure;
-    # - save the figure to a temporary buffer using ``bbox_inches="tight",
-    #   pad_inches=0`` which will pick the correct area to save;
-    # - load the buffer using ``plt.imread``.
-    #
-    # (If desired, one can also directly save the image to the filesystem.)
-    fig = Figure(facecolor="none")
-    fig.text(10, 0, s, **kwargs)
-    with BytesIO() as buf:
-        fig.savefig(buf, dpi=dpi, format="png", bbox_inches="tight",
-                    pad_inches=0)
-        buf.seek(0)
-        rgba = plt.imread(buf)
-    return rgba
-
-
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
     def __init__(self, **kwargs):
         super().__init__()
-        tags = mylogs.get_full_tag()
-        tags = dict(sorted(tags.items()))
-        tag_labels = ":\n\n".join(list(tags.keys()))
-        tag_values = "\n\n".join(list(tags.values()))
-        self.tag_labels_img = text_to_rgba(tag_labels, color="gray", fontsize=14, dpi=100)
-        self.tag_values_img = text_to_rgba(tag_values, color="blue", 
-                weight="bold", fontsize=14, dpi=100)
-        tag_dict_str = json.dumps(tags, indent=2)
-        self.tag_dict_img = text_to_rgba(tag_dict_str, color="blue", fontsize=14, dpi=100)
+        self.tag_labels_img, self.tag_values_img, self.tag_dict_img = tag_to_image()
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)

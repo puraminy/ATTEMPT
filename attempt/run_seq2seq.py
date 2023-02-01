@@ -291,7 +291,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            continue
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
-       if not preview:
+       if not preview or preview=="one":
            wandb.init(
               # Set the project where this run will be logged
               project= experiment.replace("#","-"), 
@@ -302,7 +302,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
               config=tags_dict
            )
        ctx.invoke(train, **args)
-       if not preview:
+       if preview == "one":
+           return
+       if not preview or preview=="one":
            wandb.finish()
 
 @cli.command()
@@ -965,6 +967,7 @@ def train(**kwargs):
         eval_ds = my_interleave_datasets(list(eval_datasets.values()), batch_size=2)
     else: 
         eval_ds = None
+    wb_callback = WBCallback()
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
@@ -980,7 +983,7 @@ def train(**kwargs):
             evaluation_metrics=task_metric,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             shared=model_args.shared_attn,
-            callbacks = [WBCallback()],
+            callbacks = [wb_callback],
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
         )
@@ -993,7 +996,7 @@ def train(**kwargs):
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
-            callbacks = [WBCallback()],
+            callbacks = [wb_callback],
             shuffle = trainer_shuffle,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
@@ -1002,7 +1005,7 @@ def train(**kwargs):
             shared=model_args.shared_attn)
 
     # Exit program if user wants to check some settings 
-    if preview:
+    if preview and preview != "one":
         return
     # Saves training config.
     if trainer.is_world_process_zero():
@@ -1191,7 +1194,7 @@ def train(**kwargs):
                 mylogs.bp("test")
                 save_to = os.path.join(training_args.output_dir, 
                         ds_conf + "_results_" + ds_name + ".tsv")
-                do_score(df, "rouge@bert", save_to)
+                scores = do_score(df, "rouge@bert", save_to)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():

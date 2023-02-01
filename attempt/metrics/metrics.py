@@ -12,10 +12,15 @@ import functools
 from data.postprocessors import AutoPostProcessor
 
 ## My imports
+from pandas.plotting import table
+import matplotlib.pyplot as plt
+import matplotlib.colors as clr 
 import torch
 import wandb
 from rouge import Rouge
 from attempt.mylogs import *
+import attempt.mylogs as mylogs
+from attempt.myutil import df_to_image
 if not colab:
     from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
@@ -485,6 +490,7 @@ def do_score(df, scorers, save_path, reval=False):
     mean_rouge_str = json.dumps(mean_rouge, indent=2)
     mean_bleu_str = json.dumps(mean_bleu, indent=2)
     mean_match_str = json.dumps(mean_match, indent=2)
+
     mlog.info("-----------------------------------------------------")
     pbar.close()
     pred_counts = df['pred_text1'].unique()
@@ -522,8 +528,14 @@ def do_score(df, scorers, save_path, reval=False):
        )
 
     res_df = gdf[["prefix","input_text","pred_text1","target_text","rouge_score"]]
-    res_table = wandb.Table(dataframe=res_df)
-    #wandb.run.log({"Results": res_table})
+    scores = gdf[["rouge_score","bert_score"]]
+    scores = scores.sort_values(by = ["bert_score"], ascending=False)
+    scores = scores.to_numpy()
+    mylogs.bp("met")
+    fig = df_to_image(scores)
+    wandb.run.log({"attn_scores": wandb.Image(fig)})
+    #res_table = wandb.Table(dataframe=res_df)
+    #wandb.run.log({"attn_scores": res_table})
 
 ########################
     col = ["prefix"]
@@ -550,10 +562,12 @@ def do_score(df, scorers, save_path, reval=False):
         elif c.endswith("_first"):
             ren[c] = c.replace("_first","")
     gdf = gdf.rename(columns=ren)
-    gdf = gdf[["prefix","rouge_score","bert_score","num_preds",
-        "pred_max_num","pred_max","num_inps","num_targets"]]
-    gtable = wandb.Table(dataframe=gdf)
+    gdf = gdf[["rouge_score","bert_score","num_preds",
+        "pred_max_num","num_inps","num_targets"]]
+    #gtable = wandb.Table(dataframe=gdf)
     #wandb.run.log({"Summary": gtable})
+    fig = df_to_image(gdf.to_numpy())
+    wandb.run.log({"attn_scores": wandb.Image(fig)})
     wandb.run.summary["test_rouge"] = gdf.iloc[0]["rouge_score"]
     wandb.run.summary["test_bert"] = gdf.iloc[0]["bert_score"]
     wandb.run.summary["num_preds"] = gdf.iloc[0]["num_preds"]
