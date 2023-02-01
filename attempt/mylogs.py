@@ -4,7 +4,6 @@ from os.path import expanduser
 from pytz import timezone
 import datetime
 from pathlib import Path
-
 main_args = {}
 
 def args(key, default="no_default"):
@@ -139,4 +138,5 @@ def set_args(args):
     tHandler.setFormatter(FORMAT)
     tlog.addHandler(tHandler)
     tlog.setLevel(logging.INFO)
+
 
