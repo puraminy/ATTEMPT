@@ -19,7 +19,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                     assert not kwargs.use_optimizer, "No need to use optimizer" 
                 assert training_args.learning_rate > 0.01, "Learning rate is too small for prefix tuning"
             if not model_args.attn_tuning:
-                pass
+                if model_args.attend_target is False:
+                    assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif not adapter_args.prompt_tuning:
             assert not adapter_args.prefix_tuning, "Prompt tuning and prefix tuning can't be on at the same time"

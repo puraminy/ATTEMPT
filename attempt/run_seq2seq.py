@@ -242,6 +242,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) > 1:
            full_tags.append(vv)
+           tags.append(vv)
            values[ii] = [x for x in cc if not x.startswith("!")] 
            if exp_vars and not vv in exp_vars:
                values[ii] = [values[ii][0]] # ignore the rest of values for this item 
@@ -251,7 +252,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    full_tags = list(set(full_tags))
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
-   tags = full_tags if not exp_vars else exp_vars
 
    args["tag"] = tags 
    args["full_tag"] = full_tags 

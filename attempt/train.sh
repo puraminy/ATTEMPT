@@ -211,12 +211,12 @@ if [ "$method" = "ptat" ]; then
         params="${params} --template=unsup-p0-pt#unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --load_source_prompts=$_lsp"
 	params="${params} --attn_tuning=True"
-	params="${params} --@attend_input=False"
-	params="${params} --@attend_source=False"
+	params="${params} --@attend_input=True#False"
+	params="${params} --@attend_source=True#False"
 	params="${params} --@attend_target=True#False"
-	params="${params} --@add_target=False#True"
-	params="${params} --@prompt_learning_rate=0.01#0.1"
-	params="${params} --attn_learning_rate=0.001"
+	params="${params} --@add_target=False"
+	params="${params} --@prompt_learning_rate=0.01"
+	params="${params} --@attn_learning_rate=0.001#0.01"
 	params="${params} --@attn_method=sub#rb#linear"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
