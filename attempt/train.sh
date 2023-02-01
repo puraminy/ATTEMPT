@@ -99,7 +99,7 @@ for method in $methods; do
 echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
 # tttttt
 #task="xIntent@#xAttr@#xReact@#xEffect@#xWant@#xNeed@"
-task="xIntent@" #xAttr@xNeed@xWant" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
+task="xIntent@xAttr@xNeed@xWant" #xNeed@#xWant@#multi-all#multi-3" #xWant@#oWant@#xNeed@xEffect@#oEffect#multi-4#multi-all" 
 
 main_params=$params
 if [ "$method" = "files" ]; then
@@ -211,13 +211,13 @@ if [ "$method" = "ptat" ]; then
         params="${params} --template=unsup-p0-pt#unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --load_source_prompts=$_lsp"
 	params="${params} --attn_tuning=True"
+	params="${params} --@attend_input=False"
+	params="${params} --@attend_source=False"
 	params="${params} --@attend_target=True#False"
-	params="${params} --@attend_input=True#False"
-	params="${params} --attend_source=True#False"
-	params="${params} --add_target=True#False"
-	params="${params} --prompt_learning_rate=0.01"
-	params="${params} --@attn_learning_rate=0.001"
-	params="${params} --@attn_method=rb#sub#dot#linear"
+	params="${params} --@add_target=False#True"
+	params="${params} --@prompt_learning_rate=0.01#0.1"
+	params="${params} --attn_learning_rate=0.001"
+	params="${params} --@attn_method=sub#rb#linear"
 fi
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
 if [ $? != 0 ] && [ "$onError" = "break" ];
