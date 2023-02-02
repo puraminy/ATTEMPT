@@ -1166,7 +1166,7 @@ def train(**kwargs):
                     df[key] = info
                 rouge_scorer = Rouge()
                 for i, row in df.iterrows():
-                    if bp == "testloop": breakpoint()
+                    if bp == "=testloop": breakpoint()
                     extra = row["extra_fields"]
                     if "event" in extra:
                         inp = extra["event"]
