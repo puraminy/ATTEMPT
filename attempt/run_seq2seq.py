@@ -1060,9 +1060,12 @@ def train(**kwargs):
             model.store_encoders(output_dir = training_args.output_dir)
             prompts_to_save = kwargs.setdefault("save_prompts", []) 
             if prompts_to_save:
+                prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
-                        prompts_only=True, prompts_to_save = prompts_to_save)
+                        prompts_only=True, 
+                        prompts_to_save = prompts_to_save, 
+                        prefix=prompts_prefix)
 
         if kwargs.setdefault("save_model", False):
             # save all model parameters and tokenizers 
