@@ -60,7 +60,7 @@ def tag_to_image():
 
 def df_to_image(df, annot=True, title="results"):
     # Set background to white
-    tag_img, tag_dict_img = tag_to_image()
+    tag_img = tag_to_image()
     fig, axes = plt.subplot_mosaic("ABB")
     ax1, ax2 = axes["A"], axes["B"]
     ax2.set_title(title)
