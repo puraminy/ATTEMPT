@@ -95,7 +95,7 @@ def setbp(bpoint):
 def bp(break_point):
     if colab: return
     cond = str(BREAK_POINT) in str(break_point) 
-    if not BREAK_POINT.startswith("="):
+    if not str(BREAK_POINT).startswith("="):
         cond = cond or str(break_point) in str(BREAK_POINT) 
     if cond:
         fname = sys._getframe().f_back.f_code.co_name
