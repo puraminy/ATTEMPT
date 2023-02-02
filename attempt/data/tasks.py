@@ -104,6 +104,7 @@ class AbstractTask(abc.ABC):
     def get(self, split, add_prefix=True, n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
+        self.split = split
         mylogs.bp("get")
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -323,7 +324,7 @@ class AbstractTask(abc.ABC):
         if not "examples" in self.counter:
             self.counter["examples"] = 1
         if self.counter["examples"] < 5:
-            mylogs.vlog.info("=========== Extra Fields ==============")
+            mylogs.vlog.info(f"=========== Extra Fields | split={self.split} =========")
             mylogs.vlog.info("%s", extra_fields)
             self.counter["examples"] += 1
         return {'source': src_text,
