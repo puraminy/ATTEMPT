@@ -290,7 +290,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        #title = "@".join(list(tags_dict.values()))
        title =  mylogs.get_tag(tags, args, as_str=True)
        if preview == "tag":
-           print(f"================ {ii}/{total} =====================")
+           print(f"=#============== {ii}/{total} =====================")
            print(json.dumps(full_tags_dict, indent=2))
            continue
        wandb_dir = save_path #op.join("logs", experiment)
