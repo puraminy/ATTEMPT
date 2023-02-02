@@ -93,6 +93,7 @@ def setbp(bpoint):
     BREAK_POINT=bpoint
 
 def bp(break_point):
+    global BREAK_POINT
     if colab: return
     equal = False
     if str(BREAK_POINT).startswith("="):
