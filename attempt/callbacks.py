@@ -13,7 +13,6 @@ class WBCallback(WandbCallback):
     cur_epoch = -1
     def __init__(self, **kwargs):
         super().__init__()
-        self.tag_labels_img, self.tag_values_img, self.tag_dict_img = tag_to_image()
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)
@@ -29,10 +28,10 @@ class WBCallback(WandbCallback):
             ax1.set_title(f"Epoch:{epoch}-{state.epoch}  Step:{state.global_step}")
             fig.set_size_inches(12.5, 6.5)
             ax1.axis("off")
+            img = tag_to_image()
             # ax2.axis("off")
-            #fig.figimage(self.tag_dict_img, 5, 200)
-            fig.figimage(self.tag_labels_img, 5, 120)
-            fig.figimage(self.tag_values_img, 50, 100)
+            fig.figimage(img, 5, 100)
+            #fig.figimage(self.tag_img, 5, 120)
             sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
                     xticklabels=labels,
                     yticklabels=labels,
