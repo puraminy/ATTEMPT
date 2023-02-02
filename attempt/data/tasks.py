@@ -318,6 +318,7 @@ class AbstractTask(abc.ABC):
         extra_fields["event"] = orig_src 
         extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
+        extra_fields["spit"] = self.split 
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
         extra_fields["resp"] = tgt_text

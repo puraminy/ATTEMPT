@@ -726,6 +726,7 @@ def train(**kwargs):
         model_inputs["labels"] = labels["input_ids"]
         if "task_ids" in examples["extra_fields"]:
             model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
+        mylogs.bp("train_test_data")
         model_inputs["extra_fields"] = examples['extra_fields']  
         if task_id is not None:
             model_inputs["task_ids"] = [
@@ -848,7 +849,6 @@ def train(**kwargs):
                 n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=test_file)
                 for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
         else:
-            mylogs.bp("test")
             test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
                 split="test",
@@ -856,6 +856,7 @@ def train(**kwargs):
                 add_prefix=False if adapter_args.train_task_adapters else True,
                 n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=data_args.test_file)
                 for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)}
+            mylogs.bp("test_dataset")
 
         max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name,
             task_args=task_args).get_max_target_length(
