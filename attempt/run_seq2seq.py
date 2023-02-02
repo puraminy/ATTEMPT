@@ -1061,6 +1061,7 @@ def train(**kwargs):
             prompts_to_save = kwargs.setdefault("save_prompts", []) 
             if prompts_to_save:
                 prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+                if prompts_prefix is None: prompts_prefix = ""
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
                         prompts_only=True, 
