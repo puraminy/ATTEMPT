@@ -570,6 +570,8 @@ def do_score(df, scorers, save_path, reval=False):
     pred_max_num = gdf.iloc[0]["pred_max_num"]
     test_rouge = gdf.iloc[0]["rouge_score"]
     test_bert = gdf.iloc[0]["bert_score"]
+    test_rouge = "{:.2f}".format(test_rouge)
+    test_bert = "{:.2f}".format(test_bert)
     gdf = gdf[["rouge_score","bert_score"]]
     # [["num_preds","pred_max_num","num_inps","num_targets"]]
     #gtable = wandb.Table(dataframe=gdf)
