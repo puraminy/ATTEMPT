@@ -306,6 +306,7 @@ class AbstractTask(abc.ABC):
         src_prefix = self.name if prefix is None else prefix
         src_prefix += ":"
         mylogs.bp("format")
+        mylogs.bp("=" + self.split + "format")
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
