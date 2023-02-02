@@ -238,16 +238,19 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        log_var = exp_vars[0]
    full_tags.extend(exp_vars)
    args["log_var"] = log_var 
-   var_names = [vv.strip("@") for vv in var_names]
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) > 1:
+           if vv.startswith("@"):
+               tags.append(vv.strip("@"))
+           vv = vv.strip("@")
            full_tags.append(vv)
-           tags.append(vv)
            values[ii] = [x for x in cc if not x.startswith("!")] 
            if exp_vars and not vv in exp_vars:
                values[ii] = [values[ii][0]] # ignore the rest of values for this item 
       if len(values[ii]) == 1:
+           vv = vv.strip("@")
            exclude_list.append(vv)
+   var_names = [vv.strip("@") for vv in var_names]
 
    full_tags = list(set(full_tags))
    for pv in inp_exp_vars:
