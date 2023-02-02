@@ -43,7 +43,8 @@ def tag_to_image():
     color_list = ["blue","green","red","orange","black", "brown"]
     for i, (label, value) in enumerate(tags.items()):
         text = plt.text(xpos, ypos, label + ": ", # transform=t, 
-                color="blue",fontsize=14)
+                color=color_list[i % len(color_list)], 
+                fontsize=14)
         ex = text.get_window_extent(renderer=r)
         t = transforms.offset_copy(text._transform, x=ex.width, units='dots')
         text = plt.text(xpos, ypos, value, transform=t, 
