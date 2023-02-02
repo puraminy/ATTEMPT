@@ -323,7 +323,7 @@ class AbstractTask(abc.ABC):
         if not "examples" in self.counter:
             self.counter["examples"] = 1
         if self.counter["examples"] < 5:
-            mylogs.vlog.info("==============================================")
+            mylogs.vlog.info("=========== Extra Fields ==============")
             mylogs.vlog.info("%s", extra_fields)
             self.counter["examples"] += 1
         return {'source': src_text,
