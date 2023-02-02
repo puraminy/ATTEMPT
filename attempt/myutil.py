@@ -63,7 +63,7 @@ def df_to_image(df, annot=True, title="results"):
     tag_img, tag_dict_img = tag_to_image()
     fig, axes = plt.subplot_mosaic("ABB")
     ax1, ax2 = axes["A"], axes["B"]
-    ax1.set_title(title)
+    ax2.set_title(title)
     fig.set_size_inches(12.5, 6.5)
     ax1.axis("off")
     sns.heatmap(df, ax=ax2, annot=annot, cbar=False)
