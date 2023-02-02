@@ -568,18 +568,20 @@ def do_score(df, scorers, save_path, reval=False):
     num_preds = gdf.iloc[0]["num_preds"]
     pred_max = gdf.iloc[0]["pred_max"]
     pred_max_num = gdf.iloc[0]["pred_max_num"]
+    test_rouge = gdf.iloc[0]["rouge_score"]
+    test_bert = gdf.iloc[0]["bert_score"]
     gdf = gdf[["rouge_score","bert_score"]]
     # [["num_preds","pred_max_num","num_inps","num_targets"]]
     #gtable = wandb.Table(dataframe=gdf)
     #wandb.run.log({"Summary": gtable})
-    title = f"{prefix}: {num_preds} up, mp: {pred_max_num}: {pred_max}"
+    title = f"{prefix}: rg {test_rouge} | {test_bert} | {num_preds} up, mp: {pred_max_num} | {pred_max}"
     tdf = {"rouge_score":0, "bert_score":1}
     gdf = gdf.append(tdf, ignore_index = True)
     gdf = pd.concat([gdf, scores])
-    fig = df_to_image(gdf.to_numpy(), title = title)
+    fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
     wandb.run.log({prefix: wandb.Image(fig)})
-    wandb.run.summary["test_rouge"] = gdf.iloc[0]["rouge_score"]
-    wandb.run.summary["test_bert"] = gdf.iloc[0]["bert_score"]
+    wandb.run.summary["test_rouge"] = test_rouge 
+    wandb.run.summary["test_bert"] = test_bert
     wandb.run.summary["num_preds"] = num_preds 
 
     return merged_df
