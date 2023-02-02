@@ -569,10 +569,11 @@ class Atomic(AbstractTask):
 
     def get_data_path(self, split):
         path = self.data_path
+        self.split = split
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
         if split == "test":
-            mylogs.bp("path")
+            mylogs.bp("=testdata")
             if self.config == "full-test":
                 path = op.join(path, self.config, self.name  + '.tsv')
             else:
