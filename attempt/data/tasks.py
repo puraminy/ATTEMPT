@@ -306,7 +306,7 @@ class AbstractTask(abc.ABC):
         src_prefix = self.name if prefix is None else prefix
         src_prefix += ":"
         mylogs.bp("format")
-        mylogs.bp("=" + self.split + "format")
+        mylogs.bp(self.split + "frm")
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
@@ -316,6 +316,7 @@ class AbstractTask(abc.ABC):
                 'target': tgt,
                 'task': self.name,
                 ** extra_fields}
+        extra_fields = {}
         extra_fields["event"] = orig_src 
         extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
