@@ -94,9 +94,13 @@ def setbp(bpoint):
 
 def bp(break_point):
     if colab: return
-    cond = str(BREAK_POINT) in str(break_point) 
-    if not str(BREAK_POINT).startswith("="):
-        cond = cond or str(break_point) in str(BREAK_POINT) 
+    equal = False
+    if str(BREAK_POINT).startswith("="):
+        equal = True
+    BREAK_POINT = str(BREAK_POINT).strip("=") 
+    cond = BREAK_POINT in str(break_point) 
+    if not equal:
+        cond = cond or str(break_point) in BREAK_POINT 
     if cond:
         fname = sys._getframe().f_back.f_code.co_name
         line = sys._getframe().f_back.f_lineno
