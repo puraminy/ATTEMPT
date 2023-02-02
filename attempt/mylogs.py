@@ -108,7 +108,7 @@ def bp(break_point):
     if cond:
         fname = sys._getframe().f_back.f_code.co_name
         line = sys._getframe().f_back.f_lineno
-        mlog.info("break point at %s line %s",fname, line)
+        mlog.info(">>>>>> break point %s at %s line %s",break_point, fname, line)
         breakpoint()
 
 def trace(frame, event, arg):
