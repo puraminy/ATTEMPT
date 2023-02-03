@@ -996,6 +996,7 @@ class T5Stack(T5PreTrainedModel):
             if True:
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
+                attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
             elif self.trunc_router == "sigmoid":
                 attn_scores = torch.sigmoid(router)  # layer * n_prompts
             else:
