@@ -248,8 +248,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            if exp_vars and not vv in exp_vars:
                values[ii] = [values[ii][0]] # ignore the rest of values for this item 
       if len(values[ii]) == 1:
+           if not vv.startswith("@"):
+               exclude_list.append(vv)
            vv = vv.strip("@")
-           exclude_list.append(vv)
    var_names = [vv.strip("@") for vv in var_names]
 
    full_tags = list(set(full_tags))
