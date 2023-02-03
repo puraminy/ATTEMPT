@@ -625,7 +625,7 @@ def train(**kwargs):
                         prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
                 encoder.is_source =True
                 if load_source_prompts is True:
-                    encoder.load(prompts_dir, prompts_prefix=prompts_prefix,
+                    encoder.load(prompts_dir, prefix=prompts_prefix,
                             length = adapter_args.num_prompt_tokens)
                 prompt_encoders.append(encoder)
 
@@ -658,7 +658,9 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 
-                encoder.load(prompts_dir, prompts_prefix)
+                encoder.load(prompts_dir, 
+                        prefix=prompts_prefix,
+                        length = adapter_args.num_prompt_tokens)
             prompt_encoders.append(encoder)
 
         model.encoder.set_encoders(prompt_encoders, 
