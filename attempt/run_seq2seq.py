@@ -616,6 +616,8 @@ def train(**kwargs):
         prompt_encoders = []
         source_prompts = []
         load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
+        prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+        if prompts_prefix is None: prompts_prefix = ""
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
             for prompt in source_prompts: 
@@ -623,7 +625,8 @@ def train(**kwargs):
                         prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
                 encoder.is_source =True
                 if load_source_prompts is True:
-                    encoder.load(prompts_dir, length = adapter_args.num_prompt_tokens)
+                    encoder.load(prompts_dir, prompts_prefix=prompts_prefix,
+                            length = adapter_args.num_prompt_tokens)
                 prompt_encoders.append(encoder)
 
         # mmmmmmmmmmmmm Add target prompts
@@ -648,8 +651,6 @@ def train(**kwargs):
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
-        prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
-        if prompts_prefix is None: prompts_prefix = ""
         target_prompts = list(prompts.keys())
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
