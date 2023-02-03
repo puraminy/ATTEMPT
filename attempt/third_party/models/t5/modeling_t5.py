@@ -972,7 +972,6 @@ class T5Stack(T5PreTrainedModel):
             target_prompts, add_target, source_idx=None, target_idx =None):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
-        mylogs.bp("att")
         if self.attend_input:
             pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
@@ -984,9 +983,8 @@ class T5Stack(T5PreTrainedModel):
         avg_attend_for, _ = torch.max(target_prompts ,2)
  
         attn_scores = None
-        soft_prompts = None
-        normalized_attn_scores = self.attn_scores
         batch_size = inputs_embeds.shape[0]
+        mylogs.bp("att")
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1036,11 +1034,11 @@ class T5Stack(T5PreTrainedModel):
             x = x.unsqueeze(-1)
             attn_scores = torch.einsum(
                 "bpld,bdk->bplk", attend_for, x) / self.temperature
-
         elif self.attn_method == "constant":
             # FIXME: more efficient implementation
-            attn_scores = (torch.ones(attend_to.size(
-                0), attend_to.size(1)) / attend_to.size(1)).cuda()
+            attn_scores = (torch.ones(attend_for.size(1), 
+                attend_to.size(1), device=inputs_embeds.device) / attend_to.size(1))
+            attn_scores = attn_scores.repeat(batch_size, 1, 1)
         else:
             raise NotImplementedError
 
