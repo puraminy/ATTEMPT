@@ -22,7 +22,7 @@ REL_TO_PHRASE = {
     'isBefore':"<isBefore>", 
     'isFilledBy': "<isFilledBy>",
     'HinderedBy':"<HinderedBy>",
-    'cola':"Is it grammatical or meaningful?",
+    'cola':"Is it grammatical or meaningful",
 }
 REL_TO_SHARED_TOKENS = {
     "oEffect":"after others effect",
