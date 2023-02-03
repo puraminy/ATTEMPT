@@ -648,7 +648,8 @@ def train(**kwargs):
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
-        prompts_prefix = kwargs.setdefault("prompts_prefix", "pt") 
+        prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+        if prompts_prefix is None: prompts_prefix = ""
         target_prompts = list(prompts.keys())
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
@@ -1060,8 +1061,6 @@ def train(**kwargs):
             model.store_encoders(output_dir = training_args.output_dir)
             prompts_to_save = kwargs.setdefault("save_prompts", []) 
             if prompts_to_save:
-                prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
-                if prompts_prefix is None: prompts_prefix = ""
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
                         prompts_only=True, 
