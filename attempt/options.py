@@ -231,6 +231,13 @@ class ModelArguments:
             "help": "attention model for attn_prefix"
         },
     )
+    # my option
+    compose_method: Optional[str] = field(
+        default="wavg",
+        metadata={
+            "help": "How to compose soft prompts"
+        },
+    )
 
     shared_attn: bool = field(
         default=False,

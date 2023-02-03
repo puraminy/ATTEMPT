@@ -43,7 +43,7 @@ class AbstractTask(abc.ABC):
         ## list of prompts
         self.prompt_set = {} 
         prompt_config = {}
-        prompt_config["length"] = task_args.num_prompt_tokens
+        prompt_config["length"] = task_args.prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
         self.prompt_config = prompt_config
         self.task_args = task_args

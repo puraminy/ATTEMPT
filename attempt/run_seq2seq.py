@@ -377,12 +377,19 @@ def train(**kwargs):
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
 
+
+    target_prompt_length = adapter_args.num_prompt_tokens
+    source_prompt_length = adapter_args.num_prompt_tokens
+    num_source_prompts = len(data_args.source_prompts)
+    if model_args.compose_method == "cat":
+        target_prompt_length = num_source_prompts * adapter_args.num_prompt_tokens
+
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
-    task_args["num_prompt_tokens"] = adapter_args.num_prompt_tokens
+    task_args["prompt_length"] = target_prompt_length 
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
     task_args["add_prefix"] = data_args.add_prefix
@@ -517,6 +524,7 @@ def train(**kwargs):
     config.prompt_tuning = adapter_args.prompt_tuning
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
+    config.compose_method = model_args.compose_method
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -652,6 +660,7 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         target_prompts = list(prompts.keys())
+        # create and load target prompts
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, adapter_args.prompt_encoder_type) 
@@ -660,11 +669,14 @@ def train(**kwargs):
             if load_prompts: 
                 encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
-                        length = adapter_args.num_prompt_tokens)
+                        length = target_prompt_length)
             prompt_encoders.append(encoder)
 
         model.encoder.set_encoders(prompt_encoders, 
-            source_prompts, adapter_args.num_prompt_tokens, load_source_prompts)
+            source_prompts, 
+            source_prompt_length,
+            target_prompt_length, 
+            load_source_prompts)
         model.resize_token_embeddings(len(tokenizer))
 
     if log_var and preview == "encoders":
