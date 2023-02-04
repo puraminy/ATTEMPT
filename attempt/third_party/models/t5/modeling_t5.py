@@ -974,7 +974,7 @@ class T5Stack(T5PreTrainedModel):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         if self.attend_input:
-            pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
+            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             src_prompts[:,0,:,:] = avg_inputs_embeds
@@ -1079,6 +1079,7 @@ class T5Stack(T5PreTrainedModel):
         self.attn_scores = torch.zeros(
             (attend_num, attend_num), device=device) 
         self.src_prompts = None
+        self.src_prompt_dim = src_prompt_dim
         self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
         if source_prompts:
             task_encoders_num = len(source_prompts) + 1 # one for input 
