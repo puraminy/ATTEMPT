@@ -306,6 +306,13 @@ class ModelArguments:
             "help": "fix attentions."
         },
     )
+    # my option
+    router_temperature: float = field(
+        default=1.,
+        metadata={
+            "help": "set router temperature."
+        },
+    )
 
     temperature: float = field(
         default=2000,

@@ -527,6 +527,7 @@ def train(**kwargs):
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.compose_method = model_args.compose_method
+    config.router_temperature = model_args.router_temperature
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option

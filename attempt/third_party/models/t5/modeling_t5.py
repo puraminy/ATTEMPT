@@ -919,6 +919,7 @@ class T5Stack(T5PreTrainedModel):
         self.attend_input = config.attend_input
         self.add_target = config.add_target
         self.compose_method = config.compose_method
+        self.router_temperature = config.router_temperature
         #######################################
         self.attend_target = attend_target
         self.prefix_emb = prefix_emb if self.attend_target is True else None
@@ -994,9 +995,9 @@ class T5Stack(T5PreTrainedModel):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     source_idx[i]]
             if True:
-                attn_scores = RelaxedBernoulli(temperature=self.temperature, 
+                attn_scores = RelaxedBernoulli(temperature=self.router_temperature, 
                     logits=router).rsample()            
-                attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+                #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
             elif self.trunc_router == "sigmoid":
                 attn_scores = torch.sigmoid(router)  # layer * n_prompts
             else:
