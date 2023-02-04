@@ -15,6 +15,7 @@ import re
 from attempt.maps import *
 import attempt.mylogs as mylogs
 from itertools import cycle, islice
+from random import shuffle
 
 logger = logging.getLogger(__name__)
 
@@ -245,6 +246,8 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "{prompt_sh} (prompt) ",1)
             if part == "psht":
                src = src.replace("(prompt)", "{prompt_sht} (prompt) ",1)
+            if part == "pshr":
+               src = src.replace("(prompt)", "{prompt_shr} (prompt) ",1)
             if part == "nat": 
                src = src.replace("(nat)", ", {rel_nat}")
 
@@ -272,12 +275,15 @@ class AbstractTask(abc.ABC):
 
             rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
             rel_sh = rel_sh.split()
-            prompts_sh = ["[" + w + "_i]" for w in rel_sh]
-            data["prompt_sh"] = " ".join(prompts_sh)
-
+            prompt_sh = ["[" + w + "_i]" for w in rel_sh]
+            data["prompt_sh"] = " ".join(prompt_sh)
+            shuffle(rel_sh)
+            prompt_shr = ["[" + w + "_i]" for w in rel_sh]
+            data["prompt_shr"] = " ".join(prompt_shr)
             l = self.get_prompt_length(0)*len(rel_sh)
-            prompts_sht = "[task" + "_" + str(l) + "]" 
-            data["prompt_sht"] = prompts_sht
+            prompt_sht = "[task" + "_" + str(l) + "]" 
+            data["prompt_sht"] = prompt_sht
+
         return data
 
     def fill_template(self, data):
