@@ -48,7 +48,7 @@ REL_TO_SHARED_TOKENS = {
     'isBefore':"<isBefore>", 
     'isFilledBy': "<isFilledBy>",
     'HinderedBy':"<HinderedBy>",
-    'cola':"Is it grammatical or meaningful?",
+    'cola':"Is it grammatical or meaningful",
 }
 REL_TO_WORD = {
     "oEffect":"effect on others",
@@ -74,7 +74,7 @@ REL_TO_WORD = {
     'isBefore':"is before", 
     'isFilledBy': "is filled by",
     'HinderedBy':"hindered by",
-    'cola':"Is it grammatical or meaningful?",
+    'cola':"Is it grammatical or meaningful",
 }
 REL_TO_TOKEN = {
     "cb":"<cb>",
