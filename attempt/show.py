@@ -1088,7 +1088,7 @@ def show_df(df):
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
                 #df = df.sort_values(by="input_text", ascending=False)
             else:
-                exp=df.iloc[s_row]["exp_id"]
+                exp=df.iloc[sel_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
                 sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
