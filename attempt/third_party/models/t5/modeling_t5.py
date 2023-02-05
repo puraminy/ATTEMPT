@@ -1085,7 +1085,7 @@ class T5Stack(T5PreTrainedModel):
         if source_prompts:
             task_encoders_num = len(source_prompts) + 1 # one for input 
             self.src_prompts = torch.zeros(
-                (task_encoders_num, src_prompt_dim, self.model_dim)) 
+                (task_encoders_num, src_prompt_dim, self.model_dim), device=device) 
         task_prompt_ids = []
         i = 1
         for encoder in self.prompt_encoders:
