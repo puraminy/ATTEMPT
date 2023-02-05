@@ -24,11 +24,11 @@ def _isin(tensor:torch.Tensor,values:torch.Tensor):
 
 class PromptEncoder(torch.nn.Module):
     enc_type = "encoder"
-    def __init__(self, name, prompt_tokens, model, tokenizer): 
+    def __init__(self, name, prompt_tokens, length=None, model=None, tokenizer=None): 
         super().__init__()
         self.name = name
         self.prompt_tokens = prompt_tokens
-        self.length = len(prompt_tokens)
+        self.length = len(prompt_tokens) if prompt_tokens else length
         self.embedding_dim = model.config.hidden_size
         self.embedding = torch.nn.Embedding(self.length, self.embedding_dim)
 
@@ -39,6 +39,7 @@ class PromptEncoder(torch.nn.Module):
         self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
         self.id_offset = min(self.prompt_ids) if self.prompt_ids else 0 
         self.is_source = False
+        self.src_idx = -1
 
     def get_prompt_ids(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
         prompt_ids = tokenizer.convert_tokens_to_ids(prompt_tokens)
@@ -292,7 +293,7 @@ def extend_tokenizer(tokenizer, prompt_tokens = []):
         added_tokens = cur_list + added_tokens
         tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
 
-def create_encoder(name, model, tokenizer, prompt_tokens, encoder_type="lstm"):
+def create_encoder(name, model, tokenizer, prompt_tokens, length=None, encoder_type="lstm"):
     embedding_dim = model.config.hidden_size
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
@@ -311,17 +312,20 @@ def create_encoder(name, model, tokenizer, prompt_tokens, encoder_type="lstm"):
         prompt_encoder = MLPPromptEncoder(name = name,
                 model=model, tokenizer=tokenizer,
                 prompt_tokens=prompt_tokens, 
+                length = length,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)
     elif encoder_type.startswith("emb"):
         prompt_encoder = EmbeddingPromptEncoder(name = name,
                 model=model, tokenizer=tokenizer,
+                length = length,
                 prompt_tokens=prompt_tokens) 
 
     elif encoder_type.startswith("mat"):
         prompt_encoder = MatPromptEncoder(
                 prefix_config=prefix_config, 
                 name = name, 
+                length = length,
                 model=model, tokenizer=tokenizer,
                 prompt_tokens=prompt_tokens) 
     else:
@@ -336,6 +340,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens, encoder_type="lstm"):
                 name = name, 
                 model=model, tokenizer=tokenizer,
                 prompt_tokens=prompt_tokens, 
+                length = length,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)
     return prompt_encoder, encoder_type

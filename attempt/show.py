@@ -1087,9 +1087,17 @@ def show_df(df):
                 _common = _all - len(df)
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
                 #df = df.sort_values(by="input_text", ascending=False)
-            sel_cols = ["pred_text1","target_text"] + tag_cols + ["prefix","input_text"]
-            info_cols = []
-            df = df.reset_index()
+            else:
+                exp=df.iloc[s_row]["exp_id"]
+                cond = f"(main_df['{FID}'] == '{exp}')"
+                df = main_df[main_df[FID] == exp]
+                sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
+                df = df[sel_cols]
+                df = df.sort_values(by="input_text", ascending=False)
+                sel_cols = ["pred_text1","target_text"] + tag_cols + ["prefix","input_text"]
+                info_cols = []
+                df = df.reset_index()
             if len(df) > 1:
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
