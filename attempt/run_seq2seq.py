@@ -523,11 +523,12 @@ def train(**kwargs):
     )
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
-    config.prompt_tuning = adapter_args.prompt_tuning
+    config.prompt_tuning = adapter_args.prompt_tuning #my option
+    config.learn_source_prompts = adapter_args.learn_source_prompts #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
-    config.compose_method = model_args.compose_method
-    config.router_temperature = model_args.router_temperature
+    config.compose_method = model_args.compose_method #my option
+    config.router_temperature = model_args.router_temperature # my option
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -633,7 +634,9 @@ def train(**kwargs):
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
             for prompt in source_prompts: 
                 encoder, enc_type = create_encoder(prompt, model, tokenizer, 
-                        prompt_tokens=[],encoder_type=adapter_args.prompt_encoder_type) 
+                        prompt_tokens=[],
+                        length = adapter_args.num_prompt_tokens,
+                        encoder_type=adapter_args.prompt_encoder_type) 
                 encoder.is_source =True
                 if load_source_prompts is True:
                     encoder.load(prompts_dir, prefix=prompts_prefix,

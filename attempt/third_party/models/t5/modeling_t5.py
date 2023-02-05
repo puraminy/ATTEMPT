@@ -920,6 +920,7 @@ class T5Stack(T5PreTrainedModel):
         self.add_target = config.add_target
         self.compose_method = config.compose_method
         self.router_temperature = config.router_temperature
+        self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
         self.prefix_emb = prefix_emb if self.attend_target is True else None
@@ -1090,11 +1091,13 @@ class T5Stack(T5PreTrainedModel):
         for encoder in self.prompt_encoders:
             task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
-            if source_prompts and encoder.name in source_prompts and load_source_prompts: 
-                with torch.no_grad():
-                    emb = encoder(encoder.net_inps)
-                    self.src_prompts[i, :] = emb.clone().detach()
-                    i+=1
+            if source_prompts and encoder.name in source_prompts:
+                encoder.src_idx = i
+                if load_source_prompts: 
+                    with torch.no_grad():
+                        emb = encoder(encoder.net_inps)
+                        self.src_prompts[i, :] = emb.clone().detach()
+                i+=1
 
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
@@ -1139,7 +1142,11 @@ class T5Stack(T5PreTrainedModel):
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
                     source_idx_list.append(ii)
+                    if self.learn_source_prompts:
+                        emb = encoder(encoder.net_inps)
+                        self.src_prompts[encoder.src_idx, :] = emb
                     continue
+
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if target_masks.any():
