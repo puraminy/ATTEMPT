@@ -1085,8 +1085,7 @@ class T5Stack(T5PreTrainedModel):
         if source_prompts:
             task_encoders_num = len(source_prompts) + 1 # one for input 
             self.src_prompts = torch.zeros(
-                (task_encoders_num, src_prompt_dim, self.model_dim),
-                retain_graph=True, device=device) 
+                (task_encoders_num, src_prompt_dim, self.model_dim), device=device) 
         task_prompt_ids = []
         i = 1
         for encoder in self.prompt_encoders:
@@ -1154,10 +1153,10 @@ class T5Stack(T5PreTrainedModel):
                     #find input ids for prompt tokens
                     prompt_input_ids = target_prompt_ids[target_masks]
                     #call forwards on prompt encoder whose outputs are prompt embeddings
-                    out = encoder(prompt_input_ids, tids)
-                    prompt_embeds = out.to(device)
+                    #out = encoder(prompt_input_ids, tids)
+                    #prompt_embeds = out.to(device)
                     target_prompts_clone = target_prompts.clone()
-                    target_prompts_clone[target_masks] = prompt_embeds
+                    #target_prompts_clone[target_masks] = prompt_embeds
                     target_prompts_list.append(target_prompts_clone)
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 
