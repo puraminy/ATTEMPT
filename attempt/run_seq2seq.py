@@ -619,6 +619,7 @@ def train(**kwargs):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code pppppp
+    mylogs.bp("penc")
     prompts_dir = model_args.prompt_encoders_dir
     if prompts_dir and not prompts_dir.startswith("/"):
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
@@ -671,7 +672,8 @@ def train(**kwargs):
         # create and load target prompts
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
-                    prompt_tokens, adapter_args.prompt_encoder_type) 
+                    prompt_tokens, 
+                    encoder_type=adapter_args.prompt_encoder_type) 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 
