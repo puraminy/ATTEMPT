@@ -385,6 +385,8 @@ def train(**kwargs):
         num_source_prompts = len(data_args.source_prompts)
         if model_args.compose_method == "cat":
             target_prompt_length = num_source_prompts * adapter_args.num_prompt_tokens
+            if model_args.attend_input is True:
+                target_prompt_length += 1
 
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
