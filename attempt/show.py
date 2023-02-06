@@ -682,10 +682,14 @@ def show_df(df):
             path=tdf.iloc[0]["path"]
             runid = tdf.iloc[0]["runid"]
             #run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
-            run = "wandb/offline*" + runid + "/files/media/images/attn*"
+            run = "/home/ahmad/wandb/offline*" + runid + "/files/media/images/attn*"
             images = glob(run)
             df = pd.DataFrame(data = images, columns = ["image"])
             sel_cols = ["image"]
+            df = df.sort_values(by="image", ascending=False)
+        elif char in ["o","O"]:
+            pname=df.iloc[sel_row]["image"]
+            subprocess.run(["eog", pname])
         elif char == "L":
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -738,7 +742,8 @@ def show_df(df):
                 if col in info_cols:
                     info_cols.remove(col)
                     save_obj(info_cols, "info_cols", context)
-        elif char in ["o","O"]:
+
+        elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
             df = df[(df.prefix != inp.prefix) | 
                     (df.input_text != inp.input_text)] 
