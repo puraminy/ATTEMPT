@@ -1960,6 +1960,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     
     def load_encoders(self, load_dir = None, load_source_prompts = False, prefix=""):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        prefix = "pt_" + prefix if not self.attn_tuning else "att_" + prefix
+        prefix = prefix.strip("_")
         for encoder in self.prompt_encoders:
             if not load_source_prompts and encoder.is_source:
                 continue
