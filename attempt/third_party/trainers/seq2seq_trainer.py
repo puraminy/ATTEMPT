@@ -62,7 +62,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
             super()._save_checkpoint(model, trial, metrics)
         else:
             # Determine the new best metric / best model checkpoint
-            checkpoint_folder = f"checkpoin-{self.state.global_step}_prompt_only"
+            checkpoint_folder = f"checkpoint-{self.state.global_step}_prompt_only"
             output_dir = os.path.join(self.args.output_dir, checkpoint_folder)
             if metrics is not None and self.args.metric_for_best_model is not None:
                 metric_to_check = self.args.metric_for_best_model
