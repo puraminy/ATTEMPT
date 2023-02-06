@@ -85,9 +85,11 @@ def remove_uniques(df, sel_cols, tag_cols):
     _tag_cols = tag_cols
     _sel_cols = []
     _df = df.nunique()
-    for c, _count in _df.items():
-        if not c in sel_cols:
+    items = {k:c for k,c in _df.items()}
+    for c in sel_cols:
+        if not c in items:
             continue
+        _count = items[c]
         if c in ["exp_id", "rouge_score", "pred_max_num"]:
             _sel_cols.append(c)
         elif _count > 1: 
@@ -1113,6 +1115,7 @@ def show_df(df):
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
+                sel_cols=tag_cols + ["bert_score","pred_text1","input_text","target_text","rouge_score","prefix"]
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
