@@ -1065,7 +1065,7 @@ def train(**kwargs):
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
 
         #### save last images
-        wb_callback.save_images(model, model.state, "last")
+        wb_callback.save_images(model, state = None, fpath=training_args.output_dir)
         if training_args.compute_time:
             end.record()
             torch.cuda.synchronize()  # wait for all_reduce to complete
