@@ -359,7 +359,7 @@ def train(**kwargs):
 
     # sssssssss
     torch.autograd.set_detect_anomaly(True)
-    training_args.report_to = ["tensorboard"]
+    training_args.report_to = kwargs["report_to"] 
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     exp_conf = json.dumps(kwargs, indent=2)
