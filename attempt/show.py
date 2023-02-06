@@ -680,6 +680,14 @@ def show_df(df):
             cond = f"(main_df['{FID}'] == '{exp}')"
             tdf = main_df[main_df[FID] == exp]
             path=tdf.iloc[0]["path"]
+            runid = tdf.iloc[0]["runid"]
+            run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
+            images = glob.glob(run)
+        elif char == "L":
+            exp=df.iloc[sel_row]["exp_id"]
+            cond = f"(main_df['{FID}'] == '{exp}')"
+            tdf = main_df[main_df[FID] == exp]
+            path=tdf.iloc[0]["path"]
             conf = os.path.join(str(Path(path).parent), "exp.json")
             with open(conf,"r") as f:
                 infos = f.readlines()
