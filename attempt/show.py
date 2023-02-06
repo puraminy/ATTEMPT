@@ -81,23 +81,19 @@ def load_results(path):
     return df
 
 def remove_uniques(df, sel_cols, tag_cols):
-    _sel_cols = sel_cols.copy() 
     _info_cols = []
     _tag_cols = tag_cols
-    for c in sel_cols:
-        _count = 0
-        if not c in df or c in ["rouge_score", "pred_max_num"]:
+    _sel_cols = []
+    _df = df.nunique()
+    for c, _count in _df.items():
+        if not c in sel_cols:
             continue
-        _count = df[c].nunique()
-        if _count == 1 and c != "exp_id":
+        if c in ["exp_id", "rouge_score", "pred_max_num"]:
+            _sel_cols.append(c)
+        elif _count > 1: 
+           _sel_cols.append(c)
+        else:
            _info_cols.append(c) 
-           _sel_cols.remove(c)
-        elif c in df and c + "_nunique" in df:
-            _gn = df[c + "_nunique"].iloc[0]
-            if _gn != 1:
-                _sel_cols.remove(c)
-        if len(_sel_cols) <= 5:
-            break
     if _sel_cols:
         sel_cols = _sel_cols
         _tag_cols = []
@@ -1002,8 +998,10 @@ def show_df(df):
             gb = df.groupby(col)
             counts = gb.size().to_frame(name='group_records')
             df = (counts.join(gb.agg(_agg)))
-            df = df.reset_index()
-            df.columns = [ '_'.join(str(i) for i in col) for col in df.columns]
+            df = df.reset_index(drop=True)
+            scols = [c for c in df.columns if type(c) != tuple]
+            tcols = [c for c in df.columns if type(c) == tuple]
+            df.columns = scols + ['_'.join(str(i) for i in col) for col in tcols]
             avg_len = 1 #(df.groupby(col)["pred_text1"]
                         #   .apply(lambda x: np.mean(x.str.len()).round(2)))
             ren = {
