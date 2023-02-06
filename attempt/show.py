@@ -278,6 +278,7 @@ def show_df(df):
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
+    orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
         src_path = df.loc[0, "src_path"]
@@ -674,13 +675,14 @@ def show_df(df):
             df = main_df
             hotkey = hk
         elif char == "l":
+            backit(df, sel_cols)
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
             tdf = main_df[main_df[FID] == exp]
             path=tdf.iloc[0]["path"]
             runid = tdf.iloc[0]["runid"]
             #run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
-            run = "/home/ahmad/wandb/offline*" + runid + "/files/media/images/attn*"
+            run = "wandb/offline*" + runid + "/files/media/images/attn*"
             images = glob(run)
             df = pd.DataFrame(data = images, columns = ["image"])
             sel_cols = ["image"]
@@ -722,7 +724,7 @@ def show_df(df):
             cond = f"(main_df['{FID}'] == '{exp}')"
             df = main_df[main_df[FID] == exp]
             sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
-            sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
+            sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
         elif ch == cur.KEY_IC:
@@ -1021,7 +1023,7 @@ def show_df(df):
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
             if len(df) > 1:
-                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
             info_cols_back = info_cols.copy()
             info_cols = []
             df = df.sort_values(by = ["rouge_score"], ascending=False)
@@ -1108,7 +1110,7 @@ def show_df(df):
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
                 sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
-                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 sel_cols = ["pred_text1","target_text"] + tag_cols + ["prefix","input_text"]
@@ -1118,7 +1120,7 @@ def show_df(df):
                 sel_cols=tag_cols + ["bert_score","pred_text1","input_text","target_text","rouge_score","prefix"]
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
-                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, tag_cols)
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
 
         elif char == "m" and prev_char != "x":
             left = 0
