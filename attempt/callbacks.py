@@ -20,7 +20,7 @@ class WBCallback(WandbCallback):
         labels = model.encoder.prompt_names
         fig, axes = plt.subplot_mosaic("ABB")
         ax1, ax2 = axes["A"], axes["B"]
-        ax1.set_title(f"Epoch:{epoch}-{state.epoch}  Step:{state.global_step}")
+        ax1.set_title(f"Epoch:{state.epoch}  Step:{state.global_step}")
         fig.set_size_inches(12.5, 6.5)
         ax1.axis("off")
         img = tag_to_image()
