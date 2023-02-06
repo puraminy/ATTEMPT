@@ -681,8 +681,11 @@ def show_df(df):
             tdf = main_df[main_df[FID] == exp]
             path=tdf.iloc[0]["path"]
             runid = tdf.iloc[0]["runid"]
-            run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
-            images = glob.glob(run)
+            #run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
+            run = "wandb/offline*" + runid + "/files/media/images/attn*"
+            images = glob(run)
+            df = pd.DataFrame(data = images, columns = ["image"])
+            sel_cols = ["image"]
         elif char == "L":
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
