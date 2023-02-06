@@ -457,6 +457,7 @@ def train(**kwargs):
         if not k in exp_info:
             exp_info[k] = v
 
+    exp_info["runid"] = wandb.run.id
     _tag = mylogs.get_tag(tag)  
     exp_info["tag"] = list(_tag.values())
     exp_info["taginfo"] = list(_tag.keys())
