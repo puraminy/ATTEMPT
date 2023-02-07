@@ -56,6 +56,7 @@ class WBCallback(WandbCallback):
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)
         mylogs.bp("wand")
-        if epoch != self.cur_epoch: # and state.global_step > 0:
+        epoch = int(epoch)
+        if epoch != self.cur_epoch and epoch % 4 == 0:
             self.cur_epoch = epoch
             self.save_images(model, state)
