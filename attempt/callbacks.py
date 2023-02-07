@@ -38,7 +38,7 @@ class WBCallback(WandbCallback):
         mylogs.bp("wand")
         wandb.log({"attn_scores":wandb.Image(fig)})
         if fpath:
-            plt.savefig(os.path.join(fpath, "last_attn_scores.png"), dpi=150)
+            fig.savefig(os.path.join(fpath, "last_attn_scores.png"), dpi=100)
         if encoder.attn_method == "rb":
             ax2.clear()
             np_router = encoder.router.detach().cpu().numpy()
@@ -49,7 +49,7 @@ class WBCallback(WandbCallback):
                     linewidth=0.5)
             wandb.log({"router":wandb.Image(fig)})
             if fpath:
-                plt.savefig(os.path.join(fpath, "last_router.png"), dpi=150)
+                fig.savefig(os.path.join(fpath, "last_router.png"), dpi=100)
         mylogs.bp("wand")
         plt.close("all")
 
