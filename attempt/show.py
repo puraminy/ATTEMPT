@@ -674,7 +674,7 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
-        elif char == "l":
+        elif char == "L":
             backit(df, sel_cols)
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -690,7 +690,17 @@ def show_df(df):
         elif char in ["o","O"]:
             pname=df.iloc[sel_row]["image"]
             subprocess.run(["eog", pname])
-        elif char == "L":
+        elif char == "l":
+            exp=df.iloc[sel_row]["exp_id"]
+            cond = f"(main_df['{FID}'] == '{exp}')"
+            tdf = main_df[main_df[FID] == exp]
+            path=tdf.iloc[0]["path"]
+            path = os.path.join(str(Path(path).parent), "last*.png")
+            images = glob(path)
+            df = pd.DataFrame(data = images, columns = ["image"])
+            sel_cols = ["image"]
+            df = df.sort_values(by="image", ascending=False)
+        elif char == "l" and prev_char == "p":
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
             tdf = main_df[main_df[FID] == exp]
