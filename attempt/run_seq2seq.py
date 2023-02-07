@@ -647,7 +647,7 @@ def train(**kwargs):
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
         elif num_source_prompts > 0:
-            source_prompts = ["source_" + sp for sp in range(num_source_prompts)]
+            source_prompts = ["source_" + str(sp) for sp in range(num_source_prompts)]
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
