@@ -387,7 +387,9 @@ def train(**kwargs):
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
-    nsp = len(data_args.source_prompts)
+    nsp = 0
+    if data_args.source_prompts is not None:
+        nsp = len(data_args.source_prompts) 
     num_source_prompts = nsp 
     if model_args.attn_tuning is True:
         if load_source_prompts is False:
