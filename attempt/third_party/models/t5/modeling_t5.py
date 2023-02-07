@@ -1071,8 +1071,7 @@ class T5Stack(T5PreTrainedModel):
 
         return soft_prompts, normalized_attn_scores
 
-    def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim,
-            prompt_dim, load_source_prompts=False):
+    def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         mylogs.bp("set")
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim

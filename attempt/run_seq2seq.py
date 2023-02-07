@@ -283,6 +283,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
            print(exp_conf)
+           with open("logs/exp_" + str(ii) + ".conf","w") as f:
+               print(exp_conf, file=f)
            continue
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
@@ -292,7 +294,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        title =  mylogs.get_tag(tags, args, as_str=True)
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
-           print(json.dumps(full_tags_dict, indent=2))
+           conf_str = json.dumps(full_tags_dict, indent=2)
+           print(conf_str)
+           with open("logs/exp_" + str(ii) + ".tag","w") as f:
+               print(conf_str, file=f)
            continue
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
@@ -381,8 +386,12 @@ def train(**kwargs):
 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
+    load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
+    nsp = len(data_args.source_prompts)
+    num_source_prompts = nsp 
     if model_args.attn_tuning is True:
-        num_source_prompts = len(data_args.source_prompts)
+        if load_source_prompts is False:
+            num_source_prompts = kwargs.setdefault("num_source_prompts", nsp) 
         if model_args.compose_method == "cat":
             target_prompt_length = num_source_prompts * adapter_args.num_prompt_tokens
             if model_args.attend_input is True:
@@ -631,11 +640,13 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
-        load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
         prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
         if prompts_prefix is None: prompts_prefix = ""
         if data_args.source_prompts:
-            source_prompts = ["source_" + sp for sp in data_args.source_prompts]
+            if load_source_prompts is True:
+                source_prompts = ["source_" + sp for sp in data_args.source_prompts]
+            else:
+                source_prompts = ["source_" + sp for sp in range(num_source_prompts)]
             for prompt in source_prompts: 
                 encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                         prompt_tokens=[],
@@ -686,8 +697,7 @@ def train(**kwargs):
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, 
             source_prompt_length,
-            target_prompt_length, 
-            load_source_prompts)
+            target_prompt_length) 
         model.resize_token_embeddings(len(tokenizer))
 
     if log_var and preview == "encoders":
