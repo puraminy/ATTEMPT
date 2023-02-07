@@ -54,6 +54,18 @@ from typing import Dict, Any
 import attempt.mylogs as mylogs
 
 
+######### 
+# My utility function
+############
+def batched_index_select(inp, dim, index):
+    #out1 = torch.cat([torch.index_select(a, dim -1, i.squeeze(0)).unsqueeze(0) for a, i in zip(inp, index)])
+    views = [inp.shape[0]] + [1 if i != dim else -1 for i in range(1, len(inp.shape))]
+    expanse = list(inp.shape)
+    expanse[0] = -1
+    expanse[dim] = -1
+    index = index.view(views).expand(expanse)
+    return torch.gather(inp, dim, index)
+
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "T5Config"
@@ -988,6 +1000,7 @@ class T5Stack(T5PreTrainedModel):
         attn_scores = None
         batch_size = inputs_embeds.shape[0]
         mylogs.bp("att")
+        sel_source_idx = source_idx
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1061,7 +1074,10 @@ class T5Stack(T5PreTrainedModel):
                 soft_prompts = torch.einsum(
                     'bts, bsld -> btld', normalized_attn_scores, attend_to)
         elif self.compose_method == "cat":
-            normalized_attn_scores = F.softmax(attn_scores, -1)
+            num_targets = attend_for.size()[2] // self.src_prompt_dim
+            top_scores, sel_source_idx = torch.topk(attn_scores, 3)
+            normalized_attn_scores = F.softmax(top_scores, -1)
+            attend_to = batched_index_select(attend_to, 1, sel_source_idx)
             soft_prompts = torch.einsum(
                 'bts, bsld -> btsld', normalized_attn_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, 1, -1, self.model_dim) 
@@ -1069,7 +1085,7 @@ class T5Stack(T5PreTrainedModel):
         if add_target is True:
            soft_prompts = soft_prompts + target_prompts
 
-        return soft_prompts, normalized_attn_scores
+        return soft_prompts, normalized_attn_scores, sel_source_idx
 
     def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
@@ -1177,7 +1193,8 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts, 0, source_idx_list)
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
                 if sel_prompts is not None:
-                    soft_prompts, attn_scores = self.attend_prompts(inputs_embeds, 
+                    soft_prompts, attn_scores,source_idx = self.attend_prompts(
+                            inputs_embeds, 
                             src_prompts = sel_prompts, 
                             target_prompts = target_prompts,
                             add_target = self.add_target, 
@@ -1334,7 +1351,7 @@ class T5Stack(T5PreTrainedModel):
                     mul_prefix_emb_added = self.mul_prefix_emb.repeat(
                         inputs_embeds.shape[0], 1, 1, 1)
 
-                soft_prompts, _ = self.attend_prompts(inputs_embeds, 
+                soft_prompts, _,_ = self.attend_prompts(inputs_embeds, 
                     src_prompts = mul_prefix_emb_added, 
                     target_prompts = target_prompts,
                     add_target = self.add_target)
