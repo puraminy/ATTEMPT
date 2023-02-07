@@ -645,20 +645,19 @@ def train(**kwargs):
         prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
         if prompts_prefix is None: prompts_prefix = ""
         if data_args.source_prompts:
+            source_prompts = ["source_" + sp for sp in data_args.source_prompts]
+        elif num_source_prompts > 0:
+            source_prompts = ["source_" + sp for sp in range(num_source_prompts)]
+        for prompt in source_prompts: 
+            encoder, enc_type = create_encoder(prompt, model, tokenizer, 
+                    prompt_tokens=[],
+                    length = adapter_args.num_prompt_tokens,
+                    encoder_type=adapter_args.prompt_encoder_type) 
+            encoder.is_source =True
             if load_source_prompts is True:
-                source_prompts = ["source_" + sp for sp in data_args.source_prompts]
-            else:
-                source_prompts = ["source_" + sp for sp in range(num_source_prompts)]
-            for prompt in source_prompts: 
-                encoder, enc_type = create_encoder(prompt, model, tokenizer, 
-                        prompt_tokens=[],
-                        length = adapter_args.num_prompt_tokens,
-                        encoder_type=adapter_args.prompt_encoder_type) 
-                encoder.is_source =True
-                if load_source_prompts is True:
-                    encoder.load(prompts_dir, prefix=prompts_prefix,
-                            length = adapter_args.num_prompt_tokens)
-                prompt_encoders.append(encoder)
+                encoder.load(prompts_dir, prefix=prompts_prefix,
+                        length = adapter_args.num_prompt_tokens)
+            prompt_encoders.append(encoder)
 
         # mmmmmmmmmmmmm Add target prompts
         prompts = {}
