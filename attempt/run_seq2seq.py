@@ -395,7 +395,8 @@ def train(**kwargs):
         if load_source_prompts is False:
             num_source_prompts = kwargs.setdefault("num_source_prompts", nsp) 
         if model_args.compose_method == "cat":
-            target_prompt_length = num_source_prompts * adapter_args.num_prompt_tokens
+            num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
+            target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
             if model_args.attend_input is True:
                 target_prompt_length += 1
 
