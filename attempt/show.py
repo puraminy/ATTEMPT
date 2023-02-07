@@ -691,15 +691,31 @@ def show_df(df):
             pname=df.iloc[sel_row]["image"]
             subprocess.run(["eog", pname])
         elif char == "l":
-            exp=df.iloc[sel_row]["exp_id"]
-            cond = f"(main_df['{FID}'] == '{exp}')"
-            tdf = main_df[main_df[FID] == exp]
-            path=tdf.iloc[0]["path"]
-            path = os.path.join(str(Path(path).parent), "last*.png")
-            images = glob(path)
-            df = pd.DataFrame(data = images, columns = ["image"])
-            sel_cols = ["image"]
-            df = df.sort_values(by="image", ascending=False)
+            s_rows = sel_rows
+            if not sel_rows:
+                s_rows = group_rows
+                if not group_rows:
+                    s_rows = [sel_row]
+            imgs = []
+            for s_row in s_rows:
+                exp=df.iloc[s_row]["exp_id"]
+                cond = f"(main_df['{FID}'] == '{exp}')"
+                tdf = main_df[main_df[FID] == exp]
+                path=tdf.iloc[0]["path"]
+                folder = str(Path(path).parent)
+                path = os.path.join(folder, "last_attn*.png")
+                images = glob(path)
+                tdf = pd.DataFrame(data = images, columns = ["image"])
+                tdf = tdf.sort_values(by="image", ascending=False)
+                pname=tdf.iloc[0]["image"]
+                _image = Image.open(pname)
+                imgs.append(_image)
+            if imgs:
+                new_im = combine_y(imgs)
+                name = "-".join([str(x) for x in s_rows]) 
+                pname = os.path.join("/home/ahmad/temp2", name + ".png")
+                new_im.save(pname)
+            subprocess.run(["eog", pname])
         elif char == "l" and prev_char == "p":
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -958,7 +974,8 @@ def show_df(df):
             df["pred_freq"] = df.groupby(['fid','prefix','pred_text1'],
                              sort=False)["pred_text1"].transform("count")
             cols = ['fid', 'prefix']
-            df = df.merge(df[cols+['pred_text1']]
+            tdf = df.groupby(["fid","input_text","prefix"]).first().reset_index()
+            df = df.merge(tdf[cols+['pred_text1']]
                  .value_counts().groupby(cols).head(1)
                  .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
                )
@@ -1370,7 +1387,8 @@ def show_df(df):
                 if col in df:
                     df = df.drop(df[df[col] == val].index)
         elif char == "v":
-            do_wrap = not do_wrap
+            #do_wrap = not do_wrap
+            sel_rows = []
         elif char == "M" and prev_char == "x":
             info_cols = []
             for col in df.columns:
@@ -1902,7 +1920,7 @@ def start(stdscr):
 )
 @click.option(
     "--dpy",
-    "-dpy",
+    "-d",
     is_flag=True,
     help=""
 )
@@ -1916,7 +1934,7 @@ def start(stdscr):
 @click.pass_context
 def main(ctx, fname, path, fid, ftype, dpy, hkey):
     if dpy:
-        port = 5678
+        port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
