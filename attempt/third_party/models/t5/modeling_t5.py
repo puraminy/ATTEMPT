@@ -1075,7 +1075,7 @@ class T5Stack(T5PreTrainedModel):
                     'bts, bsld -> btld', normalized_attn_scores, attend_to)
         elif self.compose_method == "cat":
             num_targets = attend_for.size()[2] // self.src_prompt_dim
-            top_scores, sel_source_idx = torch.topk(attn_scores, 3)
+            top_scores, sel_source_idx = torch.topk(attn_scores, num_targets)
             normalized_attn_scores = F.softmax(top_scores, -1)
             attend_to = batched_index_select(attend_to, 1, sel_source_idx)
             soft_prompts = torch.einsum(

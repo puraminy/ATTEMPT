@@ -311,13 +311,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
               # Track hyperparameters and run metadata
               config=tags_dict
            )
-       try:
+       if debug:
            ctx.invoke(train, **args)
-       except Exception as e:
-           print(f"================ {ii}/{total} =====================")
-           exp_conf = json.dumps(args, indent=2)
-           print(exp_conf)
-           raise Exception("An error occured in the experiment")
+       else:
+           try:
+               ctx.invoke(train, **args)
+           except Exception as e:
+               print(f"================ {ii}/{total} =====================")
+               exp_conf = json.dumps(args, indent=2)
+               print(exp_conf)
+               raise Exception("An error occured in the experiment")
        if preview == "one":
            return
        if not preview or preview=="one":
@@ -390,6 +393,7 @@ def train(**kwargs):
     data_args.test_dataset_name=data_args.task_name
 
 
+    mylogs.bp("nsp")
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
