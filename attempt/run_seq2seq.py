@@ -317,7 +317,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
            print(exp_conf)
-           print(e)
            raise Exception("An error occured in the experiment")
        if preview == "one":
            return
