@@ -311,7 +311,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
               # Track hyperparameters and run metadata
               config=tags_dict
            )
-       ctx.invoke(train, **args)
+       try:
+           ctx.invoke(train, **args)
+       except Exception as e:
+           print(e)
        if preview == "one":
            return
        if not preview or preview=="one":
