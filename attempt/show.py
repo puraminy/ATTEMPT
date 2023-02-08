@@ -1099,6 +1099,7 @@ def show_df(df):
             if sel_rows:
                 sel_row = sel_rows[-1]
             backit(df, sel_cols)
+            sel_rows = []
             on_col_list = ["pred_text1"]
             other_col = "target_text"
             if char =="i": 
@@ -1136,7 +1137,7 @@ def show_df(df):
                 exp=df.iloc[sel_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
-                sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
@@ -1144,7 +1145,7 @@ def show_df(df):
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=tag_cols + ["bert_score","pred_text1","input_text","target_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1","input_text","target_text","rouge_score","prefix"]
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
