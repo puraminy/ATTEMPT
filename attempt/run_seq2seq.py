@@ -314,7 +314,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        try:
            ctx.invoke(train, **args)
        except Exception as e:
+           print(f"================ {ii}/{total} =====================")
+           exp_conf = json.dumps(args, indent=2)
+           print(exp_conf)
            print(e)
+           raise Exception("An error occured in the experiment")
        if preview == "one":
            return
        if not preview or preview=="one":
