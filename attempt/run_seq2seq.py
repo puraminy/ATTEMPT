@@ -400,16 +400,15 @@ def train(**kwargs):
     nsp = 0
     if data_args.source_prompts is not None:
         nsp = len(data_args.source_prompts) 
+    else:
+        nsp = kwargs.setdefault("num_source_prompts", nsp) 
     num_source_prompts = nsp 
     if model_args.attn_tuning is True:
-       if load_source_prompts is False:
-            num_source_prompts = kwargs.setdefault("num_source_prompts", nsp) 
        if model_args.compose_method == "cat":
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
             if model_args.attend_input is True:
                 target_prompt_length += 1
-
 
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
