@@ -988,6 +988,7 @@ class T5Stack(T5PreTrainedModel):
             target_idx =None):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
+        mylogs.bp("att")
         if self.attend_input:
             pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
@@ -1006,7 +1007,6 @@ class T5Stack(T5PreTrainedModel):
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
         batch_size = inputs_embeds.shape[0]
-        mylogs.bp("att")
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1065,6 +1065,7 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
+        mylogs.bp("att")
         if not self.attend_input:
             attn_mask = attn_mask[:,:,1:]
         attn_softmax_scores = F.softmax(attn_scores, -1)
