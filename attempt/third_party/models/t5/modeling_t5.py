@@ -1074,7 +1074,6 @@ class T5Stack(T5PreTrainedModel):
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         sel_attn_scores, attend_to_idx = torch.topk(normalized_attn_scores, num_attend_to)
-        attend_to_back = attend_to.clone()
         attend_to = batched_index_select(src_prompts, 1, attend_to_idx)
         if self.compose_method == "wavg": 
             if self.attn_method == "token":
@@ -1157,7 +1156,7 @@ class T5Stack(T5PreTrainedModel):
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             num_src = self.num_src_encoders  
-            attn_mask = torch.ones(num_prompt_encoders, num_src)
+            attn_mask = torch.ones(num_prompt_encoders, num_src, device=device)
             source_idx_list = [0] # 0 is for input 
             target_prompts_list = []
             src_prompts = torch.zeros(
@@ -1171,7 +1170,7 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts[encoder.src_idx, :] = emb
                     continue
 
-                attn_mask[ii, :] = torch.tensor(encoder.attend_to)
+                attn_mask[ii, :] = torch.tensor(encoder.attend_to, device=device)
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if target_masks.any():
