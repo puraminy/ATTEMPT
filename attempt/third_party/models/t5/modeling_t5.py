@@ -931,6 +931,7 @@ class T5Stack(T5PreTrainedModel):
         self.attend_input = config.attend_input
         self.add_target = config.add_target
         self.compose_method = config.compose_method
+        self.select_method = config.select_method
         self.router_temperature = config.router_temperature
         self.learn_source_prompts = config.learn_source_prompts
         #######################################
@@ -983,7 +984,8 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
-            target_prompts, add_target, source_idx=None, target_idx =None):
+            target_prompts, add_target, source_idx=None, attn_mask=None, 
+            target_idx =None):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         if self.attend_input:
@@ -991,24 +993,28 @@ class T5Stack(T5PreTrainedModel):
             avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             src_prompts[:,0,:,:] = avg_inputs_embeds
-        attend_to = src_prompts
+            attend_to = src_prompts
+        else:
+            attend_to = src_prompts[:,1:,:,:]
         attend_for = target_prompts
-        avg_attend_to, _ = torch.max(src_prompts, 2)
+        avg_attend_to, _ = torch.max(attend_to, 2)
         avg_attend_for, _ = torch.max(target_prompts ,2)
         #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
  
         attn_scores = None
+        attend_to_idx = source_idx
+        if not self.attend_input:
+            attend_to_idx = source_idx[:,1:]
         batch_size = inputs_embeds.shape[0]
         mylogs.bp("att")
-        sel_source_idx = source_idx
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
-                    source_idx.size()[1], 
+                    attend_to_idx.size()[1], 
                     device=inputs_embeds.device).repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
-                                    source_idx[i]]
+                                    attend_to_idx[i]]
             if True:
                 attn_scores = RelaxedBernoulli(temperature=self.router_temperature, 
                     logits=router).rsample()            
@@ -1059,33 +1065,36 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
+        if not self.attend_input:
+            attn_mask = attn_mask[:,:,1:]
+        softmax_scores = F.softmax(attn_scores, -1)
+        attn_scores = softmax_scores * attn_mask
+        normalized_attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+
+        num_targets = attend_for.size()[1] 
+        num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
+        sel_attn_scores, attend_to_idx = torch.topk(normalized_attn_scores, num_attend_to)
+        attend_to_back = attend_to.clone()
+        attend_to = batched_index_select(src_prompts, 1, attend_to_idx)
         if self.compose_method == "wavg": 
             if self.attn_method == "token":
-                normalized_attn_scores = F.softmax(attn_scores, 1)
                 soft_prompts = torch.einsum(
-                    'bplk, bpld -> bld', normalized_attn_scores, attend_to)
+                    'bplk, bpld -> bld', sel_attn_scores, attend_to)
             elif self.attn_method == "rb":
-                #normalized_attn_scores = F.softmax(attn_scores, 1)
-                normalized_attn_scores = attn_scores 
                 soft_prompts = torch.einsum(
-                    'bts, bsld -> btld', normalized_attn_scores, attend_to)
+                    'bts, bsld -> btld', sel_attn_scores, attend_to)
             else:
-                normalized_attn_scores = F.softmax(attn_scores, -1)
                 soft_prompts = torch.einsum(
-                    'bts, bsld -> btld', normalized_attn_scores, attend_to)
+                    'bts, bsld -> btld', sel_attn_scores, attend_to)
         elif self.compose_method == "cat":
-            num_targets = attend_for.size()[2] // self.src_prompt_dim
-            top_scores, sel_source_idx = torch.topk(attn_scores, num_targets)
-            normalized_attn_scores = F.softmax(top_scores, -1)
-            attend_to = batched_index_select(attend_to, 1, sel_source_idx)
             soft_prompts = torch.einsum(
-                'bts, bsld -> btsld', normalized_attn_scores, attend_to)
-            soft_prompts = soft_prompts.reshape(batch_size, 1, -1, self.model_dim) 
+                'bts, bsld -> btsld', sel_attn_scores, attend_to)
+            soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
            soft_prompts = soft_prompts + target_prompts
 
-        return soft_prompts, normalized_attn_scores, sel_source_idx
+        return soft_prompts, sel_attn_scores, attend_to_idx
 
     def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
@@ -1098,7 +1107,7 @@ class T5Stack(T5PreTrainedModel):
         self.src_prompt_dim = src_prompt_dim
         self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
         if source_prompts:
-            self.src_encoders_num = len(source_prompts) + 1 # one for input 
+            self.num_src_encoders = len(source_prompts) + 1 # one for input 
         task_prompt_ids = []
         i = 1
         for encoder in self.prompt_encoders:
@@ -1134,22 +1143,25 @@ class T5Stack(T5PreTrainedModel):
     def get_prompt_token_fn(self):
         return lambda x: self.isin(x, self.task_prompt_ids)
 
-    # ppppppppppp
+    # pppppppppp
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
             tids = task_ids
             device=input_ids.device
             batch_size = inputs_embeds.shape[0]
+            num_prompt_encoders = len(self.prompt_encoders) + 1
             prompt_masks = self.get_prompt_token_fn(input_ids)
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
-            source_idx_list = [0] if self.attend_input else [] 
+            num_src = self.num_src_encoders  
+            attn_mask = torch.ones(num_prompt_encoders, num_src)
+            source_idx_list = [0] # 0 is for input 
             target_prompts_list = []
             src_prompts = torch.zeros(
-                (self.src_encoders_num, 
+                (self.num_src_encoders, 
                  self.src_prompt_dim, self.model_dim), device=device) 
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
@@ -1159,6 +1171,7 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts[encoder.src_idx, :] = emb
                     continue
 
+                attn_mask[ii, :] = torch.tensor(encoder.attend_to)
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if target_masks.any():
@@ -1178,6 +1191,9 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 target_idx = torch.unique_consecutive(target_idx, dim=1)  
+                attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                sel_attn_mask =batched_index_select(attn_mask, 1, 
+                        target_idx).long()
                 source_idx_list = torch.tensor(source_idx_list, device=device).long()
                 source_idx = source_idx_list.repeat(batch_size, 1)
                 sel_prompts = None
@@ -1198,7 +1214,9 @@ class T5Stack(T5PreTrainedModel):
                             src_prompts = sel_prompts, 
                             target_prompts = target_prompts,
                             add_target = self.add_target, 
-                            source_idx=source_idx, target_idx=target_idx)
+                            source_idx=source_idx, 
+                            attn_mask=sel_attn_mask,
+                            target_idx=target_idx)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
@@ -1934,7 +1952,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             (self.prefix_num, self.prefix_dim, config.d_model))) if self.prefix_tuning and self.attn_tuning else None
 
         #############################################################
-        self.src_encoders_num = 0
+        self.num_src_encoders = 0
         self.task_prompt_ids = []
         self.attn_scores = None
         self.prompt_names = None
