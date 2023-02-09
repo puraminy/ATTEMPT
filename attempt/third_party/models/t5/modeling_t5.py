@@ -1085,7 +1085,7 @@ class T5Stack(T5PreTrainedModel):
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
         elif self.compose_method == "cat":
             soft_prompts = torch.einsum(
-                'bts, bsld -> btsld', attn_sel_scores, attend_to)
+                'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
