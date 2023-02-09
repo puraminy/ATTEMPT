@@ -713,7 +713,8 @@ def show_df(df):
             if imgs:
                 new_im = combine_y(imgs)
                 name = "-".join([str(x) for x in s_rows]) 
-                pname = os.path.join("/home/ahmad/temp2", name + ".png")
+                Path("temp").mkdir(parents=True, exist_ok=True)
+                pname = os.path.join("temp", name + ".png")
                 new_im.save(pname)
             subprocess.run(["eog", pname])
         elif char == "l" and prev_char == "p":
