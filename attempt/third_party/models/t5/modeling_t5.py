@@ -989,11 +989,16 @@ class T5Stack(T5PreTrainedModel):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
+        batch_size = inputs_embeds.shape[0]
+        #if self.attend_input:
         if self.attend_input:
             pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-            avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            #avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            tpv = target_prompts.view(batch_size,-1,self.model_dim)
+            avg_targets_embeds = pool(tpv.permute(0,2,1)).permute(0,2,1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-            src_prompts[:,0,:,:] = avg_inputs_embeds
+            #src_prompts[:,0,:,:] = avg_inputs_embeds
+            src_prompts[:,0,:,:] = avg_targets_embeds
             attend_to = src_prompts
         else:
             attend_to = src_prompts[:,1:,:,:]
@@ -1006,7 +1011,6 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        batch_size = inputs_embeds.shape[0]
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1103,7 +1107,7 @@ class T5Stack(T5PreTrainedModel):
         self.attn_scores = torch.zeros(
             (attend_num, attend_num), device=device) 
         self.src_prompt_dim = src_prompt_dim
-        self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
+        self.prompt_names = ["target"] + [x.name for x in prompt_encoders]
         self.num_src_encoders = 0
         if source_prompts:
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
@@ -1217,6 +1221,7 @@ class T5Stack(T5PreTrainedModel):
                             attn_mask=sel_attn_mask,
                             target_idx=target_idx)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                    self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
