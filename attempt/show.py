@@ -1018,7 +1018,7 @@ def show_df(df):
             if True:
                 info_cols = ["bert_score", "num_preds"]
             if True: #col == "fid":
-                sel_cols = ["rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "pred_max_num","pred_max", "steps","max_acc","best_step",  "bert_score", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+                sel_cols = ["rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
 
             _agg = {}
             for c in df.columns:
@@ -1141,7 +1141,6 @@ def show_df(df):
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
-                sel_cols = ["pred_text1","target_text"] + tag_cols + ["prefix","input_text"]
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
@@ -1521,9 +1520,10 @@ def show_df(df):
         
         if cmd == "ren":
             sel_col = sel_cols[cur_col]
-            new_name = rowinput("from", default=sel_col)
+            new_name = rowinput("Rename to:", default="")
             map_cols[sel_col] = new_name
             save_obj(map_cols, "map_cols", "atomic")
+            cur_col += 1
         if cmd == "repall":
             canceled, col,val = list_df_values(main_df, get_val=False)
             if not canceled:
