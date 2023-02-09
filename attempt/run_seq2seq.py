@@ -402,13 +402,14 @@ def train(**kwargs):
         nsp = len(data_args.source_prompts) 
     num_source_prompts = nsp 
     if model_args.attn_tuning is True:
-        if load_source_prompts is False:
+       if load_source_prompts is False:
             num_source_prompts = kwargs.setdefault("num_source_prompts", nsp) 
-        if model_args.compose_method == "cat":
+       if model_args.compose_method == "cat":
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
             if model_args.attend_input is True:
                 target_prompt_length += 1
+
 
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
@@ -553,6 +554,7 @@ def train(**kwargs):
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.compose_method = model_args.compose_method #my option
+    config.select_method = model_args.select_method #my option
     config.router_temperature = model_args.router_temperature # my option
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
@@ -698,6 +700,14 @@ def train(**kwargs):
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
                     encoder_type=adapter_args.prompt_encoder_type) 
+            encoder.attend_to = [0]*(len(source_prompts) + 1) # one for input 
+            attn_flag = False
+            for i, n in enumerate(source_prompts, start=1):
+                if n == "source_" + name:
+                    encoder.attend_to[i] = 1 
+                    attn_flag = True
+            if not attn_flag: 
+                encoder.attend_to = [1]*(len(source_prompts) + 1) # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 

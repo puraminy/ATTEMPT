@@ -245,6 +245,12 @@ class ModelArguments:
             "help": "How to compose soft prompts"
         },
     )
+    select_method: Optional[str] = field(
+        default="max_sim", #max similarity
+        metadata={
+            "help": "How to select source prompts to attend to"
+        },
+    )
 
     shared_attn: bool = field(
         default=False,
