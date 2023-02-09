@@ -1067,36 +1067,31 @@ class T5Stack(T5PreTrainedModel):
 
         if not self.attend_input:
             attn_mask = attn_mask[:,:,1:]
-        softmax_scores = F.softmax(attn_scores, -1)
-        attn_scores = softmax_scores * attn_mask
-        normalized_attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        attn_softmax_scores = F.softmax(attn_scores, -1)
+        attn_scores = attn_softmax_scores * attn_mask
+        attn_normalized_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
-        sel_attn_scores, attend_to_idx = torch.topk(normalized_attn_scores, 
+        attn_sel_scores, attend_to_idx = torch.topk(attn_normalized_scores, 
                 num_attend_to, sorted=False)
         if not self.attend_input:
             attend_to_idx = attend_to_idx + 1
         attend_to = batched_index_select(src_prompts, 1, attend_to_idx)
+        attend_to = attend_to.view(batch_size, num_targets, -1, 
+                self.src_prompt_dim, self.model_dim)
         if self.compose_method == "wavg": 
-            if self.attn_method == "token":
-                soft_prompts = torch.einsum(
-                    'bplk, bpld -> bld', sel_attn_scores, attend_to)
-            elif self.attn_method == "rb":
-                soft_prompts = torch.einsum(
-                    'bts, bsld -> btld', sel_attn_scores, attend_to)
-            else:
-                soft_prompts = torch.einsum(
-                    'bts, bsld -> btld', sel_attn_scores, attend_to)
+            soft_prompts = torch.einsum(
+                'bts, btsld -> btld', attn_sel_scores, attend_to)
         elif self.compose_method == "cat":
             soft_prompts = torch.einsum(
-                'bts, bsld -> btsld', sel_attn_scores, attend_to)
+                'bts, bsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
            soft_prompts = soft_prompts + target_prompts
 
-        return soft_prompts, sel_attn_scores, attend_to_idx
+        return soft_prompts, attn_sel_scores, attend_to_idx
 
     def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
