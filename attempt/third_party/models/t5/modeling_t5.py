@@ -1073,7 +1073,10 @@ class T5Stack(T5PreTrainedModel):
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
-        sel_attn_scores, attend_to_idx = torch.topk(normalized_attn_scores, num_attend_to)
+        sel_attn_scores, attend_to_idx = torch.topk(normalized_attn_scores, 
+                num_attend_to, sorted=False)
+        if not self.attend_input:
+            attend_to_idx = attend_to_idx + 1
         attend_to = batched_index_select(src_prompts, 1, attend_to_idx)
         if self.compose_method == "wavg": 
             if self.attn_method == "token":
