@@ -696,8 +696,10 @@ def show_df(df):
                 s_rows = group_rows
                 if not group_rows:
                     s_rows = [sel_row]
+            all_rows = range(len(df))
+            Path("temp").mkdir(parents=True, exist_ok=True)
             imgs = []
-            for s_row in s_rows:
+            for s_row in all_rows:
                 exp=df.iloc[s_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
@@ -708,13 +710,15 @@ def show_df(df):
                 tdf = pd.DataFrame(data = images, columns = ["image"])
                 tdf = tdf.sort_values(by="image", ascending=False)
                 pname=tdf.iloc[0]["image"]
-                _image = Image.open(pname)
-                imgs.append(_image)
+                dest = os.path.join("temp", str(s_row) + ".png")
+                shutil.copyfile(pname, dest)
+                if s_row in s_rows:
+                    _image = Image.open(pname)
+                    imgs.append(_image)
             if imgs:
                 new_im = combine_y(imgs)
                 name = "-".join([str(x) for x in s_rows]) 
-                Path("temp").mkdir(parents=True, exist_ok=True)
-                pname = os.path.join("temp", name + ".png")
+                pname = os.path.join("temp", name.strip("-") + ".png")
                 new_im.save(pname)
             subprocess.run(["eog", pname])
         elif char == "l" and prev_char == "p":
