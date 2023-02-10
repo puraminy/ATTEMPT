@@ -1160,8 +1160,7 @@ class T5Stack(T5PreTrainedModel):
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
-            num_src = self.num_src_encoders  
-            attn_mask = torch.ones(num_prompt_encoders, num_src, device=device)
+            attn_mask = torch.ones(num_prompt_encoders, num_prompt_encoders, device=device)
             source_idx_list = [0] # 0 is for input 
             target_prompts_list = []
             src_prompts = torch.zeros(
