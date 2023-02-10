@@ -924,6 +924,7 @@ class T5Stack(T5PreTrainedModel):
         self.task_prompt_ids = []
         self.router = None
         self.training = True
+        self.pred_task = ""
         self.prompt_dim = None
         self.route_method = config.route_method
         self.prompt_tuning = config.prompt_tuning
@@ -1230,8 +1231,9 @@ class T5Stack(T5PreTrainedModel):
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
-                    if not self.training:
+                    if not self.training and task != self.pred_task:
                         mylogs.bp("pred")
+                        self.pred_task = task
                         WBCallback.save_images(self, prefix="pred_" + task + "_")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
