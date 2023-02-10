@@ -326,6 +326,12 @@ class ModelArguments:
             "help": "set router temperature."
         },
     )
+    route_method: str = field(
+        default=None,
+        metadata={
+            "help": "How to use router in prediction."
+        },
+    )
 
     temperature: float = field(
         default=2000,

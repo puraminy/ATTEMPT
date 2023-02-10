@@ -52,7 +52,7 @@ from attempt.encoders.encoders import *
 from attempt.adapters import AdapterController
 from typing import Dict, Any
 import attempt.mylogs as mylogs
-
+from attempt.callbacks import WBCallback
 
 ######### 
 # My utility function
@@ -923,8 +923,9 @@ class T5Stack(T5PreTrainedModel):
         self.embedding_dim = self.config.hidden_size
         self.task_prompt_ids = []
         self.router = None
-        self.trunc_router = None
+        self.training = True
         self.prompt_dim = None
+        self.route_method = config.route_method
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         self.attend_source = config.attend_source
@@ -1019,16 +1020,19 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     attend_to_idx[i]]
-            if True:
+            if self.training or self.route_method == "br":
                 attn_scores = RelaxedBernoulli(temperature=self.router_temperature, 
                     logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-            elif self.trunc_router == "sigmoid":
+            elif self.route_method == "sigmoid":
                 attn_scores = torch.sigmoid(router)  # layer * n_prompts
-            else:
+            elif self.route_method == "sign":
                 with torch.no_grad():
-                    attn_scores[attn_scores <= 0] = 0
-                    attn_scores[attn_scores > 0] = 1
+                    router[router <= 0] = 0
+                    router[router > 0] = 1
+                attn_scores = router
+            else:
+                attn_scores = router
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1225,6 +1229,9 @@ class T5Stack(T5PreTrainedModel):
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
+                    if not self.training:
+                        mylogs.bp("pred")
+                        WBCallback.save_images(self, prefix="pred_")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:

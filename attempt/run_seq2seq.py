@@ -572,6 +572,7 @@ def train(**kwargs):
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
+    config.route_method = model_args.route_method #my option
     config.add_target = model_args.add_target #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
@@ -1110,7 +1111,8 @@ def train(**kwargs):
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
 
         #### save last images
-        wb_callback.save_images(model, state = None, fpath=training_args.output_dir)
+        WBCallback.save_images(model.encoder, prefix="last_", 
+                fpath=training_args.output_dir)
         if training_args.compute_time:
             end.record()
             torch.cuda.synchronize()  # wait for all_reduce to complete
