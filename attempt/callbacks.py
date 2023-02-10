@@ -24,7 +24,7 @@ class WBCallback(WandbCallback):
         if state is not None:
             ax1.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
-            ax1.set_title(f"Final figure")
+            ax1.set_title(prefix)
         fig.set_size_inches(12.5, 6.5)
         ax1.axis("off")
         img = tag_to_image()

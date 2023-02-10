@@ -1151,7 +1151,7 @@ class T5Stack(T5PreTrainedModel):
         return lambda x: self.isin(x, self.task_prompt_ids)
 
     # pppppppppp
-    def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids):
+    def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
             tids = task_ids
@@ -1231,7 +1231,7 @@ class T5Stack(T5PreTrainedModel):
                                 source_idx[i]] = attn_scores[i]
                     if not self.training:
                         mylogs.bp("pred")
-                        WBCallback.save_images(self, prefix="pred_")
+                        WBCallback.save_images(self, prefix="pred_" + task + "_")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
@@ -1353,7 +1353,8 @@ class T5Stack(T5PreTrainedModel):
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
             ################ MyCode mmmmmmmmmmmm
-            input_ids = self.prompt_encoders_forward(input_ids, inputs_embeds, task_ids)
+            input_ids = self.prompt_encoders_forward(input_ids, 
+                    inputs_embeds, task_ids, task)
             ################ My code End
 
             if self.append_prefix and self.append_attn_prefix is False:
