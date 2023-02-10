@@ -991,15 +991,11 @@ class T5Stack(T5PreTrainedModel):
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
         batch_size = inputs_embeds.shape[0]
-        #if self.attend_input:
         if self.attend_input:
             pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-            #avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
-            tpv = target_prompts.view(batch_size,-1,self.model_dim)
-            avg_targets_embeds = pool(tpv.permute(0,2,1)).permute(0,2,1)
+            avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-            #src_prompts[:,0,:,:] = avg_inputs_embeds
-            src_prompts[:,0,:,:] = avg_targets_embeds
+            src_prompts[:,0,:,:] = avg_inputs_embeds
             attend_to = src_prompts
         else:
             attend_to = src_prompts[:,1:,:,:]
@@ -1205,11 +1201,16 @@ class T5Stack(T5PreTrainedModel):
                 source_idx = source_idx_list.repeat(batch_size, 1)
                 sel_prompts = None
                 if self.attend_target is True:
+                    pool = torch.nn.AdaptiveAvgPool1d(self.src_prompt_dim)
+                    tpv = target_prompts.view(batch_size,-1,self.model_dim)
+                    avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
+                    avg_tp = avg_tp.view(batch_size, -1, 
+                            self.src_prompt_dim, self.model_dim)
                     sel_prompts = torch.index_select(
                         src_prompts, 0, source_idx_list)
                     sel_prompts = torch.cat((sel_prompts.repeat(
                         batch_size, 1, 1, 1), 
-                        target_prompts), dim=1)
+                        avg_tp), dim=1)
                     source_idx = torch.cat([source_idx, target_idx], dim=1)
                 else:
                     sel_prompts = torch.index_select(
