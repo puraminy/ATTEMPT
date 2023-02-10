@@ -236,14 +236,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
        log_var = exp_vars[0]
-   full_tags.extend(exp_vars)
+   full_tags.extend([x for x in exp_vars if not "^" in x])
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) > 1:
            if vv.startswith("@"):
-               tags.append(vv.strip("@"))
-           vv = vv.strip("@")
-           full_tags.append(vv)
+               vv = vv.strip("@")
+               tags.append(vv.strip("^"))
+           full_tags.append(vv.strip("^"))
            values[ii] = [x for x in cc if not x.startswith("!")] 
            if exp_vars and not vv in exp_vars:
                values[ii] = [values[ii][0]] # ignore the rest of values for this item 
@@ -265,13 +265,29 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    total = len(tot_comb)
    args["total_exp"] = total
    logger.info("Total experiments:%s", total)
+   mylogs.bp("comb")
    for comb in tot_comb:
        _output_dir = [output_dir]
-       for var_name,var_item in comb.items():
-           var_item =var_item 
-           args[var_name]=var_item
+       prev_name = ""
+       prev_item = ""
+       dep_var = False
+       for kk, (var_name,var_item) in enumerate(comb.items()):
+           if var_name.startswith("^") and prev_name:
+               prev_vals = values[kk-1]
+               prev_index = prev_vals.index(prev_item) 
+               cur_vals = values[kk]
+               cur_index = cur_vals.index(var_item)
+               if cur_index != prev_index:
+                   dep_var = True
+                   break
+           args[var_name.strip("^")]=var_item
            if not var_name in exclude_list:
                _output_dir.append(var_name + "=" + str(var_item))
+           prev_name = var_name
+           prev_item = var_item
+       if dep_var:
+           print("Dep var observed! continue")
+           continue
        ii += 1
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
