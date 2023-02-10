@@ -1017,7 +1017,7 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     attend_to_idx[i]]
-            if self.training or self.route_method == "br":
+            if self.training or self.route_method == "rb":
                 attn_scores = RelaxedBernoulli(temperature=self.router_temperature, 
                     logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
