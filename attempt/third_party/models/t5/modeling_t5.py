@@ -1215,8 +1215,8 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     sel_prompts = torch.index_select(
                         src_prompts, 0, source_idx_list)
-                    attn_mask = torch.index_select(attn_mask, 0, source_idx_list)
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
+                    attn_mask = torch.index_select(attn_mask, 1, source_idx_list)
                     attn_mask = attn_mask.repeat(batch_size, 1, 1)
                 sel_attn_mask =batched_index_select(attn_mask, 1, 
                         target_idx).long()
