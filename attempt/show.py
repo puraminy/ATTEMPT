@@ -681,9 +681,15 @@ def show_df(df):
             tdf = main_df[main_df[FID] == exp]
             path=tdf.iloc[0]["path"]
             runid = tdf.iloc[0]["runid"]
-            #run = os.path.join(str(Path(path).parent), "wandb", "offline*"+ runid)
-            run = "wandb/offline*" + runid + "/files/media/images/attn*"
-            images = glob(run)
+            run = "wandb/offline*" + runid + "/files/media/images/*.png"
+            paths = glob(run)
+            Path("images").mkdir(parents=True, exist_ok=True)
+            images = []
+            for img in paths: 
+                fname = Path(img).stem
+                dest = os.path.join("images", fname + ".png") 
+                images.append({"image": dest})
+                shutil.copyfile(img, dest)
             df = pd.DataFrame(data = images, columns = ["image"])
             sel_cols = ["image"]
             df = df.sort_values(by="image", ascending=False)
