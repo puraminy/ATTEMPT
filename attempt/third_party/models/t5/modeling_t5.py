@@ -1164,7 +1164,7 @@ class T5Stack(T5PreTrainedModel):
             source_idx_list = [0] # 0 is for input 
             target_prompts_list = []
             src_prompts = torch.zeros(
-                (self.num_src_encoders, 
+                (num_prompt_encoders, 
                  self.src_prompt_dim, self.model_dim), device=device) 
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
@@ -1194,9 +1194,6 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 target_idx = torch.unique_consecutive(target_idx, dim=1)  
-                attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                sel_attn_mask =batched_index_select(attn_mask, 1, 
-                        target_idx).long()
                 source_idx_list = torch.tensor(source_idx_list, device=device).long()
                 source_idx = source_idx_list.repeat(batch_size, 1)
                 sel_prompts = None
@@ -1212,10 +1209,17 @@ class T5Stack(T5PreTrainedModel):
                         batch_size, 1, 1, 1), 
                         avg_tp), dim=1)
                     source_idx = torch.cat([source_idx, target_idx], dim=1)
+                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                    attn_mask = batched_index_select(attn_mask, 2, 
+                            source_idx.unsqueeze(1))
                 else:
                     sel_prompts = torch.index_select(
                         src_prompts, 0, source_idx_list)
+                    attn_mask = torch.index_select(attn_mask, 0, source_idx_list)
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
+                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                sel_attn_mask =batched_index_select(attn_mask, 1, 
+                        target_idx).long()
                 if sel_prompts is not None:
                     soft_prompts, attn_scores,source_idx = self.attend_prompts(
                             inputs_embeds, 
