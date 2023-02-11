@@ -1212,7 +1212,7 @@ def train(**kwargs):
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                 for route_method in kwargs.gen_route_methods: 
                     gen_conf["route_method"] = route_method
-                    exp_info["route_method"] = route_method
+                    exp_info["gen_route_methods"] = route_method
                     mylogs.bp("test")
                     predictions, labels, metrics = trainer.predict(
                             gen_conf = gen_conf,
