@@ -926,6 +926,7 @@ class T5Stack(T5PreTrainedModel):
         self.training = True
         self.pred_task = ""
         self.prompt_dim = None
+        self.gen_conf = None
         self.route_method = config.route_method
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
@@ -1020,15 +1021,19 @@ class T5Stack(T5PreTrainedModel):
             scores = RelaxedBernoulli(temperature=self.router_temperature, 
                 logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-            if False: #self.training:
+            if self.training:
                 attn_scores = scores
             else:
                 mylogs.bp("route")
-                if self.route_method == "rb":
+                if self.gen_conf is not None and "route_method" in self.gen_conf:
+                    route_method = self.gen_conf["route_method"] 
+                else:
+                    route_method = self.route_method
+                if route_method == "rb":
                     attn_scores = scores
-                elif self.route_method == "sigmoid":
+                elif route_method == "sigmoid":
                     attn_scores = torch.sigmoid(router)  # layer * n_prompts
-                elif self.route_method == "sign":
+                elif route_method == "sign":
                     with torch.no_grad():
                         router[router <= 0] = 0
                         router[router > 0] = 1
