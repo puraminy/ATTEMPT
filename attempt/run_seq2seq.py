@@ -1206,78 +1206,84 @@ def train(**kwargs):
         logger.info("*** Test ***")
         # multi-task evaluations
         results = {}
+        gen_conf = {}
+        ds_backup = None
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                mylogs.bp("test")
-                predictions, labels, metrics = trainer.predict(test_dataset=test_dataset,
-                                           max_length=data_args.test_max_target_length, 
-                                           num_beams=data_args.num_beams,
-                                           metric_key_prefix="test"
-                                           )
-                
-                trainer.log_metrics("test", metrics)
-                trainer.save_metrics("test", metrics)
-                ds_conf = data_args.test_dataset_config_name[idx]
-                ds_name = data_args.test_dataset_name[idx]
+                for gen_route_method in kwargs.gen_route_methods: 
+                    gen_conf["route_method"] = gen_route_method
+                    exp_info["gen_route_methods"] = gen_route_method
+                    mylogs.bp("test")
+                    predictions, labels, metrics = trainer.predict(
+                            gen_conf = gen_conf,
+                            test_dataset=test_dataset,
+                            max_length=data_args.test_max_target_length, 
+                            num_beams=data_args.num_beams,
+                            metric_key_prefix="test")
+                    
+                    trainer.log_metrics("test", metrics)
+                    trainer.save_metrics("test", metrics)
+                    ds_conf = data_args.test_dataset_config_name[idx]
+                    ds_name = data_args.test_dataset_name[idx]
 
-                # sssssssssss
-                #predictions = np.argmax(predictions, axis=1)
-                #predictions = tokenizer.batch_decode(predictions)
-                df = test_dataset.to_pandas()
-                if bp == "test": breakpoint()
-                df["pred_text1"] = ""
-                #df["rouge_score"] = 0.0
-                #df["bert_score"] = 0.0
-                df["template"] = data_args.template
-                df["resp"] = ""
-                df["query"] = ""
-                df["langs"] = "en2en"
-                df["prefix"] = ds_name
-                df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                        ds_conf,"test.tsv")
-                for key, info in exp_info.items():
-                    if type(info) == list:
-                        info = "@".join([str(inf) for inf in info])
-                    if type(info) == dict:
-                        info = json.dumps(info)
-                        info = info.replace("\n", "@")
-                    df[key] = info
-                rouge_scorer = Rouge()
-                for i, row in df.iterrows():
-                    mylogs.bp("=testloop") 
-                    extra = row["extra_fields"]
-                    if "event" in extra:
-                        inp = extra["event"]
-                    else:
-                        inp = tokenizer.decode(row["input_ids"], 
+                    # sssssssssss
+                    #predictions = np.argmax(predictions, axis=1)
+                    #predictions = tokenizer.batch_decode(predictions)
+                    df = test_dataset.to_pandas()
+                    if bp == "test": breakpoint()
+                    df["pred_text1"] = ""
+                    #df["rouge_score"] = 0.0
+                    #df["bert_score"] = 0.0
+                    df["template"] = data_args.template
+                    df["resp"] = ""
+                    df["query"] = ""
+                    df["langs"] = "en2en"
+                    df["prefix"] = ds_name
+                    df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                            ds_conf,"test.tsv")
+                    for key, info in exp_info.items():
+                        if type(info) == list:
+                            info = "@".join([str(inf) for inf in info])
+                        if type(info) == dict:
+                            info = json.dumps(info)
+                            info = info.replace("\n", "@")
+                        df[key] = info
+                    rouge_scorer = Rouge()
+                    for i, row in df.iterrows():
+                        mylogs.bp("=testloop") 
+                        extra = row["extra_fields"]
+                        if "event" in extra:
+                            inp = extra["event"]
+                        else:
+                            inp = tokenizer.decode(row["input_ids"], 
+                                skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                            inp = re.sub(r'<.*?>','', inp)
+                            inp = inp.strip()
+                        df.at[i, "input_text"] = inp #extra["event"] 
+                        try:
+                            label = tokenizer.decode(row["labels"], 
                             skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                        inp = re.sub(r'<.*?>','', inp)
-                        inp = inp.strip()
-                    df.at[i, "input_text"] = inp #extra["event"] 
-                    try:
-                        label = tokenizer.decode(row["labels"], 
-                        skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                    except:
-                        label = extra["tail"] if "tail" in extra else "na"
-                    #label = re.sub(r'<.*?>','', label)
-                    label = label.strip()
-                    df.at[i, "target_text"] = label 
-                    sel = False
-                    if "sel" in extra:
-                        sel = extra["sel"] 
-                    df.at[i, "sel"] = sel 
-                    df.at[i, "query"] = extra["query"]  
-                    df.at[i, "resp"] = extra["resp"]  
-                    pred = tokenizer.decode(predictions[i], 
-                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                    pred = re.sub(r'<.*?>','',pred)
-                    pred = pred.strip()
-                    df.at[i, "pred_text1"] = pred
-                df = df.drop(columns=["input_ids","labels","attention_mask"])
-                mylogs.bp("test")
-                save_to = os.path.join(training_args.output_dir, 
-                        ds_conf + "_results_" + ds_name + ".tsv")
-                scores = do_score(df, "rouge@bert", save_to)
+                        except:
+                            label = extra["tail"] if "tail" in extra else "na"
+                        #label = re.sub(r'<.*?>','', label)
+                        label = label.strip()
+                        df.at[i, "target_text"] = label 
+                        sel = False
+                        if "sel" in extra:
+                            sel = extra["sel"] 
+                        df.at[i, "sel"] = sel 
+                        df.at[i, "query"] = extra["query"]  
+                        df.at[i, "resp"] = extra["resp"]  
+                        pred = tokenizer.decode(predictions[i], 
+                                skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                        pred = re.sub(r'<.*?>','',pred)
+                        pred = pred.strip()
+                        df.at[i, "pred_text1"] = pred
+                    df = df.drop(columns=["input_ids","labels","attention_mask"])
+                    mylogs.bp("test")
+                    save_to = os.path.join(training_args.output_dir, 
+                            ds_conf + "_results_" + ds_name + ".tsv")
+                    scores = do_score(df, "rouge@bert", save_to)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():

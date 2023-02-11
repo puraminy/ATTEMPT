@@ -33,6 +33,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self.shuffle = shuffle
         self.save_checkpoint = save_checkpoint
         self.best_prompt_checkpoint = None
+        self.gen_conf = None
 
     def get_train_dataloader(self):
         if self.shuffle:
@@ -101,9 +102,6 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                     print("Skipping checkpoint")
                     print("======================================")
 
-
-
-
     def evaluate(
         self,
         eval_dataset: Optional[Dict[str, Dataset]] = None,
@@ -165,6 +163,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
             labels (each being optional).
         """
         model.encoder.training = False
+        model.encoder.gen_conf = self.gen_conf
         if not self.args.predict_with_generate or prediction_loss_only:
             return super().prediction_step(
                 model, inputs, prediction_loss_only=prediction_loss_only, ignore_keys=ignore_keys
@@ -214,3 +213,17 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                 labels, gen_kwargs["max_length"])
 
         return (loss, generated_tokens, labels)
+
+    def predict(
+        self,
+        test_dataset: Dataset,
+        ignore_keys: Optional[List[str]] = None,
+        metric_key_prefix: str = "eval",
+        max_length: Optional[int] = None,
+        num_beams: Optional[int] = None,
+        gen_conf: Optional[dict] = None # my parameter
+    ):
+        self.gen_conf = gen_conf
+        self._max_length = max_length
+        self._num_beams = num_beams
+        return super().predict(test_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)
