@@ -987,7 +987,7 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, attn_mask=None, 
-            target_idx =None):
+            target_idx =None, task=""):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
@@ -1020,17 +1020,23 @@ class T5Stack(T5PreTrainedModel):
             scores = RelaxedBernoulli(temperature=self.router_temperature, 
                 logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-            if self.training or self.route_method == "rb":
-                attn_scores = scores
-            elif self.route_method == "sigmoid":
-                attn_scores = torch.sigmoid(scores)  # layer * n_prompts
-            elif self.route_method == "sign":
-                with torch.no_grad():
-                    scores[scores <= 0] = 0
-                    scores[scores > 0] = 1
+            if self.training:
                 attn_scores = scores
             else:
-                attn_scores = scores
+                if self.route_method == "rb":
+                    mylogs.bp("route")
+                    attn_scores = scores
+                elif self.route_method == "sigmoid":
+                    attn_scores = torch.sigmoid(router)  # layer * n_prompts
+                elif self.route_method == "sign":
+                    mylogs.bp("route")
+                    with torch.no_grad():
+                        router[router <= 0] = 0
+                        router[router > 0] = 1
+                    attn_scores = router
+                WBCallback.save_images(scores=attn_scores, 
+                            labels=self.prompt_names, 
+                            fname = "pred_" + self.route_method + "_scores_" + task)
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1231,7 +1237,7 @@ class T5Stack(T5PreTrainedModel):
                             add_target = self.add_target, 
                             source_idx=source_idx, 
                             attn_mask=sel_attn_mask,
-                            target_idx=target_idx)
+                            target_idx=target_idx, task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                     for i in range(batch_size):
@@ -1240,7 +1246,9 @@ class T5Stack(T5PreTrainedModel):
                     if not self.training and task != self.pred_task:
                         mylogs.bp("pred")
                         self.pred_task = task
-                        WBCallback.save_images(self, prefix="pred_" + task + "_")
+                        WBCallback.save_images(scores=self.attn_scores, 
+                                labels=self.prompt_names, 
+                                fname = "pred_attn_scores" + task)
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
