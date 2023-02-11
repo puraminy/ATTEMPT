@@ -3,11 +3,18 @@ import seaborn as sns
 #import PIL
 import matplotlib.pyplot as plt
 from transformers.integrations import WandbCallback
+from transformers.trainer_callback import TrainerCallback 
 from math import floor
 import attempt.mylogs as mylogs
 from attempt.myutil import tag_to_image
 import matplotlib.pyplot as plt
 import json, os
+
+class AnnealCallback(TrainerCallback):
+    def on_step_begin(self, args, state, control, **kwargs):
+        mylogs.bp("anneal")
+        model = kwargs.pop("model", None)
+        model.encoder.anneal(state.global_step)
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
