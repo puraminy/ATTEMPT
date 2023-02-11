@@ -44,6 +44,6 @@ class WBCallback(WandbCallback):
         epoch = int(epoch)
         if epoch % 10 == 0 or state.global_step == 1:
             self.cur_epoch = epoch
-            labels = encoder.prompt_names
+            labels = model.encoder.prompt_names
             scores = model.encoder.attn_scores
             WBCallback.save_images(scores, labels, state, fname="attn_scores")
