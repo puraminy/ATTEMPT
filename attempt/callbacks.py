@@ -15,16 +15,14 @@ class WBCallback(WandbCallback):
         super().__init__()
 
     @staticmethod
-    def save_images(encoder, state=None, prefix="", fpath=""):
-        np_scores = encoder.attn_scores.detach().cpu().numpy()
-        #fig = plt.imshow(np_scores, cmap='hot', interpolation='nearest')
-        labels = encoder.prompt_names
+    def save_images(scores, labels, state=None, fname=""):
+        np_scores = scores.detach().cpu().numpy()
         fig, axes = plt.subplot_mosaic("ABB")
         ax1, ax2 = axes["A"], axes["B"]
         if state is not None:
             ax1.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
-            ax1.set_title(prefix)
+            ax1.set_title(fname)
         fig.set_size_inches(12.5, 6.5)
         ax1.axis("off")
         img = tag_to_image()
@@ -37,27 +35,15 @@ class WBCallback(WandbCallback):
                 linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
-        wandb.log({prefix + "attn_scores":wandb.Image(fig)})
-        if fpath:
-            fig.savefig(os.path.join(fpath, prefix + "attn_scores.png"), dpi=100)
-        if encoder.attn_method == "rb":
-            ax2.clear()
-            np_router = encoder.router.detach().cpu().numpy()
-            labels = encoder.prompt_names
-            sns.heatmap(np_router, cmap="crest", annot=False, ax=ax2, 
-                    xticklabels=labels,
-                    yticklabels=labels,
-                    linewidth=0.5)
-            wandb.log({prefix + "router":wandb.Image(fig)})
-            if fpath:
-                fig.savefig(os.path.join(fpath, prefix + "router.png"), dpi=100)
-        mylogs.bp("wand")
+        wandb.log({fname:wandb.Image(fig)})
         plt.close("all")
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)
         mylogs.bp("wand")
         epoch = int(epoch)
-        if epoch % 4 == 0 or state.global_step == 1:
+        if epoch % 10 == 0 or state.global_step == 1:
             self.cur_epoch = epoch
-            WBCallback.save_images(model.encoder, state)
+            labels = encoder.prompt_names
+            scores = model.encoder.attn_scores
+            WBCallback.save_images(scores, labels, state, fname="attn_scores")
