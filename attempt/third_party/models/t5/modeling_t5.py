@@ -1017,19 +1017,20 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     attend_to_idx[i]]
-            if self.training or self.route_method == "rb":
-                attn_scores = RelaxedBernoulli(temperature=self.router_temperature, 
-                    logits=router).rsample()            
+            scores = RelaxedBernoulli(temperature=self.router_temperature, 
+                logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+            if self.training or self.route_method == "rb":
+                attn_scores = scores
             elif self.route_method == "sigmoid":
-                attn_scores = torch.sigmoid(router)  # layer * n_prompts
+                attn_scores = torch.sigmoid(scores)  # layer * n_prompts
             elif self.route_method == "sign":
                 with torch.no_grad():
-                    router[router <= 0] = 0
-                    router[router > 0] = 1
-                attn_scores = router
+                    scores[scores <= 0] = 0
+                    scores[scores > 0] = 1
+                attn_scores = scores
             else:
-                attn_scores = router
+                attn_scores = scores
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":

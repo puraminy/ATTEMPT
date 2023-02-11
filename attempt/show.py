@@ -674,7 +674,7 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
-        elif char == "L":
+        elif char == "l":
             backit(df, sel_cols)
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -683,20 +683,19 @@ def show_df(df):
             runid = tdf.iloc[0]["runid"]
             run = "wandb/offline*" + runid + "/files/media/images/*.png"
             paths = glob(run)
-            Path("images").mkdir(parents=True, exist_ok=True)
+            spath = "images/" + runid
+            Path(spath).mkdir(parents=True, exist_ok=True)
             images = []
             for img in paths: 
                 fname = Path(img).stem
-                dest = os.path.join("images", fname + ".png") 
+                dest = os.path.join(spath, fname + ".png") 
                 images.append({"image": dest})
                 shutil.copyfile(img, dest)
-            df = pd.DataFrame(data = images, columns = ["image"])
-            sel_cols = ["image"]
-            df = df.sort_values(by="image", ascending=False)
+            subprocess.run(["eog", dest])
         elif char in ["o","O"]:
             pname=df.iloc[sel_row]["image"]
             subprocess.run(["eog", pname])
-        elif char == "l":
+        elif char == "L":
             s_rows = sel_rows
             if not sel_rows:
                 s_rows = group_rows
