@@ -1020,26 +1020,25 @@ class T5Stack(T5PreTrainedModel):
             scores = RelaxedBernoulli(temperature=self.router_temperature, 
                 logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-            if self.training:
+            if False: #self.training:
                 attn_scores = scores
             else:
+                mylogs.bp("route")
                 if self.route_method == "rb":
-                    mylogs.bp("route")
                     attn_scores = scores
                 elif self.route_method == "sigmoid":
                     attn_scores = torch.sigmoid(router)  # layer * n_prompts
                 elif self.route_method == "sign":
-                    mylogs.bp("route")
                     with torch.no_grad():
                         router[router <= 0] = 0
                         router[router > 0] = 1
                     attn_scores = router
-                WBCallback.save_images(scores=attn_scores[0,:,:], 
-                            labels=self.prompt_names, 
-                            fname = "pred_" + self.route_method + "_0_scores_" + task)
-                WBCallback.save_images(scores=attn_scores[1,:,:], 
-                            labels=self.prompt_names, 
-                            fname = "pred_" + self.route_method + "_1_scores_" + task)
+               # WBCallback.save_images(scores=attn_scores[0,:,:], 
+               #             labels=self.prompt_names, 
+               #             fname = "pred_" + self.route_method + "_0_scores_" + task)
+               # WBCallback.save_images(scores=attn_scores[1,:,:], 
+               #             labels=self.prompt_names, 
+               #             fname = "pred_" + self.route_method + "_1_scores_" + task)
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
