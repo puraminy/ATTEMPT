@@ -59,7 +59,7 @@ from metrics.metrics import build_compute_metrics_fn
 ###### my imports
 from myds import my_interleave_datasets
 from conflicts import check_conflicts
-from callbacks import WBCallback
+from callbacks import WBCallback, AnnealCallback
 import json
 import glob
 import mylogs 
@@ -549,6 +549,10 @@ def train(**kwargs):
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
+    steps = 0
+    if training_args.do_train:
+        steps = data_args.max_train_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+    anneal_rate = 1/(steps + 1)
     # Load a model config
     model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
     load_path = kwargs.setdefault("load_path", "")
@@ -569,6 +573,8 @@ def train(**kwargs):
     config.compose_method = model_args.compose_method #my option
     config.select_method = model_args.select_method #my option
     config.router_temperature = model_args.router_temperature # my option
+    config.anneal_min = model_args.anneal_min # my option
+    config.anneal_rate = anneal_rate # my option
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -1029,9 +1035,6 @@ def train(**kwargs):
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
     #### ooooo 
-    steps = 0
-    if training_args.do_train:
-        steps = len(train_dataset) * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
 
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
@@ -1047,6 +1050,7 @@ def train(**kwargs):
     else: 
         eval_ds = None
     wb_callback = WBCallback()
+    anneal_callback = AnnealCallback() 
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
@@ -1062,7 +1066,7 @@ def train(**kwargs):
             evaluation_metrics=task_metric,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             shared=model_args.shared_attn,
-            callbacks = [wb_callback],
+            callbacks = [wb_callback, anneal_callback],
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
         )
@@ -1075,7 +1079,7 @@ def train(**kwargs):
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
-            callbacks = [wb_callback],
+            callbacks = [wb_callback, anneal_callback],
             shuffle = trainer_shuffle,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,

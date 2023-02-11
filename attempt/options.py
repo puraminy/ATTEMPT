@@ -326,6 +326,20 @@ class ModelArguments:
             "help": "set router temperature."
         },
     )
+    anneal_rate: float = field(
+        default=None,
+        metadata={
+            "help": "set router temperature anneal rate."
+        },
+    )
+
+    anneal_min: float = field(
+        default=1.,
+        metadata={
+            "help": "set router temperature anneal min."
+        },
+    )
+
     route_method: str = field(
         default=None,
         metadata={
