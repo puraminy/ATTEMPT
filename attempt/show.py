@@ -676,21 +676,41 @@ def show_df(df):
             hotkey = hk
         elif char == "l":
             backit(df, sel_cols)
-            exp=df.iloc[sel_row]["exp_id"]
-            cond = f"(main_df['{FID}'] == '{exp}')"
-            tdf = main_df[main_df[FID] == exp]
-            path=tdf.iloc[0]["path"]
-            runid = tdf.iloc[0]["runid"]
-            run = "wandb/offline*" + runid + "/files/media/images/*.png"
-            paths = glob(run)
-            spath = "images/" + runid
-            Path(spath).mkdir(parents=True, exist_ok=True)
-            images = []
-            for img in paths: 
-                fname = Path(img).stem
-                dest = os.path.join(spath, fname + ".png") 
-                images.append({"image": dest})
-                shutil.copyfile(img, dest)
+            s_rows = sel_rows
+            if not sel_rows:
+                s_rows = group_rows
+                if not group_rows:
+                    s_rows = [sel_row]
+            imgs = {}
+            for s_row in s_rows:
+                exp=df.iloc[s_row]["exp_id"]
+                cond = f"(main_df['{FID}'] == '{exp}')"
+                tdf = main_df[main_df[FID] == exp]
+                path=tdf.iloc[0]["path"]
+                runid = tdf.iloc[0]["runid"]
+                run = "wandb/offline*" + runid + "/files/media/images/*.png"
+                paths = glob(run)
+                spath = "images/" + runid
+                Path(spath).mkdir(parents=True, exist_ok=True)
+                images = []
+                for img in paths: 
+                    fname = Path(img).stem
+                    parts = fname.split("_")
+                    key = parts[2]
+                    dest = os.path.join(spath, fname + ".png") 
+                    _image = Image.open(dest)
+                    if not key in imgs:
+                        imgs[key] = [_image]
+                    else:
+                        imgs[key].append(_image)
+                    images.append({"image": dest})
+                    shutil.copyfile(img, dest)
+            if imgs:
+                for key, img_list in imgs.items():
+                    new_im = combine_y(img_list)
+                    name = key 
+                    dest = os.path.join("temp", name.strip("-") + ".png")
+                    new_im.save(dest)
             subprocess.run(["eog", dest])
         elif char in ["o","O"]:
             pname=df.iloc[sel_row]["image"]
