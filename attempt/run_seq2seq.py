@@ -1210,9 +1210,9 @@ def train(**kwargs):
         ds_backup = None
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                for gen_route_method in kwargs.gen_route_methods: 
-                    gen_conf["route_method"] = gen_route_method
-                    exp_info["gen_route_methods"] = gen_route_method
+                for route_method in kwargs.gen_route_methods: 
+                    gen_conf["route_method"] = route_method
+                    exp_info["route_method"] = route_method
                     mylogs.bp("test")
                     predictions, labels, metrics = trainer.predict(
                             gen_conf = gen_conf,
@@ -1282,7 +1282,7 @@ def train(**kwargs):
                     df = df.drop(columns=["input_ids","labels","attention_mask"])
                     mylogs.bp("test")
                     save_to = os.path.join(training_args.output_dir, 
-                            ds_conf + "_results_" + ds_name + ".tsv")
+                            ds_conf + "_results_" + ds_name + "_" + route_method + ".tsv")
                     scores = do_score(df, "rouge@bert", save_to)
 
             if kwargs.setdefault("eval_test", False):
