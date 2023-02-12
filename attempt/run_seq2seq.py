@@ -574,6 +574,7 @@ def train(**kwargs):
     config.select_method = model_args.select_method #my option
     config.router_temperature = model_args.router_temperature # my option
     config.anneal_min = model_args.anneal_min # my option
+    config.anneal_dir = model_args.anneal_dir # my option
     config.anneal_rate = anneal_rate # my option
     config.attend_target = model_args.attend_target
     config.attend_source = model_args.attend_source #my option

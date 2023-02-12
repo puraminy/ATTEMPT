@@ -937,6 +937,7 @@ class T5Stack(T5PreTrainedModel):
         self.select_method = config.select_method
         self.router_temperature = config.router_temperature
         self.anneal_min = config.anneal_min
+        self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
         self.learn_source_prompts = config.learn_source_prompts
         #######################################
@@ -990,7 +991,7 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def anneal(self, i_step):
          t = max(self.anneal_min,
-                 self.router_temperature * np.exp(-self.anneal_rate * i_step))
+             self.router_temperature * np.exp(self.anneal_dir * self.anneal_rate * i_step))
          self.router_temperature = t
 
     def attend_prompts(self, inputs_embeds, src_prompts, 
