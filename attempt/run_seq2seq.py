@@ -166,9 +166,16 @@ def cli():
     is_flag=True,
     help="Whether download pretrained model or load it from a directory"
 )
+@click.option(
+    "--max_exp",
+    "-max",
+    default=0,
+    type=str,
+    help="Max number of experiments to do (0 means all)"
+)
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, 
-        debug, trial, rem, repeat, download_model):
+        debug, trial, rem, repeat, download_model, max_exp):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -289,6 +296,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            print(f"Dep var observed {conflict} ignored")
            continue
        ii += 1
+       if max_exp > 0 and ii > max_exp:
+           print(f"Max number of exp reached {max_exp} ")
+           return
+
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
