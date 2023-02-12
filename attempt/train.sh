@@ -247,7 +247,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --@prompt_learning_rate=0.1#0.1"
 	params="${params} --@^attn_learning_rate=0.01#0.001"
 	params="${params} --@attn_method=rb#!sub#!linear"
-	params="${params} --@anneal_dir=-0.001#-1"
+	params="${params} --@anneal_dir=-0.1#-1"
 	params="${params} --@router_temperature=4."
 	params="${params} --anneal_min=0.001"
 	params="${params} --anneal_rate=none"
