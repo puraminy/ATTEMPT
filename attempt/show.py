@@ -392,6 +392,7 @@ def show_df(df):
                content = str(row[sel_col])
                content = content.strip()
                orig_content = content
+               content = "{:<4}".format(content) # min length
                if sel_col in wraps and do_wrap:
                    content = content[:wraps[sel_col]] + ".."
                if "score" in sel_col:
