@@ -1155,6 +1155,8 @@ def show_df(df):
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
             elif len(s_rows) > 1:
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 _cols = tag_cols
                 df, sel_exp, dfs = find_common(df, main_df, on_col_list, _rows, 
                                                FID, char, _cols)
@@ -1179,6 +1181,8 @@ def show_df(df):
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                info_cols_back = info_cols.copy()
+                info_cols = []
 
         elif char == "m" and prev_char != "x":
             left = 0
