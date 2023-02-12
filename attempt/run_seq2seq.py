@@ -170,7 +170,7 @@ def cli():
     "--max_exp",
     "-max",
     default=0,
-    type=str,
+    type=int,
     help="Max number of experiments to do (0 means all)"
 )
 @click.pass_context
