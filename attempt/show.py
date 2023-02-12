@@ -298,6 +298,7 @@ def show_df(df):
     seq = ""
     search = ""
     on_col_list = []
+    group_sel_cols = []
     sel_fid = "" 
     open_dfnames = [dfname]
     #if not "learning_rate" in df:
@@ -478,6 +479,7 @@ def show_df(df):
     show_extra = False
     consts = {}
     extra = {"filter":[]}
+    orig_df = main_df.copy()
     while ch != ord("q"):
         text_win.clear()
         group_rows = []
@@ -699,13 +701,13 @@ def show_df(df):
                     parts = fname.split("_")
                     key = parts[2]
                     dest = os.path.join(spath, fname + ".png") 
+                    shutil.copyfile(img, dest)
                     _image = Image.open(dest)
                     if not key in imgs:
                         imgs[key] = [_image]
                     else:
                         imgs[key].append(_image)
                     images.append({"image": dest})
-                    shutil.copyfile(img, dest)
             if imgs:
                 for key, img_list in imgs.items():
                     new_im = combine_y(img_list)
@@ -1052,6 +1054,7 @@ def show_df(df):
                 sel_cols = ["rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
 
             _agg = {}
+            group_sel_cols = sel_cols.copy()
             for c in df.columns:
                 if c.endswith("score"):
                     _agg[c] = "mean"
@@ -1338,6 +1341,17 @@ def show_df(df):
                    sel_row = 0
                    if char == "F" or char == "f":
                        hotkey = hk
+        if char == "V":
+            backit(df, sel_cols)
+            sel_col = sel_cols[cur_col]
+            cond = True 
+            for col in orig_tag_cols:
+                if not col == sel_col and col in main_df:
+                    val=df.iloc[sel_row][col]
+                    cond = cond & (main_df[col] == val)
+            filter_df = main_df
+            df = main_df[cond]
+            hotkey = hk
         if char in ["y","Y"]:
             #yyyyyyyy
            cols = get_cols(df, 2)
@@ -1662,10 +1676,10 @@ def show_df(df):
 
                 save_obj(dfname, "dfname", dfname)
         if char == "r" and prev_char != "x":
-            filter_df = main_df
+            filter_df = orig_df
             df = filter_df
             FID = "fid" 
-            sel_cols = []
+            sel_cols = group_sel_cols 
             save_obj([], "sel_cols", context)
             save_obj([], "info_cols", context)
             hotkey = hk
