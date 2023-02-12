@@ -340,6 +340,13 @@ class ModelArguments:
         },
     )
 
+    anneal_dir: int = field(
+        default=-1,
+        metadata={
+            "help": "set router temperature anneal direction (increasing or decreasing)."
+        },
+    )
+
     route_method: str = field(
         default=None,
         metadata={
