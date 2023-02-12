@@ -18,7 +18,7 @@ class AnnealCallback(TrainerCallback):
         e.anneal(state.global_step)
         wandb.log({"router_temperature": e.router_temperature})
         mylogs.winfo("router","%s: %s  (%s %s > %s)", state.global_step, 
-                e.router_temperature, e.anneal_dir, e.anneal_rate, enc.anneal_min)
+                e.router_temperature, e.anneal_dir, e.anneal_rate, e.anneal_min)
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
