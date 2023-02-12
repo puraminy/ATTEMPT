@@ -16,6 +16,7 @@ class AnnealCallback(TrainerCallback):
         model = kwargs.pop("model", None)
         model.encoder.anneal(state.global_step)
         wandb.log({"router_temperature": model.encoder.router_temperature})
+        mylogs.winfo("router","%s: %s", state.global_step, model.encoder.router_temperature)
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
