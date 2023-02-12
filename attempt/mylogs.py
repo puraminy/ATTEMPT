@@ -83,6 +83,12 @@ def getFname(name, path=""):
 def tinfo(text, *args, **kwargs):
     tlog.info(text, *args)
 
+def winfo(lname, text, *args, **kwargs):
+    logger = logging.getLogger(lname)
+    if not logger.handlers:
+        logger.info(text, *args)
+        add_handler(logger, lname, True)
+    logger.info(text, *args)
 
 import inspect
 import sys
