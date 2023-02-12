@@ -270,23 +270,23 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        _output_dir = [output_dir]
        prev_name = ""
        prev_item = ""
-       dep_var = False
+       conflict = "" 
        for kk, (var_name,var_item) in enumerate(comb.items()):
            if var_name.startswith("^") and prev_name:
                prev_vals = values[kk-1]
-               prev_index = prev_vals.index(prev_item) 
                cur_vals = values[kk]
-               cur_index = cur_vals.index(var_item)
-               if cur_index != prev_index:
-                   dep_var = True
+               assert len(prev_vals) == len(cur_vals), "Pair variables must have same number"
+               pairs = zip(prev_vals, cur_vals)
+               if not (prev_item, var_item) in pairs:
+                   conflict = prev_name + ":" + prev_item + " "+ var_name + ":" + var_item
                    break
            args[var_name.strip("^")]=var_item
            if not var_name in exclude_list:
                _output_dir.append(var_name + "=" + str(var_item))
            prev_name = var_name
            prev_item = var_item
-       if dep_var:
-           print("Dep var observed! continue")
+       if conflict:
+           print(f"Dep var observed {conflict} ignored")
            continue
        ii += 1
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
