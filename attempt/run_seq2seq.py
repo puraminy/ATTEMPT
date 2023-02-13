@@ -1281,11 +1281,9 @@ def train(**kwargs):
                             inp = re.sub(r'<.*?>','', inp)
                             inp = inp.strip()
                         df.at[i, "input_text"] = inp #extra["event"] 
-                        try:
-                            label = tokenizer.decode(row["labels"], 
-                            skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                        except:
-                            label = extra["tail"] if "tail" in extra else "na"
+                        label = extra["tail"] if "tail" in extra else "na"
+                        #label = tokenizer.decode(row["labels"], 
+                        #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                         #label = re.sub(r'<.*?>','', label)
                         label = label.strip()
                         df.at[i, "target_text"] = label 
