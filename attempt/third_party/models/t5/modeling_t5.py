@@ -1050,10 +1050,7 @@ class T5Stack(T5PreTrainedModel):
                     self.prev_rm = route_method
                     WBCallback.save_images(scores=attn_scores[0,:,:], 
                                 labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "_0_scores_" + task)
-                    WBCallback.save_images(scores=attn_scores[1,:,:], 
-                                labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "_1_scores_" + task)
+                                fname = "pred_" + route_method + "-" + task + "_")
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1265,7 +1262,7 @@ class T5Stack(T5PreTrainedModel):
                         self.pred_task = task
                         WBCallback.save_images(scores=self.attn_scores, 
                                 labels=self.prompt_names, 
-                                fname = "pred_attn_scores" + task)
+                                fname = "pred_attn-" + task)
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
