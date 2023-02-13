@@ -566,7 +566,7 @@ def train(**kwargs):
     if training_args.do_train:
         steps = data_args.max_train_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     if model_args.anneal_rate is None: 
-        anneal_rate = 1/(steps + 1) 
+        anneal_rate = 1/(steps + 5) 
     else:
         anneal_rate = model_args.anneal_rate
     # Load a model config
