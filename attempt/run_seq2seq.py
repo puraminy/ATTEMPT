@@ -1229,9 +1229,10 @@ def train(**kwargs):
         results = {}
         gen_conf = {}
         ds_backup = None
+        grm = kwargs.setdefault("gen_route_methods",["rb"])
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                for route_method in kwargs.gen_route_methods: 
+                for route_method in grm: 
                     gen_conf["route_method"] = route_method
                     exp_info["gen_route_methods"] = route_method
                     mylogs.bp("test")
