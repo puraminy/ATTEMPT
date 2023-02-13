@@ -709,6 +709,7 @@ def show_df(df):
                         imgs[key].append(_image)
                     images.append({"image": dest})
             if imgs:
+                Path("temp").mkdir(parents=True, exist_ok=True)
                 for key, img_list in imgs.items():
                     if len(img_list) > 1:
                         new_im = combine_y(img_list)
