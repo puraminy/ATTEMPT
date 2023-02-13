@@ -710,10 +710,11 @@ def show_df(df):
                     images.append({"image": dest})
             if imgs:
                 for key, img_list in imgs.items():
-                    new_im = combine_y(img_list)
-                    name = key 
-                    dest = os.path.join("temp", name.strip("-") + ".png")
-                    new_im.save(dest)
+                    if len(img_list) > 1:
+                        new_im = combine_y(img_list)
+                        name = key 
+                        dest = os.path.join("temp", name.strip("-") + ".png")
+                        new_im.save(dest)
             subprocess.run(["eog", dest])
         elif char in ["o","O"]:
             pname=df.iloc[sel_row]["image"]
