@@ -1096,11 +1096,12 @@ class T5Stack(T5PreTrainedModel):
             attn_mask = attn_mask[:,:,1:]
         attn_softmax_scores = F.softmax(attn_scores, -1)
         attn_scores = attn_softmax_scores * attn_mask
-        attn_normalized_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        attn_norm_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
-        attn_sel_scores, attend_to_sel_idx = torch.topk(attn_normalized_scores, 
+        num_attend_to = num_attend_to // num_targets
+        attn_sel_scores, attend_to_sel_idx = torch.topk(attn_norm_scores, 
                 num_attend_to, sorted=False)
         attend_to_idx_back = attend_to_idx.clone()
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)

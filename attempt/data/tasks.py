@@ -254,7 +254,7 @@ class AbstractTask(abc.ABC):
         return src, target
 
     def extend_data(self, data):
-        mylogs.bp("data")
+        mylogs.bp("task")
         if "task" in data:
             task = data["task"]
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else task
