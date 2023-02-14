@@ -1050,7 +1050,7 @@ class T5Stack(T5PreTrainedModel):
                     self.prev_rm = route_method
                     WBCallback.save_images(scores=attn_scores[0,:,:], 
                                 labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_")
+                                fname = "pred_" + route_method + "-" + task + "_r")
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1255,9 +1255,12 @@ class T5Stack(T5PreTrainedModel):
                             target_idx=target_idx, task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
+                    tmp_attn_mask = torch.zeros_like(self.attn_scores, device=device)
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
+                        tmp_attn_mask[target_idx[i].reshape(-1,1), 
+                                source_idx[i]] = attn_mask[i]
                     if self.gen_conf is not None and "route_method" in self.gen_conf:
                         route_method = self.gen_conf["route_method"] 
                     else:
@@ -1270,7 +1273,14 @@ class T5Stack(T5PreTrainedModel):
                         self.prev_attn_rm = route_method
                         WBCallback.save_images(scores=self.attn_scores, 
                                 labels=self.prompt_names, 
-                                fname = "pred_attn-" + route_method + "-" + task)
+                                fname = "pred_" + route_method + "-" + task + "_attn")
+                        if route_method == "rb":
+                            WBCallback.save_images(scores=self.router, 
+                                labels=self.prompt_names, 
+                                fname = "pred_" + route_method + "-" + task + "_router")
+                            WBCallback.save_images(scores=tmp_attn_mask, 
+                                labels=self.prompt_names, 
+                                fname = "pred_" + route_method + "-" + task + "_mask")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
