@@ -1242,7 +1242,7 @@ class T5Stack(T5PreTrainedModel):
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
                     attn_mask = torch.index_select(attn_mask, 1, source_idx_list)
                     attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                sel_attn_mask =batched_index_select(attn_mask, 1, 
+                attn_sel_mask =batched_index_select(attn_mask, 1, 
                         target_idx).long()
                 if sel_prompts is not None:
                     soft_prompts, attn_scores,source_idx = self.attend_prompts(
@@ -1251,16 +1251,13 @@ class T5Stack(T5PreTrainedModel):
                             target_prompts = target_prompts,
                             add_target = self.add_target, 
                             source_idx=source_idx, 
-                            attn_mask=sel_attn_mask,
+                            attn_mask=attn_sel_mask,
                             target_idx=target_idx, task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
-                    tmp_attn_mask = torch.zeros_like(self.attn_scores, device=device)
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
-                        tmp_attn_mask[target_idx[i].reshape(-1,1), 
-                                source_idx[i]] = attn_mask[i]
                     if self.gen_conf is not None and "route_method" in self.gen_conf:
                         route_method = self.gen_conf["route_method"] 
                     else:
@@ -1278,7 +1275,7 @@ class T5Stack(T5PreTrainedModel):
                             WBCallback.save_images(scores=self.router, 
                                 labels=self.prompt_names, 
                                 fname = "pred_" + route_method + "-" + task + "_router")
-                            WBCallback.save_images(scores=tmp_attn_mask, 
+                            WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
                                 labels=self.prompt_names, 
                                 fname = "pred_" + route_method + "-" + task + "_mask")
                 else:
