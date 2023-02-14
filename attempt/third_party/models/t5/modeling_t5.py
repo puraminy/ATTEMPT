@@ -1259,11 +1259,15 @@ class T5Stack(T5PreTrainedModel):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
                     if not self.training and task != self.pred_task:
+                        if self.gen_conf is not None and "route_method" in self.gen_conf:
+                            route_method = self.gen_conf["route_method"] 
+                        else:
+                            route_method = self.route_method
                         mylogs.bp("pred")
                         self.pred_task = task
                         WBCallback.save_images(scores=self.attn_scores, 
                                 labels=self.prompt_names, 
-                                fname = "pred_attn-" + task)
+                                fname = "pred_attn-" + route_method + "-" + task)
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
