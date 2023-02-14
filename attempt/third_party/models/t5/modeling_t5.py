@@ -1263,8 +1263,8 @@ class T5Stack(T5PreTrainedModel):
                     else:
                         route_method = self.route_method
                     if (not self.training 
-                        and not hasattr(self, "prev_attn_rm") 
-                        or route_method != self.prev_attn_rm or task != self.pred_task):
+                        and (not hasattr(self, "prev_attn_rm") 
+                        or route_method != self.prev_attn_rm or task != self.pred_task)):
                         mylogs.bp("pred")
                         self.pred_task = task
                         self.prev_attn_rm = route_method
