@@ -485,7 +485,9 @@ class COLA(AbstractTask):
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence:", example['sentence']]
-        tgt_texts = [str(example['label'])]
+        label = str(example['label'])
+        label = "acceptable" if label == "1" else "unacceptable"
+        tgt_texts = [label]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 class SST2(AbstractTask):
