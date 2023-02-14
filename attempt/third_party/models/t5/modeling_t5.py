@@ -1258,13 +1258,16 @@ class T5Stack(T5PreTrainedModel):
                     for i in range(batch_size):
                         self.attn_scores[target_idx[i].reshape(-1,1), 
                                 source_idx[i]] = attn_scores[i]
-                    if not self.training and task != self.pred_task:
-                        if self.gen_conf is not None and "route_method" in self.gen_conf:
-                            route_method = self.gen_conf["route_method"] 
-                        else:
-                            route_method = self.route_method
+                    if self.gen_conf is not None and "route_method" in self.gen_conf:
+                        route_method = self.gen_conf["route_method"] 
+                    else:
+                        route_method = self.route_method
+                    if (not self.training 
+                        and not hasattr(self, "prev_attn_rm") 
+                        or route_method != self.prev_attn_rm or task != self.pred_task):
                         mylogs.bp("pred")
                         self.pred_task = task
+                        self.prev_attn_rm = route_method
                         WBCallback.save_images(scores=self.attn_scores, 
                                 labels=self.prompt_names, 
                                 fname = "pred_attn-" + route_method + "-" + task)
