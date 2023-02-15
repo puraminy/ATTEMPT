@@ -1048,7 +1048,7 @@ class T5Stack(T5PreTrainedModel):
                     attn_scores = router
                 if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
                     self.prev_rm = route_method
-                    WBCallback.save_images(scores=attn_scores[0,:,:], 
+                    WBCallback.save_images(scores=attn_scores[-1,:,:], 
                                 labels=self.prompt_names, 
                                 fname = "pred_" + route_method + "-" + task + "_r")
             #z = torch.mm(self.z, self.A) 
