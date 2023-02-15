@@ -1038,7 +1038,7 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     route_method = self.route_method
                 if route_method == "rb":
-                    attn_scores = scores
+                    attn_scores = router
                 elif route_method == "sigmoid":
                     attn_scores = torch.sigmoid(router)  # layer * n_prompts
                 elif route_method == "sign":
