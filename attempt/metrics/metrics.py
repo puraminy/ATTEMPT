@@ -39,7 +39,7 @@ TASK_TO_METRICS = {
                    "xReact": ["rouge"],
                    "mrpc": ["accuracy", "f1"],
                    "cola": ['matthews_correlation'],
-                   "stsb": ['pearson_corrcoef', 'spearmanr'],
+                   "stsb": ['pearson_corrcoef', 'spearman_corrcoef'],
                    'sst2': ['accuracy'],
                    "mnli": ["accuracy"],
                    "mnli_mismatched": ["accuracy"],
