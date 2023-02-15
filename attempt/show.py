@@ -991,8 +991,9 @@ def show_df(df):
                 met = metric(preds, golds)
                 metrics_list.append(met)
             infos = []
-            for k,v in met.items():
-                infos.append(str(k) + ":" + str(v))
+            for met in metrics_list:
+                for k,v in met.items():
+                    infos.append(str(k) + ":" + str(v))
             subwin(infos)
         elif char == "U" and prev_char == "x": 
             if sel_col:
