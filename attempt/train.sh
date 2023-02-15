@@ -78,6 +78,7 @@ if [ -z "$_learn_sp" ]; then  _learn_sp=False; fi
 if [ -z "$_sp" ]; then  _sp=none; fi
 if [ -z "$_lsp" ]; then  _lsp=True; fi
 if [ -z "$_lp" ]; then  _lp=False; fi
+if [ -z "$_ml" ]; then  _ml=200; fi
 
 # eeeee
 if [ -n "$_test" ]; then
@@ -155,6 +156,7 @@ params="${params} --overwrite_cache=True"
 params="${params} --@task_name=$_task"
 params="${params} --add_prefix=True"
 params="${params} --ds_config=en@"
+params="${params} --max_source_length=$_ml"
 params="${params} --test_ds_config=full-test@"
 
 exp=$_exp
