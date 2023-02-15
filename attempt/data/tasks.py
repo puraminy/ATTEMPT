@@ -766,7 +766,7 @@ class MNLI(AbstractTask):
         src_texts = ["premise:", example['premise'],
                      "hypothesis:", example["hypothesis"]]
         tgt_texts = str(example['label'])
-        map_labels = {"0":"contradict", "1":"entail", "2": "neutral"}
+        map_labels = {"0":"entailment", "1":"neutral", "2": "contradiction"}
         tgt_texts = [map_labels[tgt_texts]]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
