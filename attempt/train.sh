@@ -252,8 +252,8 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --@^router_temperature=1.#2.#3."
 	params="${params} --anneal_min=0.05"
 	params="${params} --anneal_rate=none"
-	params="${params} --@num_source_prompts=15"
-	params="${params} --@^num_target_prompts=15"
+	params="${params} --@num_source_prompts=8"
+	params="${params} --@^num_target_prompts=8"
 	params="${params} --@gen_route_methods=rb@sigmoid@sign"
 	params="${params} --save_prompts=$_sp"
 fi
