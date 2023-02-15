@@ -1294,6 +1294,7 @@ def train(**kwargs):
                         df.at[i, "sel"] = sel 
                         df.at[i, "query"] = extra["query"]  
                         df.at[i, "resp"] = extra["resp"]  
+                        mylogs.bp("decode")
                         pred = tokenizer.decode(predictions[i], 
                                 skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                         pred = re.sub(r'<.*?>','',pred)
