@@ -235,7 +235,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --@prompt_encoder_type=mlp#!emb#lstm"
 	#params="${params} --source_prompts=adj@always@they@seen@event@before@want@after"
 	params="${params} --@compose_method=cat"
-	params="${params} --@num_prompt_tokens=8"
+	params="${params} --@num_prompt_tokens=5"
 	params="${params} --@select_method=prior"
         params="${params} --@template=unsup-p0-pt#!sup-p0-pt#!unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --load_source_prompts=$_lsp"
