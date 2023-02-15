@@ -765,9 +765,9 @@ class MNLI(AbstractTask):
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example['premise'],
                      "hypothesis:", example["hypothesis"]]
-        tgt_texts = [str(example['label'])]
+        tgt_texts = str(example['label'])
         map_labels = {"0":"contradict", "1":"entail", "2": "neutral"}
-        tgt_texts = map_labels[tgt_texts]
+        tgt_texts = [map_labels[tgt_texts]]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
