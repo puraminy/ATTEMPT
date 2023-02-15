@@ -23,14 +23,7 @@ from PIL import ImageFont
 from PIL import ImageDraw
 import sklearn
 import sklearn.metrics
-
-def matthews_corrcoef(predictions, targets) -> dict:
-    """Computes the Matthews correlation coefficient."""
-    return {"matthews_correlation": 100 * sklearn.metrics.matthews_corrcoef(targets, predictions)}
-
-def accuracy(predictions, targets) -> dict:
-    """Computes the average accuracy."""
-    return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
+import attempt.metrics.metrics as mets
 
 def combine_x(images):
     widths, heights = zip(*(i.size for i in images))
@@ -301,6 +294,9 @@ def show_df(df):
     group_sel_cols = []
     sel_fid = "" 
     open_dfnames = [dfname]
+    task = ""
+    if "task_name" in df:
+        task = df["task_name"][0]
     #if not "learning_rate" in df:
     #    df[['fid_no_lr', 'learning_rate']] = df['fid'].str.split('_lr_', 1, expand=True)
     if not "plen" in df:
@@ -982,17 +978,21 @@ def show_df(df):
             for col in df:
                counts[col] = df[col].nunique()
             df = pd.DataFrame(data=[counts], columns = df.columns)
-        elif char == "U":
+        elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
-            with open("results.txt", "w") as f:
+            with open(task + "_results.txt", "w") as f:
                 for p,g in zip(preds, golds):
                     print(p + "\t" + g, file=f)
-            met = [accuracy(preds, golds)]
-            met.append(matthews_corrcoef(preds, golds))
+            task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
+            metrics_list = []
+            for mstr in task_metric:
+                metric = getattr(mets, mstr)
+                met = metric(preds, golds)
+                metrics_list.append(met)
             infos = []
-            for m in met:
-                infos.append(str(m))
+            for k,v in met.items():
+                infos.append(str(k) + ":" + str(v))
             subwin(infos)
         elif char == "U" and prev_char == "x": 
             if sel_col:
@@ -1104,7 +1104,7 @@ def show_df(df):
             fname = pfix + "_" + fname
             dest = os.path.join(home, "results", fname)
             shutil.copyfile(js, dest)
-        elif char == "u":
+        elif char == "U":
             left = 0
             backit(df, sel_cols)
 
