@@ -1606,29 +1606,27 @@ def show_df(df):
         if cmd in ["set", "set@", "add", "add@", "setcond"]:
             if "add" in cmd:
                 col = rowinput("New col name:")
-            else:
-                canceled, col,val = list_df_values(main_df, get_val=False)
+            col = sel_cols[cur_col]
             cond = ""
             if "cond" in cmd:
-                cond = get_cond(df, num=5, op="&")
-            if not canceled:
+                cond = get_cond(df, for_col=col, num=5, op="&")
+            if cond:
+                val = rowinput(f"Set {col} under {cond} to:")
+            else:
+                val = rowinput("Set " + col + " to:")
+            if val:
                 if cond:
-                    val = rowinput(f"Set {col} under {cond} to:")
-                else:
-                    val = rowinput("Set " + col + " to:")
-                if val:
-                    if cond:
-                        if "@" in cmd:
-                            df.loc[eval(cond), col] = val
-                        else:
-                            main_df[eval(cond), col] =val
-                            char = "SS"
+                    if "@" in cmd:
+                        main_df.loc[eval(cond), col] = val
+                        char = "SS"
                     else:
-                        if "@" in cmd:
-                            df[col] = val
-                        else:
-                            main_df[col] =val
-                            char = "SS"
+                        df.loc[eval(cond), col] =val
+                else:
+                    if "@" in cmd:
+                        main_df[col] =val
+                        char = "SS"
+                    else:
+                        df[col] = val
         if "==" in cmd:
             col, val = cmd.split("==")
             df = df[df[col] == val]
