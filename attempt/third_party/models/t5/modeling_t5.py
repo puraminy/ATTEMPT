@@ -1030,8 +1030,8 @@ class T5Stack(T5PreTrainedModel):
 #        )).uniform_(-bound, bound))
 #
     def anneal(self, i_step):
-         t = max(self.anneal_min,
-             self.router_temperature * np.exp(self.anneal_dir * self.anneal_rate * i_step))
+         exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
+         t = max(self.anneal_min, self.router_temperature * exp_rate)
          self.router_temperature = t
 
     def attend_prompts(self, inputs_embeds, src_prompts, 
@@ -1090,7 +1090,7 @@ class T5Stack(T5PreTrainedModel):
                     self.prev_rm = route_method
                     WBCallback.save_images(scores=attn_scores[-1,:,:], 
                                 labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_r")
+                                fname = "pred_" + route_method + "-" + task + "_scores")
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
