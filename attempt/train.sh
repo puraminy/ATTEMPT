@@ -239,7 +239,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --@compose_method=cat"
 	params="${params} --@num_prompt_tokens=5"
 	params="${params} --@select_method=prior"
-        params="${params} --@template=sup-p0-pt#!sup-p0-pt#!unsup-p0-psh#!sup-p0-psh" 
+        params="${params} --@template=sup-p0-psh#!sup-p0-pt#!unsup-p0-psh#!sup-p0-psh" 
 	params="${params} --load_source_prompts=$_lsp"
 	params="${params} --learn_source_prompts=$_learn_sp"
 	params="${params} --attn_tuning=True"
@@ -255,7 +255,7 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --anneal_min=0.05"
 	params="${params} --anneal_rate=none"
 	params="${params} --@num_source_prompts=8"
-	params="${params} --@^num_target_prompts=8"
+	params="${params} --@^num_target_prompts=1"
 	params="${params} --@gen_route_methods=rb@sigmoid@sign"
 	params="${params} --save_prompts=$_sp"
 fi
