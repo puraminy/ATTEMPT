@@ -695,7 +695,7 @@ def show_df(df):
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
-                    key = parts[1] #.split("-")[0]
+                    key = parts[1].split("-")[0]
                     dest = os.path.join(spath, fname + ".png") 
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
