@@ -989,6 +989,46 @@ class T5Stack(T5PreTrainedModel):
         self.device_map = None
 
     ################# MyCode fffffffffff
+    def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
+        self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
+        mylogs.bp("set")
+        self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        attend_num =len(prompt_encoders) + 1 # one for input
+        self.attn_scores = torch.zeros(
+            (attend_num, attend_num), device=device) 
+        self.src_prompt_dim = src_prompt_dim
+        self.prompt_names = ["target"] + [x.name for x in prompt_encoders]
+        self.num_src_encoders = 0
+        if source_prompts:
+            self.num_src_encoders = len(source_prompts) + 1 # one for input 
+        task_prompt_ids = []
+        i = 1
+        for encoder in self.prompt_encoders:
+            task_prompt_ids.extend(encoder.prompt_ids)
+            encoder.to(device)
+            if source_prompts and encoder.name in source_prompts:
+                encoder.src_idx = i
+                i+=1
+
+        self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
+        intrinsic_dim = 200
+        self.router = nn.Parameter(data=torch.empty((
+            attend_num,
+            attend_num 
+        ), device=device).uniform_(-1e-3, 1e-3))
+
+#        self.z = nn.Parameter(data=torch.empty((
+#            attend_num, 
+#            intrinsic_dim
+#        )).uniform_(-1e-3, 1e-3))
+#
+#        bound = 1 / math.sqrt(prompt_dim * self.model_dim)
+#        self.A = nn.Parameter(data=torch.empty((
+#            intrinsic_dim,
+#            prompt_dim * self.model_dim 
+#        )).uniform_(-bound, bound))
+#
     def anneal(self, i_step):
          t = max(self.anneal_min,
              self.router_temperature * np.exp(self.anneal_dir * self.anneal_rate * i_step))
@@ -1123,47 +1163,6 @@ class T5Stack(T5PreTrainedModel):
 
         return soft_prompts, attn_sel_scores, attend_to_idx
 
-    def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
-        self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
-        mylogs.bp("set")
-        self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        attend_num =len(prompt_encoders) + 1 # one for input
-        self.attn_scores = torch.zeros(
-            (attend_num, attend_num), device=device) 
-        self.src_prompt_dim = src_prompt_dim
-        self.prompt_names = ["target"] + [x.name for x in prompt_encoders]
-        self.num_src_encoders = 0
-        if source_prompts:
-            self.num_src_encoders = len(source_prompts) + 1 # one for input 
-        task_prompt_ids = []
-        i = 1
-        for encoder in self.prompt_encoders:
-            task_prompt_ids.extend(encoder.prompt_ids)
-            encoder.to(device)
-            if source_prompts and encoder.name in source_prompts:
-                encoder.src_idx = i
-                i+=1
-
-        self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
-        intrinsic_dim = 200
-        self.router = nn.Parameter(data=torch.empty((
-            attend_num,
-            attend_num 
-        ), device=device).uniform_(-1e-3, 1e-3))
-
-#        self.z = nn.Parameter(data=torch.empty((
-#            attend_num, 
-#            intrinsic_dim
-#        )).uniform_(-1e-3, 1e-3))
-#
-#        bound = 1 / math.sqrt(prompt_dim * self.model_dim)
-#        self.A = nn.Parameter(data=torch.empty((
-#            intrinsic_dim,
-#            prompt_dim * self.model_dim 
-#        )).uniform_(-bound, bound))
-#
-
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
 
@@ -1254,10 +1253,6 @@ class T5Stack(T5PreTrainedModel):
                             attn_mask=attn_sel_mask,
                             target_idx=target_idx, task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                    self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
-                    for i in range(batch_size):
-                        self.attn_scores[target_idx[i].reshape(-1,1), 
-                                source_idx[i]] = attn_scores[i]
                     if self.gen_conf is not None and "route_method" in self.gen_conf:
                         route_method = self.gen_conf["route_method"] 
                     else:
@@ -1268,16 +1263,22 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("pred")
                         self.pred_task = task
                         self.prev_attn_rm = route_method
+                        self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
+                        num_targets = target_idx.size()[-1]
+                        source_idx = source_idx.view(batch_size, num_targets, -1)
+                        for i in range(batch_size):
+                            self.attn_scores[target_idx[i].reshape(-1,1), 
+                                    source_idx[i]] = attn_scores[i]
                         WBCallback.save_images(scores=self.attn_scores, 
                                 labels=self.prompt_names, 
                                 fname = "pred_" + route_method + "-" + task + "_attn")
-                        if route_method == "rb":
-                            WBCallback.save_images(scores=self.router, 
-                                labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_router")
-                            WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
-                                labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_mask")
+                        #if route_method == "rb":
+                            #WBCallback.save_images(scores=self.router, 
+                            #    labels=self.prompt_names, 
+                            #    fname = "pred_" + route_method + "-" + task + "_router")
+                            #WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
+                            #    labels=self.prompt_names, 
+                            #    fname = "pred_" + route_method + "-" + task + "_mask")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
