@@ -31,9 +31,9 @@ class WBCallback(WandbCallback):
         fig, axes = plt.subplot_mosaic("ABB")
         ax1, ax2 = axes["A"], axes["B"]
         if state is not None:
-            ax1.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
+            ax2.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
-            ax1.set_title(fname)
+            ax2.set_title(fname)
         fig.set_size_inches(12.5, 6.5)
         ax1.axis("off")
         img = tag_to_image()
