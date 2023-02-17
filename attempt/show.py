@@ -126,7 +126,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        tdf = tdf[tag_cols + ["pred_text1", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
+        tdf = tdf[tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
         if len(tdf) > 1:
             tdf = tdf.groupby(on_col_list).first()
@@ -1176,14 +1176,14 @@ def show_df(df):
                 exp=df.iloc[sel_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
-                sel_cols=orig_tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=orig_tag_cols + ["bert_score","pred_text1","input_text","target_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1", "top_pred", "top","input_text","target_text","rouge_score","prefix"]
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
