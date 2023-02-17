@@ -353,7 +353,7 @@ def show_df(df):
                    group_rows = range(g_start, ii)
                    g_start = -1
                if g % 2 == 0:
-                  row_color = INFO_COLOR 
+                  row_color = TEXT_COLOR #INFO_COLOR 
                   sel_col_color = ITEM_COLOR 
                   g_color = row_color
                else:
