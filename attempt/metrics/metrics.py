@@ -448,9 +448,14 @@ def do_score(df, scorers, save_path, reval=False):
                 tails = [t.replace(omit,"") for t in tails]
             if rouge_scorer and preds and tails:
                 try:
-                    rouge_score = rouge_scorer.get_scores(preds, tails, 
+                    _scores = []
+                    for _pred in preds:
+                        for _tail in tails:
+                            _score = rouge_scorer.get_scores(_pred, _tail, 
                                                     avg=True, ignore_empty=True)
-                    rouge_score = rouge_score["rouge-l"]["f"]
+                            score = _score["rouge-l"]["f"]
+                            _scores.append(_score)
+                    rouge_score = max(_scores)
                 except:
                     rouge_score = 0
             match_score = 0
