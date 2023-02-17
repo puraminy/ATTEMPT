@@ -374,8 +374,14 @@ def do_score(df, scorers, save_path, reval=False):
     if scorers:
         rows = []
         pbar = tqdm(total=len(df), position=0, leave=True) #,dynamic_ncols=True)
+        df = df.sort_values(by=["prefix","input_text"])
+        preds = []
+        tails = []
+        mylogs.bp("score")
+        oldinp = df.iloc[0]["input_text"]
+        rel =  df.iloc[0]["prefix"]
         for step, row in df.iterrows():
-            data = {}
+            oldrel = rel
             rel = row["prefix"]
             lang = row["langs"] 
             scope = rel + "_" + lang
@@ -385,20 +391,22 @@ def do_score(df, scorers, save_path, reval=False):
                 sum_bleu[scope] = 0
                 sum_match[scope] = 0
                 counter[scope] = 0
-            #mlog.debug("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
             #Compute embeddings
-            top_hyp = str(row["pred_text1"])
-            preds = [top_hyp]
+            cur_hyp = str(row["pred_text1"])
             inp = row["input_text"]
             tail = re.sub(r'<extra_.*?>','',str(row["target_text"]))
             tail = tail.strip()
-            tails = [tail]
-            all_predictions.append(top_hyp)
-            all_golds.append(tails[0])
+            all_predictions.append(cur_hyp)
+            all_golds.append(tail)
+            if oldinp == inp:
+                preds.append(cur_hyp)
+                tails.append(tail)
+                continue
+
+            data = {"prefix":oldrel, "input_text":oldinp}
+            oldinp = inp
             hi, ri = 0, 0
             hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
-            #summary = bert_score2(bert_metric, preds, tails)
-            #cur_score = summary["bertscore_f1"]
             best_hyp = preds[hi]
             best_ref = tails[ri]
             hyp_counter[hi] += 1
@@ -412,10 +420,7 @@ def do_score(df, scorers, save_path, reval=False):
             data["top"] = best_ref
             data["all_preds"] = "<br />".join(preds) 
             data["top_pred"] = best_hyp
-            if "bert_score" in df and reval:
-                df.at[step, "bert_score"] = float("{:.2f}".format(cur_score))
-            else:
-                data["bert_score"] = float("{:.2f}".format(cur_score))
+            data["bert_score"] = float("{:.2f}".format(cur_score))
             sum_bert[scope] += cur_score
             sum_bert["all"] += cur_score
             counter[scope] += 1
@@ -437,15 +442,13 @@ def do_score(df, scorers, save_path, reval=False):
             mean_bleu[scope] = "{:.4f}".format(sum_bleu[scope] / counter[scope])
             #### Rouge score
             rouge_score = 0
-            m_tails = ".".join(tails)
-            m_top_hyp = top_hyp
             if rel in rel_target_omits:
                 omit = rel_target_omits[rel]
-                m_top_hyp = top_hyp.replace(omit, "") 
-                m_tails = m_tails.replace(omit,"")
-            if rouge_scorer and m_top_hyp.strip() and m_tails.strip():
+                preds = [p.replace(omit, "") for p in preds]
+                tails = [t.replace(omit,"") for t in tails]
+            if rouge_scorer and preds and tails:
                 try:
-                    rouge_score = rouge_scorer.get_scores(m_top_hyp, m_tails, 
+                    rouge_score = rouge_scorer.get_scores(preds, tails, 
                                                     avg=True, ignore_empty=True)
                     rouge_score = rouge_score["rouge-l"]["f"]
                 except:
@@ -460,13 +463,17 @@ def do_score(df, scorers, save_path, reval=False):
             mean_rouge_all = sum_rouge["all"] / counter["all"]
             mean_rouge["all"] = "{:.4f}".format(mean_rouge_all)
             pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
+            preds = [cur_hyp]
+            tails = [tail]
             step += 1
             pbar.update()
             rows.append(data)
 
     scored_df = pd.DataFrame(rows)
     if not reval:
-        merged_df = pd.concat([df, scored_df], axis=1)
+        #merged_df = pd.concat([df, scored_df], axis=1)
+        merged_df = pd.merge(df, scored_df, on=["input_text","prefix"])
+        merged_df.reset_index(drop=True, inplace=True)
 
     mlog.info("Saving results %s", save_path)
     save_fname = now + "_full_results.tsv"
