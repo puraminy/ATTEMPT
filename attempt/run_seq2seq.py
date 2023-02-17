@@ -148,6 +148,13 @@ def cli():
     help="You can set it for repeating experiments with different identities"
 )
 @click.option(
+    "--version",
+    "-v",
+    default="1",
+    type=str,
+    help="You can set it for continueing experiments with different versions (after some changes)"
+)
+@click.option(
     "--rem",
     "-rem",
     is_flag=True,
@@ -175,7 +182,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, 
-        debug, trial, rem, repeat, download_model, max_exp):
+        debug, version, trial, rem, repeat, download_model, max_exp):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -206,6 +213,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args["load_path"] = mylogs.pretPath 
    args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
    args["trial"] = trial
+   args["version"] = version 
    args["break_point"] = break_point 
    args["preview"] = preview 
    args["repeat"] = repeat 
