@@ -1088,10 +1088,9 @@ class T5Stack(T5PreTrainedModel):
                     attn_scores = router
                 if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
                     self.prev_rm = route_method
-                    for i in range(batch_size):
-                        WBCallback.save_images(scores=attn_scores[i,:,:], 
-                                labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
+                    WBCallback.save_images(scores=attn_scores[-1,:,:], 
+                        labels=self.prompt_names, 
+                        fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1270,9 +1269,12 @@ class T5Stack(T5PreTrainedModel):
                         for i in range(batch_size):
                             self.attn_scores[target_idx[i].reshape(-1,1), 
                                     source_idx[i]] = attn_scores[i]
-                            WBCallback.save_images(scores=self.attn_scores, 
-                                labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_attn" + str(i))
+                        WBCallback.save_images(scores=self.attn_scores, 
+                            labels=self.prompt_names, 
+                            fname = "pred_" + route_method + "-" + task + "_attn")
+                        WBCallback.save_images(scores=attn_scores[batch_size], 
+                            labels=self.prompt_names, 
+                            fname = "pred_" + route_method + "-" + task + "_attn_last")
                         #if route_method == "rb":
                             #WBCallback.save_images(scores=self.router, 
                             #    labels=self.prompt_names, 
