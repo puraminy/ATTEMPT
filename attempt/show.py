@@ -344,6 +344,9 @@ def show_df(df):
            _infs = []
            if (group_mode and group_col in row and row[group_col] != g_row):
                g_row = row[group_col]
+               if _print and _sel_row >= 0 and ii >= _sel_row - 1:
+                   g_text = "{:<{}}".format(g_row, COLS)
+                   mprint(g_text, text_win, color = HL_COLOR) 
                if g_start >= 0:
                    group_rows = range(g_start, ii)
                    g_start = -1
@@ -357,8 +360,8 @@ def show_df(df):
                   g_color = row_color
                if g == sel_group:
                   _sel_row = ii
-                  row_color = SEL_COLOR
-                  g_color = WARNING_COLOR
+                  #row_color = SEL_COLOR
+                  #g_color = WARNING_COLOR
                   g_start = ii
                g+=1
            if _sel_row < 0 or ii < _sel_row - margin:
