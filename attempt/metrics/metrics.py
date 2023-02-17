@@ -453,7 +453,7 @@ def do_score(df, scorers, save_path, reval=False):
                         for _tail in tails:
                             _score = rouge_scorer.get_scores(_pred, _tail, 
                                                     avg=True, ignore_empty=True)
-                            score = _score["rouge-l"]["f"]
+                            _score = _score["rouge-l"]["f"]
                             _scores.append(_score)
                     rouge_score = max(_scores)
                 except:
