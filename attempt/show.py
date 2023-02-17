@@ -345,7 +345,7 @@ def show_df(df):
            if (group_mode and group_col in row and row[group_col] != g_row):
                g_row = row[group_col]
                if _print and _sel_row >= 0 and ii >= _sel_row - 1:
-                   g_text = "{:<{}}".format(g_row, COLS)
+                   g_text = "{:^{}}".format(g_row, COLS)
                    mprint(g_text, text_win, color = HL_COLOR) 
                if g_start >= 0:
                    group_rows = range(g_start, ii)
