@@ -1188,7 +1188,7 @@ def show_df(df):
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=orig_tag_cols + ["bert_score","pred_text1", "top_pred", "top","input_text","target_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score","prefix"]
                 if df.index.nlevels > 1:
                     df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
