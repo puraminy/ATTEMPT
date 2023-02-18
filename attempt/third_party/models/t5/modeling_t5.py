@@ -1197,7 +1197,7 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts[encoder.src_idx, :] = emb
                     continue
 
-                attn_mask[ii, :] = torch.tensor(encoder.attend_to, device=device)
+                attn_mask[ii, :] = torch.tensor(encoder.attend_to_mask, device=device)
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if target_masks.any():
