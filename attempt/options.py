@@ -302,7 +302,7 @@ class ModelArguments:
     )
 
     target_share: float = field(
-        default=0.5,
+        default=None,
         metadata={
             "help": "the share of added target prompt to the soft prompt."
         },

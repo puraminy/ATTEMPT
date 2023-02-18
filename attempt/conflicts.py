@@ -27,6 +27,9 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
             if training_args.do_train:
                 assert training_args.learning_rate < 0.01, "Learning rate is too high for fine tuning"
                 assert kwargs.opt_type == "regular", "Fine tuning needs regular optimizer"
+
+            if model_args.target_share is not None:
+                assert model_args.add_target is True, "Target share needs target to be added"
     except AssertionError as e:
         msg = str(e.args[0])
         if resolved: msg = "Resolved:" + msg 
