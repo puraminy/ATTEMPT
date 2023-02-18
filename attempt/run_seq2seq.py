@@ -1064,7 +1064,7 @@ def train(**kwargs):
     other_params = list(other_params)
     grouped_params.append({'params': other_params})
     #### ooooo 
-
+    mylogs.bp("opt")
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
                 model_args.prompt_learning_rate, 0.01, 0.01)
