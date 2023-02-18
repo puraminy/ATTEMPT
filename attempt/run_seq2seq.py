@@ -1050,14 +1050,13 @@ def train(**kwargs):
     ########### My Code
     prompt_params = []
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
-       # for encoder in model.prompt_encoders:
-       #    para_list =[p for p in encoder.parameters() if p.requires_grad]
-       #    prompt_params.extend(para_list)
+        for encoder in model.prompt_encoders:
+           para_list =[p for p in encoder.parameters() if p.requires_grad]
+           prompt_params.extend(para_list)
 
-       # prompt_params = set(prompt_params)
-       # grouped_params.append({'params': list(prompt_params), 
-       #     'lr': model_args.prompt_learning_rate})
-       training_args.learning_rate = model_args.prompt_learning_rate
+        prompt_params = set(prompt_params)
+        grouped_params.append({'params': list(prompt_params), 
+            'lr': model_args.prompt_learning_rate})
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
