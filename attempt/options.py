@@ -300,6 +300,14 @@ class ModelArguments:
             "help": "Whether to add the target prompt to the soft prompt resulted from attention."
         },
     )
+
+    target_share: float = field(
+        default=0.5,
+        metadata={
+            "help": "the share of added target prompt to the soft prompt."
+        },
+    )
+
     attend_source: bool = field(
         default=False,
         metadata={

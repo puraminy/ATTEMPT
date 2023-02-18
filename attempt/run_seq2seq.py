@@ -605,6 +605,7 @@ def train(**kwargs):
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
     config.add_target = model_args.add_target #my option
+    config.target_share = model_args.target_share #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
         config.prefix_num = len(model_args.prompt_embedding_path) 

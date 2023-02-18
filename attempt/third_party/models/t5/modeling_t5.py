@@ -942,6 +942,7 @@ class T5Stack(T5PreTrainedModel):
         self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
+        self.target_share = config.target_share 
         self.prefix_emb = prefix_emb if self.attend_target is True else None
         self.prefix_tuning = config.prefix_tuning
         self.attn_tuning = attn_tuning
@@ -1159,7 +1160,7 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
-           soft_prompts = soft_prompts + target_prompts
+           soft_prompts = (1 - self.target_share) * soft_prompts + self.target_share * target_prompts
 
         return soft_prompts, attn_sel_scores, attend_to_idx
 
