@@ -1068,7 +1068,8 @@ def train(**kwargs):
     else:
         optim = AdamW(grouped_params, lr=training_args.learning_rate)
         scheduler = get_linear_schedule_with_warmup(
-            optim, num_warmup_steps=training_args.warmup_steps, num_training_steps=steps)
+            optim, num_warmup_steps=training_args.warmup_steps, 
+            num_training_steps=steps +  training_args.warmup_steps)
     name = data_args.dataset_name[0] 
     task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else ["rouge"]
     if training_args.do_eval: 
