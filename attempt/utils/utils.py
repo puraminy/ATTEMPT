@@ -37,7 +37,7 @@ def convert(val):
    elif val.lower() == "true":
        ret= True
    elif isfloat(val):
-       if "." in val:
+       if "." in val or "e" in val:
            ret = float(val)
        else:
            ret = int(val)

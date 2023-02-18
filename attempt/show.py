@@ -697,10 +697,14 @@ def show_df(df):
                 spath = "images/" + runid
                 Path(spath).mkdir(parents=True, exist_ok=True)
                 images = []
+                kk = -1
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
-                    key = parts[2] #.split("-")[0]
+                    if kk < 0:
+                        _, key = list_values(parts)
+                        kk = parts.index(key)
+                    key = parts[kk]
                     dest = os.path.join(spath, fname + ".png") 
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
