@@ -464,8 +464,8 @@ def train(**kwargs):
     _confs =["en"] * n_tasks
     for i,c in enumerate(ds_confs):
         _confs[i] = ds_confs[i]
-    if kwargs.setdefault("adjust_epochs", False):
-        training_args.num_train_epochs *= n_tasks
+    #if kwargs.setdefault("adjust_epochs", False):
+    #    training_args.num_train_epochs *= n_tasks
 
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
@@ -571,8 +571,9 @@ def train(**kwargs):
 
     steps = 0
     mylogs.bp("anneal")
+    n_tasks = len(data_args.tasks_name)
     if training_args.do_train:
-        steps = data_args.max_train_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+        steps = n_tasks * data_args.max_train_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     if model_args.anneal_rate is None: 
         anneal_rate = 1/(steps + 5) 
     else:
