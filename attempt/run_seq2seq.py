@@ -1049,14 +1049,16 @@ def train(**kwargs):
 
     ########### My Code
     prompt_params = []
+    learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
-        for encoder in model.prompt_encoders:
-           para_list =[p for p in encoder.parameters() if p.requires_grad]
-           prompt_params.extend(para_list)
+       # for encoder in model.prompt_encoders:
+       #    para_list =[p for p in encoder.parameters() if p.requires_grad]
+       #    prompt_params.extend(para_list)
 
-        prompt_params = set(prompt_params)
-        grouped_params.append({'params': list(prompt_params), 
-            'lr': model_args.prompt_learning_rate})
+       # prompt_params = set(prompt_params)
+       # grouped_params.append({'params': list(prompt_params), 
+       #     'lr': model_args.prompt_learning_rate})
+       learning_rate = model_args.prompt_learning_rate
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
@@ -1067,7 +1069,7 @@ def train(**kwargs):
         optim, scheduler = get_optimizer(model, steps,
                 model_args.prompt_learning_rate, 0.01, 0.01)
     else:
-        optim = AdamW(grouped_params, lr=training_args.learning_rate)
+        optim = AdamW(grouped_params, lr=learning_rate)
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
