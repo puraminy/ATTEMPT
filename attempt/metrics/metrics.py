@@ -401,6 +401,7 @@ def do_score(df, scorers, save_path, reval=False):
             if oldinp == inp:
                 preds.append(cur_hyp)
                 tails.append(tail)
+                pbar.update()
                 continue
 
             data = {"prefix":oldrel, "input_text":oldinp}
@@ -470,7 +471,6 @@ def do_score(df, scorers, save_path, reval=False):
             pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
             preds = [cur_hyp]
             tails = [tail]
-            step += 1
             pbar.update()
             rows.append(data)
 
