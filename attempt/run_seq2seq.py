@@ -571,9 +571,8 @@ def train(**kwargs):
 
     steps = 0
     mylogs.bp("anneal")
-    n_tasks = len(data_args.tasks_name)
     if training_args.do_train:
-        steps = n_tasks * data_args.max_train_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+        steps = n_tasks * data_args.max_train_samples * n_tasks * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     if model_args.anneal_rate is None: 
         anneal_rate = 1/(steps + 5) 
     else:
@@ -1050,7 +1049,6 @@ def train(**kwargs):
 
     ########### My Code
     prompt_params = []
-    learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
        # for encoder in model.prompt_encoders:
        #    para_list =[p for p in encoder.parameters() if p.requires_grad]
@@ -1059,7 +1057,7 @@ def train(**kwargs):
        # prompt_params = set(prompt_params)
        # grouped_params.append({'params': list(prompt_params), 
        #     'lr': model_args.prompt_learning_rate})
-       learning_rate = model_args.prompt_learning_rate
+       training_args.learning_rate = model_args.prompt_learning_rate
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
@@ -1070,11 +1068,11 @@ def train(**kwargs):
         optim, scheduler = get_optimizer(model, steps,
                 model_args.prompt_learning_rate, 0.01, 0.01)
     else:
-        optim = AdamW(grouped_params, lr=learning_rate)
+        optim = AdamW(grouped_params, lr=training_args.learning_rate)
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
-            warmup_steps = 0.01 * steps
+            warmup_steps = 0.1 * steps
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=warmup_steps, 
             num_training_steps=steps)
