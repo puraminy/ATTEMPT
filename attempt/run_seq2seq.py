@@ -1049,6 +1049,7 @@ def train(**kwargs):
 
     ########### My Code
     prompt_params = []
+    mylogs.bp("opt")
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
@@ -1065,7 +1066,8 @@ def train(**kwargs):
     mylogs.bp("opt")
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
-                model_args.prompt_learning_rate, 0.01, 0.01)
+                model_args.prompt_learning_rate, 
+                model_args.attn_learning_rate, 0.01)
     else:
         optim = AdamW(grouped_params, lr=training_args.learning_rate)
         if training_args.warmup_steps is not None:

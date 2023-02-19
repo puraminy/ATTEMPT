@@ -70,28 +70,14 @@ class Scheduler:
 def get_optimizer(model, steps, prompt_lr, router_lr, Az_lr):
     paras = []
     lrs = []
+    if model.encoder.router.requires_grad:
+        paras.append([encoder.router])
+        lrs.append(router_lr)
     for encoder in model.prompt_encoders:
-        if isinstance(encoder, MatPromptEncoder):
-            paras.append([encoder.router])
-            lrs.append(router_lr)
-            paras.append([encoder.A])
-            lrs.append(Az_lr)
-            paras.append([encoder.z])
-            lrs.append(Az_lr)
-        else:
-            if encoder.router.requires_grad:
-                paras.append([encoder.router])
-                lrs.append(router_lr)
-            para_list =[p for p in encoder.parameters() if p.requires_grad]
-            if para_list:
-                paras.append(para_list)
-                lrs.append(prompt_lr)
-    for encoder in model.skill_encoders:
-        if encoder.router.requires_grad:
-            paras.append([encoder.router])
-            lrs.append(router_lr)
-        paras.append([p for p in encoder.parameters() if p.requires_grad])
-        lrs.append(prompt_lr)
+        para_list =[p for p in encoder.parameters() if p.requires_grad]
+        if para_list:
+            paras.append(para_list)
+            lrs.append(prompt_lr)
     optimizer = Optim(paras, lrs)
     scheduler = Scheduler(optimizer, steps = steps // optimizer.opts_num)
 
