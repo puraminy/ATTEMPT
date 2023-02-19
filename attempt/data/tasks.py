@@ -29,6 +29,7 @@ class AbstractTask(abc.ABC):
     metric_names = NotImplemented
     split_map = None
     labels_list = None
+    map_labels = {} # verbelizer
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
@@ -313,6 +314,8 @@ class AbstractTask(abc.ABC):
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
+        if self.map_labels:
+            targets = [self.map_labels[label] for label in targets]
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
@@ -459,6 +462,7 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
+    map_labels = {"1":"equal", "0":"unequal"} #equivalent not_equivalent
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
@@ -478,16 +482,14 @@ class COLA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-
+    map_labels = {"0": "unacceptable", "1":"acceptable"}
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence:", example['sentence']]
-        label = str(example['label'])
-        label = "acceptable" if label == "1" else "unacceptable"
-        tgt_texts = [label]
+        tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 class SST2(AbstractTask):
@@ -498,6 +500,7 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
+    map_labels = {"0":"negative", "1":"positive"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'sst2',
@@ -735,6 +738,7 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
+    map_labels = {"0":"not_duplicate","1":"duplicate"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
@@ -758,6 +762,7 @@ class MNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"en", "1":"neutral", "2": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
@@ -765,9 +770,7 @@ class MNLI(AbstractTask):
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example['premise'],
                      "hypothesis:", example["hypothesis"]]
-        tgt_texts = str(example['label'])
-        map_labels = {"0":"en", "1":"neutral", "2": "contradiction"}
-        tgt_texts = [map_labels[tgt_texts]]
+        tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
@@ -779,6 +782,7 @@ class SNLI(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"en", "1":"neutral", "2": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('snli', split=split)
@@ -837,6 +841,7 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
+    map_labels = {"0":"en", "1":"not_en"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -856,6 +861,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
+    map_labels = {"0":"not_en", "1":"en"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
@@ -876,6 +882,7 @@ class SuperGLUEBoolQ(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
+    map_labels = {"0":"False", "1":"True"}
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'boolq', split=split)
 
@@ -913,6 +920,7 @@ class SuperGLUECB(AbstractTask):
                            "test": "validation"}
     metric = [metrics.mean_multiclass_f1(num_classes=3), metrics.accuracy]
     metric_names = ["f1_multiclass", "accuracy"]
+    map_labels = {"0":"en", "2":"neutral", "1": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'cb', split=split)
@@ -953,6 +961,7 @@ class SuperGLUEMultiRC(AbstractTask):
     metric = [metrics.multirc_f1_over_all_answers,
               metrics.mean_group_metric(metrics.exact_match)]
     metric_names = ["f1", "em"]
+    map_labels = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'multirc', split=split)
@@ -983,6 +992,7 @@ class SuperGLUEWIC(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'wic', split=split)
@@ -1024,6 +1034,7 @@ class SuperGLUEWSCFixed(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'wsc.fixed', split=split)
