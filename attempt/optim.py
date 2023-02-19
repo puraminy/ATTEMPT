@@ -71,7 +71,7 @@ def get_optimizer(model, steps, prompt_lr, router_lr, Az_lr):
     paras = []
     lrs = []
     if model.encoder.router.requires_grad:
-        paras.append([encoder.router])
+        paras.append([model.encoder.router])
         lrs.append(router_lr)
     for encoder in model.prompt_encoders:
         para_list =[p for p in encoder.parameters() if p.requires_grad]
