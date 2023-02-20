@@ -221,9 +221,11 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         metric_key_prefix: str = "eval",
         max_length: Optional[int] = None,
         num_beams: Optional[int] = None,
-        gen_conf: Optional[dict] = None # my parameter
+        gen_conf: Optional[dict] = None, # my parameter
+        task: Optional[str] = None # my parameter
     ):
         self.gen_conf = gen_conf
         self._max_length = max_length
         self._num_beams = num_beams
+        self.task = task
         return super().predict(test_dataset, ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix)

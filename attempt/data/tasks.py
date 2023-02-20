@@ -151,6 +151,26 @@ class AbstractTask(abc.ABC):
                 dataset = self.subsample(dataset, n_obs)
         return self.map_dataset(dataset, add_prefix)
 
+    #### my post proc
+    def post_process(self, preds, labels):
+        _preds, _labels = preds, labels
+        if self.map_labels:
+           d = self.map_labels
+           _preds, _labels = [], []
+           keys = list(d.keys())
+           values = list(d.values())
+           for pp in preds:
+               if pp in values:
+                   _preds.append(keys[values.index(pp)])
+               else:
+                   _preds.append(pp)
+           for ll in labels:
+               if ll in values:
+                   _labels.append(keys[values.index(ll)])
+               else:
+                   _labels.append(ll)
+        return _preds, _labels
+
     ######### my template functions
     def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
         _pholder = place_holder
