@@ -163,7 +163,7 @@ class AbstractTask(abc.ABC):
                if pp in values:
                    _preds.append(keys[values.index(pp)])
                else:
-                   _preds.append(pp)
+                   _preds.append(-1)
            for ll in labels:
                if ll in values:
                    _labels.append(keys[values.index(ll)])
@@ -758,7 +758,7 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    map_labels = {"0":"nodup","1":"duplicate"}
+    map_labels = {"0":"nod","1":"duplicate"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
