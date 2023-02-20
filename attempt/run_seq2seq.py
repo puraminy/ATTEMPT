@@ -339,7 +339,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        if not preview or preview=="one":
            wandb.init(
               # Set the project where this run will be logged
-              project= experiment.replace("#","-"), 
+              project= experiment.replace("#","-").replace("/","-"), 
               name=title,
               dir=wandb_dir,
               settings=wandb.Settings(symlink=False),
