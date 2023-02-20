@@ -579,7 +579,7 @@ def show_df(df):
             if _sw >= left + COLS - 10:
                 left = _sw - 10 
             adjust = False
-        if char in ["+","-","*","/"]:
+        if char in ["+","-","*","/"] and prev_char == "x":
             _inp=df.iloc[sel_row]["input_text"]
             _prefix=df.iloc[sel_row]["prefix"]
             _pred_text=df.iloc[sel_row]["pred_text1"]
@@ -1483,7 +1483,7 @@ def show_df(df):
             tdf = main_df[main_df['fid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             tdf.to_csv(spath, sep="\t", index=False)
-        elif char == "/" and prev_char == "x":
+        elif char == "/":
             old_search = search
             search = rowinput("/", search)
             if search == old_search:
