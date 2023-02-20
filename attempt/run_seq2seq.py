@@ -1076,7 +1076,7 @@ def train(**kwargs):
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
-            warmup_steps = 0.1 * steps
+            warmup_steps = 0.2 * steps
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=warmup_steps, 
             num_training_steps=steps)
