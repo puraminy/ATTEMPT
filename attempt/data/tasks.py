@@ -163,7 +163,7 @@ class AbstractTask(abc.ABC):
                if pp in values:
                    _preds.append(keys[values.index(pp)])
                else:
-                   _preds.append(-1)
+                   _preds.append("-1")
            for ll in labels:
                if ll in values:
                    _labels.append(keys[values.index(ll)])

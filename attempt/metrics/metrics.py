@@ -47,7 +47,7 @@ TASK_TO_METRICS = {
                    "qnli": ["accuracy"],
                    "rte": ["accuracy"],
                    "wnli": ["accuracy"],
-                   "qqp": ["accuracy", "f1"],
+                   "qqp": ["accuracy"],
                    "superglue-boolq": ["accuracy"],
                    "superglue-rte": ["accuracy"],
                    "superglue-cb": ["f1_multiclass", "accuracy"],
@@ -88,6 +88,7 @@ def rouge(predictions, targets) -> dict:
 
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
+    mylogs.bp("compute")
     return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
 
 
