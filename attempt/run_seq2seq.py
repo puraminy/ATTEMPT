@@ -1275,7 +1275,8 @@ def train(**kwargs):
                     df = test_dataset.to_pandas()
                     if bp == "test": breakpoint()
                     df["pred_text1"] = ""
-                    assert False, metrics
+                    for k,v in metrics.items():
+                        df[k] = v
                     #df["rouge_score"] = 0.0
                     #df["bert_score"] = 0.0
                     df["template"] = data_args.template
