@@ -738,7 +738,7 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    map_labels = {"0":"not_duplicate","1":"duplicate"}
+    map_labels = {"0":"notdup","1":"duplicate"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
@@ -841,7 +841,7 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    map_labels = {"0":"en", "1":"not_en"} # entailment nont_entailment
+    map_labels = {"0":"en", "1":"not"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -861,7 +861,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"0":"not_en", "1":"en"}
+    map_labels = {"0":"not", "1":"en"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
