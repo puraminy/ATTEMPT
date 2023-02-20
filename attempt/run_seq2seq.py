@@ -1019,11 +1019,14 @@ def train(**kwargs):
         data_info["train"] = train_dataset['extra_fields'] if training_args.do_train else None
 
     def compute_metrics(eval_preds):
-        preds, labels, data_info = eval_preds
-        post_processor = AutoPostProcessor.get(data_args.dataset_name[0], tokenizer,
+        preds, labels, data_info, task = eval_preds
+        post_processor = AutoPostProcessor.get(task, tokenizer,
                                                data_args.ignore_pad_token_for_loss)
         decoded_preds, decoded_labels = post_processor.process(
             preds, labels, data_info)
+        task = AutoTask.get(task, None, task_args=task_args)
+        mylogs.bp("compute")
+        decoded_preds, decoded_labels = task.post_process(decoded_preds, decoded_labels)
         result = {}
         for metric in eval_metrics:
             result.update(metric(decoded_preds, decoded_labels))
@@ -1253,12 +1256,13 @@ def train(**kwargs):
                     gen_conf["route_method"] = route_method
                     exp_info["gen_route_methods"] = route_method
                     mylogs.bp("test")
+                    task = task.split("_")[0]
                     predictions, labels, metrics = trainer.predict(
                             gen_conf = gen_conf,
                             test_dataset=test_dataset,
                             max_length=data_args.test_max_target_length, 
                             num_beams=data_args.num_beams,
-                            metric_key_prefix="test")
+                            metric_key_prefix="test", task=task)
                     
                     trainer.log_metrics("test", metrics)
                     trainer.save_metrics("test", metrics)

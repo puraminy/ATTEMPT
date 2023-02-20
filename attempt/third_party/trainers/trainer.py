@@ -280,8 +280,11 @@ class BaseTrainer(Trainer):
             all_labels = nested_truncate(all_labels, num_samples)
         # Metrics!
         if self.compute_metrics is not None and all_preds is not None and all_labels is not None:
-            metrics = self.compute_metrics(EvalPrediction(predictions=all_preds, label_ids=all_labels,
-                                                          data_info=self.get_data_info(metric_key_prefix)))
+            metrics = self.compute_metrics(EvalPrediction(predictions=all_preds, 
+                label_ids=all_labels,
+                data_info=self.get_data_info(metric_key_prefix),
+                task = self.task
+                ))
         else:
             metrics = {}
 
