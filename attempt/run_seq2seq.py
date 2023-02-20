@@ -713,6 +713,8 @@ def train(**kwargs):
                     length = adapter_args.num_prompt_tokens,
                     encoder_type=adapter_args.prompt_encoder_type) 
             encoder.is_source =True
+            if kwargs.setdefault("init_from_words", False):
+                encoder.init_embs_from_words(model.get_input_embeddings())
             if load_source_prompts is True:
                 encoder.load(prompts_dir, prefix=prompts_prefix,
                         length = adapter_args.num_prompt_tokens)
