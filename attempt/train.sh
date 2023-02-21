@@ -48,6 +48,10 @@ while [ "$cont" -eq 1 ]; do
 cont=0
 _template=sup-p0-pt
 case $bash_params in
+  *"_large"*) # debug is enabled
+      model=t5-large
+      bash_params=$(echo "$bash_params" | sed "s/_large//")
+    ;;
   *"_learn"*) # debug is enabled
       _learn_sp=True
       bash_params=$(echo "$bash_params" | sed "s/_learn//")
@@ -91,6 +95,12 @@ done
 echo ${bash_params}
 eval "${bash_params}"
 
+case "$HOME" in 
+  *ahmad*)
+    # Do stuff
+    model=t5-base
+    ;;
+esac
 # wrap experiments
 folder=${PWD##*/}          
 log=${home}/logs   
@@ -198,6 +208,8 @@ params="${params} --do_test=True"
 params="${params} --do_eval=$_eval"
 # Saving
 params="${params} --report_to=wandb@"
+params="${params} --model_name_or_path=$model",
+params="${params} --tokenizer_name=$model",
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
 params="${params} --save_model=False"
