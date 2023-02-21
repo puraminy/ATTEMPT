@@ -208,8 +208,8 @@ params="${params} --do_test=True"
 params="${params} --do_eval=$_eval"
 # Saving
 params="${params} --report_to=wandb@"
-params="${params} --model_name_or_path=$model",
-params="${params} --tokenizer_name=$model",
+params="${params} --model_name_or_path=$model"
+params="${params} --tokenizer_name=$model"
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
 params="${params} --save_model=False"
