@@ -43,14 +43,15 @@ esac
 
 alias show_results="python3 ${home}/mt5-comet/comet/train/show.py full"
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
+_template=sup-p0-pt
 cont=1
 while [ "$cont" -eq 1 ]; do
 cont=0
-_template=sup-p0-pt
 case $bash_params in
   *"_large"*) # debug is enabled
       model=t5-large
       bash_params=$(echo "$bash_params" | sed "s/_large//")
+      cont=1
     ;;
   *"_learn"*) # debug is enabled
       _learn_sp=True
@@ -64,6 +65,7 @@ case $bash_params in
       bash_params=$(echo "$bash_params" | sed "s/_max//")
       _msl=450
       _mtl=25
+      cont=1
     ;;
   *"_glue"*) # debug is enabled
       _learn_sp=True
@@ -86,9 +88,17 @@ case $bash_params in
       bash_params=$(echo "$bash_params" | sed "s/_self//")
       cont=1
     ;;
+  *"_eval"*) # debug is enabled
+      bash_params=$(echo "$bash_params" | sed "s/_eval//")
+      _dotest=True
+      _train=False
+      _lp=True
+      cont=1
+    ;;
   *"_g"*) # debug is enabled
       bash_params=$(echo "$bash_params" | sed "s/_g//")
-     _cat=glue
+      _cat=glue
+      cont=1
     ;;
 esac
 done
@@ -123,7 +133,7 @@ if [ -n "$_test" ]; then
   _vn=2
   _tsn=2 
   _ep=1
-  _eval=False
+  _doeval=False
 fi
 if [ -n "$_all" ]; then
   _tn=-1
@@ -131,7 +141,8 @@ if [ -n "$_all" ]; then
   _tsn=-1 
 fi
 if [ -z "$_train" ]; then  _train=True; fi
-if [ -z "$_eval" ]; then  _eval=False; fi
+if [ -z "$_doeval" ]; then  _doeval=False; fi
+if [ -z "$_dotest" ]; then  _dotest=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100#200#500; fi
@@ -147,6 +158,9 @@ if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=~${PWD}/trial=1"
 fi
 
+if [ "$_train" = "False" ]; then
+   _tn=0
+fi
 if [ -z "$_exp" ]; then _exp=noname; fi
 if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
@@ -155,7 +169,7 @@ echo "==================method: $method === epochs: $_ep ===== samples: $_train 
 if [ -z "$_task" ]; then 
 _task="xAttr@xIntent@xWant"
 #_task="cola"
-_task="qqp#sst2#qnli#mnli#squad#record#stsb#mrpc#rte#cola"
+#_task="qqp#sst2#qnli#mnli#squad#record#stsb#mrpc#rte#cola"
 fi
 
 main_params=$params
@@ -204,8 +218,8 @@ fi
 
 params="${params} --do_train=$_train"
 # operations
-params="${params} --do_test=True"
-params="${params} --do_eval=$_eval"
+params="${params} --do_test=$_dotest"
+params="${params} --do_eval=$_doeval"
 # Saving
 params="${params} --report_to=wandb@"
 params="${params} --model_name_or_path=$model"
