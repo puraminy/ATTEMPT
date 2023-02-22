@@ -196,6 +196,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
+   experiment = experiment.replace("#","-")
    save_path = os.path.join(mylogs.logPath, experiment)
    if Path(save_path).exists() and rem:
        #if input("Are you sure you want to delete the experiment folder?") == "y":

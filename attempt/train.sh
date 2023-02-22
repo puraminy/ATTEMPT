@@ -108,6 +108,7 @@ case $bash_params in
   *"_eval"*) # debug is enabled
       bash_params=$(echo "$bash_params" | sed "s/_eval//")
       _dotest=True
+      _eval=True
       _train=False
       _lp=True
       cont=1
@@ -182,7 +183,6 @@ fi
 if [ "$_train" = "False" ]; then
    _tn=0
 fi
-if [ -z "$_exp" ]; then _exp=noname; fi
 if [ -z "$_pat" ]; then _pat=*.json; fi
 for method in $methods; do
 echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
@@ -191,6 +191,14 @@ if [ -z "$_task" ]; then
 _task="xAttr@xIntent@xWant"
 #_task="cola"
 #_task="qqp#sst2#qnli#mnli#squad#record#stsb#mrpc#rte#cola"
+fi
+
+if [ -z "$_exp" ]; then 
+if [ -n "$_eval" ]; then 
+   _exp="${_task}_eval"; 
+else
+   _exp=$_task; 
+fi
 fi
 
 main_params=$params
