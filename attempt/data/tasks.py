@@ -798,7 +798,7 @@ class ParsNLI(AbstractTask):
     labels_list = ["c", "e", "n"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"e":"en", "n":"neutral", "c": "contradiction"}
+    #map_labels = {"e":"en", "n":"neutral", "c": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
