@@ -1260,7 +1260,9 @@ def train(**kwargs):
         # multi-task evaluations
         if not training_args.do_train:
             lsp = kwargs.setdefault("load_source_prompts",False)
-            load_model(training_args.output_dir, lsp=lsp)
+            prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+            if not prompts_prefix:
+                load_model(training_args.output_dir, lsp=lsp)
         results = {}
         gen_conf = {}
         ds_backup = None
