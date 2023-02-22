@@ -804,7 +804,7 @@ class ParsNLI(AbstractTask):
     map_labels = {"e":"en", "n":"neutral", "c": "contradiction"}
 
     def load_dataset(self, split):
-        return load_dataset("persiannlp/parsinlu_entailment", split=split)
+        return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example['sent1'],
