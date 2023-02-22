@@ -141,9 +141,12 @@ def f1_score_with_invalid(predictions, targets) -> dict:
     invalid_idx_mask = np.logical_and(predictions != '0', predictions != '1')
     # For any prediction != 0 or 1, we set the prediction to the opposite of its corresponding target.
     predictions[invalid_idx_mask] = binary_reverse(targets[invalid_idx_mask])
-    targets = targets.astype(np.int32)
-    predictions = predictions.astype(np.int32)
-    return {"f1": 100 * sklearn.metrics.f1_score(targets, predictions)}
+    try:
+        targets = targets.astype(np.int32)
+        predictions = predictions.astype(np.int32)
+        return {"f1": 100 * sklearn.metrics.f1_score(targets, predictions)}
+    except:
+        return {"f1": -1}
 
 # TODO: maybe gaurd against invalid values https://stackoverflow.com/questions/56865344/how-do-i-calculate-the-matthews-correlation-coefficient-in-tensorflow
 
