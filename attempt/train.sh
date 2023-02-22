@@ -24,12 +24,9 @@ do
    esac
 done
 model=t5-base
+tname=t5-base
 home=$HOME
 case "$HOME" in 
-  *ahmad*)
-    # Do stuff
-    model=t5-base
-    ;;
   *root*)
     # Colab 
     home=/content/drive/MyDrive
@@ -49,16 +46,19 @@ cont=0
 case $bash_params in
   *"_mt5"*) # debug is enabled
       model=google/mt5-base
+      tname=google/mt5-base
       bash_params=$(echo "$bash_params" | sed "s/_mt5//")
       cont=1
     ;;
   *"_v1"*) # debug is enabled
       model=google/t5-v1_1-base
+      tname=t5-base
       bash_params=$(echo "$bash_params" | sed "s/_v1//")
       cont=1
     ;;
   *"_large"*) # debug is enabled
       model=t5-large
+      tname=t5-large
       bash_params=$(echo "$bash_params" | sed "s/_large//")
       cont=1
     ;;
@@ -122,6 +122,7 @@ case "$HOME" in
   *ahmad*)
     # Do stuff
     model=t5-base
+    tname=t5-base
     ;;
 esac
 # wrap experiments
@@ -239,7 +240,7 @@ params="${params} --do_eval=$_doeval"
 # Saving
 params="${params} --report_to=wandb@"
 params="${params} --model_name_or_path=$model"
-params="${params} --tokenizer_name=$model"
+params="${params} --tokenizer_name=$tname"
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
 params="${params} --save_model=False"
