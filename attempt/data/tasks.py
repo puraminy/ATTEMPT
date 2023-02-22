@@ -793,6 +793,25 @@ class MNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
+class ParsNLI(AbstractTask):
+    name = "parsnli"
+    labels_list = ["c", "e", "n"]
+    split_to_data_split = {"train": "train",
+                           "validation": "validation_mismatched",
+                           "test": "validation_matched"}
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    map_labels = {"e":"en", "n":"neutral", "c": "contradiction"}
+
+    def load_dataset(self, split):
+        return load_dataset("persiannlp/parsinlu_entailment", split=split)
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["premise:", example['sent1'],
+                     "hypothesis:", example["sent2"]]
+        tgt_texts = [str(example['label'])]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
 
 class SNLI(AbstractTask):
     name = "snli"
@@ -1205,6 +1224,7 @@ TASK_MAPPING = OrderedDict(
         ('rte', RTE),
         ('wnli', WNLI),
         ('mnli', MNLI),
+        ('parsnli', ParsNLI),
         ('qqp', QQP),
         ('stsb', STSB),
         ('superglue-boolq', SuperGLUEBoolQ),
