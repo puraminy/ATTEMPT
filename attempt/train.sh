@@ -47,6 +47,16 @@ cont=1
 while [ "$cont" -eq 1 ]; do
 cont=0
 case $bash_params in
+  *"_mt5"*) # debug is enabled
+      model=google/mt5-base
+      bash_params=$(echo "$bash_params" | sed "s/_mt5//")
+      cont=1
+    ;;
+  *"_v1"*) # debug is enabled
+      model=google/t5-v1_1-base
+      bash_params=$(echo "$bash_params" | sed "s/_v1//")
+      cont=1
+    ;;
   *"_large"*) # debug is enabled
       model=t5-large
       bash_params=$(echo "$bash_params" | sed "s/_large//")
