@@ -6,9 +6,7 @@ for i in $@
 do
    case $i in
        --*) extra_params="${extra_params} $i"; g=1;;
-       
        _*) bash_params="${bash_params} $i"; g=3;;
-
        -*) run_params="${run_params} $i"; g=2;;
        
        # Parameter 
@@ -38,15 +36,21 @@ case $run_params in
     ;;
 esac
 
-alias show_results="python3 ${home}/mt5-comet/comet/train/show.py full"
+alias show_results="python3 ${home}/ATTEMPT/attempt/show.py full"
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
 cont=1
 while [ "$cont" -eq 1 ]; do
 cont=0
 case $bash_params in
   *"_mt5"*) # debug is enabled
-      model=google/mt5-base
-      tname=google/mt5-base
+      model=mt5-base
+      tname=mt5-base
+      bash_params=$(echo "$bash_params" | sed "s/_mt5//")
+      cont=1
+    ;;
+  *"_pars"*) # debug is enabled
+      model=parsT5-base
+      tname=parsT5-base
       bash_params=$(echo "$bash_params" | sed "s/_mt5//")
       cont=1
     ;;
@@ -300,7 +304,7 @@ if [ "$method" = "pt" ]; then
 	params="${params} --prompt_sharing=!shared_tokens#shared_encoders"
         params="${params} --template=sup-p0-pt#unsup-p0-pt#!sup-p0-psh" 
 	params="${params} --init_from_words=False"
-	params="${params} --save_prompts=all"
+	params="${params} --save_these_prompts=all"
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
