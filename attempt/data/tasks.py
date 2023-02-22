@@ -796,16 +796,12 @@ class MNLI(AbstractTask):
 class ParsNLI(AbstractTask):
     name = "parsnli"
     labels_list = ["c", "e", "n"]
-    split_to_data_split = {"train": "train",
-                           "validation": "validation_mismatched",
-                           "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     map_labels = {"e":"en", "n":"neutral", "c": "contradiction"}
 
     def load_dataset(self, split):
-        ds = datasets.load_dataset("persiannlp/parsinlu_entailment")
-        return ds[split]
+        return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example['sent1'],
