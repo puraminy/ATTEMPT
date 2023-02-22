@@ -43,7 +43,6 @@ esac
 
 alias show_results="python3 ${home}/mt5-comet/comet/train/show.py full"
 alias runat="python3 ${home}/ATTEMPT/attempt/run_seq2seq.py"
-_template=sup-p0-pt
 cont=1
 while [ "$cont" -eq 1 ]; do
 cont=0
@@ -57,7 +56,6 @@ case $bash_params in
       _learn_sp=True
       bash_params=$(echo "$bash_params" | sed "s/_learn//")
       _ai=False
-      _template=unsup-p0-pt
       if [ -z "$_lsp" ]; then  _lsp=False; fi
       cont=1
     ;;
@@ -86,6 +84,11 @@ case $bash_params in
   *"_self"*) # debug is enabled
       _exp=self
       bash_params=$(echo "$bash_params" | sed "s/_self//")
+      cont=1
+    ;;
+  *"_unsup"*) # debug is enabled
+      _template=unsup-p0-pt
+      bash_params=$(echo "$bash_params" | sed "s/_unsup//")
       cont=1
     ;;
   *"_eval"*) # debug is enabled
@@ -119,6 +122,9 @@ echo "log: ${log}"
 if [ -z "$_cat" ]; then  _cat=general; fi
 if [ -z "$_bs" ]; then  _bs=32; fi
 if [ -z "$_learn_sp" ]; then  _learn_sp=False; fi
+if [ -z "$_template" ]; then 
+_template=sup-p0-pt
+fi
 if [ -z "$_sp" ]; then  _sp=none; fi
 if [ -z "$_ai" ]; then  _ai=False; fi
 if [ -z "$_lsp" ]; then  _lsp=True; fi
