@@ -2078,6 +2078,10 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         attn_tuning = self.attn_tuning
         for name, param in self.named_parameters():
             # Save attention and layer norm weights.
+            if attn_tuning is True and "encoder.router" == name:
+                attn_weights_params = param
+                torch.save(attn_weights_params, os.path.join(
+                    output_dir, "router.pt"))
             if attn_tuning is True and "encoder.attn_Wa.weight" == name:
                 attn_weights_params = param
                 torch.save(attn_weights_params, os.path.join(
@@ -2120,6 +2124,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         # Initialize the embeddings
         self.mul_prefix_emb.data = embeddings.clone().detach()
 
+    def update_router(self, path):
+        self.encoder.router.data = torch.load(path)
     # update attention weights
     def update_attention_weights(self, attention):
         self.encoder.attn_Wa.data = attention.cuda()
