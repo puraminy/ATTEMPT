@@ -621,7 +621,7 @@ def train(**kwargs):
         adapter_args, data_args, training_args, config)
 
     # Set tokenizer
-    if "mt5" in model_name_or_path or "pars" in model_name_or_path:
+    if "mt5" in model_name_or_path:
         tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
     else:
         tokenizer = T5TokenizerFast.from_pretrained(
