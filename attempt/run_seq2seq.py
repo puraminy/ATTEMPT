@@ -1134,6 +1134,19 @@ def train(**kwargs):
         os.makedirs(training_args.output_dir, exist_ok=True)
         save_training_config(config_file, training_args.output_dir)
 
+
+    def load_model(load_path, lsp=False):
+        model.load_encoders(load_path, load_source_prompts=lsp)
+        dpath = os.path.join(load_path, "attn_W_down.pt")
+        attention_paths = [dpath, 
+                os.path.join(load_path, "attn_W_up.pt")]
+        if model_args.attn_tuning is True and Path(dpath).is_file():
+            trainer.model.update_attention_weights_sub(attention_paths)
+            if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
+                trainer.model.update_layer_norm_weights(load_path)
+        dpath = os.path.join(load_path, "router.pt")
+        if model_args.attn_tuning is True and Path(dpath).is_file():
+            trainer.model.update_router(dpath)
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -1154,7 +1167,6 @@ def train(**kwargs):
         print("=================================================")
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
 
-        #### save last images
         if training_args.compute_time:
             end.record()
             torch.cuda.synchronize()  # wait for all_reduce to complete
@@ -1164,25 +1176,23 @@ def train(**kwargs):
         # Load best model
         if trainer.best_prompt_checkpoint is not None:
             best_chk_path = trainer.best_prompt_checkpoint
-            model.load_encoders(best_chk_path)
-            dpath = os.path.join(best_chk_path, "attn_W_down.pt")
-            attention_paths = [dpath, 
-                    os.path.join(best_chk_path, "attn_W_up.pt")]
-            if model_args.attn_tuning is True and Path(dpath).is_file():
-                trainer.model.update_attention_weights_sub(attention_paths)
-                if model_args.load_layer_norm and "layer_norm_bias.pt" in best_chk_path: 
-                    trainer.model.update_layer_norm_weights(best_chk_path)
+            lsp = kwargs.setdefault("load_source_prompts", False)
+            load_model(best_chk_path, lsp=lsp)
 
         # Save prompts
         if adapter_args.prompt_tuning:
-            model.store_encoders(output_dir = training_args.output_dir)
-            prompts_to_save = kwargs.setdefault("save_prompts", []) 
+            ssp = kwargs.setdefault("save_source_prompts", False) 
+            model.store_encoders(output_dir = training_args.output_dir,
+                                 save_source_prompts = ssp)
+            prompts_to_save = kwargs.setdefault("save_these_prompts", []) 
             if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
                         prompts_only=True, 
                         prompts_to_save = prompts_to_save, 
+                        save_source_prompts = ssp,
                         prefix=prompts_prefix)
+
 
         if kwargs.setdefault("save_model", False):
             # save all model parameters and tokenizers 
@@ -1218,16 +1228,8 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            dpath = os.path.join(training_args.output_dir, "attn_W_down.pt") 
-            
-            attention_paths = [dpath,
-                    os.path.join(training_args.output_dir, "attn_W_up.pt")]
-            if Path(dpath).is_file():
-                trainer.model.update_attention_weights_sub(attention_paths)
-                if (model_args.load_layer_norm is True 
-                        and "layer_norm_bias.pt" in training_args.output_dir):
-                    trainer.model.update_layer_norm_weights(
-                        training_args.output_dir)
+            lsp = kwargs.setdefault("load_source_prompts",False)
+            load_model(training_args.output_dir, lsp=lsp)
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
@@ -1248,6 +1250,9 @@ def train(**kwargs):
     if training_args.do_test:
         logger.info("*** Test ***")
         # multi-task evaluations
+        if not training_args.do_train:
+            lsp = kwargs.setdefault("load_source_prompts",False)
+            load_model(training_args.output_dir, lsp=lsp)
         results = {}
         gen_conf = {}
         ds_backup = None
@@ -1415,8 +1420,12 @@ def train(**kwargs):
             attention_paths = [os.path.join(checkpoint_dir, "attn_W_down.pt"), os.path.join(
                 checkpoint_dir, "attn_W_up.pt")]
             trainer.model.update_attention_weights_sub(attention_paths)
-            if model_args.load_layer_norm is True and "layer_norm_bias.pt" in checkpoint_dir:
+            if (model_args.load_layer_norm is True 
+                and "layer_norm_bias.pt" in checkpoint_dir):
                 trainer.model.update_layer_norm_weights(checkpoint_dir)
+            dpath = os.path.join(checkpoint_dir, "router.pt")
+            if model_args.attn_tuning is True and Path(dpath).is_file():
+                trainer.model.update_router(dpath)
 
             test_metrics_all = {}
             test_avg = []

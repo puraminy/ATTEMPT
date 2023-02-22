@@ -95,7 +95,8 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                     
                     print("========== Best Model detected =======")
                     print(output_dir)
-                    model.store_encoders(output_dir = output_dir)
+                    model.store_encoders(output_dir = output_dir, 
+                            save_source_prompts=True)
                     print("======================================")
                 else:
                     print("======================================")
