@@ -621,13 +621,18 @@ def train(**kwargs):
         adapter_args, data_args, training_args, config)
 
     # Set tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    if "mt5" in model_name_or_path:
+        tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
+    elif "pars" in model_name_or_path:
+        tokenizer = T5TokenizerFast.from_pretrained(model_name_or_path)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            use_fast=model_args.use_fast_tokenizer,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
 
     # Initialize the model
     model = T5ForConditionalGeneration.from_pretrained(
