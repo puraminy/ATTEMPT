@@ -622,7 +622,7 @@ def train(**kwargs):
 
     # Set tokenizer
     if "mt5" in model_name_or_path:
-        tokenizer = MT5TokenizerFast.from_pretrained(underlying_model_name)
+        tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
     else:
         tokenizer = T5Tokenizer.from_pretrained(
             model_name_or_path,
