@@ -51,7 +51,7 @@ case $bash_params in
   *"_pars"*) # debug is enabled
       model=parsT5-base
       tname=parsT5-base
-      bash_params=$(echo "$bash_params" | sed "s/_mt5//")
+      bash_params=$(echo "$bash_params" | sed "s/_pars//")
       cont=1
     ;;
   *"_v1"*) # debug is enabled
