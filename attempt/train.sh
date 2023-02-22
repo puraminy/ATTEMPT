@@ -313,7 +313,8 @@ if [ "$method" = "ptat" ]; then
 	params="${params} --num_prompt_tokens=10"
 	params="${params} --gen_route_methods=rb@" #sigmoid@sign"
 	params="${params} --init_from_words=False"
-	params="${params} --save_prompts=$_sp"
+	params="${params} --save_these_prompts=$_sp"
+	params="${params} --save_source_prompts=True"
 fi
 echo "Learn: $_learn_sp, Load: $_lsp"
 runat run ${run_params} -exp $exp ${params} ${extra_params} 
