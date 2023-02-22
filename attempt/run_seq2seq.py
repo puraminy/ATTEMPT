@@ -621,7 +621,7 @@ def train(**kwargs):
         adapter_args, data_args, training_args, config)
 
     # Set tokenizer
-    tokenizer = AutoTokenizerFast.from_pretrained(
+    tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path,
         cache_dir=model_args.cache_dir,
         use_fast=model_args.use_fast_tokenizer,
