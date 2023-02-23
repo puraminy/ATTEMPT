@@ -341,6 +341,8 @@ class AbstractTask(abc.ABC):
         sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
+        src = src[:350]
+        tgt = tgt[:100]
         data = {'source': src,
                 'target': tgt,
                 'task': self.name,
