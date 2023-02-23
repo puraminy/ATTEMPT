@@ -805,12 +805,13 @@ def train(**kwargs):
             mylogs.plog.info(e)
         return 
 
+    mylogs.bp("freeze")
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
-
+   
     for encoder in prompt_encoders: 
         if encoder.is_source:
             if not model_args.fix_source_prompts:
