@@ -1165,6 +1165,7 @@ def train(**kwargs):
             if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
                 trainer.model.update_layer_norm_weights(load_path)
         dpath = os.path.join(load_path, "router.pt")
+        mylogs.bp("load")
         if model_args.attn_tuning is True and Path(dpath).is_file():
             trainer.model.update_router(dpath)
     # Training
@@ -1271,10 +1272,7 @@ def train(**kwargs):
         logger.info("*** Test ***")
         # multi-task evaluations
         if not training_args.do_train:
-            lsp = kwargs.setdefault("load_source_prompts",False)
-            prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
-            if not prompts_prefix:
-                load_model(training_args.output_dir, lsp=lsp)
+            load_model(training_args.output_dir, lsp=False)
         results = {}
         gen_conf = {}
         ds_backup = None
