@@ -1341,7 +1341,7 @@ def train(**kwargs):
                     df = df.drop(columns=["input_ids","labels","attention_mask"])
                     mylogs.bp("test")
                     save_to = os.path.join(training_args.output_dir, 
-                            ds_conf + "_results_" + ds_name + "_" + route_method + "_" + mylogs.now + ".tsv")
+                            ds_conf + "_results_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + ".tsv")
                     scores = do_score(df, "rouge@bert", save_to)
 
             if kwargs.setdefault("eval_test", False):
