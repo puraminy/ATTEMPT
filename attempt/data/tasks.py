@@ -367,6 +367,9 @@ class AbstractTask(abc.ABC):
 class Squad(AbstractTask):
     name = "squad"
     metric = [metrics.squad]
+    split_to_data_split = {"train": "train",
+                           "validation": "validation",
+                           "test": "validation"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(self.name, split=split)
