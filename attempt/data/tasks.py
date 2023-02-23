@@ -866,8 +866,8 @@ class QNLI(AbstractTask):
         return datasets.load_dataset('glue', 'qnli', split=split)
 
     def preprocessor(self, example, add_prefix=True):
-        src_texts = ["question:", example['question'],
-                     "sentence:", example["sentence"]]
+        src_texts = ["question:", example['question'][:100],
+                "sentence:", example["sentence"][:350]]
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
