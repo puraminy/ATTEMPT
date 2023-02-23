@@ -1183,8 +1183,11 @@ def show_df(df):
                 #df = df.sort_values(by="input_text", ascending=False)
             else:
                 exp=df.iloc[sel_row]["exp_id"]
+                sel_exp = exp
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
+                if "task_name" in df:
+                    task = df.iloc[0]["task_name"]
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 df = df[sel_cols]
