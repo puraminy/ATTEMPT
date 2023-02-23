@@ -300,7 +300,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
                    break
            args[var_name.strip("^")]=var_item
            if not var_name in exclude_list:
-               _output_dir.append(var_name + "=" + str(var_item))
+               _output_dir.append(var_name + "_" + str(var_item))
            prev_name = var_name
            prev_item = var_item
        if conflict:
