@@ -730,6 +730,7 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_source_prompts is True:
+                mylogs.bp("load")
                 ppx = "pt_" + prompts_prefix if not model_args.attn_tuning else "att_"\
                         + prompts_prefix
                 ppx = ppx.strip("_")
@@ -781,6 +782,7 @@ def train(**kwargs):
                 ppx = "pt_" + prompts_prefix if not model_args.attn_tuning else "att_"\
                         + prompts_prefix
                 ppx = ppx.strip("_")
+                mylogs.bp("load")
                 encoder.load(prompts_dir, 
                         prefix=ppx,
                         length = target_prompt_length)
