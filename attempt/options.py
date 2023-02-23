@@ -327,7 +327,13 @@ class ModelArguments:
             "help": "freeze attentions."
         },
     )
-    fix_prompt: bool = field(
+    fix_source_prompts: bool = field(
+        default=False,
+        metadata={
+            "help": "freeze prompts."
+        },
+    )
+    fix_target_prompts: bool = field(
         default=False,
         metadata={
             "help": "freeze prompts."
