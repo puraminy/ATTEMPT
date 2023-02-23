@@ -621,7 +621,8 @@ def train(**kwargs):
     config.temperature = model_args.temperature
     config.learned_temperature = model_args.learned_temperature
     config.fix_attention = model_args.fix_attention
-    config.fix_prompt = model_args.fix_prompt
+    config.fix_source_prompts = model_args.fix_source_prompts
+    config.fix_target_prompts = model_args.fix_target_prompts
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
 
@@ -810,6 +811,15 @@ def train(**kwargs):
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
 
+    for encoder in prompt_encoders: 
+        if encoder.is_source:
+            if not model_args.fix_source_prompts:
+                for n,p in encoder.named_parameters():
+                    p.requires_grad = True
+        else:
+            if not model_args.fix_target_prompts:
+                for n,p in encoder.named_parameters():
+                    p.requires_grad = True
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)

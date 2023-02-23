@@ -105,7 +105,6 @@ def get_adapter_config(adapter_args, data_args, training_args, config):
         adapter_config.attend_target = config.attend_target
         adapter_config.attn_prompt = config.attn_tuning
         adapter_config.fix_attention = config.fix_attention
-        adapter_config.fix_prompt = config.fix_prompt
     else:
         adapter_config = None
     return adapter_config
@@ -197,12 +196,12 @@ def freeze_model_params(model, adapter_args, adapter_config):
 
     if adapter_args.prompt_tuning:
         for n, m in model.named_parameters():
-            if not "prompt_encoders" in n and not adapter_config.fix_prompt:
+            if True: #not "prompt_encoders" in n: 
                 m.requires_grad = False
         if adapter_config.attn_prompt is True: 
             unfreeze_attn_params(model, adapter_args, adapter_config)
 
-    # For bitfit we freeze the whole model except for the biases and the final classifier layer.
+    ## For bitfit we freeze the whole model except for the biases and the final classifier layer.
     if adapter_args.bitfit:
         freeze_params(model)
         # unfreeze bias terms.
