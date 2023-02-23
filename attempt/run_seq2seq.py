@@ -1,4 +1,4 @@
-# coding=utf-8
+## coding=utf-8
 # Copyright The HuggingFace Team and The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -732,6 +732,7 @@ def train(**kwargs):
             if load_source_prompts is True:
                 ppx = "pt_" + prompts_prefix if not model_args.attn_tuning else "att_"\
                         + prompts_prefix
+                ppx = ppx.strip("_")
                 encoder.load(prompts_dir, prefix=ppx,
                         length = adapter_args.num_prompt_tokens)
             prompt_encoders.append(encoder)
@@ -779,6 +780,7 @@ def train(**kwargs):
             if load_prompts: 
                 ppx = "pt_" + prompts_prefix if not model_args.attn_tuning else "att_"\
                         + prompts_prefix
+                ppx = ppx.strip("_")
                 encoder.load(prompts_dir, 
                         prefix=ppx,
                         length = target_prompt_length)
@@ -1154,7 +1156,7 @@ def train(**kwargs):
 
 
     def load_model(load_path, lsp=False):
-        model.load_encoders(load_path, load_source_prompts=lsp)
+        #model.load_encoders(load_path, load_source_prompts=lsp)
         dpath = os.path.join(load_path, "attn_W_down.pt")
         attention_paths = [dpath, 
                 os.path.join(load_path, "attn_W_up.pt")]
