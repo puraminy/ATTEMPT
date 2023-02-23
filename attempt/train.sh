@@ -190,7 +190,7 @@ echo "==================method: $method === epochs: $_ep ===== samples: $_train 
 if [ -z "$_task" ]; then 
 _task="xAttr@xIntent@xWant"
 #_task="cola"
-#_task="qqp#sst2#qnli#mnli#squad#record#stsb#mrpc#rte#cola"
+_task="mnli#squad#record#qnli#stsb#mrpc#rte"
 fi
 
 if [ -z "$_exp" ]; then 
