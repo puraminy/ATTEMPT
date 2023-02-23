@@ -197,21 +197,20 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
         with open(exp_conf) as f:
             exp_args = json.load(f)
    experiment = experiment.replace("#","-")
+   save_path = ""
    if experiment != "self":
        save_path = os.path.join(mylogs.logPath, experiment)
-   else:
-       save_path = os.getcwd()
-   if Path(save_path).exists() and rem:
-       #if input("Are you sure you want to delete the experiment folder?") == "y":
-       #shutil.rmtree(save_path)
-       save_path = save_path.rstrip("/")
-       dirs = glob.glob(save_path + '/*/')
-       for d in dirs:
-            shutil.rmtree(d)
+       if Path(save_path).exists() and rem:
+           #if input("Are you sure you want to delete the experiment folder?") == "y":
+           #shutil.rmtree(save_path)
+           save_path = save_path.rstrip("/")
+           dirs = glob.glob(save_path + '/*/')
+           for d in dirs:
+                shutil.rmtree(d)
 
-   if Path(save_path).is_file():
-       os.remove(save_path)
-   Path(save_path).mkdir(exist_ok=True, parents=True)
+       if Path(save_path).is_file():
+           os.remove(save_path)
+       Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
    args["save_path"] = save_path
    args["load_path"] = "" 
@@ -317,7 +316,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
-       args["output_dir"] = "%" + os.path.join(save_path, *_output_dir)
+       if save_path:
+           args["output_dir"] = "%" + os.path.join(save_path, *_output_dir)
+       else:
+           args["output_dir"] = "%" + os.getcwd()
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
