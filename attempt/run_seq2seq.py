@@ -621,6 +621,7 @@ def train(**kwargs):
     config.temperature = model_args.temperature
     config.learned_temperature = model_args.learned_temperature
     config.fix_attention = model_args.fix_attention
+    config.fix_prompt = model_args.fix_prompt
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
 

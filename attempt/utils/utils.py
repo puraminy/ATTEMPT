@@ -105,6 +105,7 @@ def get_adapter_config(adapter_args, data_args, training_args, config):
         adapter_config.attend_target = config.attend_target
         adapter_config.attn_prompt = config.attn_tuning
         adapter_config.fix_attention = config.fix_attention
+        adapter_config.fix_prompt = config.fix_prompt
     else:
         adapter_config = None
     return adapter_config
@@ -131,7 +132,7 @@ def unfreeze_attn_params(model, adapter_args, adapter_config):
 
     elif adapter_config.attn_method == "rb":
         for n, m in model.named_parameters():
-            if "encoder.router" == n:
+            if "encoder.router" == n and adapter_config.fix_attention is False:
                 m.requires_grad = True
 
     elif adapter_config.attn_method == "sub":
@@ -196,7 +197,7 @@ def freeze_model_params(model, adapter_args, adapter_config):
 
     if adapter_args.prompt_tuning:
         for n, m in model.named_parameters():
-            if not "prompt_encoders" in n:
+            if not "prompt_encoders" in n and not adapter_args.fix_prompt:
                 m.requires_grad = False
         if adapter_config.attn_prompt is True: 
             unfreeze_attn_params(model, adapter_args, adapter_config)

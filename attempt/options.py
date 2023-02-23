@@ -324,7 +324,13 @@ class ModelArguments:
     fix_attention: bool = field(
         default=False,
         metadata={
-            "help": "fix attentions."
+            "help": "freeze attentions."
+        },
+    )
+    fix_prompt: bool = field(
+        default=False,
+        metadata={
+            "help": "freeze prompts."
         },
     )
     # my option
