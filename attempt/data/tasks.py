@@ -378,8 +378,8 @@ class Squad(AbstractTask):
         answer = pad_punctuation(example['answers']).split("\t")
         question = pad_punctuation(example['question'])
         context = pad_punctuation(example['context'])
-        source = ["question:", question,
-                  "context:", context]
+        source = ["question:", question[:100],
+                  "context:", context[:350]]
         target = [answer] if type(answer) == str else answer
         return self.seq2seq_format(source, target, add_prefix)
 
