@@ -197,7 +197,7 @@ def freeze_model_params(model, adapter_args, adapter_config):
 
     if adapter_args.prompt_tuning:
         for n, m in model.named_parameters():
-            if not "prompt_encoders" in n and not adapter_args.fix_prompt:
+            if not "prompt_encoders" in n and not adapter_config.fix_prompt:
                 m.requires_grad = False
         if adapter_config.attn_prompt is True: 
             unfreeze_attn_params(model, adapter_args, adapter_config)
