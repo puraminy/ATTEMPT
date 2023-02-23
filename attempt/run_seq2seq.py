@@ -697,9 +697,14 @@ def train(**kwargs):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code pppppp
     mylogs.bp("penc")
-    prompts_dir = model_args.prompt_encoders_dir
-    if prompts_dir and not prompts_dir.startswith("/"):
-        prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
+    prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+    if prompts_prefix is None: prompts_prefix = ""
+    if prompts_prefix:
+        prompts_dir = model_args.prompt_encoders_dir
+        if prompts_dir and not prompts_dir.startswith("/"):
+            prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
+    else:
+        prompts_dir = training_args.output_dir
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
@@ -707,8 +712,6 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
-        prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
-        if prompts_prefix is None: prompts_prefix = ""
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
         elif num_source_prompts > 0:
