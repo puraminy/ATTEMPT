@@ -314,9 +314,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
-       args["output_dir"] = "%" + os.path.join(save_path, 
-                                         args["method"] + "-" + args["trial"], 
-                                         *_output_dir)
+       args["output_dir"] = "%" + os.path.join(save_path, *_output_dir)
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
