@@ -576,9 +576,11 @@ def train(**kwargs):
     set_seed(training_args.seed)
 
     steps = 0
-    mylogs.bp("anneal")
+    samples_per_head = kwargs.setdefault("samples_per_head",1)
+    mylogs.bp("steps")
     if training_args.do_train:
-        steps = n_tasks * data_args.max_train_samples * n_tasks * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+        steps = n_tasks * data_args.max_train_samples * samples_per_head * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+    mylogs.bp("steps")
     if model_args.anneal_rate is None: 
         anneal_rate = 1/(steps + 5) 
     else:

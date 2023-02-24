@@ -29,6 +29,7 @@ class AbstractTask(abc.ABC):
     metric_names = NotImplemented
     split_map = None
     labels_list = None
+    samples_per_head = 1
     map_labels = {} # verbelizer
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
