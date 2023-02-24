@@ -597,7 +597,7 @@ def train(**kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning #my option
-    config.learn_source_prompts = adapter_args.learn_source_prompts #my option
+    #config.learn_source_prompts = adapter_args.learn_source_prompts #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.compose_method = model_args.compose_method #my option

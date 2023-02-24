@@ -939,7 +939,7 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
-        self.learn_source_prompts = config.learn_source_prompts
+        # self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
         self.target_share = config.target_share 
@@ -1193,9 +1193,8 @@ class T5Stack(T5PreTrainedModel):
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
                     source_idx_list.append(ii)
-                    if self.learn_source_prompts:
-                        emb = encoder(encoder.net_inps)
-                        src_prompts[encoder.src_idx, :] = emb
+                    emb = encoder(encoder.net_inps)
+                    src_prompts[encoder.src_idx, :] = emb
                     continue
 
                 attn_mask[ii, :] = torch.tensor(encoder.attend_to_mask, device=device)
