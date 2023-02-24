@@ -104,7 +104,7 @@ def get_adapter_config(adapter_args, data_args, training_args, config):
         adapter_config.attn_method = config.attn_method
         adapter_config.attend_target = config.attend_target
         adapter_config.attn_prompt = config.attn_tuning
-        adapter_config.fix_attention = config.fix_attention
+        adapter_config.learn_attention = config.learn_attention
     else:
         adapter_config = None
     return adapter_config
@@ -131,14 +131,14 @@ def unfreeze_attn_params(model, adapter_args, adapter_config):
 
     elif adapter_config.attn_method == "rb":
         for n, m in model.named_parameters():
-            if "encoder.router" == n and adapter_config.fix_attention is False:
+            if "encoder.router" == n and adapter_config.learn_attention is True:
                 m.requires_grad = True
 
     elif adapter_config.attn_method == "sub":
         for n, m in model.named_parameters():
-            if "encoder.attn_W_down.weight" == n and adapter_config.fix_attention is False:
+            if "encoder.attn_W_down.weight" == n and adapter_config.learn_attention is True:
                 m.requires_grad = True
-            if "encoder.attn_W_up.weight" == n and adapter_config.fix_attention is False:
+            if "encoder.attn_W_up.weight" == n and adapter_config.learn_attention is True:
                 m.requires_grad = True
             if "prefix_shared" == n and adapter_config.attend_target is True:
                 m.requires_grad = True

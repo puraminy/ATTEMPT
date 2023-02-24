@@ -89,12 +89,6 @@ class AdapterTrainingArguments:
     prompt_encoder_type: Optional[str] = field(
         default="lstm", metadata={"help": "the type of prompt encoder."})
 
-    learn_source_prompts: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to learn source prompts."
-        },
-    )
     ####################
     prefix_dim: Optional[int] = field(
         default=100, metadata={"help": "Specifies the prefix embedding dimension."})
@@ -320,23 +314,22 @@ class ModelArguments:
             "help": "Whether to attend to the input sentence."
         },
     )
-
-    fix_attention: bool = field(
-        default=False,
+    learn_attention: bool = field(
+        default=True,
         metadata={
-            "help": "freeze attentions."
+            "help": "whether freeze attentions."
         },
     )
-    fix_source_prompts: bool = field(
-        default=False,
+    learn_source_prompts: bool = field(
+        default=True,
         metadata={
-            "help": "freeze prompts."
+            "help": "whether freeze target prompts."
         },
     )
-    fix_target_prompts: bool = field(
-        default=False,
+    learn_target_prompts: bool = field(
+        default=True,
         metadata={
-            "help": "freeze prompts."
+            "help": "whether freeze target prompts."
         },
     )
     # my option
