@@ -766,6 +766,7 @@ def train(**kwargs):
         # create and load target prompts
         mylogs.bp("mask")
         num_attend_to = len(source_prompts) + len(encoders_prompts) + 1 # one for input 
+        prompt_masking = kwargs.setdefault("prompt_masking", False):
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
@@ -776,7 +777,7 @@ def train(**kwargs):
                 if n in encoder.attend_to or "_com" in n:
                     encoder.attend_to_mask[i] = 1 
                     attn_flag = True
-            if not attn_flag: 
+            if not attn_flag or not prompt_masking: 
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
