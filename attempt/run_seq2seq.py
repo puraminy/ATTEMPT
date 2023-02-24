@@ -165,9 +165,8 @@ def cli():
 @click.option(
     "--repeat",
     "-rep",
-    default="Repeat an experiment even if the folder already exists",
-    type=str,
-    help=""
+    is_flag=True,
+    help="Repeat an experiment even if the folder already exists",
 )
 @click.option(
     "--download_model",
