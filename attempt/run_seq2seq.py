@@ -766,7 +766,7 @@ def train(**kwargs):
         # create and load target prompts
         mylogs.bp("mask")
         num_attend_to = len(source_prompts) + len(encoders_prompts) + 1 # one for input 
-        source_masking = kwargs.setdefault("source_masking", False):
+        source_masking = kwargs.setdefault("source_masking", False)
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
