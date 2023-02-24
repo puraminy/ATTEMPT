@@ -1135,8 +1135,9 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if not self.attend_input:
             attn_mask = attn_mask[:,:,1:]
-        attn_softmax_scores = F.softmax(attn_scores, -1)
-        attn_scores = attn_softmax_scores * attn_mask
+        if self.attn_method != "rb":
+            attn_scores = F.softmax(attn_scores, -1)
+        attn_scores = attn_scores * attn_mask
         attn_norm_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
