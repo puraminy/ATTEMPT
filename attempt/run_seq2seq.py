@@ -597,7 +597,6 @@ def train(**kwargs):
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
     config.prompt_tuning = adapter_args.prompt_tuning #my option
-    #config.learn_source_prompts = adapter_args.learn_source_prompts #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
     config.compose_method = model_args.compose_method #my option
@@ -620,9 +619,9 @@ def train(**kwargs):
     config.num_target = len(data_args.task_name)
     config.temperature = model_args.temperature
     config.learned_temperature = model_args.learned_temperature
-    config.fix_attention = model_args.fix_attention
-    config.fix_source_prompts = model_args.fix_source_prompts
-    config.fix_target_prompts = model_args.fix_target_prompts
+    config.learn_attention = model_args.learn_attention
+    config.learn_source_prompts = model_args.learn_source_prompts
+    config.learn_target_prompts = model_args.learn_target_prompts
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
 
@@ -809,13 +808,14 @@ def train(**kwargs):
    
     for encoder in prompt_encoders: 
         if encoder.is_source:
-            if not model_args.fix_source_prompts:
+            if model_args.learn_source_prompts:
                 for n,p in encoder.named_parameters():
                     p.requires_grad = True
         else:
-            if not model_args.fix_target_prompts:
+            if model_args.learn_target_prompts:
                 for n,p in encoder.named_parameters():
                     p.requires_grad = True
+
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
