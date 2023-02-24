@@ -924,7 +924,7 @@ class SuperGLUEBoolQ(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    map_labels = {"0":"False", "1":"True"}
+    map_labels = {"0":"Fals", "1":"True"}
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'boolq', split=split)
 
@@ -943,6 +943,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'rte', split=split)
@@ -982,6 +983,7 @@ class SuperGLUECOPA(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    map_labels = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'copa', split=split)
@@ -1003,7 +1005,7 @@ class SuperGLUEMultiRC(AbstractTask):
     metric = [metrics.multirc_f1_over_all_answers,
               metrics.mean_group_metric(metrics.exact_match)]
     metric_names = ["f1", "em"]
-    map_labels = {"0":"False", "1":"True"}
+    map_labels = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'multirc', split=split)
@@ -1034,7 +1036,7 @@ class SuperGLUEWIC(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"False", "1":"True"}
+    map_labels = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'wic', split=split)
@@ -1076,7 +1078,7 @@ class SuperGLUEWSCFixed(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"False", "1":"True"}
+    map_labels = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('super_glue', 'wsc.fixed', split=split)
