@@ -999,7 +999,7 @@ class T5Stack(T5PreTrainedModel):
         self.attn_scores = torch.zeros(
             (attend_num, attend_num), device=device) 
         self.src_prompt_dim = src_prompt_dim
-        self.prompt_names = ["target"] + [x.name for x in prompt_encoders]
+        self.prompt_names = ["input"] + [x.name for x in prompt_encoders]
         self.num_src_encoders = 0
         if source_prompts:
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
