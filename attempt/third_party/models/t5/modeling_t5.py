@@ -1073,7 +1073,7 @@ class T5Stack(T5PreTrainedModel):
                     target_shares = RelaxedBernoulli(temperature=tst, 
                         logits=target_router).rsample()            
                 else:
-                    target_shares = torch.sigmoid(target_router) 
+                    target_shares = torch.sigmoid(target_router * self.sig_coef) 
             else:
                 target_shares = self.target_share * torch.ones(1, batch_size)
         # Bernouli 
@@ -1098,7 +1098,7 @@ class T5Stack(T5PreTrainedModel):
                 if route_method == "rb":
                     attn_scores = scores
                 elif route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(router * self.sig_coef)  # layer * n_prompts
+                    attn_scores = torch.sigmoid(router)  # layer * n_prompts
                 elif route_method == "sign":
                     with torch.no_grad():
                         router[router <= 0] = 0
