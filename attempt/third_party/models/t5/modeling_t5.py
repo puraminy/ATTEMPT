@@ -1063,11 +1063,18 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        if self.add_target and self.target_share < 0:
-            target_router = self.target_router.unsqueeze(0)
-            target_router = batched_index_select(target_router, 1, target_idx)
-            target_shares = RelaxedBernoulli(temperature=self.target_share_temperature, 
-                logits=target_router).rsample()            
+        if self.add_target:
+            if self.target_share < 0:
+                target_router = self.target_router.unsqueeze(0)
+                target_router = batched_index_select(target_router, 1, target_idx)
+                if self.training:
+                    tst = self.target_share_temperature
+                    target_shares = RelaxedBernoulli(temperature=tst, 
+                        logits=target_router).rsample()            
+                else:
+                    target_shares = torch.sigmoid(target_router) 
+            else:
+                target_shares = self.target_share * torch.ones(1, batch_size)
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1144,16 +1151,17 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if not self.attend_input:
             attn_mask = attn_mask[:,:,1:]
-        if self.attn_method != "rb":
-            attn_scores = F.softmax(attn_scores, -1)
-        attn_scores = attn_scores * attn_mask
-        attn_norm_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        attn_scores = F.softmax(attn_scores, -1)
+        #attn_scores = attn_scores * attn_mask
+        #attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
-        attn_sel_scores, attend_to_sel_idx = torch.topk(attn_norm_scores, 
+        attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                 num_attend_to, sorted=False)
+        attn_sel_scores = F.softmax(attn_sel_scores, -1)
+        attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         attend_to_idx_back = attend_to_idx.clone()
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
@@ -1170,13 +1178,13 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
-           if self.target_share >= 0:
-               soft_prompts = (1 - self.target_share) * soft_prompts + \
-                       self.target_share * target_prompts
-           else:
-               ts = target_shares.unsqueeze(0)[0, None, None].T
-               soft_prompts = (1 - ts) * soft_prompts + \
-                               ts * target_prompts
+           ts = target_shares.unsqueeze(0)[0, None, None].T
+           soft_prompts = (1 - ts) * soft_prompts + \
+                           ts * target_prompts
+           attn_sel_scores = torch.cat(
+                   [attn_sel_scores, target_shares.unsqueeze(0).T], dim=-1)
+           attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
+               
         return soft_prompts, attn_sel_scores, attend_to_idx
 
     def isin(self, ar1, ar2):
