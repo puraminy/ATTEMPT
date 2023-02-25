@@ -88,8 +88,8 @@ class PromptEncoder(torch.nn.Module):
     def load(self, load_dir, prefix="pt", length = None):
         fname = os.path.join(load_dir, self.get_filename(length, prefix))
         files = glob.glob(fname)
-        assert len(_file) > 0, fname + " doesn't exists to be loaded!"
-        assert len(_file) == 1, fname + " are multiple files!"
+        assert len(files) > 0, fname + " doesn't exists to be loaded!"
+        assert len(files) == 1, fname + " are multiple files!"
         fname = files[0]
         mapl=torch.device('cpu')
 
