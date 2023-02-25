@@ -339,6 +339,12 @@ class ModelArguments:
             "help": "set router temperature."
         },
     )
+    sig_coef: float = field(
+        default=1.,
+        metadata={
+            "help": "coefficient for sigmoid conversion of router"
+        },
+    )
     anneal_rate: float = field(
         default=None,
         metadata={
