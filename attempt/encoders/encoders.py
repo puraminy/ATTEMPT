@@ -7,7 +7,7 @@ from copy import deepcopy
 import torch
 from torch import nn
 import torch.nn.functional as F
-import os
+import os, glob
 import math
 from os.path import expanduser
 import attempt.mylogs as mylogs
@@ -87,7 +87,10 @@ class PromptEncoder(torch.nn.Module):
 
     def load(self, load_dir, prefix="pt", length = None):
         fname = os.path.join(load_dir, self.get_filename(length, prefix))
-        assert Path(fname).is_file(), fname + " doesn't exists to be loaded!"
+        files = glob.glob(fname)
+        assert len(_file) > 0, fname + " doesn't exists to be loaded!"
+        assert len(_file) == 1, fname + " are multiple files!"
+        fname = files[0]
         mapl=torch.device('cpu')
 
         state = torch.load(fname, map_location=mapl)
