@@ -936,7 +936,7 @@ class T5Stack(T5PreTrainedModel):
         self.add_target = config.add_target
         self.compose_method = config.compose_method
         self.select_method = config.select_method
-        self.router_temperature = config.router_temperature
+        self.target_share_temperature = config.target_share_temperature
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
@@ -1019,6 +1019,9 @@ class T5Stack(T5PreTrainedModel):
             attend_num,
             attend_num 
         ), device=device).uniform_(-1e-3, 1e-3))
+        self.target_router = nn.Parameter(data=torch.empty((
+            attend_num
+        ), device=device).uniform_(-1e-3, 1e-3))
 
 #        self.z = nn.Parameter(data=torch.empty((
 #            attend_num, 
@@ -1033,8 +1036,8 @@ class T5Stack(T5PreTrainedModel):
 #
     def anneal(self, i_step):
          exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
-         t = max(self.anneal_min, self.router_temperature * exp_rate)
-         self.router_temperature = t
+         t = max(self.anneal_min, self.temperature * exp_rate)
+         self.temperature = t
 
     def attend_prompts(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, attn_mask=None, 
@@ -1055,11 +1058,16 @@ class T5Stack(T5PreTrainedModel):
         avg_attend_to, _ = torch.max(attend_to, 2)
         avg_attend_for, _ = torch.max(target_prompts ,2)
         #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
- 
+        device=inputs_embeds.device
         attn_scores = None
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
+        if self.add_target and self.target_share < 0:
+            target_router = self.target_router.unsqueeze(0)
+            target_router = batched_index_select(target_router, 1, target_idx)
+            target_shares = RelaxedBernoulli(temperature=self.target_share_temperature, 
+                logits=target_router).rsample()            
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
@@ -1068,7 +1076,7 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     attend_to_idx[i]]
-            scores = RelaxedBernoulli(temperature=self.router_temperature, 
+            scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
             if self.training:
@@ -1162,8 +1170,13 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
-           soft_prompts = (1 - self.target_share) * soft_prompts + self.target_share * target_prompts
-
+           if self.target_share >= 0:
+               soft_prompts = (1 - self.target_share) * soft_prompts + \
+                       self.target_share * target_prompts
+           else:
+               ts = target_shares.unsqueeze(0)[0, None, None].T
+               soft_prompts = (1 - ts) * soft_prompts + \
+                               ts * target_prompts
         return soft_prompts, attn_sel_scores, attend_to_idx
 
     def isin(self, ar1, ar2):

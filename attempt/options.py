@@ -333,10 +333,10 @@ class ModelArguments:
         },
     )
     # my option
-    router_temperature: float = field(
+    target_share_temperature: float = field(
         default=1.,
         metadata={
-            "help": "set router temperature."
+            "help": "set target share temperature."
         },
     )
     sig_coef: float = field(

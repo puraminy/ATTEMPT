@@ -602,7 +602,7 @@ def train(**kwargs):
     config.attn_method = model_args.attn_method
     config.compose_method = model_args.compose_method #my option
     config.select_method = model_args.select_method #my option
-    config.router_temperature = model_args.router_temperature # my option
+    config.target_share_temperature = model_args.target_share_temperature
     config.anneal_min = model_args.anneal_min # my option
     config.anneal_dir = model_args.anneal_dir # my option
     config.anneal_rate = anneal_rate # my option
