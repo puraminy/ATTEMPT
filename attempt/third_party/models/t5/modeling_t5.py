@@ -928,6 +928,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = None
         self.gen_conf = None
         self.route_method = config.route_method
+        self.sig_coef = config.sig_coef
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         self.attend_source = config.attend_source
@@ -1081,7 +1082,7 @@ class T5Stack(T5PreTrainedModel):
                 if route_method == "rb":
                     attn_scores = scores
                 elif route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(router)  # layer * n_prompts
+                    attn_scores = torch.sigmoid(router * self.sig_coef)  # layer * n_prompts
                 elif route_method == "sign":
                     with torch.no_grad():
                         router[router <= 0] = 0
