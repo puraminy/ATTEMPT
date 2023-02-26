@@ -377,6 +377,7 @@ if [ "$method" = "ptat" ]; then
    if [ "$_lsp" = "False" ]; then
       params="${params} --num_source_prompts=12"
       params="${params} --@num_target_prompts=8"
+      params="${params} --num_prompt_tokens=3"
       params="${params} --load_source_prompts=False"
       params="${params} --learn_attention=True"
       params="${params} --learn_source_prompts=$_learn_sp"
@@ -384,6 +385,7 @@ if [ "$method" = "ptat" ]; then
       params="${params} --source_prompts=mnli@qnli@stsb@qqp@rte@com1@com2@com3@com4"
       params="${params} --load_source_prompts=True"
       params="${params} --source_masking=True"
+      params="${params} --num_prompt_tokens=10"
       params="${params} --num_target_prompts=8"
       params="${params} --@learn_attention=True"
       params="${params} --@^learn_source_prompts=$_learn_sp"
@@ -410,7 +412,6 @@ if [ "$method" = "ptat" ]; then
    params="${params} --temperature=10"
    params="${params} --anneal_min=10e-10"
    params="${params} --anneal_rate=none"
-   params="${params} --num_prompt_tokens=3"
    params="${params} --gen_route_methods=rb@" #@sigmoid@sign"
    params="${params} --init_from_words=False"
    params="${params} --save_these_prompts=$_sp"
