@@ -1104,6 +1104,8 @@ class T5Stack(T5PreTrainedModel):
                         router[router <= 0] = 0
                         router[router > 0] = 1
                     attn_scores = router
+                else:
+                    attn_scores = scores
                 if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
                     self.prev_rm = route_method
                     #WBCallback.save_images(scores=attn_scores[-1,:,:], 
