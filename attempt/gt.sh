@@ -384,7 +384,7 @@ if [ "$method" = "ptat" ]; then
    else
       params="${params} --source_prompts=mnli@qnli@stsb@qqp@rte@com1@com2@com3@com4"
       params="${params} --load_source_prompts=True"
-      params="${params} --source_masking=True"
+      params="${params} --source_masking=False"
       params="${params} --num_prompt_tokens=10"
       params="${params} --num_target_prompts=8"
       params="${params} --@learn_attention=True"
