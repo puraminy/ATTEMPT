@@ -1068,7 +1068,7 @@ class T5Stack(T5PreTrainedModel):
             if self.target_share < 0:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
-                if self.training:
+                if True: #self.training:
                     tst = self.target_share_temperature
                     target_shares = RelaxedBernoulli(temperature=tst, 
                         logits=target_router).rsample()            
