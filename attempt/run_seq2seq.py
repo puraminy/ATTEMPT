@@ -733,7 +733,7 @@ def train(**kwargs):
             encoder.is_source =True
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_source_prompts is True and not "new" in prompt:
+            if load_source_prompts is True and not "_com" in prompt:
                 mylogs.bp("load")
                 encoder.load(prompts_dir, prefix=prompts_prefix,
                         length = adapter_args.num_prompt_tokens)
