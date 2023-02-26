@@ -1185,7 +1185,7 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
-           ts = target_shares.unsqueeze(0)[0, None, None].T
+           ts = target_shares.reshape(batch_size, 1, 1, 1)
            soft_prompts = (1 - ts) * soft_prompts + \
                            ts * target_prompts
            attn_sel_scores = torch.cat(
