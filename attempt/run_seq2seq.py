@@ -811,7 +811,7 @@ def train(**kwargs):
    
     for encoder in prompt_encoders: 
         if encoder.is_source:
-            if model_args.learn_source_prompts:
+            if model_args.learn_source_prompts and not encoder.is_loaded:
                 for n,p in encoder.named_parameters():
                     p.requires_grad = True
         else:

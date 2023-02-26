@@ -39,6 +39,7 @@ class PromptEncoder(torch.nn.Module):
         self.input_ids = torch.tensor(self.prompt_ids, device=self.device)
         self.id_offset = min(self.prompt_ids) if self.prompt_ids else 0 
         self.is_source = False
+        self.is_loaded = False
         self.src_idx = -1
         self.attend_to_mask = None
         self.attend_to = ["source_" + name]
@@ -92,6 +93,7 @@ class PromptEncoder(torch.nn.Module):
         assert len(files) == 1, fname + " are multiple files!"
         fname = files[0]
         mapl=torch.device('cpu')
+        self.is_loaded = True
 
         state = torch.load(fname, map_location=mapl)
         size = state["embedding.weight"].size()
