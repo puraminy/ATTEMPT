@@ -1106,9 +1106,9 @@ class T5Stack(T5PreTrainedModel):
                     attn_scores = router
                 if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
                     self.prev_rm = route_method
-                    WBCallback.save_images(scores=attn_scores[-1,:,:], 
-                        labels=self.prompt_names, 
-                        fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
+                    #WBCallback.save_images(scores=attn_scores[-1,:,:], 
+                    #    labels=self.prompt_names, 
+                    #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
