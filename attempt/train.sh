@@ -232,7 +232,7 @@ for method in $methods; do
    echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
    # tttttt
    if [ -z "$_task" ]; then 
-      _task="multi_nli@superglue-boolq@superglue-wic@superglue-wsc.fixed@superglue-cb"
+      _task="mnli@superglue-boolq@superglue-wic@superglue-wsc.fixed@superglue-cb"
    fi
 
    if [ -z "$_exp" ]; then 
