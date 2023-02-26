@@ -3,8 +3,6 @@
 *.iml
 *.~lock*
 *.pyc
-**/**/*.sh
-**/*.sh
 attempt/train.sh
 *.ipynb
 *.bin
