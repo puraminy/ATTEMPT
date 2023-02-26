@@ -940,7 +940,7 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
-        self.softmax_sel = config.softmax_sel
+        self.apply_softmax_to = config.apply_softmax_to
         # self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
@@ -1156,8 +1156,10 @@ class T5Stack(T5PreTrainedModel):
             attn_mask = attn_mask[:,:,1:]
         attn_scores = attn_scores * attn_mask
 
-        if not self.softmax_sel:
+        if self.apply_softmax_to == "all":
             attn_scores = F.softmax(attn_scores, -1)
+            attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        if self.apply_softmax_to is None:
             attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
@@ -1166,7 +1168,7 @@ class T5Stack(T5PreTrainedModel):
         attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                 num_attend_to, sorted=False)
 
-        if self.softmax_sel:
+        if self.apply_softmax_to == "sel":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         attend_to_idx_back = attend_to_idx.clone()
