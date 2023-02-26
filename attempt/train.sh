@@ -381,10 +381,10 @@ if [ "$method" = "ptat" ]; then
       params="${params} --learn_attention=True"
       params="${params} --learn_source_prompts=$_learn_sp"
    else
-      params="${params} --source_prompts=mnli@qnli@stsb@qqp@rte"
+      params="${params} --source_prompts=mnli@qnli@stsb@qqp@rte@com1@com2@com3@com4"
       params="${params} --load_source_prompts=True"
       params="${params} --source_masking=True"
-      params="${params} --num_target_prompts=3"
+      params="${params} --num_target_prompts=8"
       params="${params} --@learn_attention=True"
       params="${params} --@^learn_source_prompts=$_learn_sp"
    fi
