@@ -991,7 +991,6 @@ class T5Stack(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
 
-    ################# MyCode fffffffffff
     def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         mylogs.bp("set")
@@ -1040,6 +1039,7 @@ class T5Stack(T5PreTrainedModel):
          t = max(self.anneal_min, self.temperature * exp_rate)
          self.temperature = t
 
+    ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, attn_mask=None, 
             target_idx =None, task=""):
@@ -1295,10 +1295,12 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("pred")
                         self.pred_task = task
                         self.prev_attn_rm = route_method
-                        #self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
+                        self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
                         for i in range(batch_size):
+                            self.attn_scores = torch.zeros_like(self.attn_scores, 
+                                    device=device)
                             self.attn_scores[target_idx[i].reshape(-1,1), 
                                     source_idx[i]] = attn_scores[i]
                             if i % 5 == 0 or i == batch_size - 1:
