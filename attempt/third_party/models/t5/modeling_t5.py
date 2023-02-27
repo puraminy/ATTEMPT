@@ -1293,7 +1293,10 @@ class T5Stack(T5PreTrainedModel):
                         and (not hasattr(self, "prev_attn_rm") 
                         or route_method != self.prev_attn_rm or task != self.pred_task)):
                         mylogs.bp("pred")
+                        _task = task if task is not None else "na"
+                        pre = "start_"
                         if not self.training:
+                            pre = "pred_"
                             self.pred_task = task
                             self.prev_attn_rm = route_method
                         self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
@@ -1307,11 +1310,11 @@ class T5Stack(T5PreTrainedModel):
                             if i % 5 == 0 or i == batch_size - 1:
                                 WBCallback.save_images(scores=self.attn_scores, 
                                     labels=self.prompt_names, 
-                                    fname = "pred_" + route_method + "-" + task + "_" + str(i) +"_attn")
+                                    fname = pre + route_method + "-" + _task + "_" + str(i) +"_attn")
                         if route_method == "rb":
                             WBCallback.save_images(scores=self.router, 
                                 labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_router",
+                                fname = pre + route_method + "-" + _task + "_router",
                                 annot=False)
                             #WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
                             #    labels=self.prompt_names, 
