@@ -242,7 +242,7 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prompt) {source} (prompt) (nat) (prompt) (mask)" 
+        src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
         target = "(mask) {target}"
         return src, target
 
@@ -260,6 +260,10 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "[com_i] (prompt) ",1)
             if part == "p0":
                src = src.replace("(prompt)", "",1)
+            if part == "px0":
+               src = src.replace("(prefix)", "",1)
+            if part == "px":
+               src = src.replace("(prefix)", "{prefix}",1)
             if part == "pt":
                src = src.replace("(prompt)", "[task_i] (prompt) ",1)
             if part == "pw":
@@ -319,6 +323,7 @@ class AbstractTask(abc.ABC):
         mask = "<extra_id_0>"
         data = self.extend_data(data)
         data["mask"] = mask
+        data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
         src_texts = src.format_map(data)

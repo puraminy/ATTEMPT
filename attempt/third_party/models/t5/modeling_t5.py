@@ -1165,9 +1165,13 @@ class T5Stack(T5PreTrainedModel):
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
+        if self.attend_target: # force to select them
+            attn_scores[:,:,-1] += 1
         attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                 num_attend_to, sorted=False)
 
+        if self.attend_target:
+            attn_sel_scores[attn_sel_scores > 1] -= 1
         if self.apply_softmax_to == "sel":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
@@ -1191,7 +1195,7 @@ class T5Stack(T5PreTrainedModel):
            soft_prompts = (1 - ts) * soft_prompts + \
                            ts * target_prompts
            attn_sel_scores = torch.cat(
-                   [attn_sel_scores, target_shares.unsqueeze(0).T], dim=-1)
+                   [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
                
         return soft_prompts, attn_sel_scores, attend_to_idx
