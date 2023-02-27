@@ -686,13 +686,14 @@ def show_df(df):
                 if not group_rows:
                     s_rows = [sel_row]
             imgs = {}
+            _, start = list_values(["start","pred"])
             for s_row in s_rows:
                 exp=df.iloc[s_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
                 runid = tdf.iloc[0]["runid"]
-                run = "wandb/offline*" + runid + "/files/media/images/*.png"
+                run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
                 spath = "images/" + runid
                 Path(spath).mkdir(parents=True, exist_ok=True)
