@@ -26,7 +26,7 @@ class WBCallback(WandbCallback):
         super().__init__()
 
     @staticmethod
-    def save_images(scores, labels, state=None, fname=""):
+    def save_images(scores, labels, state=None, fname="", annot=True):
         np_scores = scores.detach().cpu().numpy()
         fig, axes = plt.subplot_mosaic("ABB")
         ax1, ax2 = axes["A"], axes["B"]
@@ -40,7 +40,7 @@ class WBCallback(WandbCallback):
         # ax2.axis("off")
         fig.figimage(img, 5, 100)
         #fig.figimage(self.tag_img, 5, 120)
-        sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=True, 
+        sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=annot, 
                 xticklabels=labels,
                 yticklabels=labels,
                 linewidth=0.5)
@@ -55,7 +55,8 @@ class WBCallback(WandbCallback):
         epoch = int(epoch)
         if epoch % 10 == 1 or state.global_step == 2:
             self.cur_epoch = epoch
-            p = "start" if state.global_step == 2 else "ep"
+            p = "start" if state.global_step == 1 else "ep"
             labels = model.encoder.prompt_names
             scores = model.encoder.attn_scores
+            model.encoder.first_image = True
             WBCallback.save_images(scores, labels, state, fname= p + "_attn_scores")
