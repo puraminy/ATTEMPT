@@ -1289,6 +1289,7 @@ class T5Stack(T5PreTrainedModel):
                         route_method = self.gen_conf["route_method"] 
                     else:
                         route_method = self.route_method
+                    if route_method is None: route_method = "na"
                     if ((not self.training or not hasattr(self, "first_image"))
                         and (not hasattr(self, "prev_attn_rm") 
                         or route_method != self.prev_attn_rm or task != self.pred_task)):
