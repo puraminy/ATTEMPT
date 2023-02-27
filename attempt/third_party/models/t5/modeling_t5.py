@@ -1289,12 +1289,13 @@ class T5Stack(T5PreTrainedModel):
                         route_method = self.gen_conf["route_method"] 
                     else:
                         route_method = self.route_method
-                    if (not self.training 
+                    if ((not self.training or not hasattr(self, "first_image"))
                         and (not hasattr(self, "prev_attn_rm") 
                         or route_method != self.prev_attn_rm or task != self.pred_task)):
                         mylogs.bp("pred")
-                        self.pred_task = task
-                        self.prev_attn_rm = route_method
+                        if not self.training:
+                            self.pred_task = task
+                            self.prev_attn_rm = route_method
                         self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
@@ -1310,7 +1311,8 @@ class T5Stack(T5PreTrainedModel):
                         if route_method == "rb":
                             WBCallback.save_images(scores=self.router, 
                                 labels=self.prompt_names, 
-                                fname = "pred_" + route_method + "-" + task + "_router")
+                                fname = "pred_" + route_method + "-" + task + "_router",
+                                annot=False)
                             #WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
                             #    labels=self.prompt_names, 
                             #    fname = "pred_" + route_method + "-" + task + "_mask")
