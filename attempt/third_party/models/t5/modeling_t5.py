@@ -1295,7 +1295,7 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("pred")
                         self.pred_task = task
                         self.prev_attn_rm = route_method
-                        self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
+                        #self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
                         for i in range(batch_size):
@@ -1305,10 +1305,10 @@ class T5Stack(T5PreTrainedModel):
                                 WBCallback.save_images(scores=self.attn_scores, 
                                     labels=self.prompt_names, 
                                     fname = "pred_" + route_method + "-" + task + "_" + str(i) +"_attn")
-                        #if route_method == "rb":
-                            #WBCallback.save_images(scores=self.router, 
-                            #    labels=self.prompt_names, 
-                            #    fname = "pred_" + route_method + "-" + task + "_router")
+                        if route_method == "rb":
+                            WBCallback.save_images(scores=self.router, 
+                                labels=self.prompt_names, 
+                                fname = "pred_" + route_method + "-" + task + "_router")
                             #WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
                             #    labels=self.prompt_names, 
                             #    fname = "pred_" + route_method + "-" + task + "_mask")
