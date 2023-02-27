@@ -1075,7 +1075,7 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     target_shares = torch.sigmoid(target_router * self.sig_coef) 
             else:
-                target_shares = self.target_share * torch.ones(1, batch_size)
+                target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         if self.attn_method == "rb":
             router = torch.zeros(target_idx.size()[1],
