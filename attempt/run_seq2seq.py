@@ -446,6 +446,7 @@ def train(**kwargs):
     if model_args.attn_tuning is True:
        if model_args.compose_method == "cat":
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
+            num_target_prompts = min(num_target_prompts, num_source_prompts)
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
 
     task_args = {}
