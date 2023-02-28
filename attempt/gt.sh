@@ -391,10 +391,10 @@ if [ "$method" = "ptat" ]; then
          params="${params} --source_prompts=xIntent@xAttr@mnli@qnli@com1@com2@com3@com4"
       fi
       params="${params} --load_source_prompts=True"
-      params="${params} --@learn_loaded_prompts=True#False"
+      params="${params} --@learn_loaded_prompts=True"
       params="${params} --source_masking=False"
       params="${params} --num_prompt_tokens=10"
-      params="${params} --@num_target_prompts=10"
+      params="${params} --@num_target_prompts=6"
       params="${params} --@learn_attention=True"
       params="${params} --@^learn_source_prompts=$_learn_sp"
    fi
