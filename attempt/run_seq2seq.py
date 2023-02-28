@@ -810,7 +810,7 @@ def train(**kwargs):
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
    
-    prompts_prefix = kwargs.setdefault("learn_loaded_prompts", False) 
+    learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", False) 
     for encoder in prompt_encoders: 
         if encoder.is_source:
             if model_args.learn_source_prompts:
