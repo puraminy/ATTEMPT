@@ -810,9 +810,12 @@ def train(**kwargs):
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
    
+    prompts_prefix = kwargs.setdefault("learn_loaded_prompts", False) 
     for encoder in prompt_encoders: 
         if encoder.is_source:
-            if model_args.learn_source_prompts and not encoder.is_loaded:
+            if model_args.learn_source_prompts:
+                if encoder.is_loaded and not learn_loaded_prompts:
+                    continue
                 for n,p in encoder.named_parameters():
                     p.requires_grad = True
         else:
