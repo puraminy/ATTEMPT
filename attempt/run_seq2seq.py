@@ -1096,7 +1096,7 @@ def train(**kwargs):
     src_prompt_params = []
     tgt_prompt_params = []
     mylogs.bp("opt")
-    if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
+    if adapter_args.prompt_tuning:
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
            if para_list: 
