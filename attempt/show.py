@@ -800,6 +800,7 @@ def show_df(df):
                 if col in sel_cols: 
                     sel_cols.remove(col)
                 sel_cols.insert(cur_col, col)
+                tag_cols.append(col)
                 if col in info_cols:
                     info_cols.remove(col)
 
