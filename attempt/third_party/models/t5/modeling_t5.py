@@ -1168,7 +1168,7 @@ class T5Stack(T5PreTrainedModel):
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 1
         attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                num_attend_to, sorted=False)
+                num_attend_to, sorted=True)
 
         if self.attend_target:
             attn_sel_scores[attn_sel_scores > 1] -= 1
