@@ -795,20 +795,13 @@ def show_df(df):
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
         elif ch == cur.KEY_IC:
-            if char == "I":
-                canceled, col, val = list_df_values(df, get_val=False)
-            else:
-                canceled, col, val = list_df_values(main_df, get_val=False)
+            canceled, col, val = list_df_values(main_df, get_val=False)
             if not canceled:
-                if not col in sel_cols: 
-                    sel_cols.insert(cur_col, col)
-                else:
+                if col in sel_cols: 
                     sel_cols.remove(col)
-                    sel_cols.insert(cur_col, col)
-                save_obj(sel_cols, "sel_cols", context)
+                sel_cols.insert(cur_col, col)
                 if col in info_cols:
                     info_cols.remove(col)
-                    save_obj(info_cols, "info_cols", context)
 
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
@@ -1848,7 +1841,7 @@ def list_df_values(df, col ="", get_val=True,si=0,vi=0, sels=[]):
         is_cancled, col = list_values(cols,si, sels)
     val = ""
     if col and get_val and not is_cancled:
-        vals = list(df[col].unique())
+        vals = sorted(list(df[col].unique()))
         is_cancled, val = list_values(vals,vi, sels)
     return is_cancled, col, val 
 
