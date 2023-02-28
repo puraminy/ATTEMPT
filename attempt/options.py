@@ -400,7 +400,13 @@ class ModelArguments:
             "help": "use attention prompt model"
         },
     )
-    prompt_learning_rate: float = field(
+    source_prompt_learning_rate: float = field(
+        default=None,
+        metadata={
+            "help": "set prompt learning rate."
+        },
+    )
+    target_prompt_learning_rate: float = field(
         default=None,
         metadata={
             "help": "set prompt learning rate."

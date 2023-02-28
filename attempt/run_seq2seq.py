@@ -1089,16 +1089,24 @@ def train(**kwargs):
         
 
     ########### My Code
-    prompt_params = []
+    src_prompt_params = []
+    tgt_prompt_params = []
     mylogs.bp("opt")
     if adapter_args.prompt_tuning and model_args.prompt_learning_rate is not None:
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
-           prompt_params.extend(para_list)
+           if para_list: 
+               if encoder.is_source:
+                   src_prompt_params.extend(para_list)
+               else:
+                   tgt_prompt_params.extend(para_list)
 
-        prompt_params = set(prompt_params)
-        grouped_params.append({'params': list(prompt_params), 
-            'lr': model_args.prompt_learning_rate})
+        src_prompt_params = set(src_prompt_params)
+        tgt_prompt_params = set(tgt_prompt_params)
+        grouped_params.append({'params': list(src_prompt_params), 
+            'lr': model_args.source_prompt_learning_rate})
+        grouped_params.append({'params': list(tgt_prompt_params), 
+            'lr': model_args.targt_prompt_learning_rate})
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
