@@ -84,8 +84,10 @@ while [ "$cont" -eq 1 ]; do
          ;;
       *"_glue"*) # debug is enabled
          _learn_sp=True
-         _attn=sub
-         _adir=0#-1
+         _attn=rb
+         _cmm="cat"
+         _glue=True
+         _adir=-1
          bash_params=$(echo "$bash_params" | sed "s/_glue//")
          _ai=True
          _addt=True
@@ -104,6 +106,8 @@ while [ "$cont" -eq 1 ]; do
       *"_atomic"*) # debug is enabled
          bash_params=$(echo "$bash_params" | sed "s/_atomic//")
          _cat=atomic
+         _cmm="cat"
+         _atomic=True
          _attn=rb
          _sph=3
          _task="xAttr@xIntent@xWant"
@@ -129,7 +133,7 @@ while [ "$cont" -eq 1 ]; do
          cont=1
          ;;
       *"_unsup"*) # debug is enabled
-         _template=unsup-p0-pt
+         _template=unsup-p0-px0-px-pt
          bash_params=$(echo "$bash_params" | sed "s/_unsup//")
          cont=1
          ;;
@@ -184,7 +188,7 @@ if [ -z "$_addt" ]; then  _addt=False; fi
 if [ -z "$_attn" ]; then  _attn=rb; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_template" ]; then 
-   _template=sup-p0-pt
+   _template=sup-p0-px0-px-pt
 fi
 if [ -z "$_sp" ]; then  _sp=none; fi
 if [ -z "$_ai" ]; then  _ai=False; fi
@@ -208,7 +212,7 @@ if [ -z "$_doeval" ]; then  _doeval=False; fi
 if [ -z "$_dotest" ]; then  _dotest=True; fi
 if [ -z "$_tn" ]; then  _tn=100; fi
 if [ -z "$_vn" ]; then  _vn=50; fi
-if [ -z "$_tsn" ]; then _tsn=100#200#500; fi
+if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  _ep=20; fi
 if [ -z "$_err" ]; then  _err=break; fi
 onError=$_err
@@ -232,7 +236,7 @@ for method in $methods; do
    echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
    # tttttt
    if [ -z "$_task" ]; then 
-      _task="mnli@superglue-boolq@superglue-wic@superglue-wsc.fixed@superglue-cb"
+      _task="mnli@superglue-boolq@qnli@superglue-wsc.fixed@superglue-cb"
    fi
 
    if [ -z "$_exp" ]; then 
@@ -273,7 +277,7 @@ for method in $methods; do
 # data  ddddd
 params="${params} --data_path=atomic2020"
 params="${params} --use_all_data=False"
-params="${params} --max_train_samples=$_tn"
+params="${params} --@max_train_samples=$_tn"
 params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
 params="${params} --samples_per_head=$_sph"
@@ -362,13 +366,12 @@ if [ "$method" = "pt" ]; then
    params="${params} --num_prompt_tokens=24"
    params="${params} --prompt_encoder_type=mlp#emb#!lstm"
    params="${params} --prompt_sharing=!shared_tokens#shared_encoders"
-   params="${params} --template=sup-p0-pt#unsup-p0-pt#!sup-p0-psh" 
+   params="${params} --template=sup-p0-px0-px-pt#unsup-p0-px0-px-pt#!sup-p0-px0-px-psh" 
    params="${params} --init_from_words=False"
    params="${params} --save_these_prompts=all"
 fi
 # aaaaaaaaaaaaaa
 if [ "$method" = "ptat" ]; then
-   #params="${params} --source_prompts=Is@it@grammatical@or@meaningful"
    params="${params} --prompt_encoder_type=mlp#!emb#!lstm"
    if [ -z $_lsp ]; then
       echo "Specify source prompting method"
@@ -377,30 +380,35 @@ if [ "$method" = "ptat" ]; then
    if [ "$_lsp" = "False" ]; then
       params="${params} --num_source_prompts=12"
       params="${params} --@num_target_prompts=8"
-      params="${params} --num_prompt_tokens=3"
+      params="${params} --num_prompt_tokens=6"
       params="${params} --load_source_prompts=False"
       params="${params} --learn_attention=True"
       params="${params} --learn_source_prompts=$_learn_sp"
    else
-      params="${params} --source_prompts=mnli@qnli@stsb@qqp@rte@com1@com2@com3@com4"
+      if [ -n "$_glue" ]; then
+         params="${params} --source_prompts=mnli@sst2@superglue-wic@qqp@rte@com1@com2@com3@com4"
+      else
+         params="${params} --source_prompts=xIntent@xAttr@mnli@qnli@com1@com2@com3@com4"
+      fi
       params="${params} --load_source_prompts=True"
+      params="${params} --@learn_loaded_prompts=True#False"
       params="${params} --source_masking=False"
       params="${params} --num_prompt_tokens=10"
-      params="${params} --num_target_prompts=8"
+      params="${params} --@num_target_prompts=10"
       params="${params} --@learn_attention=True"
       params="${params} --@^learn_source_prompts=$_learn_sp"
    fi
-   params="${params} --compose_method=cat#wavg"
-   params="${params} --template=$_template#!sup-p0-pt#!unsup-p0-psh#!sup-p0-psh" 
+   params="${params} --@compose_method=$_cmm"
+   params="${params} --template=$_template#!sup-p0-px0-px-pt#!unsup-p0-px0-px-psh#!sup-p0-px0-px-psh" 
    params="${params} --attn_tuning=True"
    params="${params} --attend_input=$_ai"
    params="${params} --attend_source=True#!False"
-   params="${params} --softmax_sel=True"
+   params="${params} --@apply_softmax_to=all"
    params="${params} --add_target=$_addt"
    if [ "$_addt" = "True" ]; then
       params="${params} --attend_target=False"
       params="${params} --@target_share=-1"
-      params="${params} --target_share_temperature=.1"
+      params="${params} --@target_share_temperature=10"
    else
       params="${params} --attend_target=True"
    fi
@@ -409,10 +417,10 @@ if [ "$method" = "ptat" ]; then
    params="${params} --attn_method=$_attn"
    params="${params} --@anneal_dir=$_adir"
    params="${params} --sig_coef=1"
-   params="${params} --temperature=10"
+   params="${params} --@temperature=1000"
    params="${params} --anneal_min=10e-10"
    params="${params} --anneal_rate=none"
-   params="${params} --gen_route_methods=rb@" #@sigmoid@sign"
+   params="${params} --gen_route_methods=rb@sigmoid@sign"
    params="${params} --init_from_words=False"
    params="${params} --save_these_prompts=$_sp"
    params="${params} --save_source_prompts=True"
