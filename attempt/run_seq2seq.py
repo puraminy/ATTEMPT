@@ -447,6 +447,10 @@ def train(**kwargs):
        if model_args.compose_method == "cat":
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
             num_target_prompts = min(num_target_prompts, num_source_prompts)
+            if model_args.attend_target:
+                num_target_prompts += 1
+            if model_args.attend_input:
+                num_target_prompts += 1
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
 
     task_args = {}
