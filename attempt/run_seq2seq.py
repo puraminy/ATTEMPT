@@ -1110,7 +1110,7 @@ def train(**kwargs):
         grouped_params.append({'params': list(src_prompt_params), 
             'lr': model_args.source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
-            'lr': model_args.targt_prompt_learning_rate})
+            'lr': model_args.target_prompt_learning_rate})
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
