@@ -1014,7 +1014,6 @@ def train(**kwargs):
     has_extra = kwargs.setdefault("has_extra", True)
     if has_extra:
         data_info["eval"] = eval_datasets[data_args.eval_dataset_name[0]]['extra_fields'] if training_args.do_eval else None
-        data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         data_info["train"] = train_dataset['extra_fields'] if training_args.do_train else None
 
     def compute_metrics(eval_preds):
@@ -1297,6 +1296,8 @@ def train(**kwargs):
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
 
+        if has_extra:
+            data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         # multi-task evaluations
         if not training_args.do_train:
