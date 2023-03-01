@@ -947,6 +947,7 @@ class T5Stack(T5PreTrainedModel):
         self.target_share = config.target_share 
         self.prefix_emb = prefix_emb if self.attend_target is True else None
         self.prefix_tuning = config.prefix_tuning
+        self.source_prompts_order = config.source_prompts_order
         self.attn_tuning = attn_tuning
         self.mul_prefix_emb = mul_prefix_emb
         self.attn_method = attn_method
@@ -1168,11 +1169,13 @@ class T5Stack(T5PreTrainedModel):
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 1
         attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                num_attend_to, sorted=False)
+                num_attend_to, sorted=True)
         mylogs.bp("att")
-        _b = attend_to_sel_idx.clone()
-        idx = torch.randperm(attend_to_sel_idx.shape[-1])
-        attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
+        if self.source_prompts_order == "rand":
+            idx = torch.randperm(attend_to_sel_idx.shape[-1])
+            attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
+        elif self.source_prompts_order == "desc":
+            attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
         if self.attend_target:
             attn_sel_scores[attn_sel_scores > 1] -= 1
