@@ -988,49 +988,6 @@ def train(**kwargs):
                     load_from_cache_file=not data_args.overwrite_cache,
                 )
 
-    if training_args.do_test:
-        if data_args.test_files is not None:
-            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
-                                                        task_args=task_args).get(
-                split="test",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=test_file)
-                for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
-        else:
-            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
-                                                        task_args=task_args).get(
-                split="test",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=data_args.test_file)
-                for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)}
-            mylogs.bp("test_dataset")
-
-        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name,
-            task_args=task_args).get_max_target_length(
-            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
-            for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
-        for k, name in enumerate(test_datasets):
-            if model_args.shared_attn is True:
-                test_datasets[name] = test_datasets[name].map(
-                    functools.partial(
-                        preprocess_function, max_target_length=max_target_lengths[k], task_id=k),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
-            else:
-                test_datasets[name] = test_datasets[name].map(
-                    functools.partial(preprocess_function,
-                                      max_target_length=max_target_lengths[k]),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
-
     if preview == "template":
         return
     # Data collator
@@ -1298,6 +1255,48 @@ def train(**kwargs):
     # Test
     mylogs.bp("test")
     if training_args.do_test:
+        if data_args.test_files is not None:
+            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
+                                                        task_args=task_args).get(
+                split="test",
+                split_validation_test=training_args.split_validation_test,
+                add_prefix=False if adapter_args.train_task_adapters else True,
+                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=test_file)
+                for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
+        else:
+            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
+                                                        task_args=task_args).get(
+                split="test",
+                split_validation_test=training_args.split_validation_test,
+                add_prefix=False if adapter_args.train_task_adapters else True,
+                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=data_args.test_file)
+                for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)}
+            mylogs.bp("test_dataset")
+
+        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name,
+            task_args=task_args).get_max_target_length(
+            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
+            for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
+        for k, name in enumerate(test_datasets):
+            if model_args.shared_attn is True:
+                test_datasets[name] = test_datasets[name].map(
+                    functools.partial(
+                        preprocess_function, max_target_length=max_target_lengths[k], task_id=k),
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                )
+            else:
+                test_datasets[name] = test_datasets[name].map(
+                    functools.partial(preprocess_function,
+                                      max_target_length=max_target_lengths[k]),
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                )
+
         logger.info("*** Test ***")
         # multi-task evaluations
         if not training_args.do_train:
