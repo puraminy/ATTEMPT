@@ -1168,14 +1168,17 @@ class T5Stack(T5PreTrainedModel):
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 1
         attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                num_attend_to, sorted=True)
+                num_attend_to, sorted=False)
+        mylogs.bp("att")
+        _b = attend_to_sel_idx.clone()
+        idx = torch.randperm(attend_to_sel_idx.shape[-1])
+        attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
 
         if self.attend_target:
             attn_sel_scores[attn_sel_scores > 1] -= 1
         if self.apply_softmax_to == "sel":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-        attend_to_idx_back = attend_to_idx.clone()
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
             attend_to_sel_idx = attend_to_sel_idx + 1
