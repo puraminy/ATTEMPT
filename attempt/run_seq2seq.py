@@ -612,6 +612,7 @@ def train(**kwargs):
     config.anneal_dir = model_args.anneal_dir # my option
     config.anneal_rate = anneal_rate # my option
     config.attend_target = model_args.attend_target
+    config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
