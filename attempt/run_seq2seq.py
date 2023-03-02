@@ -315,10 +315,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
        args = {**exp_args, **args}
        _output_dir.append(str(args["expid"]))
-       if save_path:
-           args["output_dir"] = "%" + os.path.join(save_path, *_output_dir)
-       else:
-           args["output_dir"] = "%" + os.getcwd()
+       output_dir = os.path.join(save_path, *_output_dir)
+       if not save_path:
+           output_dir = os.getcwd()
+       args["output_dir"] = "%" + output_dir 
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
            exp_conf = json.dumps(args, indent=2)
@@ -332,13 +332,21 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        full_tags_dict = mylogs.get_tag(full_tags, args)
        #title = "@".join(list(tags_dict.values()))
        title =  mylogs.get_tag(tags, args, as_str=True)
+       existing_results = glob.glob(op.join(output_dir, "*.tsv"))
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
            conf_str = json.dumps(full_tags_dict, indent=2)
            print(conf_str)
+           if existing_results:
+               print("=============== DONE ===========")
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
+               if existing_results:
+                   print("=============== DONE ===========", file=f)
            continue
+       if existing_results and not preview and not repeat:
+           print("Skipping experiment:", output_dir)
+           continue 
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
        if not preview or preview=="one":
