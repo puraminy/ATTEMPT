@@ -361,7 +361,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        if exp_exists and not preview and not repeat:
            print("Skipping experiment:", ii)
            continue 
-       with open(os.path.join(save_path, "conf_" + str(ii) + ".json")) as f:
+       with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
        wandb_dir = save_path #op.join("logs", experiment)
        Path(wandb_dir).mkdir(parents=True, exist_ok=True)
