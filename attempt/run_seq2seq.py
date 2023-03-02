@@ -338,6 +338,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            conf_str = json.dumps(full_tags_dict, indent=2)
            print(conf_str)
            if existing_results:
+               total -= 1
                print("=============== DONE ===========")
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
