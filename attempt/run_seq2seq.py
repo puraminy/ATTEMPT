@@ -542,13 +542,13 @@ def train(**kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
-            if preview == "exp":
+            if bp == "exp":
                 print("Skipping experiment:", training_args.output_dir)
                 breakpoint()
             existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
             if existing_results and not preview and not repeat:
                 print("Skipping experiment:", training_args.output_dir)
-                return 
+                return "skipped" 
             #last_checkpoint = None
             #out = training_args.output_dir
             #out += "_" + mylogs.now
@@ -559,8 +559,6 @@ def train(**kwargs):
                 f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
                 "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
             )
-    if preview == "exp":
-        return
     # Setup logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
