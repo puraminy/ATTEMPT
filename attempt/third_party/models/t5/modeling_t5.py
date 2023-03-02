@@ -1318,7 +1318,7 @@ class T5Stack(T5PreTrainedModel):
                                     device=device)
                             self.attn_scores[target_idx[i].reshape(-1,1), 
                                     source_idx[i]] = attn_scores[i]
-                            if i % 5 == 0 or i == batch_size - 1:
+                            if i == 0 or i == batch_size - 1:
                                 WBCallback.save_images(scores=self.attn_scores, 
                                     labels=self.prompt_names, 
                                     fname = pre + route_method + "-" + _task + "_" + str(i) +"_attn")
