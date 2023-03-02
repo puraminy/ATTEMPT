@@ -1174,7 +1174,7 @@ class T5Stack(T5PreTrainedModel):
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
             attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
-        elif self.source_prompts_order == "desc":
+        elif self.source_prompts_order == "asc":
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
         if self.attend_target:
