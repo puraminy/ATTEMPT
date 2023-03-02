@@ -1039,10 +1039,22 @@ def show_df(df):
                 sel_rows.append(sel_row)
             adjust = False
         elif char == "?": 
-            tinfo=df.iloc[sel_row]["ftag"]
-            infos = tinfo.split(",")
-            infos.append(main_df.loc[0, "path"])
-            subwin(infos)
+            if not sel_rows:
+                tinfo=df.iloc[sel_row]["ftag"]
+                infos = tinfo.split(",")
+                infos.append(main_df.loc[0, "path"])
+                subwin(infos)
+            else:
+                s1 = sel_rows[0]
+                s2 = sel_rows[1]
+                infos = []
+                for col in orig_tag_cols:
+                    i1 = df.iloc[s1][col]
+                    i2 = df.iloc[s2][col]
+                    if i1 != i2:
+                       infos.append(col + ":" + str(i1))
+                       infos.append(col + ":" + str(i2))
+                subwin(infos)
         elif char == "z":
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
@@ -1191,8 +1203,6 @@ def show_df(df):
                 df = df.reset_index()
             if len(df) > 1:
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score","prefix"]
-                if df.index.nlevels > 1:
-                    df.columns = df.columns.droplevel()
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 info_cols_back = info_cols.copy()
                 info_cols = []
