@@ -342,7 +342,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
                if existing_results:
-                   breakpoint()
                    print("=============== DONE ===========", file=f)
            continue
        if existing_results and not preview and not repeat:
