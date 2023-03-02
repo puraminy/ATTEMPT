@@ -59,4 +59,4 @@ class WBCallback(WandbCallback):
             labels = model.encoder.prompt_names
             scores = model.encoder.attn_scores
             model.encoder.first_image = True
-            WBCallback.save_images(scores, labels, state, fname= p + "_attn_scores")
+            #WBCallback.save_images(scores, labels, state, fname= p + "_attn_scores")
