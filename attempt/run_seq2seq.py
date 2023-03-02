@@ -226,7 +226,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    if break_point:
        mylogs.setbp(break_point)
 
-   output_dir = ""
    all_vars = [x.strip("--") for x in ctx.args]
    var_names = [x.split("=")[0] for x in all_vars]
    values = [x.split("=")[1].split("#") for x in all_vars]
@@ -286,7 +285,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    logger.info("Total experiments:%s", total)
    mylogs.bp("comb")
    for comb in tot_comb:
-       _output_dir = [output_dir]
+       _output_dir = []
        prev_name = ""
        prev_item = ""
        conflict = "" 
