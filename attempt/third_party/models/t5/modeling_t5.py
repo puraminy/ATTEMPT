@@ -1263,7 +1263,7 @@ class T5Stack(T5PreTrainedModel):
                 source_idx = source_idx_list.repeat(batch_size, 1)
                 sel_prompts = None
                 if self.attend_target is True:
-                    pool = torch.nn.AdaptiveAvgPool1d(self.src_prompt_dim)
+                    pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
                     tpv = target_prompts.view(batch_size,-1,self.model_dim)
                     avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
                     avg_tp = avg_tp.view(batch_size, -1, 
