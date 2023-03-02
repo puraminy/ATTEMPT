@@ -756,11 +756,13 @@ def train(**kwargs):
         source_masking = kwargs.setdefault("source_masking", False)
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
-        elif num_source_prompts > 0:
+        if num_source_prompts > 0:
             if source_masking:
-                source_prompts=["source_com" + str(sp) for sp in range(num_source_prompts)]
+                source_prompts.extend(
+                        ["source_com" + str(sp) for sp in range(num_source_prompts)])
             else:
-                source_prompts = ["source_" + str(sp) for sp in range(num_source_prompts)]
+                source_prompts.extend(
+                        ["source_" + str(sp) for sp in range(num_source_prompts)])
         if source_masking:
             source_prompts.extend(["source_" + t for t in data_args.task_name])
         for prompt in source_prompts: 
