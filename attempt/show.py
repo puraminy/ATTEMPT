@@ -291,6 +291,7 @@ def show_df(df):
     seq = ""
     search = ""
     on_col_list = []
+    unique_cols = []
     group_sel_cols = []
     sel_fid = "" 
     open_dfnames = [dfname]
@@ -792,6 +793,7 @@ def show_df(df):
             df = main_df[main_df[FID] == exp]
             sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
             sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+            unique_cols = info_cols.copy()
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
         elif ch == cur.KEY_IC:
@@ -1048,7 +1050,7 @@ def show_df(df):
                 s1 = sel_rows[0]
                 s2 = sel_rows[1]
                 infos = []
-                for col in orig_tag_cols:
+                for col in unique_cols:
                     i1 = df.iloc[s1][col]
                     i2 = df.iloc[s2][col]
                     if i1 != i2:
@@ -1104,6 +1106,7 @@ def show_df(df):
             df["avg_len"] = avg_len
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                unique_cols = info_cols.copy()
             info_cols_back = info_cols.copy()
             info_cols = []
             df = df.sort_values(by = ["rouge_score"], ascending=False)
@@ -1179,6 +1182,7 @@ def show_df(df):
             elif len(s_rows) > 1:
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                unique_cols = info_cols.copy()
                 _cols = tag_cols
                 df, sel_exp, dfs = find_common(df, main_df, on_col_list, _rows, 
                                                FID, char, _cols)
@@ -1197,6 +1201,7 @@ def show_df(df):
                     task = df.iloc[0]["task_name"]
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                unique_cols = info_cols.copy()
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 info_cols = []
@@ -1204,6 +1209,7 @@ def show_df(df):
             if len(df) > 1:
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                unique_cols = info_cols.copy()
                 info_cols_back = info_cols.copy()
                 info_cols = []
 
