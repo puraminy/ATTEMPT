@@ -542,6 +542,9 @@ def train(**kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
+            if preview == "exp":
+                print("Skipping experiment:", training_args.output_dir)
+                breakpoint()
             existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
             if existing_results and not preview and not repeat:
                 print("Skipping experiment:", training_args.output_dir)
