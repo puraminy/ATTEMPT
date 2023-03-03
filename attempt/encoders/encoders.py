@@ -42,7 +42,7 @@ class PromptEncoder(torch.nn.Module):
         self.is_loaded = False
         self.src_idx = -1
         self.attend_to_mask = None
-        self.attend_to = ["source_" + name]
+        self.attend_to = ["source_" + name, "source_for_" + name]
 
     def get_prompt_ids(self, prompt_tokens, model, tokenizer, init_emb_flag = True):
         prompt_ids = tokenizer.convert_tokens_to_ids(prompt_tokens)
