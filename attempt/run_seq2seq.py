@@ -764,7 +764,7 @@ def train(**kwargs):
                 source_prompts.extend(
                         ["source_" + str(sp) for sp in range(num_source_prompts)])
         if source_masking:
-            source_prompts.extend(["source_" + t for t in data_args.task_name])
+            source_prompts.extend(["source_for_" + t for t in data_args.task_name])
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
@@ -773,7 +773,7 @@ def train(**kwargs):
             encoder.is_source =True
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_source_prompts is True and not "_com" in prompt:
+            if load_source_prompts and not "_com" in prompt and not "_for" in prompt:
                 mylogs.bp("load")
                 encoder.load(prompts_dir, prefix=prompts_prefix,
                         length = adapter_args.num_prompt_tokens)
