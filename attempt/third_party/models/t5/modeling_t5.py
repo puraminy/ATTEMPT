@@ -1049,17 +1049,19 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
-        if self.attend_input:
+        if True: #TODO needs an option 
             pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
             target = target_prompts.squeeze(1)
             inp_target = torch.cat([inputs_embeds, target], dim=1)
             inp_target = inp_target.permute(0,2,1)
             attend_for = pool(inp_target).permute(0,2,1)
             attend_for = attend_for.unsqueeze(1)
+        if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-            #src_prompts[:,0,:,:] = avg_inputs_embeds
-            #attend_to = src_prompts
-            attend_to = src_prompts[:,1:,:,:]
+            pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+            avg_inputs_embeds = pool2(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            src_prompts[:,0,:,:] = avg_inputs_embeds
+            attend_to = src_prompts
         else:
             attend_to = src_prompts[:,1:,:,:]
 
