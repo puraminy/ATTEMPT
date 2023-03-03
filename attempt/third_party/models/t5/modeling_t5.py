@@ -1048,15 +1048,21 @@ class T5Stack(T5PreTrainedModel):
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
         batch_size = inputs_embeds.shape[0]
+        attend_for = target_prompts
         if self.attend_input:
-            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-            avg_inputs_embeds = pool(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
+            target = target_prompts.squeeze(1)
+            inp_target = torch.cat([inputs_embeds, target], dim=1)
+            inp_target = inp_target.permute(0,2,1)
+            attend_for = pool(inp_target).permute(0,2,1)
+            attend_for = attend_for.unsqueeze(1)
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-            src_prompts[:,0,:,:] = avg_inputs_embeds
-            attend_to = src_prompts
+            #src_prompts[:,0,:,:] = avg_inputs_embeds
+            #attend_to = src_prompts
+            attend_to = src_prompts[:,1:,:,:]
         else:
             attend_to = src_prompts[:,1:,:,:]
-        attend_for = target_prompts
+
         avg_attend_to, _ = torch.max(attend_to, 2)
         avg_attend_for, _ = torch.max(target_prompts ,2)
         #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
