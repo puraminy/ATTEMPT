@@ -1049,13 +1049,14 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
+        inp_target = target_prompts
         if True: #TODO needs an option 
-            pool = torch.nn.AdaptiveMaxPool1d(self.prompt_dim)
+            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
             target = target_prompts.squeeze(1)
             inp_target = torch.cat([inputs_embeds, target], dim=1)
             inp_target = inp_target.permute(0,2,1)
-            attend_for = pool(inp_target).permute(0,2,1)
-            attend_for = attend_for.unsqueeze(1)
+            inp_target = pool(inp_target).permute(0,2,1)
+            inp_target = inp_target.unsqueeze(1)
         if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
@@ -1066,7 +1067,7 @@ class T5Stack(T5PreTrainedModel):
             attend_to = src_prompts[:,1:,:,:]
 
         avg_attend_to, _ = torch.max(attend_to, 2)
-        avg_attend_for, _ = torch.max(target_prompts ,2)
+        avg_attend_for, _ = torch.max(inp_target, 2)
         #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
         device=inputs_embeds.device
         attn_scores = None
@@ -1163,6 +1164,8 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if not self.attend_input:
             attn_mask = attn_mask[:,:,1:]
+        sp_idx = attn_mask.clone()
+        sp_idx[sp_idx != 2] = 0
         attn_scores = attn_scores * attn_mask
 
         if self.apply_softmax_to == "all":
@@ -1175,9 +1178,14 @@ class T5Stack(T5PreTrainedModel):
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
         if self.attend_target: # force to select them
-            attn_scores[:,:,-1] += 1
-        attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                num_attend_to, sorted=True)
+            attn_scores[:,:,-1] += 2
+        attn_scores += sp_idx
+        if self.source_prompts_order == "unsorted":
+            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                    num_attend_to, sorted=False)
+        else:
+            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                    num_attend_to, sorted=True)
         mylogs.bp("att")
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
@@ -1185,8 +1193,7 @@ class T5Stack(T5PreTrainedModel):
         elif self.source_prompts_order == "asc":
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
-        if self.attend_target:
-            attn_sel_scores[attn_sel_scores > 1] -= 1
+        attn_sel_scores[attn_sel_scores >= 2] -= 2
         if self.apply_softmax_to == "sel":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
