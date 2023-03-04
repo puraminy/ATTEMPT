@@ -814,7 +814,10 @@ def train(**kwargs):
             encoder.attend_to_mask = [0]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
-                if n in encoder.attend_to or "_com" in n:
+                if n in encoder.attend_to:
+                    encoder.attend_to_mask[i] = 2 
+                    attn_flag = True
+                if "_com" in n:
                     encoder.attend_to_mask[i] = 1 
                     attn_flag = True
             if not attn_flag or not source_masking: 
