@@ -1114,12 +1114,17 @@ class T5Stack(T5PreTrainedModel):
                 if route_method == "rb":
                     attn_scores = scores
                 elif route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(router)  # layer * n_prompts
+                    router_scores = torch.sigmoid(router)  # layer * n_prompts
+                    for i in range(batch_size):
+                        scores[i, :, shared_idx[i]] = router_scores[i]
+                    attn_scores = scores
                 elif route_method == "sign":
                     with torch.no_grad():
                         router[router <= 0] = 0
                         router[router > 0] = 1
-                    attn_scores = router
+                    for i in range(batch_size):
+                        scores[i, :, shared_idx[i]] = router[i]
+                    attn_scores = scores
                 else:
                     attn_scores = scores
                 if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
