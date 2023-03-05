@@ -1074,6 +1074,7 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
+            shared_idx = shared_idx[:,1:]
         if self.add_target:
             if self.target_share < 0:
                 target_router = self.target_router.unsqueeze(0)
