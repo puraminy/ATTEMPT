@@ -1089,7 +1089,7 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         if self.attn_method == "rb":
-            scores = torch.zeros(target_idx.size()[1],
+            scores =torch.logit(self.target_share) * torch.ones(target_idx.size()[1],
                     attend_to_idx.size()[1], 
                     device=inputs_embeds.device)
             router = torch.zeros(target_idx.size()[1],
