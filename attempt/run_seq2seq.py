@@ -275,6 +275,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
+   existing_exps = glob.glob(op.join(save_path, "*.json"))
+   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial"]
    args["tag"] = tags 
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -332,8 +334,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        full_tags_dict = mylogs.get_tag(full_tags, args)
        #title = "@".join(list(tags_dict.values()))
        title =  mylogs.get_tag(tags, args, as_str=True)
-       existing_exps = glob.glob(op.join(save_path, "*.json"))
-       not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial"]
        exp_exists = False
        if existing_exps:
            for ee in existing_exps:
@@ -567,13 +567,10 @@ def train(**kwargs):
                 "Use --overwrite_output_dir to overcome."
             )
             '''
-            if bp == "exp":
-                print("Skipping experiment:", training_args.output_dir)
-                breakpoint()
-            existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
-            if existing_results and not preview and not repeat:
-                print("Skipping experiment:", training_args.output_dir)
-                return "skipped" 
+            #existing_results = glob.glob(op.join(training_args.output_dir, "*.tsv"))
+            #if existing_results and not preview and not repeat:
+            #    print("Skipping experiment:", training_args.output_dir)
+            #    return "skipped" 
             #last_checkpoint = None
             #out = training_args.output_dir
             #out += "_" + mylogs.now
@@ -773,6 +770,8 @@ def train(**kwargs):
                     length = adapter_args.num_prompt_tokens,
                     encoder_type=adapter_args.prompt_encoder_type) 
             encoder.is_source =True
+            if "_for" in encoder.name:
+                encoder.is_shared = False
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_source_prompts and not "_com" in prompt and not "_for" in prompt:

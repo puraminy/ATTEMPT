@@ -40,6 +40,7 @@ class PromptEncoder(torch.nn.Module):
         self.id_offset = min(self.prompt_ids) if self.prompt_ids else 0 
         self.is_source = False
         self.is_loaded = False
+        self.is_shared = True 
         self.src_idx = -1
         self.attend_to_mask = None
         self.attend_to = ["source_" + name, "source_for_" + name]
