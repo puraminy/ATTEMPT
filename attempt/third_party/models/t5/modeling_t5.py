@@ -1043,7 +1043,7 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, attn_mask=None, 
-            target_idx =None, task=""):
+            target_idx =None, shared_idx=None, private_idx=None, task=""):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
@@ -1088,15 +1088,21 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         if self.attn_method == "rb":
+            scores = torch.zeros(target_idx.size()[1],
+                    source_idx.size()[1], 
+                    device=inputs_embeds.device)
             router = torch.zeros(target_idx.size()[1],
-                    attend_to_idx.size()[1], 
-                    device=inputs_embeds.device).repeat(batch_size, 1, 1)
+                    shared_idx.size()[1], 
+                    device=inputs_embeds.device)
+            router = router.repeat(batch_size, 1, 1)
+            scores = scores.repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
-                                    attend_to_idx[i]]
-            scores = RelaxedBernoulli(temperature=self.temperature, 
+                                    shared_idx[i]]
+            router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
-                #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+            for i in range(batch_size):
+                scores[i, :, shared_idx[i]] = router_scores[i]
             if self.training:
                 attn_scores = scores
             else:
@@ -1242,14 +1248,18 @@ class T5Stack(T5PreTrainedModel):
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             attn_mask = torch.ones(num_prompt_encoders, num_prompt_encoders, device=device)
-            source_idx_list = [0] # 0 is for input 
+            shared_src_idx = [0] # 0 is for input 
+            private_src_idx = []
             target_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
                  self.src_prompt_dim, self.model_dim), device=device) 
             for ii, encoder in enumerate(self.prompt_encoders, start=1):
                 if encoder.is_source and self.attend_source:
-                    source_idx_list.append(ii)
+                    if encoder.is_shared:
+                        shared_src_idx.append(ii)
+                    else:
+                        private_src_idx.append(ii)
                     emb = encoder(encoder.net_inps)
                     src_prompts[encoder.src_idx, :] = emb
                     continue
@@ -1274,8 +1284,12 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 target_idx = torch.unique_consecutive(target_idx, dim=1)  
+                source_idx_list = shared_src_idx + private_src_idx 
                 source_idx_list = torch.tensor(source_idx_list, device=device).long()
-                source_idx = source_idx_list.repeat(batch_size, 1)
+                shared_src_idx = torch.tensor(shared_src_idx, device=device).long()
+                private_src_idx = torch.tensor(private_src_idx, device=device).long()
+                shared_idx = shared_src_idx.repeat(batch_size, 1)
+                private_idx = private_src_idx.repeat(batch_size, 1)
                 sel_prompts = None
                 if self.attend_target is True:
                     pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
@@ -1288,16 +1302,15 @@ class T5Stack(T5PreTrainedModel):
                     sel_prompts = torch.cat((sel_prompts.repeat(
                         batch_size, 1, 1, 1), 
                         avg_tp), dim=1)
-                    source_idx = torch.cat([source_idx, target_idx], dim=1)
-                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                    attn_mask = batched_index_select(attn_mask, 2, 
-                            source_idx.unsqueeze(1))
+                    source_idx = torch.cat([shared_idx, private_idx, target_idx], dim=1)
                 else:
                     sel_prompts = torch.index_select(
                         src_prompts, 0, source_idx_list)
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
-                    attn_mask = torch.index_select(attn_mask, 1, source_idx_list)
-                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                    source_idx = torch.cat([shared_idx, private_idx], dim=1)
+                attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                attn_mask = batched_index_select(attn_mask, 2, 
+                        source_idx.unsqueeze(1))
                 attn_sel_mask =batched_index_select(attn_mask, 1, 
                         target_idx).long()
                 if sel_prompts is not None:
@@ -1308,7 +1321,10 @@ class T5Stack(T5PreTrainedModel):
                             add_target = self.add_target, 
                             source_idx=source_idx, 
                             attn_mask=attn_sel_mask,
-                            target_idx=target_idx, task=task)
+                            target_idx=target_idx, 
+                            shared_idx=shared_idx,
+                            private_idx=private_idx,
+                            task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     if self.gen_conf is not None and "route_method" in self.gen_conf:
                         route_method = self.gen_conf["route_method"] 
