@@ -955,6 +955,7 @@ class T5Stack(T5PreTrainedModel):
         self.shared_attn = shared_attn
         self.learned_temperature = learned_temperature
         self.target_task_id = None
+        self.learn_privates = config.learn_privates
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1095,18 +1096,22 @@ class T5Stack(T5PreTrainedModel):
                      target_idx.size()[1],
                      source_idx.size()[1], 
                      device=inputs_embeds.device)
+            if self.learn_privates:
+                route_idx = source_idx
+            else:
+                route_idx = shared_idx
             router = torch.zeros(target_idx.size()[1],
-                    shared_idx.size()[1], 
+                    route_idx.size()[1], 
                     device=inputs_embeds.device)
             router = router.repeat(batch_size, 1, 1)
             scores = scores.repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
-                                    shared_idx[i]]
+                                    route_idx[i]]
             router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
             for i in range(batch_size):
-                scores[i, :, shared_idx[i]] = router_scores[i]
+                scores[i, :, route_idx[i]] = router_scores[i]
             if not self.attend_input:
                 scores = scores[:,:,1:]
             if self.training:
