@@ -1075,7 +1075,9 @@ class T5Stack(T5PreTrainedModel):
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
             shared_idx = shared_idx[:,1:]
-        if self.add_target:
+            attn_mask = attn_mask[:,:,1:]
+
+        if self.add_target or private_idx is not None:
             if self.target_share < 0:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
@@ -1089,9 +1091,10 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         if self.attn_method == "rb":
-            scores =torch.logit(torch.tensor(self.target_share)) * torch.ones(target_idx.size()[1],
-                    attend_to_idx.size()[1], 
-                    device=inputs_embeds.device)
+            scores = torch.zeros(
+                     target_idx.size()[1],
+                     source_idx.size()[1], 
+                     device=inputs_embeds.device)
             router = torch.zeros(target_idx.size()[1],
                     shared_idx.size()[1], 
                     device=inputs_embeds.device)
@@ -1104,6 +1107,8 @@ class T5Stack(T5PreTrainedModel):
                 logits=router).rsample()            
             for i in range(batch_size):
                 scores[i, :, shared_idx[i]] = router_scores[i]
+            if not self.attend_input:
+                scores = scores[:,:,1:]
             if self.training:
                 attn_scores = scores
             else:
@@ -1174,8 +1179,6 @@ class T5Stack(T5PreTrainedModel):
             raise NotImplementedError
 
         mylogs.bp("att")
-        if not self.attend_input:
-            attn_mask = attn_mask[:,:,1:]
         sp_idx = attn_mask.clone()
         sp_idx[sp_idx != 2] = 0
         attn_scores = attn_scores * attn_mask
