@@ -751,18 +751,18 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
-        source_masking = kwargs.setdefault("source_masking", False)
+        use_private_prompts = kwargs.setdefault("use_private_prompts", False)
         nsp = kwargs.setdefault("num_source_prompts", nsp) 
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
         if nsp > 0:
-            if source_masking:
+            if use_private_prompts:
                 source_prompts.extend(
                         ["source_com" + str(sp) for sp in range(nsp)])
             else:
                 source_prompts.extend(
                         ["source_" + str(sp) for sp in range(nsp)])
-        if source_masking:
+        if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
@@ -819,7 +819,7 @@ def train(**kwargs):
                 if "_com" in n:
                     encoder.attend_to_mask[i] = 1 
                     attn_flag = True
-            if not attn_flag or not source_masking: 
+            if not attn_flag or not use_private_prompts: 
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
