@@ -346,8 +346,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
                                are_equal =False
                                break
                    if are_equal:
-                      print(ii, " is equal to ", ee )
-                      exp_exists = True
+                      print(ii, " is equal to ", ee)
+                      if glob.glob(op.join(jj["output_dir"], "*.tsv")):
+                          exp_exists = True
                       break
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
