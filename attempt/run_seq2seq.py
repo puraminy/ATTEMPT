@@ -641,6 +641,7 @@ def train(**kwargs):
     config.attend_target = model_args.attend_target
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.learn_privates = kwargs.setdefault("learn_privates", False)
+    config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
