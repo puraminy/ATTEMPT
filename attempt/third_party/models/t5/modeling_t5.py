@@ -945,6 +945,7 @@ class T5Stack(T5PreTrainedModel):
         #######################################
         self.attend_target = attend_target
         self.target_share = config.target_share 
+        self.attend_for = config.attend_for 
         self.prefix_emb = prefix_emb if self.attend_target is True else None
         self.prefix_tuning = config.prefix_tuning
         self.source_prompts_order = config.source_prompts_order
@@ -1051,13 +1052,16 @@ class T5Stack(T5PreTrainedModel):
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
         inp_target = target_prompts
-        if True: #TODO needs an option 
+        if self.attend_for == "inp_target": 
             pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
             target = target_prompts.squeeze(1)
             inp_target = torch.cat([inputs_embeds, target], dim=1)
             inp_target = inp_target.permute(0,2,1)
             inp_target = pool(inp_target).permute(0,2,1)
             inp_target = inp_target.unsqueeze(1)
+        elif self.attend_for == "input": 
+            pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+            inp_target = pool2(inputs_embeds.permute(0,2,1)).permute(0,2,1)
         if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
@@ -1078,7 +1082,7 @@ class T5Stack(T5PreTrainedModel):
             shared_idx = shared_idx[:,1:]
             attn_mask = attn_mask[:,:,1:]
 
-        if self.add_target or private_idx is not None:
+        if self.add_target:
             if self.target_share < 0:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
