@@ -516,6 +516,9 @@ def show_df(df):
             #fffff
             infos,_ = row_print(df, col_widths, True)
             refresh()
+        _sel_col = sel_cols[cur_col]
+        if _sel_col in map_cols:
+            infos.append(list(map_cols.values())[list(map_cols.keys()).index(_sel_col)])
         for c in info_cols:
             if not c in df:
                 continue
@@ -687,7 +690,8 @@ def show_df(df):
                 if not group_rows:
                     s_rows = [sel_row]
             imgs = {}
-            _, start = list_values(["start","pred"])
+            #_, start = list_values(["start","pred"])
+            start = "pred"
             for s_row in s_rows:
                 exp=df.iloc[s_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
@@ -699,7 +703,7 @@ def show_df(df):
                 spath = "images/" + runid
                 Path(spath).mkdir(parents=True, exist_ok=True)
                 images = []
-                kk = -1
+                kk = 1
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
