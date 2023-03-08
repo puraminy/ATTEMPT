@@ -1053,15 +1053,17 @@ class T5Stack(T5PreTrainedModel):
         attend_for = target_prompts
         inp_target = target_prompts
         if self.attend_for == "inp_target": 
-            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+            inp_target = target_prompts
+        elif self.attend_for == "inp_target": 
+            #pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
             target = target_prompts.squeeze(1)
             inp_target = torch.cat([inputs_embeds, target], dim=1)
-            inp_target = inp_target.permute(0,2,1)
-            inp_target = pool(inp_target).permute(0,2,1)
+            #inp_target = inp_target.permute(0,2,1)
+            #inp_target = pool(inp_target).permute(0,2,1)
             inp_target = inp_target.unsqueeze(1)
         elif self.attend_for == "input": 
-            pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-            inp_target = pool2(inputs_embeds.permute(0,2,1)).permute(0,2,1)
+            inp_target = inputs_embeds 
+            inp_target = inp_target.unsqueeze(1)
         if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
