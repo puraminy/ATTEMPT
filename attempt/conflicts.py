@@ -23,6 +23,9 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                     assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif adapter_args.prompt_tuning:
+            if kwargs.attend_for is not None:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert model_args.attn_method != "rb", " This option works for sub method"
             if kwargs.use_private_prompts:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if kwargs.learn_privates:
