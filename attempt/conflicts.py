@@ -23,14 +23,23 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                     assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif adapter_args.prompt_tuning:
+            if kwargs.use_private_prompts:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if kwargs.learn_privates:
+                assert kwargs.use_private_prompts, "Use private prompts must be set"
+            if kwargs.load_source_prompts:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if kwargs.num_source_prompts > 0:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.add_target is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.attend_target is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.attend_input is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
-            if model_args.target_share >= 0:
+            if model_args.target_share is not None:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert model_args.add_target, " This option works for add target"
             if kwargs.use_private_prompts is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
         else:
