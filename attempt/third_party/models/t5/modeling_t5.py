@@ -1323,17 +1323,17 @@ class T5Stack(T5PreTrainedModel):
                         batch_size, 1, 1, 1), 
                         avg_tp), dim=1)
                     source_idx = torch.cat([shared_idx, private_idx, target_idx], dim=1)
-                else:
+                elif len(source_idx_list) > 1 or self.attend_input:
                     sel_prompts = torch.index_select(
                         src_prompts, 0, source_idx_list)
                     sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
                     source_idx = torch.cat([shared_idx, private_idx], dim=1)
-                attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                attn_mask = batched_index_select(attn_mask, 2, 
-                        source_idx.unsqueeze(1))
-                attn_sel_mask =batched_index_select(attn_mask, 1, 
-                        target_idx).long()
                 if sel_prompts is not None:
+                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                    attn_mask = batched_index_select(attn_mask, 2, 
+                            source_idx.unsqueeze(1))
+                    attn_sel_mask =batched_index_select(attn_mask, 1, 
+                            target_idx).long()
                     soft_prompts, attn_scores,source_idx = self.attend_prompts(
                             inputs_embeds, 
                             src_prompts = sel_prompts, 
