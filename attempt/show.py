@@ -789,7 +789,7 @@ def show_df(df):
         elif char == "N":
             backit(df,sel_cols)
             sel_cols=["pred_max_num","pred_max", "tag","prefix","rouge_score", "num_preds","bert_score"]
-        elif char == "I" or (char == "i" and not prev_char == "x" and hk=="G"):
+        elif (char == "i" and not prev_char == "x" and hk=="G"):
             backit(df,sel_cols)
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -799,15 +799,18 @@ def show_df(df):
             unique_cols = info_cols.copy()
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
-        elif ch == cur.KEY_IC:
+        elif char == "I" or ch == cur.KEY_IC:
             canceled, col, val = list_df_values(main_df, get_val=False)
             if not canceled:
                 if col in sel_cols: 
                     sel_cols.remove(col)
-                sel_cols.insert(cur_col, col)
-                orig_tag_cols.append(col)
-                if col in info_cols:
-                    info_cols.remove(col)
+                if ch == cur.KEY_IC:
+                    sel_cols.insert(cur_col, col)
+                    orig_tag_cols.append(col)
+                    if col in info_cols:
+                        info_cols.remove(col)
+                else:
+                    info_cols.append(col)
 
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
