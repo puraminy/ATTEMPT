@@ -474,10 +474,6 @@ def train(**kwargs):
                 num_target_prompts = max(num_source_prompts, 1)
             if num_source_prompts > 0:
                 num_target_prompts = min(num_target_prompts, num_source_prompts)
-            if model_args.attend_target:
-                num_target_prompts += 1
-            if model_args.attend_input:
-                num_target_prompts += 1
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
