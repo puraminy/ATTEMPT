@@ -23,6 +23,16 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                     assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif not adapter_args.prompt_tuning:
+            if model_args.add_target is True:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if model_args.attend_target is True:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if model_args.attend_input is True:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if model_args.target_share >= 0:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
+            if kwargs.use_private_prompts is True:
+                assert model_args.attn_tuning, " This option works for attention tuninng"
             assert not adapter_args.prefix_tuning, "Prompt tuning and prefix tuning can't be on at the same time"
             if training_args.do_train:
                 assert training_args.learning_rate < 0.01, "Learning rate is too high for fine tuning"
