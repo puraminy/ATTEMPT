@@ -517,8 +517,7 @@ def show_df(df):
             infos,_ = row_print(df, col_widths, True)
             refresh()
         _sel_col = sel_cols[cur_col]
-        if _sel_col in map_cols:
-            infos.append(list(map_cols.keys())[list(map_cols.values()).index(_sel_col)])
+        infos.append(_sel_col)
         for c in info_cols:
             if not c in df:
                 continue
