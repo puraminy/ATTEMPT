@@ -1354,9 +1354,9 @@ def show_df(df):
             else:
                 canceled, col, val = list_df_values(df, col, get_val=True)
             if not canceled:
-                if type(val) == str:
+               if type(val) == str:
                     cond = f"df['{col}'] == '{val}'"
-                else:
+               else:
                     cond = f"df['{col}'] == {val}"
                if cond:
                    mlog.info("cond %s, ", cond)
