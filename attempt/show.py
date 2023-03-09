@@ -1352,22 +1352,16 @@ def show_df(df):
             if char == "f":
                 canceled, col, val = list_df_values(main_df, col, get_val=True)
             else:
-                canceled, col, val = list_df_values(filter_df, col, get_val=True)
+                canceled, col, val = list_df_values(df, col, get_val=True)
             if not canceled:
-               if char == "F" and prev_char == "x":
-                    cond = get_cond(filter_df, col, num=15)
-               else:
-                    if not canceled:
-                        if type(val) == str:
-                            cond = f"df['{col}'] == '{val}'"
-                        else:
-                            cond = f"df['{col}'] == {val}"
+                if type(val) == str:
+                    cond = f"df['{col}'] == '{val}'"
+                else:
+                    cond = f"df['{col}'] == {val}"
                if cond:
                    mlog.info("cond %s, ", cond)
                    if char == "f":
                        df = main_df
-                   else:
-                       df = filter_df
                    df = df[eval(cond)]
                    #df = df.reset_index()
                    filter_df = df
@@ -1375,7 +1369,7 @@ def show_df(df):
                         extra["filter"] = []
                    extra["filter"].append(cond)
                    sel_row = 0
-                   if char == "F" or char == "f":
+                   if char == "f":
                        hotkey = hk
         if char == "V":
             backit(df, sel_cols)
