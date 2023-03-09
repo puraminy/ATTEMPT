@@ -556,10 +556,10 @@ def show_df(df):
         adjust = True
         context = contexts[char] if char in contexts else ""
         if ch == cur.KEY_NPAGE:
-            left -= 20
+            left += 20
             adjust = False
         if ch == cur.KEY_PPAGE:
-            left += 20
+            left -= 20
             adjust = False
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
