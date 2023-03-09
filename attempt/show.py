@@ -555,11 +555,11 @@ def show_df(df):
         get_cmd = False
         adjust = True
         context = contexts[char] if char in contexts else ""
-        if ch == SLEFT:
-            left -= 10
+        if ch == KEY_NPAGE:
+            left -= 20
             adjust = False
-        if ch == SRIGHT:
-            left += 10
+        if ch == KEY_PPAGE:
+            left += 20
             adjust = False
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
@@ -616,7 +616,7 @@ def show_df(df):
             else:
                 sel_row -= 1
             adjust = False
-        elif ch == cur.KEY_NPAGE:
+        elif ch == cur.KEY_SRIGHT:
             sel_row += ROWS - 4
         elif ch == cur.KEY_HOME:
             sel_row = 0 
@@ -625,7 +625,7 @@ def show_df(df):
             left = 0 
         elif ch == cur.KEY_END:
             sel_row = len(df) -1
-        elif ch == cur.KEY_PPAGE:
+        elif ch == cur.KEY_SLEFT:
             sel_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
             seq = ""
