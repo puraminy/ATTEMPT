@@ -462,6 +462,7 @@ def train(**kwargs):
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
+    use_private_prompts = kwargs.setdefault("use_private_prompts", False)
     nsp = 0
     if data_args.source_prompts is not None:
         nsp = len(data_args.source_prompts) 
@@ -478,6 +479,8 @@ def train(**kwargs):
             if model_args.attend_target and ntp < 0:
                 num_target_prompts += 1
             if model_args.attend_input and ntp < 0:
+                num_target_prompts += 1
+            if use_private_prompts and ntp < 0:
                 num_target_prompts += 1
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
     kwargs["num_target_prompts"] = num_target_prompts
@@ -758,7 +761,6 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
-        use_private_prompts = kwargs.setdefault("use_private_prompts", False)
         nsp = kwargs.setdefault("num_source_prompts", nsp) 
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
