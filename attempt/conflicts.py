@@ -26,8 +26,6 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
             if kwargs.attend_for is not None:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
                 assert model_args.attn_method != "rb", " This option works for sub method"
-            if kwargs.use_private_prompts:
-                assert model_args.attn_tuning, " This option works for attention tuninng"
             if kwargs.learn_privates:
                 assert kwargs.use_private_prompts, "Use private prompts must be set"
             if kwargs.load_source_prompts:
@@ -36,8 +34,10 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.add_target is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts, "add target needs source prompts"
             if model_args.attend_target is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts, "add target needs source prompts"
             if model_args.attend_input is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.target_share is not None:
