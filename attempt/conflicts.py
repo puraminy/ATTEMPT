@@ -24,7 +24,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
 
         elif adapter_args.prompt_tuning:
             if kwargs.attend_for is not None:
-                assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts, "add target needs source prompts"
                 assert model_args.attn_method != "rb", " This option works for sub method"
             if kwargs.learn_privates:
                 assert kwargs.use_private_prompts, "Use private prompts must be set"
