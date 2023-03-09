@@ -558,9 +558,13 @@ def show_df(df):
         if ch == cur.KEY_NPAGE:
             left += 20
             adjust = False
+            cur_col += 5
+            ch = RIGHT
         if ch == cur.KEY_PPAGE:
             left -= 20
             adjust = False
+            cur_col -= 5
+            ch = LEFT
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
