@@ -555,10 +555,10 @@ def show_df(df):
         get_cmd = False
         adjust = True
         context = contexts[char] if char in contexts else ""
-        if ch == KEY_NPAGE:
+        if ch == cur.KEY_NPAGE:
             left -= 20
             adjust = False
-        if ch == KEY_PPAGE:
+        if ch == cur.KEY_PPAGE:
             left += 20
             adjust = False
         if ch == SDOWN:
