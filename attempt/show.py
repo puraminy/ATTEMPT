@@ -1056,7 +1056,7 @@ def show_df(df):
                 s1 = sel_rows[0]
                 s2 = sel_rows[1]
                 infos = []
-                for col in unique_cols:
+                for col in df.columns:
                     i1 = df.iloc[s1][col]
                     i2 = df.iloc[s2][col]
                     if i1 != i2:
