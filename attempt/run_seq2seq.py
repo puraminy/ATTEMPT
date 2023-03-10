@@ -820,9 +820,10 @@ def train(**kwargs):
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
                     encoder_type=adapter_args.prompt_encoder_type) 
-            encoder.attend_to_mask = [0]*num_attend_to 
+            encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
+                encoder.attend_to_mask[i] = 0 
                 if n in encoder.attend_to:
                     encoder.attend_to_mask[i] = 2 
                     attn_flag = True

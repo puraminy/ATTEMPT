@@ -1192,13 +1192,13 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         sp_idx = attn_mask.clone()
         sp_idx[sp_idx != 2] = 0
-        attn_scores = attn_scores * attn_mask
+        attn_mask[attn_mask == 2] = 1
 
         if self.apply_softmax_to == "all":
             attn_scores = F.softmax(attn_scores, -1)
-            attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
-        if self.apply_softmax_to is None:
-            attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+
+        attn_scores = attn_scores * attn_mask
+        attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
@@ -1206,6 +1206,7 @@ class T5Stack(T5PreTrainedModel):
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 2
         attn_scores += sp_idx
+
         if self.source_prompts_order == "unsorted":
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                     num_attend_to, sorted=False)
@@ -1220,9 +1221,6 @@ class T5Stack(T5PreTrainedModel):
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
         attn_sel_scores[attn_sel_scores >= 2] -= 2
-        if self.apply_softmax_to == "sel":
-            attn_sel_scores = F.softmax(attn_sel_scores, -1)
-            attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
             attend_to_sel_idx = attend_to_sel_idx + 1
@@ -1262,6 +1260,7 @@ class T5Stack(T5PreTrainedModel):
             device=input_ids.device
             batch_size = inputs_embeds.shape[0]
             num_prompt_encoders = len(self.prompt_encoders) + 1
+            #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
             prompt_masks = self.get_prompt_token_fn(input_ids)
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
