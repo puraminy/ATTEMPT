@@ -1343,6 +1343,7 @@ class T5Stack(T5PreTrainedModel):
                         _task = task if task is not None else "na"
                         pre = "start_"
                         if not self.training:
+                            mylogs.bp("pic")
                             pre = "pred_"
                             self.pred_task = task
                             self.prev_attn_rm = route_method
