@@ -1044,7 +1044,7 @@ class T5Stack(T5PreTrainedModel):
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
-            target_prompts, add_target, source_idx=None, attn_mask=None, 
+            target_prompts, add_target, source_idx=None, 
             target_idx =None, shared_idx=None, private_idx=None, task=""):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
@@ -1082,7 +1082,6 @@ class T5Stack(T5PreTrainedModel):
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
             shared_idx = shared_idx[:,1:]
-            attn_mask = attn_mask[:,:,1:]
 
         if self.add_target:
             if self.target_share < 0:
@@ -1190,14 +1189,8 @@ class T5Stack(T5PreTrainedModel):
             raise NotImplementedError
 
         mylogs.bp("att")
-        sp_idx = attn_mask.clone()
-        sp_idx[sp_idx != 2] = 0
-        attn_mask[attn_mask == 2] = 1
-
         if self.apply_softmax_to == "all":
             attn_scores = F.softmax(attn_scores, -1)
-
-        attn_scores = attn_scores * attn_mask
         attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
@@ -1205,7 +1198,6 @@ class T5Stack(T5PreTrainedModel):
         num_attend_to = num_attend_to // num_targets
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 2
-        attn_scores += sp_idx
 
         if self.source_prompts_order == "unsorted":
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
@@ -1302,44 +1294,38 @@ class T5Stack(T5PreTrainedModel):
             if self.attn_prompt_tuning:
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
-                target_idx = torch.unique_consecutive(target_idx, dim=1)  
-                source_idx_list = shared_src_idx + private_src_idx 
-                source_idx_list = torch.tensor(source_idx_list, device=device).long()
-                shared_src_idx = torch.tensor(shared_src_idx, device=device).long()
-                private_src_idx = torch.tensor(private_src_idx, device=device).long()
-                shared_idx = shared_src_idx.repeat(batch_size, 1)
-                private_idx = private_src_idx.repeat(batch_size, 1)
-                sel_prompts = None
-                if self.attend_target is True:
-                    pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-                    tpv = target_prompts.view(batch_size,-1,self.model_dim)
-                    avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
-                    avg_tp = avg_tp.view(batch_size, -1, 
-                            self.src_prompt_dim, self.model_dim)
-                    sel_prompts = torch.index_select(
-                        src_prompts, 0, source_idx_list)
-                    sel_prompts = torch.cat((sel_prompts.repeat(
-                        batch_size, 1, 1, 1), 
-                        avg_tp), dim=1)
-                    source_idx = torch.cat([shared_idx, private_idx, target_idx], dim=1)
-                elif len(source_idx_list) > 1 or self.attend_input:
-                    sel_prompts = torch.index_select(
-                        src_prompts, 0, source_idx_list)
-                    sel_prompts = sel_prompts.repeat(batch_size, 1, 1, 1) 
-                    source_idx = torch.cat([shared_idx, private_idx], dim=1)
-                if sel_prompts is not None:
+                if len(shared_src_idx) > 1 or self.attend_input or len(private_src_idx) > 0:
+                    target_idx = torch.unique_consecutive(target_idx, dim=1)  
+                    private_src_idx = torch.tensor(private_src_idx, device=device).long()
+                    private_idx = private_src_idx.repeat(batch_size, 1)
                     attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                    attn_mask = batched_index_select(attn_mask, 2, 
-                            source_idx.unsqueeze(1))
-                    attn_sel_mask =batched_index_select(attn_mask, 1, 
-                            target_idx).long()
+                    private_attn_mask = batched_index_select(attn_mask, 2, 
+                            private_idx.unsqueeze(1))
+                    private_attn_mask = batched_index_select(private_attn_mask, 1, 
+                            target_idx.unsqueeze(1))
+                    private_attn_mask = private_attn_mask.bool().squeeze(1)
+                    private_idx = private_idx[private_attn_mask].view(batch_size, -1)
+                    shared_src_idx = torch.tensor(shared_src_idx, device=device).long()
+                    shared_idx = shared_src_idx.repeat(batch_size, 1)
+                    source_idx = torch.cat([shared_idx, private_idx], dim=1)
+                    src_prompts = src_prompts.repeat(batch_size, 1, 1, 1) 
+                    sel_prompts = batched_index_select(src_prompts, 1, 
+                        source_idx.unsqueeze(1))
+                    if self.attend_target is True:
+                        pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+                        tpv = target_prompts.view(batch_size,-1,self.model_dim)
+                        avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
+                        avg_tp = avg_tp.view(batch_size, -1, 
+                                self.src_prompt_dim, self.model_dim)
+                        sel_prompts = torch.cat((sel_prompts,
+                            avg_tp), dim=1)
+                        source_idx = torch.cat([shared_idx, private_idx, target_idx], dim=1)
                     soft_prompts, attn_scores,source_idx = self.attend_prompts(
                             inputs_embeds, 
                             src_prompts = sel_prompts, 
                             target_prompts = target_prompts,
                             add_target = self.add_target, 
                             source_idx=source_idx, 
-                            attn_mask=attn_sel_mask,
                             target_idx=target_idx, 
                             shared_idx=shared_idx,
                             private_idx=private_idx,
