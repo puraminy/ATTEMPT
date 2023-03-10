@@ -1098,11 +1098,10 @@ class T5Stack(T5PreTrainedModel):
         # Bernouli 
         if self.attn_method == "rb":
             scores = torch.zeros(
-                     target_idx.size()[1],
-                     source_idx.size()[1], 
+                     *self.router.size(),
                      device=inputs_embeds.device)
             if self.learn_privates:
-                route_idx = source_idx
+                route_idx = attend_to_idx
             else:
                 route_idx = shared_idx
             router = torch.zeros(target_idx.size()[1],
@@ -1115,10 +1114,11 @@ class T5Stack(T5PreTrainedModel):
                                     route_idx[i]]
             router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
-            for i in range(batch_size):
-                scores[i, :, route_idx[i]] = router_scores[i]
-            if not self.attend_input:
-                scores = scores[:,:,1:]
+            if self.learn_privates:
+                scores = router_scores
+            else:
+                for i in range(batch_size):
+                    scores[i, :, route_idx[i]] = router_scores[i]
             if self.training:
                 attn_scores = scores
             else:
