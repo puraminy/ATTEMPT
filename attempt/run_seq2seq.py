@@ -473,7 +473,7 @@ def train(**kwargs):
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
             ntp = num_target_prompts
             if ntp < 0: 
-                num_target_prompts = max(num_source_prompts, 1)
+                num_target_prompts = num_source_prompts
             if num_source_prompts > 0:
                 num_target_prompts = min(num_target_prompts, num_source_prompts)
             if model_args.attend_target and ntp < 0:
@@ -482,6 +482,7 @@ def train(**kwargs):
                 num_target_prompts += 1
             if use_private_prompts and ntp < 0:
                 num_target_prompts += 1
+            num_target_prompts = max(num_target_prompts, 1)
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
     kwargs["num_target_prompts"] = num_target_prompts
     task_args = {}
