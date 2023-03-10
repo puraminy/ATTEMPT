@@ -1212,7 +1212,8 @@ class T5Stack(T5PreTrainedModel):
         elif self.source_prompts_order == "asc":
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
-        attn_sel_scores[attn_sel_scores >= 2] -= 2
+        if self.attend_target: # force to select them
+            attn_sel_scores[attn_sel_scores >= 2] -= 2
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
             attend_to_sel_idx = attend_to_sel_idx + 1
