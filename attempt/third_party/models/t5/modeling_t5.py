@@ -1098,7 +1098,8 @@ class T5Stack(T5PreTrainedModel):
         # Bernouli 
         if self.attn_method == "rb":
             scores = torch.zeros(
-                     *self.router.size(),
+                     target_idx.size()[1],
+                     attend_to_idx.size()[1],
                      device=inputs_embeds.device)
             if self.learn_privates:
                 route_idx = attend_to_idx
