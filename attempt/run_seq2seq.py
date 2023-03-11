@@ -221,8 +221,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["break_point"] = break_point 
    args["preview"] = preview 
    args["repeat"] = repeat 
-   tags = exp_args["tag"] if "tag" in exp_args else [] 
-   full_tags = exp_args["full_tag"] if "full_tag" in exp_args else [] 
+   tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
+   full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
    if break_point:
        mylogs.setbp(break_point)
 
