@@ -317,7 +317,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
        _output_dir = str(args["expid"])
-       output_dir = os.path.join(save_path, str(ii))
+       output_dir = os.path.join(save_path, _output_dir)
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
