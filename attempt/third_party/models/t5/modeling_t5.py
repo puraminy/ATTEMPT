@@ -1362,7 +1362,7 @@ class T5Stack(T5PreTrainedModel):
                                 WBCallback.save_images(scores=self.attn_scores, 
                                     labels=self.prompt_names, 
                                     fname = pre + route_method + "-" + _task + "_" + str(i) +"_attn")
-                        if route_method == "rb":
+                        if route_method == "rb" and self.attn_method == "rb":
                             WBCallback.save_images(scores=self.router, 
                                 labels=self.prompt_names, 
                                 fname = pre + route_method + "-" + _task + "_router",
