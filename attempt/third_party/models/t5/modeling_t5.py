@@ -1110,12 +1110,13 @@ class T5Stack(T5PreTrainedModel):
                     device=inputs_embeds.device)
             router = router.repeat(batch_size, 1, 1)
             scores = scores.repeat(batch_size, 1, 1)
+            num_privates = private_idx.size()[1] 
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
             router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
-            if self.learn_privates:
+            if self.learn_privates or num_privates == 0:
                 scores = router_scores
             else:
                 for i in range(batch_size):
