@@ -415,7 +415,9 @@ def show_df(df):
                    col_widths[sel_col] = len(content) + 4
                if len(content) > col_widths[sel_col]:
                    col_widths[sel_col] = len(content) + 4
-               col_widths[sel_col] = min(col_widths[sel_col],40)
+               min_width = 40
+               if type(content) == int: min_width = max(len(content), 10)
+               col_widths[sel_col] = min(col_widths[sel_col], min_width)
                _w = col_widths[sel_col] 
                if sel_col in sel_cols:
                    if (cur_col >=0 and cur_col < len(sel_cols) 
