@@ -543,6 +543,7 @@ def train(**kwargs):
         mylogs.dlog.info("%s", msg)
         mylogs.dlog.info("-------------------------------------")
         if not resolved:
+            shutil.rmtree(training_args.output_dir)
             return
 
     if log_var:
