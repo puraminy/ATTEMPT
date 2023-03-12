@@ -485,6 +485,7 @@ def train(**kwargs):
             num_target_prompts = max(num_target_prompts, 1)
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
     kwargs["num_target_prompts"] = num_target_prompts
+    mylogs.main_args["num_target_prompts"] = num_target_prompts
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
