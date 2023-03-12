@@ -415,8 +415,9 @@ def show_df(df):
                    col_widths[sel_col] = len(content) + 4
                if len(content) > col_widths[sel_col]:
                    col_widths[sel_col] = len(content) + 4
-               min_width = 40
-               if type(content) == int: min_width = max(len(content), 10)
+               min_width = 30
+               if content.strip().isdigit():
+                   min_width = 5 
                col_widths[sel_col] = min(col_widths[sel_col], min_width)
                _w = col_widths[sel_col] 
                if sel_col in sel_cols:
@@ -511,8 +512,8 @@ def show_df(df):
                if not sel_col in col_widths and not adjust:
                     _, col_widths = row_print(df, col_widths={})
                     adjust = True
-               if sel_col in col_widths and len(head) + 5 > col_widths[sel_col]:
-                   col_widths[sel_col] = len(head) + 5
+               if sel_col in col_widths and len(head) > col_widths[sel_col]:
+                   col_widths[sel_col] = len(head) 
                _w = col_widths[sel_col] if sel_col in col_widths else 5
                text += "{:<{x}}".format(head, x=_w) 
             mprint(text, text_win) 
