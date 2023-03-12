@@ -1084,7 +1084,7 @@ class T5Stack(T5PreTrainedModel):
             shared_idx = shared_idx[:,1:]
 
         if self.add_target:
-            if self.target_share < 0:
+            if self.target_share == -2:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
                 if True: #self.training:
@@ -1208,6 +1208,9 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                     num_attend_to, sorted=True)
         mylogs.bp("att")
+        top,_ = torch.max(attn_sel_scores, -1) 
+        if self.target_share == -1:
+            target_shares = top.transpose(0,1)
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
             attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
