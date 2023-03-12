@@ -61,9 +61,9 @@ def load_results(path):
     sd = superitems(data)
     fname = Path(path).stem
     if fname == "results":
-        main_df = pd.DataFrame(sd, columns=["exp","model","lang", "template","wrap","frozen","epochs","stype", "date", "dir", "score"])
+        main_df = pd.DataFrame(sd, columns=["exp","model","lang", "wrap","frozen","epochs","stype", "date", "dir", "score"])
     else:
-        main_df = pd.DataFrame(sd, columns=["tid","exp","model","lang", "template","wrap","frozen","epochs","date", "field", "text"])
+        main_df = pd.DataFrame(sd, columns=["tid","exp","model","lang", "wrap","frozen","epochs","date", "field", "text"])
 
     out = f"{fname}.tsv"
     df = main_df.pivot(index=list(main_df.columns[~main_df.columns.isin(['field', 'text'])]), columns='field').reset_index()
@@ -271,6 +271,7 @@ def show_df(df):
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
+    tag_cols.remove("expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
@@ -1447,6 +1448,10 @@ def show_df(df):
                     df = df.drop(df[df[col] == val].index)
         elif ch == cur.KEY_DC:
             col = sel_cols[cur_col]
+            if col in orig_tag_cols:
+                orig_tag_cols.remove(col)
+            if col in tag_cols:
+                tag_cols.remove(col)
             sel_cols.remove(col)
             save_obj(sel_cols, "sel_cols", context)
         elif ch == cur.KEY_SDC:

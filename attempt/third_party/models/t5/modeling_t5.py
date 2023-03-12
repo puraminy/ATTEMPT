@@ -1197,7 +1197,6 @@ class T5Stack(T5PreTrainedModel):
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
-        assert attn_scores.size()[2] != 0, "attn score is zero size"
         if self.attend_target: # force to select them
             attn_scores[:,:,-1] += 2
 
