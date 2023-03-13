@@ -1208,8 +1208,8 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                     num_attend_to, sorted=True)
         mylogs.bp("att")
-        top,_ = torch.max(attn_sel_scores, -1) 
-        if self.target_share == -3:
+        top = torch.mean(attn_sel_scores, -1) 
+        if self.target_share == -4:
             target_shares = 1 - top.transpose(0,1)
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
