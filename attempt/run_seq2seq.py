@@ -768,12 +768,8 @@ def train(**kwargs):
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
         if nsp > 0:
-            if use_private_prompts:
-                source_prompts.extend(
-                        ["source_com" + str(sp) for sp in range(nsp)])
-            else:
-                source_prompts.extend(
-                        ["source_com" + str(sp) for sp in range(nsp)])
+            source_prompts.extend(
+                    ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
         for prompt in source_prompts: 
