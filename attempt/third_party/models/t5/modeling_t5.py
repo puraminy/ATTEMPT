@@ -1209,10 +1209,10 @@ class T5Stack(T5PreTrainedModel):
                     num_attend_to, sorted=True)
         mylogs.bp("att")
         if self.target_share == -2:
-            top = torch.max(attn_sel_scores, -1) 
+            top, _ = torch.max(attn_sel_scores, -1) 
             target_shares = top.transpose(0,1)
         if self.target_share == -3:
-            top = torch.max(attn_sel_scores, -1) 
+            top, _ = torch.max(attn_sel_scores, -1) 
             target_shares = 1 - top.transpose(0,1)
         if self.target_share == -4:
             top = torch.mean(attn_sel_scores, -1) 
