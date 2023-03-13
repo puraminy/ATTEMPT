@@ -1143,8 +1143,11 @@ class T5Stack(T5PreTrainedModel):
                     with torch.no_grad():
                         router[router <= 0] = 0
                         router[router > 0] = 1
-                    for i in range(batch_size):
-                        scores[i, :, shared_idx[i]] = router[i]
+                    if self.learn_privates or num_privates == 0:
+                        scores = router
+                    else:
+                        for i in range(batch_size):
+                            scores[i, :, shared_idx[i]] = router[i]
                     attn_scores = scores
                 else:
                     attn_scores = scores
