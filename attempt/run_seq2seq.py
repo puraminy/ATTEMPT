@@ -773,7 +773,7 @@ def train(**kwargs):
                         ["source_com" + str(sp) for sp in range(nsp)])
             else:
                 source_prompts.extend(
-                        ["source_" + str(sp) for sp in range(nsp)])
+                        ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
         for prompt in source_prompts: 
