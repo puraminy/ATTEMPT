@@ -1111,11 +1111,7 @@ class T5Stack(T5PreTrainedModel):
                                     route_idx[i]]
             router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
-            if self.learn_privates or num_privates == 0:
-                scores = router_scores
-            else:
-                for i in range(batch_size):
-                    scores[i, :, route_idx[i]] = router_scores[i]
+            scores = router_scores
             if self.training:
                 attn_scores = scores
             else:
