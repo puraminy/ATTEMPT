@@ -1373,7 +1373,6 @@ def train(**kwargs):
                     for rm, mask in combs.items():
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
-                           breakpoint()
                            gen_conf["attn_mask"] = mask 
                         exp_info["gen_route_methods"] = route_method
                         exp_info["gen_mask"] = rm 
