@@ -1365,7 +1365,7 @@ def train(**kwargs):
         for rm in random_masks:
             mask = model.encoder.random_attn_mask(rm, ntp)
             combs[rm] = mask
-        combs[0] = None
+        combs[1] = None
         ii = 0
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
