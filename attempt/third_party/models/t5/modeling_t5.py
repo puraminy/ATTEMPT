@@ -1039,7 +1039,7 @@ class T5Stack(T5PreTrainedModel):
 #            prompt_dim * self.model_dim 
 #        )).uniform_(-bound, bound))
 #
-    def random_attn_mask(self, percent=0.8, num_target_prompts = 1):
+    def random_attn_mask(self, percent=0, num_target_prompts = 1):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_target_prompts / attend_num
@@ -1050,7 +1050,7 @@ class T5Stack(T5PreTrainedModel):
             attn_mask = torch.ones(attend_num, attend_num, device=device)
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if not encoder.is_source:
-                r = torch.rand((1, nse -1), device=device) < (base + percent)
+                r = torch.rand((1, nse -1), device=device) > (base + percent)
                 attn_mask[i, 1:nse] = r.long()
         return attn_mask
 
