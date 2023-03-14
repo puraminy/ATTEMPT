@@ -751,7 +751,7 @@ def train(**kwargs):
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
     if prompts_prefix is None: prompts_prefix = ""
-    if prompts_prefix:
+    if prompts_prefix and training_args.do_train:
         prompts_dir = model_args.prompt_encoders_dir
         if prompts_dir and not prompts_dir.startswith("/"):
             prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
