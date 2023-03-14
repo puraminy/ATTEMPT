@@ -699,34 +699,49 @@ def show_df(df):
             imgs = {}
             #_, start = list_values(["start","pred"])
             start = "pred"
+            #breakpoint()
             for s_row in s_rows:
                 exp=df.iloc[s_row]["exp_id"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
                 runid = tdf.iloc[0]["runid"]
+                grm = tdf.iloc[0]["gen_route_methods"]
+                _pfix = tdf.iloc[0]["prefix"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
                 spath = "images/" + runid
+                if Path(spath).exists():
+                    shutil.rmtree(spath)
                 Path(spath).mkdir(parents=True, exist_ok=True)
                 images = []
                 kk = 1
+                key = "all"
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
+                    img_grm = parts[1]
+                    cond = (("router" in fname and _pfix in img_grm) 
+                            or (grm in img_grm and _pfix in img_grm))
+                    if not cond: 
+                        continue
                     if kk < 0:
                         _, key = list_values(parts)
                         kk = parts.index(key)
-                    key = parts[kk]
+                        key = parts[kk]
                     dest = os.path.join(spath, fname + ".png") 
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
-                    if not key in imgs:
+                    if key == "all":
+                        imgs[key] = [_image]
+                    elif not key in imgs:
                         imgs[key] = [_image]
                     else:
                         imgs[key].append(_image)
                     images.append({"image": dest})
             if imgs:
+                if Path("temp").exists():
+                    shutil.rmtree("temp")
                 Path("temp").mkdir(parents=True, exist_ok=True)
                 for key, img_list in imgs.items():
                     if len(img_list) > 1:
