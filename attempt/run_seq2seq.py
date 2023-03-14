@@ -276,7 +276,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts"]
+   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "random_masks"]
    args["tag"] = tags 
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -365,6 +365,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            if not preview and not repeat:
               print("Skipping experiment:", ii)
               continue 
+           breakpoint()
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
        wandb_dir = save_path #op.join("logs", experiment)
@@ -842,7 +843,8 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 
                 mylogs.bp("load")
-                encoder.load(prompts_dir, 
+                if not model_args.attn_tuning or encoder.is_source:
+                    encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
                         length = target_prompt_length)
             prompt_encoders.append(encoder)
