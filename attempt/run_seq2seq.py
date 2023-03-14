@@ -276,7 +276,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial"]
+   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts"]
    args["tag"] = tags 
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -347,7 +347,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
                                break
                    if are_equal:
                       print(ii, " is equal to ", ee)
-                      if glob.glob(op.join(jj["output_dir"], "*.tsv")):
+                      output_dir = jj["output_dir"].strip("%")
+                      if glob.glob(op.join(output_dir, "*.tsv")):
                           exp_exists = True
                       break
        if preview == "tag":
@@ -359,9 +360,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
            continue
-       if exp_exists and not preview and not repeat:
-           print("Skipping experiment:", ii)
-           continue 
+       if exp_exists:
+           args["output_dir"] = "%" + output_dir 
+           if not preview and not repeat:
+              print("Skipping experiment:", ii)
+              continue 
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
        wandb_dir = save_path #op.join("logs", experiment)
