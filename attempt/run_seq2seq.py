@@ -1449,8 +1449,9 @@ def train(**kwargs):
                             df.at[i, "pred_text1"] = pred
                         df = df.drop(columns=["input_ids","labels","attention_mask"])
                         mylogs.bp("test")
+                        is_train = "train" if training_args.do_train else "eval"
                         save_to = os.path.join(training_args.output_dir, 
-                                ds_conf + "_results_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
+                                ds_conf + "_results_" + is_train + "_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
                         scores = do_score(df, "rouge@bert", save_to)
                         ii += 1
 
