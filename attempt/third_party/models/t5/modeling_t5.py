@@ -1008,13 +1008,14 @@ class T5Stack(T5PreTrainedModel):
         if source_prompts:
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
         task_prompt_ids = []
-        i = 1
-        for encoder in self.prompt_encoders:
+        self.attn_mask = torch.ones(attend_num, attend_num, device=device)
+        for i, encoder in enumerate(self.prompt_encoders, start=1):
             task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
             if source_prompts and encoder.name in source_prompts:
                 encoder.src_idx = i
-                i+=1
+                continue
+            self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
 
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
@@ -1025,6 +1026,7 @@ class T5Stack(T5PreTrainedModel):
         self.target_router = nn.Parameter(data=torch.empty((
             attend_num
         ), device=device).uniform_(-1e-3, 1e-3))
+
 
 #        self.z = nn.Parameter(data=torch.empty((
 #            attend_num, 
@@ -1037,6 +1039,21 @@ class T5Stack(T5PreTrainedModel):
 #            prompt_dim * self.model_dim 
 #        )).uniform_(-bound, bound))
 #
+    def random_attn_mask(self, percent=0.8, num_target_prompts = 1):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        attend_num =len(self.prompt_encoders) + 1 # one for input
+        base = num_target_prompts / attend_num
+        nse = self.num_src_encoders
+        if self.attn_mask is not None:
+            attn_mask = self.attn_mask.clone()
+        else:
+            attn_mask = torch.ones(attend_num, attend_num, device=device)
+        for i, encoder in enumerate(self.prompt_encoders, start=1):
+            if not encoder.is_source:
+                r = torch.rand((1, nse -1), device=device) < (base + percent)
+                attn_mask[i, 1:nse] = r.long()
+        return attn_mask
+
     def anneal(self, i_step):
          exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
          t = max(self.anneal_min, self.temperature * exp_rate)
@@ -1260,7 +1277,6 @@ class T5Stack(T5PreTrainedModel):
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
-            attn_mask = torch.ones(num_prompt_encoders, num_prompt_encoders, device=device)
             source_idx_list = [0] # 0 is for input 
             private_src_idx = []
             target_prompts_list = []
@@ -1274,7 +1290,6 @@ class T5Stack(T5PreTrainedModel):
                     src_prompts[encoder.src_idx, :] = emb
                     continue
 
-                attn_mask[ii, :] = torch.tensor(encoder.attend_to_mask, device=device)
                 prompt_token_fn = encoder.get_prompt_token_fn()
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if target_masks.any():
@@ -1291,6 +1306,11 @@ class T5Stack(T5PreTrainedModel):
             mask = target_prompts !=0
             target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
+                attn_mask = self.attn_mask
+                if not self.training: 
+                    mylogs.bp("ccc")
+                    if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+                        attn_mask = self.gen_conf["attn_mask"] 
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:
@@ -2096,6 +2116,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.num_src_encoders = 0
         self.task_prompt_ids = []
         self.attn_scores = None
+        self.attn_mask = None
         self.prompt_names = None
 
         encoder_config = copy.deepcopy(config)
