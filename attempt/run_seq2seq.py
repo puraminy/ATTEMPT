@@ -774,6 +774,9 @@ def train(**kwargs):
                     ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
+
+        kwargs["num_source_prompts"] = len(source_prompts)
+        mylogs.main_args["num_source_prompts"] = len(source_prompts)
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
@@ -1301,7 +1304,6 @@ def train(**kwargs):
                 wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
-    mylogs.bp("test")
     if training_args.do_test:
         if data_args.test_files is not None:
             test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
@@ -1355,84 +1357,100 @@ def train(**kwargs):
         gen_conf = {}
         ds_backup = None
         grm = kwargs.setdefault("gen_route_methods",["rb"])
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        combs = {}
+        random_masks = kwargs.setdefault("random_masks",[])
+        ntp = kwargs.num_target_prompts
+        mylogs.bp("ccc")
+        for rm in random_masks:
+            mask = model.encoder.random_attn_mask(rm, ntp)
+            combs[rm] = mask
+        combs[0] = None
+        ii = 0
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                 for route_method in grm: 
-                    gen_conf["route_method"] = route_method
-                    exp_info["gen_route_methods"] = route_method
-                    mylogs.bp("test")
-                    task = task.split("_")[0]
-                    predictions, labels, metrics = trainer.predict(
-                            gen_conf = gen_conf,
-                            test_dataset=test_dataset,
-                            max_length=data_args.test_max_target_length, 
-                            num_beams=data_args.num_beams,
-                            metric_key_prefix="test", task=task)
-                    
-                    trainer.log_metrics("test", metrics)
-                    trainer.save_metrics("test", metrics)
-                    ds_conf = data_args.test_dataset_config_name[idx]
-                    ds_name = data_args.test_dataset_name[idx]
+                    for rm, mask in combs.items():
+                        gen_conf["route_method"] = route_method
+                        if mask is not None: 
+                           breakpoint()
+                           gen_conf["attn_mask"] = mask 
+                        exp_info["gen_route_methods"] = route_method
+                        exp_info["gen_mask"] = rm 
+                        mylogs.bp("test")
+                        task = task.split("_")[0]
+                        predictions, labels, metrics = trainer.predict(
+                                gen_conf = gen_conf,
+                                test_dataset=test_dataset,
+                                max_length=data_args.test_max_target_length, 
+                                num_beams=data_args.num_beams,
+                                metric_key_prefix="test", task=task)
+                        
+                        trainer.log_metrics("test", metrics)
+                        trainer.save_metrics("test", metrics)
+                        ds_conf = data_args.test_dataset_config_name[idx]
+                        ds_name = data_args.test_dataset_name[idx]
 
-                    # sssssssssss
-                    #predictions = np.argmax(predictions, axis=1)
-                    #predictions = tokenizer.batch_decode(predictions)
-                    df = test_dataset.to_pandas()
-                    if bp == "test": breakpoint()
-                    df["pred_text1"] = ""
-                    for k,v in metrics.items():
-                        df[k] = v
-                    #df["rouge_score"] = 0.0
-                    #df["bert_score"] = 0.0
-                    df["template"] = data_args.template
-                    df["resp"] = ""
-                    df["query"] = ""
-                    df["langs"] = "en2en"
-                    df["prefix"] = ds_name
-                    df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                            ds_conf,"test.tsv")
-                    for key, info in exp_info.items():
-                        if type(info) == list:
-                            info = "@".join([str(inf) for inf in info])
-                        if type(info) == dict:
-                            info = json.dumps(info)
-                            info = info.replace("\n", "@")
-                        df[key] = info
-                    rouge_scorer = Rouge()
-                    for i, row in df.iterrows():
-                        mylogs.bp("=testloop") 
-                        extra = row["extra_fields"]
-                        if "event" in extra:
-                            inp = extra["event"]
-                        else:
-                            inp = tokenizer.decode(row["input_ids"], 
-                                skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                            inp = re.sub(r'<.*?>','', inp)
-                            inp = inp.strip()
-                        df.at[i, "input_text"] = inp #extra["event"] 
-                        label = extra["tail"] if "tail" in extra else "na"
-                        #label = tokenizer.decode(row["labels"], 
-                        #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                        #label = re.sub(r'<.*?>','', label)
-                        label = label.strip()
-                        df.at[i, "target_text"] = label 
-                        sel = False
-                        if "sel" in extra:
-                            sel = extra["sel"] 
-                        df.at[i, "sel"] = sel 
-                        df.at[i, "query"] = extra["query"]  
-                        df.at[i, "resp"] = extra["resp"]  
-                        mylogs.bp("decode")
-                        pred = tokenizer.decode(predictions[i], 
-                                skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                        pred = re.sub(r'<.*?>','',pred)
-                        pred = pred.strip()
-                        df.at[i, "pred_text1"] = pred
-                    df = df.drop(columns=["input_ids","labels","attention_mask"])
-                    mylogs.bp("test")
-                    save_to = os.path.join(training_args.output_dir, 
-                            ds_conf + "_results_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + ".tsv")
-                    scores = do_score(df, "rouge@bert", save_to)
+                        # sssssssssss
+                        #predictions = np.argmax(predictions, axis=1)
+                        #predictions = tokenizer.batch_decode(predictions)
+                        df = test_dataset.to_pandas()
+                        if bp == "test": breakpoint()
+                        df["pred_text1"] = ""
+                        for k,v in metrics.items():
+                            df[k] = v
+                        #df["rouge_score"] = 0.0
+                        #df["bert_score"] = 0.0
+                        df["template"] = data_args.template
+                        df["resp"] = ""
+                        df["query"] = ""
+                        df["langs"] = "en2en"
+                        df["prefix"] = ds_name
+                        df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                                ds_conf,"test.tsv")
+                        for key, info in exp_info.items():
+                            if type(info) == list:
+                                info = "@".join([str(inf) for inf in info])
+                            if type(info) == dict:
+                                info = json.dumps(info)
+                                info = info.replace("\n", "@")
+                            df[key] = info
+                        rouge_scorer = Rouge()
+                        for i, row in df.iterrows():
+                            mylogs.bp("=testloop") 
+                            extra = row["extra_fields"]
+                            if "event" in extra:
+                                inp = extra["event"]
+                            else:
+                                inp = tokenizer.decode(row["input_ids"], 
+                                    skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                                inp = re.sub(r'<.*?>','', inp)
+                                inp = inp.strip()
+                            df.at[i, "input_text"] = inp #extra["event"] 
+                            label = extra["tail"] if "tail" in extra else "na"
+                            #label = tokenizer.decode(row["labels"], 
+                            #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                            #label = re.sub(r'<.*?>','', label)
+                            label = label.strip()
+                            df.at[i, "target_text"] = label 
+                            sel = False
+                            if "sel" in extra:
+                                sel = extra["sel"] 
+                            df.at[i, "sel"] = sel 
+                            df.at[i, "query"] = extra["query"]  
+                            df.at[i, "resp"] = extra["resp"]  
+                            mylogs.bp("decode")
+                            pred = tokenizer.decode(predictions[i], 
+                                    skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                            pred = re.sub(r'<.*?>','',pred)
+                            pred = pred.strip()
+                            df.at[i, "pred_text1"] = pred
+                        df = df.drop(columns=["input_ids","labels","attention_mask"])
+                        mylogs.bp("test")
+                        save_to = os.path.join(training_args.output_dir, 
+                                ds_conf + "_results_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
+                        scores = do_score(df, "rouge@bert", save_to)
+                        ii += 1
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():
