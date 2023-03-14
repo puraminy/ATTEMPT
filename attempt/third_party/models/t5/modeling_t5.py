@@ -1115,7 +1115,7 @@ class T5Stack(T5PreTrainedModel):
             if self.training:
                 attn_scores = scores
             else:
-                self.apply_softmax_to == "none":
+                self.apply_softmax_to = "none"
                 mylogs.bp("route")
                 if self.gen_conf is not None and "route_method" in self.gen_conf:
                     route_method = self.gen_conf["route_method"] 
