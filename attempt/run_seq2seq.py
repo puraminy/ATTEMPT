@@ -756,6 +756,8 @@ def train(**kwargs):
         if prompts_dir and not prompts_dir.startswith("/"):
             prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
     else:
+        if not prompts_prefix:
+           prompts_prefix = "pt" if not model_args.attn_tuning else "att"
         prompts_dir = training_args.output_dir
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
