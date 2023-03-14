@@ -1052,7 +1052,7 @@ class T5Stack(T5PreTrainedModel):
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if not encoder.is_source:
                 r = torch.rand((1, nse -1), device=device)
-                k_th_quant = torch.topk(rand_mat, k, largest = False)[0][:,-1:]
+                k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
                 mask = r <= k_th_quant
                 attn_mask[i, 1:nse] = r.long()
         return attn_mask
