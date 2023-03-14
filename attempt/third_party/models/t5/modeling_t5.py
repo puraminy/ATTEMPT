@@ -1054,7 +1054,7 @@ class T5Stack(T5PreTrainedModel):
                 r = torch.rand((1, nse -1), device=device)
                 k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
                 mask = r <= k_th_quant
-                attn_mask[i, 1:nse] = r.long()
+                attn_mask[i, 1:nse] = mask.long()
         return attn_mask
 
     def anneal(self, i_step):
