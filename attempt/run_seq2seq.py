@@ -276,7 +276,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "random_masks"]
+   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks"]
    args["tag"] = tags 
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
@@ -365,7 +365,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            if not preview and not repeat:
               print("Skipping experiment:", ii)
               continue 
-           breakpoint()
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
        wandb_dir = save_path #op.join("logs", experiment)
@@ -1364,13 +1363,13 @@ def train(**kwargs):
         grm = kwargs.setdefault("gen_route_methods",["rb"])
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         combs = {}
-        random_masks = kwargs.setdefault("random_masks",[])
+        num_random_masks = kwargs.setdefault("num_random_masks",0)
         ntp = kwargs.num_target_prompts
         mylogs.bp("ccc")
-        for rm in random_masks:
+        for rm in range(num_random_masks):
             mask = model.encoder.random_attn_mask(rm, ntp)
             combs[rm] = mask
-        combs[1] = None
+        combs[-1] = None
         ii = 0
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
