@@ -1368,8 +1368,8 @@ def train(**kwargs):
         mylogs.bp("ccc")
         for rm in range(num_random_masks):
             mask = model.encoder.random_attn_mask(rm, ntp)
-            combs[rm] = mask
-        combs[-1] = None
+            combs["rand-" + str(rm)] = mask
+        combs["train"] = None
         ii = 0
         if model_args.shared_attn is False:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
