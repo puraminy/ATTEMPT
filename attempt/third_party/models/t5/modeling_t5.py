@@ -1372,17 +1372,19 @@ class T5Stack(T5PreTrainedModel):
                         source_idx = source_idx.view(batch_size, num_targets, -1)
                         tgt_len = len(target_idx_list)
                         src_len = self.attn_scores.size()[1] 
-                        scores = torch.zeros((tgt_len*3, src_len), device=device)
+                        ss1 = torch.zeros((tgt_len, src_len), device=device)
+                        ss2 = torch.zeros((tgt_len, src_len), device=device)
+                        ss3 = torch.zeros((tgt_len, src_len), device=device)
                         y_labels = [self.prompt_names[i] for i in target_idx_list]
                         src_idx = source_idx[batch_size - 1]
                         tgt_idx = target_idx[batch_size - 1]
-                        scores[0:tgt_len, src_idx] = attn_scores[batch_size - 1]
+                        ss1[0, src_idx] = attn_scores[batch_size - 1]
                         rr = self.router[tgt_idx, src_idx]
-                        scores[tgt_len:2*tgt_len,src_idx]= rr
+                        ss2[0, src_idx]= rr
                         sm = self.attn_mask[tgt_idx, src_idx]
-                        scores[2*tgt_len:3*tgt_len,src_idx]= sm
-                        WBCallback.save_images(scores=scores, 
-                            y_labels=y_labels * 3,
+                        ss3[0, src_idx]= sm
+                        WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                            y_labels=y_labels,
                             x_labels=self.prompt_names, 
                             fname = pre + route_method + "-" + _task + "_attn_rb_mask")
                 else:

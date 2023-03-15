@@ -27,9 +27,9 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_images(scores, x_labels, y_labels, state=None, fname="", annot=True):
-        np_scores = scores.detach().cpu().numpy()
-        fig, axes = plt.subplot_mosaic("ABB")
-        ax1, ax2 = axes["A"], axes["B"]
+        fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
+        ax1, ax2, ax3,ax4 = axes["A"], axes["B"], axes["C"], axes["D"]
+        axes = [ax2, ax3, ax4]
         if state is not None:
             ax2.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
@@ -40,11 +40,13 @@ class WBCallback(WandbCallback):
         # ax2.axis("off")
         fig.figimage(img, 5, 100)
         #fig.figimage(self.tag_img, 5, 120)
-        sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=annot, 
-                annot_kws={'rotation': 90}, 
-                xticklabels=x_labels,
-                yticklabels=y_labels,
-                linewidth=0.5)
+        for score, ax in zip(scores, axes):
+            np_score = score.detach().cpu().numpy()
+            sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
+                    annot_kws={'rotation': 90}, 
+                    xticklabels=x_labels,
+                    yticklabels=y_labels,
+                    linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
         wandb.log({fname:wandb.Image(fig)})
