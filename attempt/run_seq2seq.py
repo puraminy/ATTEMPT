@@ -1372,9 +1372,9 @@ def train(**kwargs):
         combs["train"] = None
         ii = 0
         if model_args.shared_attn is False:
-            for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                for route_method in grm: 
-                    for rm, mask in combs.items():
+            for route_method in grm: 
+                for rm, mask in combs.items():
+                    for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
@@ -1455,6 +1455,16 @@ def train(**kwargs):
                                 ds_conf + "_results_" + is_train + "_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
                         scores = do_score(df, "rouge@bert", save_to)
                         ii += 1
+                    mylogs.bp("pic")
+                    targets = model.encoder.target_encoders_idx
+                    ss1 = model.encoder.attn_scores.index_select(0, targets)
+                    ss2 = model.encoder.router.index_select(0, targets)
+                    ss3 = model.encoder.attn_mask.index_select(0, targets)
+                    y_labels = [model.encoder.prompt_names[i] for i in targets]
+                    WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                        y_labels=y_labels,
+                        x_labels=model.encoder.prompt_names, 
+                        fname = "pred_" + route_method + "_" + rm + "_attn_rb_mask")
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():

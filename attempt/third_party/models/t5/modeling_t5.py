@@ -1009,13 +1009,19 @@ class T5Stack(T5PreTrainedModel):
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
         task_prompt_ids = []
         self.attn_mask = torch.ones(attend_num, attend_num, device=device)
+        src_list = []
+        tgt_list = []
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
             if source_prompts and encoder.name in source_prompts:
                 encoder.src_idx = i
+                src_list.append(i)
                 continue
+            tgt_list.append(i)
             self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
+        self.source_encoders_idx = torch.tensor(src_list, device=device)
+        self.target_encoders_idx = torch.tensor(tgt_list, device=device)
 
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
@@ -1351,42 +1357,14 @@ class T5Stack(T5PreTrainedModel):
                             target_idx=target_idx, 
                             task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                    if self.gen_conf is not None and "route_method" in self.gen_conf:
-                        route_method = self.gen_conf["route_method"] 
-                    else:
-                        route_method = self.route_method
-                    if route_method is None: route_method = "na"
-                    if ((not self.training or not hasattr(self, "first_image"))
-                        and (not hasattr(self, "prev_attn_rm") 
-                        or route_method != self.prev_attn_rm or task != self.pred_task)):
+                    if not self.training:
                         mylogs.bp("pred")
-                        _task = task if task is not None else "na"
-                        pre = "start_"
-                        if not self.training:
-                            mylogs.bp("pic")
-                            pre = "pred_"
-                            self.pred_task = task
-                            self.prev_attn_rm = route_method
-                        self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
-                        tgt_len = len(target_idx_list)
-                        src_len = self.attn_scores.size()[1] 
-                        ss1 = torch.zeros((tgt_len, src_len), device=device)
-                        ss2 = torch.zeros((tgt_len, src_len), device=device)
-                        ss3 = torch.zeros((tgt_len, src_len), device=device)
-                        y_labels = [self.prompt_names[i] for i in target_idx_list]
                         src_idx = source_idx[batch_size - 1]
                         tgt_idx = target_idx[batch_size - 1]
-                        ss1[0, src_idx] = attn_scores[batch_size - 1]
-                        rr = self.router[tgt_idx, src_idx]
-                        ss2[0, src_idx]= rr
-                        sm = self.attn_mask[tgt_idx, src_idx]
-                        ss3[0, src_idx]= sm
-                        WBCallback.save_images(scores=[ss1,ss2,ss3], 
-                            y_labels=y_labels,
-                            x_labels=self.prompt_names, 
-                            fname = pre + route_method + "-" + _task + "_attn_rb_mask")
+                        ascore = attn_scores[batch_size - 1]
+                        self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
@@ -2120,6 +2098,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
         #############################################################
         self.num_src_encoders = 0
+        self.source_encoders_idx = None
+        self.target_encoders_idx = None
         self.task_prompt_ids = []
         self.attn_scores = None
         self.attn_mask = None
