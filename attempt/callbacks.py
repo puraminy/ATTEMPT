@@ -26,7 +26,7 @@ class WBCallback(WandbCallback):
         super().__init__()
 
     @staticmethod
-    def save_images(scores, labels, state=None, fname="", annot=True):
+    def save_images(scores, x_labels, y_labels, state=None, fname="", annot=True):
         np_scores = scores.detach().cpu().numpy()
         fig, axes = plt.subplot_mosaic("ABB")
         ax1, ax2 = axes["A"], axes["B"]
@@ -41,8 +41,9 @@ class WBCallback(WandbCallback):
         fig.figimage(img, 5, 100)
         #fig.figimage(self.tag_img, 5, 120)
         sns.heatmap(np_scores, ax=ax2, cmap="crest", annot=annot, 
-                xticklabels=labels,
-                yticklabels=labels,
+                annot_kws={'rotation': 90}, 
+                xticklabels=x_labels,
+                yticklabels=y_labels,
                 linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
@@ -56,7 +57,8 @@ class WBCallback(WandbCallback):
         if epoch % 10 == 1 or state.global_step == 2:
             self.cur_epoch = epoch
             p = "start" if state.global_step == 1 else "ep"
-            labels = model.encoder.prompt_names
+            x_labels = y_labels = model.encoder.prompt_names
             scores = model.encoder.attn_scores
             model.encoder.first_image = True
-            #WBCallback.save_images(scores, labels, state, fname= p + "_attn_scores")
+            #WBCallback.save_images(scores, x_labels, y_labels, 
+            #                       state, fname= p + "_attn_scores")

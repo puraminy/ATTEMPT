@@ -1281,7 +1281,7 @@ class T5Stack(T5PreTrainedModel):
                                           device=device) 
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] # 0 is for input 
-            private_src_idx = []
+            target_idx_list = []
             target_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
@@ -1304,6 +1304,8 @@ class T5Stack(T5PreTrainedModel):
                     target_prompts_clone = target_prompts.clone()
                     target_prompts_clone[target_masks] = prompt_embeds
                     target_prompts_list.append(target_prompts_clone)
+                    target_idx_list.append(ii)
+                    emb = encoder(encoder.net_inps)
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 
             mask = target_prompts !=0
@@ -1319,6 +1321,7 @@ class T5Stack(T5PreTrainedModel):
                 if len(source_idx_list) > 1 or self.attend_input:
                     target_idx = torch.unique_consecutive(target_idx, dim=1)  
                     source_idx_list = torch.tensor(source_idx_list, device=device).long()
+                    target_idx_list = torch.tensor(target_idx_list, device=device).long()
                     source_idx = source_idx_list.repeat(batch_size, 1)
                     attn_mask = attn_mask.repeat(batch_size, 1, 1)
                     sel_attn_mask = batched_index_select(attn_mask, 2, 
@@ -1367,23 +1370,21 @@ class T5Stack(T5PreTrainedModel):
                         self.attn_scores = torch.zeros_like(self.attn_scores, device=device)
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
-                        for i in range(batch_size):
-                            self.attn_scores = torch.zeros_like(self.attn_scores, 
-                                    device=device)
-                            self.attn_scores[target_idx[i].reshape(-1,1), 
-                                    source_idx[i]] = attn_scores[i]
-                            if i == batch_size - 1:
-                                WBCallback.save_images(scores=self.attn_scores, 
-                                    labels=self.prompt_names, 
-                                    fname = pre + route_method + "-" + _task + "_" + str(i) +"_attn")
-                        if route_method == "rb" and self.attn_method == "rb":
-                            WBCallback.save_images(scores=self.router, 
-                                labels=self.prompt_names, 
-                                fname = pre + route_method + "-" + _task + "_router",
-                                annot=False)
-                            #WBCallback.save_images(scores=attn_sel_mask[0,:,:], 
-                            #    labels=self.prompt_names, 
-                            #    fname = "pred_" + route_method + "-" + task + "_mask")
+                        tgt_len = len(target_idx_list)
+                        src_len = self.attn_scores.size()[1] 
+                        scores = torch.zeros((tgt_len*3, src_len), device=device)
+                        y_labels = [self.prompt_names[i] for i in target_idx_list]
+                        src_idx = source_idx[batch_size - 1]
+                        tgt_idx = target_idx[batch_size - 1]
+                        scores[0:tgt_len, src_idx] = attn_scores[batch_size - 1]
+                        rr = self.router[tgt_idx, src_idx]
+                        scores[tgt_len:2*tgt_len,src_idx]= rr
+                        sm = self.attn_mask[tgt_idx, src_idx]
+                        scores[2*tgt_len:3*tgt_len,src_idx]= sm
+                        WBCallback.save_images(scores=scores, 
+                            y_labels=y_labels * 3,
+                            x_labels=self.prompt_names, 
+                            fname = pre + route_method + "-" + _task + "_attn_rb_mask")
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
