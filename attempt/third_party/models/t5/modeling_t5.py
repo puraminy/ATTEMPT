@@ -1368,7 +1368,7 @@ class T5Stack(T5PreTrainedModel):
                         tscore = torch.zeros((ascore.size()[0],
                             self.attn_scores.size()[1]), device=device)
                         tscore[:, src_idx] = ascore 
-                        self.attn_scores[tgt_idx.reshape(-1,1), :] = ascore 
+                        self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
