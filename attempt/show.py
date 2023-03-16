@@ -707,7 +707,6 @@ def show_df(df):
                 path=tdf.iloc[0]["path"]
                 runid = tdf.iloc[0]["runid"]
                 grm = tdf.iloc[0]["gen_route_methods"]
-                _pfix = tdf.iloc[0]["prefix"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
                 spath = "images/" + runid
@@ -720,11 +719,6 @@ def show_df(df):
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
-                    img_grm = parts[1]
-                    cond = (("router" in fname and _pfix in img_grm) 
-                            or (grm in img_grm and _pfix in img_grm))
-                    if not cond: 
-                        continue
                     if kk < 0:
                         _, key = list_values(parts)
                         kk = parts.index(key)
