@@ -1322,6 +1322,7 @@ class T5Stack(T5PreTrainedModel):
                     mylogs.bp("ccc")
                     if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                         attn_mask = self.gen_conf["attn_mask"] 
+                        self.attn_mask = attn_mask
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:
@@ -1364,7 +1365,10 @@ class T5Stack(T5PreTrainedModel):
                         src_idx = source_idx[batch_size - 1]
                         tgt_idx = target_idx[batch_size - 1]
                         ascore = attn_scores[batch_size - 1]
-                        self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
+                        tscore = torch.zeros((ascore.size()[0],
+                            self.attn_scores.size()[1]), device=device)
+                        tscore[:, src_idx] = ascore 
+                        self.attn_scores[tgt_idx.reshape(-1,1), :] = ascore 
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
