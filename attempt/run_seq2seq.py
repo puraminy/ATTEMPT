@@ -761,8 +761,10 @@ def train(**kwargs):
     else:
         if not prompts_prefix:
            prompts_prefix = "pt" if not model_args.attn_tuning else "att"
-        prompts_dir = Path(training_args.output_dir).with_suffix("")
-        assert False, prompts_dir
+        base_folder = Path(kwargs.save_path)
+        base_folder_stem = base_folder.stem
+        base_folder_name = base_folder.name
+        prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
