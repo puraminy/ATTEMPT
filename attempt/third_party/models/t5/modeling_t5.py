@@ -1020,6 +1020,7 @@ class T5Stack(T5PreTrainedModel):
                 continue
             tgt_list.append(i)
             self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
+        self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)
         self.target_encoders_idx = torch.tensor(tgt_list, device=device)
 
@@ -1050,8 +1051,8 @@ class T5Stack(T5PreTrainedModel):
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_target_prompts / attend_num
         nse = self.num_src_encoders
-        if self.attn_mask is not None:
-            attn_mask = self.attn_mask.clone()
+        if self.attn_mask_orig is not None:
+            attn_mask = self.attn_mask_orig.clone()
         else:
             attn_mask = torch.ones(attend_num, attend_num, device=device)
         k = num_target_prompts
@@ -1317,13 +1318,12 @@ class T5Stack(T5PreTrainedModel):
             mask = target_prompts !=0
             target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
-                attn_mask = self.attn_mask
-                self.cur_attn_mask = attn_mask
+                attn_mask = self.attn_mask_orig
                 if not self.training: 
                     mylogs.bp("ccc")
                     if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                         attn_mask = self.gen_conf["attn_mask"] 
-                        self.cur_attn_mask = attn_mask
+                        self.attn_mask = attn_mask
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:
@@ -2108,6 +2108,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.task_prompt_ids = []
         self.attn_scores = None
         self.attn_mask = None
+        self.attn_mask_orig = None
         self.prompt_names = None
 
         encoder_config = copy.deepcopy(config)
