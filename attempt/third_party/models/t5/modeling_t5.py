@@ -1318,11 +1318,12 @@ class T5Stack(T5PreTrainedModel):
             target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
                 attn_mask = self.attn_mask
+                self.cur_attn_mask = attn_mask
                 if not self.training: 
                     mylogs.bp("ccc")
                     if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                         attn_mask = self.gen_conf["attn_mask"] 
-                        self.attn_mask = attn_mask
+                        self.cur_attn_mask = attn_mask
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:
