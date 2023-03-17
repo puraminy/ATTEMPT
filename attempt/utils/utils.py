@@ -7,6 +7,9 @@ from dataclasses import fields
 import torch.nn as nn
 import json
 import torch 
+from PIL import Image
+from PIL import ImageFont
+from PIL import ImageDraw
 
 
 import sys
@@ -52,6 +55,36 @@ def convert(val):
    elif val.isdigit():
        ret= int(val)
    return ret
+
+def combine_x(images):
+    widths, heights = zip(*(i.size for i in images))
+
+    total_width = sum(widths)
+    max_height = max(heights)
+
+    new_im = Image.new('RGB', (total_width, max_height))
+
+    x_offset = 0
+    for im in images:
+      new_im.paste(im, (x_offset,0))
+      x_offset += im.size[0]
+
+    return new_im
+
+def combine_y(images):
+    widths, heights = zip(*(i.size for i in images))
+
+    total_width = max(widths)
+    max_height = sum(heights)
+
+    new_im = Image.new('RGB', (total_width, max_height))
+
+    y_offset = 0
+    for im in images:
+      new_im.paste(im, (0, y_offset))
+      y_offset += im.size[1]
+
+    return new_im
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""

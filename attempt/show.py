@@ -17,6 +17,7 @@ from comet.mycur.util import *
 from mylogs import * 
 import json
 from comet.utils.myutils import *
+from attempt.utils.utils import combine_x,combine_y
 file_id = "name"
 from PIL import Image
 from PIL import ImageFont
@@ -24,36 +25,6 @@ from PIL import ImageDraw
 import sklearn
 import sklearn.metrics
 import attempt.metrics.metrics as mets
-
-def combine_x(images):
-    widths, heights = zip(*(i.size for i in images))
-
-    total_width = sum(widths)
-    max_height = max(heights)
-
-    new_im = Image.new('RGB', (total_width, max_height))
-
-    x_offset = 0
-    for im in images:
-      new_im.paste(im, (x_offset,0))
-      x_offset += im.size[0]
-
-    return new_im
-
-def combine_y(images):
-    widths, heights = zip(*(i.size for i in images))
-
-    total_width = max(widths)
-    max_height = sum(heights)
-
-    new_im = Image.new('RGB', (total_width, max_height))
-
-    y_offset = 0
-    for im in images:
-      new_im.paste(im, (0, y_offset))
-      y_offset += im.size[1]
-
-    return new_im
 
 def load_results(path):
     with open(path, "r") as f:
