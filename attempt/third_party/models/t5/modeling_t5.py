@@ -1136,38 +1136,35 @@ class T5Stack(T5PreTrainedModel):
             router_scores = RelaxedBernoulli(temperature=self.temperature, 
                 logits=router).rsample()            
             scores = router_scores
-            if self.training:
+            self.apply_softmax_to = "none"
+            mylogs.bp("route")
+            if self.gen_conf is not None and "route_method" in self.gen_conf:
+                route_method = self.gen_conf["route_method"] 
+            else:
+                route_method = self.route_method
+            if route_method == "rb":
+                attn_scores = scores
+            elif route_method == "sigmoid":
+                router_scores = torch.sigmoid(router)  # layer * n_prompts
+                scores = router_scores
+                attn_scores = scores
+            elif route_method == "router":
+                attn_scores = router
+            elif route_method == "sign":
+                with torch.no_grad():
+                    router[router <= 0] = 0
+                    router[router > 0] = 1
+                scores = router
                 attn_scores = scores
             else:
-                self.apply_softmax_to = "none"
-                mylogs.bp("route")
-                if self.gen_conf is not None and "route_method" in self.gen_conf:
-                    route_method = self.gen_conf["route_method"] 
-                else:
-                    route_method = self.route_method
-                if route_method == "rb":
-                    attn_scores = scores
-                elif route_method == "sigmoid":
-                    router_scores = torch.sigmoid(router)  # layer * n_prompts
-                    scores = router_scores
-                    attn_scores = scores
-                elif route_method == "router":
-                    attn_scores = router
-                elif route_method == "sign":
-                    with torch.no_grad():
-                        router[router <= 0] = 0
-                        router[router > 0] = 1
-                    scores = router
-                    attn_scores = scores
-                else:
-                    attn_scores = scores
-                if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
-                    self.prev_rm = route_method
-                    #WBCallback.save_images(scores=attn_scores[-1,:,:], 
-                    #    labels=self.prompt_names, 
-                    #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
-            #z = torch.mm(self.z, self.A) 
-            #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
+                attn_scores = scores
+            if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
+                self.prev_rm = route_method
+                #WBCallback.save_images(scores=attn_scores[-1,:,:], 
+                #    labels=self.prompt_names, 
+                #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
+        #z = torch.mm(self.z, self.A) 
+        #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
             x = torch.transpose(avg_attend_to, 1,2)
             attn_scores = avg_attend_for.bmm(x)
