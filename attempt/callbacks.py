@@ -29,7 +29,7 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_images(scores, x_labels, y_labels, state=None, fname="", 
-            annot=True,title="" add_tags=True):
+            annot=True,title="", add_tags=True):
         if not title: title = fname
         if add_tags:
             fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
