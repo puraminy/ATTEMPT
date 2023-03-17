@@ -1051,10 +1051,7 @@ class T5Stack(T5PreTrainedModel):
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_target_prompts / attend_num
         nse = self.num_src_encoders
-        if self.attn_mask_orig is not None:
-            attn_mask = self.attn_mask_orig.clone()
-        else:
-            attn_mask = torch.ones(attend_num, attend_num, device=device)
+        attn_mask = torch.ones(attend_num, attend_num, device=device)
         k = num_target_prompts
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if not encoder.is_source:
@@ -1318,12 +1315,11 @@ class T5Stack(T5PreTrainedModel):
             mask = target_prompts !=0
             target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
-                attn_mask = self.attn_mask_orig
+                attn_mask = self.attn_mask
                 if not self.training: 
                     mylogs.bp("ccc")
                     if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                         attn_mask = self.gen_conf["attn_mask"] 
-                        self.attn_mask = attn_mask
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:

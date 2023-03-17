@@ -1462,7 +1462,8 @@ def train(**kwargs):
                     targets = model.encoder.target_encoders_idx
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
                     ss2 = model.encoder.router.index_select(0, targets)
-                    ss3 = model.encoder.attn_mask.index_select(0, targets)
+                    mask = model.encoder.attn_mask if mask is None else mask
+                    ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
                     WBCallback.save_images(scores=[ss1,ss2,ss3], 
                         y_labels=y_labels,
