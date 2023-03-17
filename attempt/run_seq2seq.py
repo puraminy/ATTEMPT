@@ -30,6 +30,7 @@ from data import AutoTask
 import re
 from rouge import Rouge
 from utils import get_adapter_config
+from attempt.utils.utils import combine_x,combine_y
 from transformers.trainer_utils import is_main_process, get_last_checkpoint
 from transformers import (
     AutoTokenizer,
@@ -69,6 +70,7 @@ import itertools, collections
 from metrics.metrics import do_score
 from encoders.encoders import *
 from optim import *
+from PIL import Image
 import wandb
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
@@ -1382,6 +1384,7 @@ def train(**kwargs):
         ii = 0
         if model_args.shared_attn is False:
             for route_method in grm: 
+                img_list = []
                 for rm, mask in combs.items():
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
@@ -1471,10 +1474,15 @@ def train(**kwargs):
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
-                    WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                    img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
                         y_labels=y_labels,
-                        x_labels=model.encoder.prompt_names, 
-                        fname = "pred_" + route_method + "_" + rm + "_attn_rb_mask")
+                        x_labels=model.encoder.prompt_names, add_tags=False) 
+                    im = Image.open(img_buf)
+                    img_list.append(im)
+
+                new_im = combine_y(img_list)
+                fname = "pred_" + route_method + "_" + rm + "_attn_rb_mask"
+                wandb.log({fname:wandb.Image(new_im)})
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():

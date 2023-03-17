@@ -9,6 +9,8 @@ import attempt.mylogs as mylogs
 from attempt.myutil import tag_to_image
 import matplotlib.pyplot as plt
 import json, os
+import io
+from PIL import Image
 
 class AnnealCallback(TrainerCallback):
     def on_step_begin(self, args, state, control, **kwargs):
@@ -26,7 +28,8 @@ class WBCallback(WandbCallback):
         super().__init__()
 
     @staticmethod
-    def save_images(scores, x_labels, y_labels, state=None, fname="", annot=True):
+    def save_images(scores, x_labels, y_labels, state=None, fname="", 
+            annot=True, add_tags=True):
         fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
         ax1, ax2, ax3,ax4 = axes["A"], axes["B"], axes["C"], axes["D"]
         axes = [ax2, ax3, ax4]
@@ -35,11 +38,10 @@ class WBCallback(WandbCallback):
         else:
             ax2.set_title(fname)
         fig.set_size_inches(12.5, 6.5)
-        ax1.axis("off")
-        img = tag_to_image()
-        # ax2.axis("off")
-        fig.figimage(img, 5, 100)
-        #fig.figimage(self.tag_img, 5, 120)
+        if add_tags:
+            ax1.axis("off")
+            img = tag_to_image()
+            fig.figimage(img, 5, 100)
         for score, ax in zip(scores, axes):
             np_score = score.detach().cpu().numpy()
             sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
@@ -49,8 +51,12 @@ class WBCallback(WandbCallback):
                     linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
-        wandb.log({fname:wandb.Image(fig)})
+        if fname:
+            wandb.log({fname:wandb.Image(fig)})
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format='png')
         plt.close("all")
+        return img_buf
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)
