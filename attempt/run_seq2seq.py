@@ -192,11 +192,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
    exp_args = {}
+   save_path = ""
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
    experiment = experiment.replace("#","-")
-   save_path = ""
+   if experiment == "self":
+       save_path = exp_conf["save_path"]
    if not exp_conf and experiment != "self":
        save_path = os.path.join(mylogs.logPath, experiment)
        if Path(save_path).exists() and rem:
