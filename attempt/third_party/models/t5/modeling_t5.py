@@ -928,6 +928,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = None
         self.gen_conf = None
         self.route_method = config.route_method
+        self.normalize = config.normalize
         self.sig_coef = config.sig_coef
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
@@ -1206,7 +1207,8 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if self.apply_softmax_to == "all":
             attn_scores = F.softmax(attn_scores, -1)
-        attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        if self.normalize is True:
+            attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
