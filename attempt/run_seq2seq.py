@@ -281,6 +281,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = 0
+   exps_done = 0
    orig_args = args.copy()
    total = len(tot_comb)
    args["total_exp"] = total
@@ -309,7 +310,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            print(f"Dep var observed {conflict} ignored")
            continue
        ii += 1
-       if max_exp > 0 and ii > max_exp:
+       if max_exp > 0 and exps_done > max_exp:
            print(f"Max number of exp reached {max_exp} ")
            return
 
@@ -383,7 +384,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            ctx.invoke(train, **args)
        else:
            try:
-               ctx.invoke(train, **args)
+               done = ctx.invoke(train, **args)
+               if done != "skipped":
+                   exps_done += 1
            except Exception as e:
                print(f"================ {ii}/{total} =====================")
                exp_conf = json.dumps(args, indent=2)
@@ -547,7 +550,7 @@ def train(**kwargs):
         mylogs.dlog.info("-------------------------------------")
         if not resolved:
             shutil.rmtree(training_args.output_dir)
-            return
+            return "skipped"
 
     if log_var:
        mylogs.plog.handlers.clear()
