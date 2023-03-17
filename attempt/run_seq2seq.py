@@ -1383,9 +1383,9 @@ def train(**kwargs):
         combs["train"] = None
         ii = 0
         if model_args.shared_attn is False:
-            for route_method in grm: 
+            for rm, mask in combs.items():
                 img_list = []
-                for rm, mask in combs.items():
+                for route_method in grm: 
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
