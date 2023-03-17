@@ -686,7 +686,8 @@ def show_df(df):
                 Path(spath).mkdir(parents=True, exist_ok=True)
                 images = []
                 kk = 1
-                key = "all"
+                key = "single"
+                ii = 0
                 for img in paths: 
                     fname = Path(img).stem
                     parts = fname.split("_")
@@ -697,6 +698,7 @@ def show_df(df):
                     dest = os.path.join(spath, fname + ".png") 
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
+                    if key == "single": key = str(ii)
                     if key == "all":
                         imgs[key] = [_image]
                     elif not key in imgs:
