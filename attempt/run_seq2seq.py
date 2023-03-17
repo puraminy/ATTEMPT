@@ -1481,7 +1481,7 @@ def train(**kwargs):
                     img_list.append(im)
 
                 new_im = combine_y(img_list)
-                fname = "pred_" + route_method + "_" + rm + "_attn_rb_mask"
+                fname = "pred_" + rm + "_" + router_method + "_attn_rb_mask"
                 wandb.log({fname:wandb.Image(new_im)})
 
             if kwargs.setdefault("eval_test", False):
