@@ -30,9 +30,14 @@ class WBCallback(WandbCallback):
     @staticmethod
     def save_images(scores, x_labels, y_labels, state=None, fname="", 
             annot=True, add_tags=True):
-        fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
-        ax1, ax2, ax3,ax4 = axes["A"], axes["B"], axes["C"], axes["D"]
-        axes = [ax2, ax3, ax4]
+        if add_tags:
+            fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
+            ax1, ax2, ax3,ax4 = axes["A"], axes["B"], axes["C"], axes["D"]
+            axes = [ax2, ax3, ax4]
+        else:
+            fig, axes = plt.subplot_mosaic("A;B;C")
+            ax1, ax2, ax3 = axes["A"], axes["B"], axes["C"]
+            axes = [ax1, ax2, ax3]
         if state is not None:
             ax2.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
