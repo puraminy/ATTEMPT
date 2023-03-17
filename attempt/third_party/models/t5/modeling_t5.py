@@ -1151,6 +1151,8 @@ class T5Stack(T5PreTrainedModel):
                     router_scores = torch.sigmoid(router)  # layer * n_prompts
                     scores = router_scores
                     attn_scores = scores
+                elif route_method == "router":
+                    attn_scores = router
                 elif route_method == "sign":
                     with torch.no_grad():
                         router[router <= 0] = 0
