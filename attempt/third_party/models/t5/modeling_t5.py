@@ -1192,7 +1192,7 @@ class T5Stack(T5PreTrainedModel):
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
-        if self.attend_target or self.attend_private: # force to select them
+        if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
         if self.source_prompts_order == "unsorted":
@@ -1217,7 +1217,7 @@ class T5Stack(T5PreTrainedModel):
         elif self.source_prompts_order == "asc":
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
 
-        if self.attend_target or self.attend_private: # force to select them
+        if False: #self.attend_target or self.attend_private: # force to select them
             attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
