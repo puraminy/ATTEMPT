@@ -1232,7 +1232,7 @@ class T5Stack(T5PreTrainedModel):
                     logits=attn_sel_scores).rsample()  
         elif route_method == "sigmoid":
             attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
-        elif route_method == "router":
+        elif route_method == "none" or route_method == "router":
             attn_sel_scores = attn_sel_scores 
         elif route_method == "sign":
             attn_sel_scores[attn_sel_scores <= 0] = 0
