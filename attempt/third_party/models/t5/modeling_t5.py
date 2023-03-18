@@ -1193,7 +1193,7 @@ class T5Stack(T5PreTrainedModel):
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
         if self.attend_target or self.attend_private: # force to select them
-            attn_scores[:,:,-1] += 2
+            attn_scores[:,:,-1] = attn_scores[:,:,-1] + 2
 
         if self.source_prompts_order == "unsorted":
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
@@ -1226,7 +1226,7 @@ class T5Stack(T5PreTrainedModel):
         attend_to = attend_to.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
 
-        if route_method == "rb":
+        if route_method == "rb" and not self.training:
             with torch.no_grad():
                 attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=attn_sel_scores).rsample()  
