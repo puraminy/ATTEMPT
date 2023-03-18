@@ -35,14 +35,16 @@ class WBCallback(WandbCallback):
             fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
             ax1, ax2, ax3,ax4 = axes["A"], axes["B"], axes["C"], axes["D"]
             axes = [ax2, ax3, ax4]
+            ax_t = ax2
         else:
             fig, axes = plt.subplot_mosaic("A;B;C")
             ax1, ax2, ax3 = axes["A"], axes["B"], axes["C"]
             axes = [ax1, ax2, ax3]
+            ax_t = ax1
         if state is not None:
-            ax2.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
+            ax_t.set_title(f"Epoch:{state.epoch}  Step:{state.global_step} Best:{state.best_metric}")
         else:
-            ax2.set_title(title)
+            ax_t.set_title(title)
         fig.set_size_inches(12.5, 6.5)
         if add_tags:
             ax1.axis("off")
