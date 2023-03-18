@@ -947,6 +947,7 @@ class T5Stack(T5PreTrainedModel):
         self.attend_target = attend_target
         self.target_share = config.target_share 
         self.attend_for = config.attend_for 
+        self.attend_private = config.attend_private 
         self.prefix_emb = prefix_emb if self.attend_target is True else None
         self.prefix_tuning = config.prefix_tuning
         self.source_prompts_order = config.source_prompts_order
@@ -1074,6 +1075,8 @@ class T5Stack(T5PreTrainedModel):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
+        if not self.training:
+            mylogs.bp("all")
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
         inp_target = target_prompts
@@ -1121,16 +1124,12 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         if self.attn_method == "rb":
-            scores = torch.zeros(
-                     target_idx.size()[1],
-                     attend_to_idx.size()[1],
-                     device=inputs_embeds.device)
+            route_method = self.route_method
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 
                     device=inputs_embeds.device)
             router = router.repeat(batch_size, 1, 1)
-            scores = scores.repeat(batch_size, 1, 1)
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
@@ -1141,30 +1140,9 @@ class T5Stack(T5PreTrainedModel):
             else:
                 self.apply_softmax_to = "none"
                 mylogs.bp("route")
+                attn_scores = router
                 if self.gen_conf is not None and "route_method" in self.gen_conf:
                     route_method = self.gen_conf["route_method"] 
-                else:
-                    route_method = self.route_method
-                if route_method == "rb":
-                    with torch.no_grad():
-                        attn_scores = RelaxedBernoulli(temperature=self.temperature, 
-                            logits=router).rsample()  
-                elif route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(router)  # layer * n_prompts
-                elif route_method == "router":
-                    attn_scores = router
-                elif route_method == "sign":
-                    with torch.no_grad():
-                        router[router <= 0] = 0
-                        router[router > 0] = 1
-                    attn_scores = router
-                else:
-                    raise ValueError(route_method + " isn't recognized!")
-                if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
-                    self.prev_rm = route_method
-                    #WBCallback.save_images(scores=attn_scores[-1,:,:], 
-                    #    labels=self.prompt_names, 
-                    #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1214,7 +1192,7 @@ class T5Stack(T5PreTrainedModel):
         num_targets = attend_for.size()[1] 
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
-        if self.attend_target: # force to select them
+        if self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] += 2
 
         if self.source_prompts_order == "unsorted":
@@ -1247,6 +1225,26 @@ class T5Stack(T5PreTrainedModel):
         attend_to = batched_index_select(src_prompts, 1, attend_to_sel_idx)
         attend_to = attend_to.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
+
+        if route_method == "rb":
+            with torch.no_grad():
+                attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
+                    logits=attn_sel_scores).rsample()  
+        elif route_method == "sigmoid":
+            attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
+        elif route_method == "router":
+            attn_sel_scores = attn_sel_scores 
+        elif route_method == "sign":
+            attn_sel_scores[attn_sel_scores <= 0] = 0
+            attn_sel_scores[attn_sel_scores > 0] = 1
+        else:
+            raise ValueError(route_method + " isn't recognized!")
+        if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
+            self.prev_rm = route_method
+            #WBCallback.save_images(scores=attn_scores[-1,:,:], 
+            #    labels=self.prompt_names, 
+            #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
+
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
@@ -1276,6 +1274,8 @@ class T5Stack(T5PreTrainedModel):
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
+            if not self.training:
+                mylogs.bp("fll")
             tids = task_ids
             device=input_ids.device
             batch_size = inputs_embeds.shape[0]
