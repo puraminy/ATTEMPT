@@ -40,6 +40,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts, "add target needs source prompts"
             if model_args.attend_input is True:
                 assert model_args.attn_tuning, " Attend input is  for attention tuninng"
+            if model_args.target_share is None:
+                assert not model_args.add_target, " Target share None is for not add_target"
             if model_args.target_share is not None:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
                 assert model_args.add_target, " Target share not None is for add target"
