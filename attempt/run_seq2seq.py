@@ -1477,7 +1477,7 @@ def train(**kwargs):
                     img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
                         y_labels=y_labels,
                         x_labels=model.encoder.prompt_names, 
-                        title=rm + "_" + router_method, add_tags=False) 
+                        title=rm + "_" + route_method, add_tags=False) 
                     im = Image.open(img_buf)
                     img_list.append(im)
 
