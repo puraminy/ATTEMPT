@@ -1193,7 +1193,7 @@ class T5Stack(T5PreTrainedModel):
         num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
         num_attend_to = num_attend_to // num_targets
         if self.attend_target or self.attend_private: # force to select them
-            attn_scores[:,:,-1] = attn_scores[:,:,-1] + 2
+            attn_scores[:,:,-1] += 2
 
         if self.source_prompts_order == "unsorted":
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
@@ -1232,13 +1232,10 @@ class T5Stack(T5PreTrainedModel):
                     logits=attn_sel_scores).rsample()  
         elif route_method == "sigmoid":
             attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
-        elif route_method is None or route_method == "router":
-            attn_sel_scores = attn_sel_scores 
         elif route_method == "sign":
             attn_sel_scores[attn_sel_scores <= 0] = 0
             attn_sel_scores[attn_sel_scores > 0] = 1
-        else:
-            raise ValueError(route_method + " isn't recognized!")
+
         if  not hasattr(self, "prev_rm") or route_method != self.prev_rm:
             self.prev_rm = route_method
             #WBCallback.save_images(scores=attn_scores[-1,:,:], 
