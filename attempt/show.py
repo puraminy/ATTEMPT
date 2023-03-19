@@ -700,7 +700,6 @@ def show_df(df):
                         key = parts[kk]
                     dest = os.path.join(spath, "sel_" + fname + ".png") 
                     shutil.copyfile(img, dest)
-                    shutil.copyfile(img, sel_dest)
                     _image = Image.open(dest)
                     if key == "single": key = str(ii)
                     if key == "all":
