@@ -12,6 +12,9 @@ def args(key, default="no_default"):
     else:
         return default
 
+def is_debug():
+    return main_args["is_debug"]
+
 def get_full_tag(as_str=False):
     return get_tag(main_args["full_tag"], main_args, as_str)
 
