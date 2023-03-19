@@ -700,7 +700,7 @@ def show_df(df):
                         kk = parts.index(key)
                         key = parts[kk]
                     dest = os.path.join(spath, fname + ".png") 
-                    sel_dest = Path(img).parent + "/pred_sel" +  fname + ".png"
+                    sel_dest = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
                     shutil.copyfile(img, dest)
                     shutil.copyfile(img, sel_dest)
                     _image = Image.open(dest)
