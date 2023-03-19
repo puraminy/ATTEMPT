@@ -676,6 +676,9 @@ def show_df(df):
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
+                path = Path(path)
+                _selpath = os.path.join(path.name, "sel_" + path.name) 
+                shutil.copyfile(path, _selpath)
                 runid = tdf.iloc[0]["runid"]
                 grm = tdf.iloc[0]["gen_route_methods"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
