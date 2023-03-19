@@ -1236,16 +1236,9 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores[attn_sel_scores <= 0] = 0
             attn_sel_scores[attn_sel_scores > 0] = 1
 
-        if (not self.training and  
-            (not hasattr(self, "prev_rm") or route_method != self.prev_rm)):
-
-            self.prev_rm = route_method
-            #WBCallback.save_images(scores=attn_scores[-1,:,:], 
-            #    labels=self.prompt_names, 
-            #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
 
         if self.apply_softmax_to == "after":
-            attn_scores = F.softmax(attn_scores, -1)
+            attn_sel_scores = F.softmax(attn_sel_scores, -1)
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
@@ -1358,7 +1351,7 @@ class T5Stack(T5PreTrainedModel):
                             target_idx=target_idx, 
                             task=task)
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                    if not self.training:
+                    if (not self.training or mylogs.is_debug()): 
                         mylogs.bp("pred")
                         num_targets = target_idx.size()[-1]
                         source_idx = source_idx.view(batch_size, num_targets, -1)
@@ -1369,6 +1362,15 @@ class T5Stack(T5PreTrainedModel):
                             self.attn_scores.size()[1]), device=device)
                         tscore[:, src_idx] = ascore 
                         self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
+                        targets = self.target_encoders_idx
+                        ss1 = self.attn_scores.index_select(0, targets)
+                        ss2 = self.router.index_select(0, targets)
+                        ss3 = self.attn_mask.index_select(0, targets)
+                        y_labels = [self.prompt_names[i] for i in targets]
+                        img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                            y_labels=y_labels,
+                            x_labels=self.prompt_names, 
+                            title=self.route_method, add_tags=False) 
                 else:
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:

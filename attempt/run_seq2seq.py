@@ -219,6 +219,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args = {}
    args["save_path"] = save_path
    args["load_path"] = "" 
+   args["is_debug"] = debug
    if not download_model:
        args["load_path"] = mylogs.pretPath 
    args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
