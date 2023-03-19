@@ -660,7 +660,8 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
-        elif char == "l":
+        elif char in ["l", "m"]:
+            if char == "m": char = "i"
             backit(df, sel_cols)
             s_rows = sel_rows
             if not sel_rows:
@@ -720,7 +721,7 @@ def show_df(df):
                         dest = os.path.join("temp", name.strip("-") + ".png")
                         new_im.save(dest)
             subprocess.run(["eog", dest])
-        elif char in ["o","O"]:
+        if char in ["o","O"]:
             pname=df.iloc[sel_row]["image"]
             subprocess.run(["eog", pname])
         elif char == "L":
@@ -1216,7 +1217,7 @@ def show_df(df):
                 info_cols_back = info_cols.copy()
                 info_cols = []
 
-        elif char == "m" and prev_char != "x":
+        elif char == "M" and prev_char != "x":
             left = 0
             if sel_exp and on_col_list:
                 backit(df, sel_cols)
