@@ -198,7 +198,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
-   experiment = experiment.replace("#","-")
+   experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
    if not save_path or experiment == "self":

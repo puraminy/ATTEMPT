@@ -1230,6 +1230,7 @@ class T5Stack(T5PreTrainedModel):
                 attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=attn_sel_scores).rsample()  
         elif route_method == "sigmoid":
+            mylogs.bp("sigm")
             attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
         elif route_method == "sign":
             attn_sel_scores[attn_sel_scores <= 0] = 0
