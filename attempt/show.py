@@ -677,10 +677,10 @@ def show_df(df):
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
-                _selpath = os.path.join(path.name, "sel_" + path.name) 
+                _selpath = os.path.join(path.parent, "sel_" + path.name) 
                 shutil.copyfile(path, _selpath)
-                runid = tdf.iloc[0]["runid"]
                 grm = tdf.iloc[0]["gen_route_methods"]
+                runid = tdf.iloc[0]["runid"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
                 spath = "images/" + runid
@@ -1192,6 +1192,10 @@ def show_df(df):
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
                 #df = df.sort_values(by="input_text", ascending=False)
             else:
+                path = df.iloc[sel_row]["path"]
+                path = Path(path)
+                _selpath = os.path.join(path.parent, "sel_" + path.name) 
+                shutil.copyfile(path, _selpath)
                 exp=df.iloc[sel_row]["exp_id"]
                 sel_exp = exp
                 cond = f"(main_df['{FID}'] == '{exp}')"
