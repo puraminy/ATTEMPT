@@ -678,7 +678,7 @@ def show_df(df):
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
-                _selpath = os.path.join(path.parent, "sel_" + path.name) 
+                _selpath = os.path.join(path.parent, "pred_sel" + path.name) 
                 shutil.copyfile(path, _selpath)
                 grm = tdf.iloc[0]["gen_route_methods"]
                 runid = tdf.iloc[0]["runid"]
@@ -699,8 +699,10 @@ def show_df(df):
                         _, key = list_values(parts)
                         kk = parts.index(key)
                         key = parts[kk]
-                    dest = os.path.join(spath, "sel_" + fname + ".png") 
+                    dest = os.path.join(spath, fname + ".png") 
+                    sel_dest = Path(img).parent + "/pred_sel" +  fname + ".png"
                     shutil.copyfile(img, dest)
+                    shutil.copyfile(img, sel_dest)
                     _image = Image.open(dest)
                     if key == "single": key = str(ii)
                     if key == "all":
