@@ -1134,9 +1134,8 @@ class T5Stack(T5PreTrainedModel):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
             if self.training:
-                router_scores = RelaxedBernoulli(temperature=self.temperature, 
+                attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
-                attn_scores = router_scores
             else:
                 self.apply_softmax_to = "none"
                 mylogs.bp("route")
@@ -1184,7 +1183,7 @@ class T5Stack(T5PreTrainedModel):
             raise NotImplementedError
 
         mylogs.bp("att")
-        if self.apply_softmax_to == "all":
+        if self.apply_softmax_to == "before":
             attn_scores = F.softmax(attn_scores, -1)
         if self.normalize is True:
             attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
@@ -1244,6 +1243,8 @@ class T5Stack(T5PreTrainedModel):
             #    labels=self.prompt_names, 
             #    fname = "pred_" + route_method + "-" + task + "_scores_" + str(i))
 
+        if self.apply_softmax_to == "after":
+            attn_scores = F.softmax(attn_scores, -1)
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
