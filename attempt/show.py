@@ -695,8 +695,9 @@ def show_df(df):
                         _, key = list_values(parts)
                         kk = parts.index(key)
                         key = parts[kk]
-                    dest = os.path.join(spath, fname + ".png") 
+                    dest = os.path.join(spath, "sel_" + fname + ".png") 
                     shutil.copyfile(img, dest)
+                    shutil.copyfile(img, sel_dest)
                     _image = Image.open(dest)
                     if key == "single": key = str(ii)
                     if key == "all":
