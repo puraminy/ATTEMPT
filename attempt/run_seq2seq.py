@@ -1397,6 +1397,8 @@ def train(**kwargs):
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
+                        else:
+                           gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
                         exp_info["gen_route_methods"] = route_method
                         exp_info["gen_mask"] = rm 
                         mylogs.bp("test")
