@@ -1390,6 +1390,9 @@ def train(**kwargs):
             for rm, mask in combs.items():
                 img_list = []
                 for route_method in grm: 
+                    attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
+                    model.encoder.attn_scores = torch.zeros(
+                        (attend_num, attend_num), device=device) 
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
