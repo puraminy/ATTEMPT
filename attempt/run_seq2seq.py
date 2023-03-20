@@ -1493,6 +1493,15 @@ def train(**kwargs):
                 new_im = combine_y(img_list)
                 fname = "pred_" + rm + "_" + route_method 
                 wandb.log({fname:wandb.Image(new_im)})
+                cur_img = img_list[-1]
+                sp = op.join(kwargs.save_path, "images") 
+                Path(sp).mkdir(exist_ok=True, parents=True)
+                pic = "router"
+                pp = sp + "/pred_" + pic + ".png"
+                if Path(pp).is_file():
+                    _image = Image.open(pp)
+                    cur_img = combine_y([cur_img, _image])
+                    cur_img.save(pp)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():
