@@ -1501,7 +1501,7 @@ def train(**kwargs):
                 if Path(pp).is_file():
                     _image = Image.open(pp)
                     cur_img = combine_y([cur_img, _image])
-                    cur_img.save(pp)
+                cur_img.save(pp)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():
