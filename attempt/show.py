@@ -679,7 +679,7 @@ def show_df(df):
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
                 _selpath = os.path.join(path.parent, "pred_sel" + path.name) 
-                os.rename(path, _selpath)
+                shutil.copy(path, _selpath)
                 grm = tdf.iloc[0]["gen_route_methods"]
                 runid = tdf.iloc[0]["runid"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
@@ -701,8 +701,9 @@ def show_df(df):
                         key = parts[kk]
                     dest = os.path.join(spath, fname + ".png") 
                     if not fname.startswith("pred_sel"):
-                        sel_dest = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
-                        os.rename(img, sel_dest)
+                        selimg = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
+                        os.rename(img, selimg)
+                        img = selimg
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
                     if key == "single": key = str(ii)
