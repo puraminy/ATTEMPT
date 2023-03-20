@@ -1353,7 +1353,7 @@ class T5Stack(T5PreTrainedModel):
                     inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     if (not self.training or mylogs.is_debug()): 
                         mylogs.bp("pred")
-                        attend_num =len(prompt_encoders) + 1 # one for input
+                        attend_num =len(self.prompt_encoders) + 1 # one for input
                         self.attn_scores = torch.zeros(
                             (attend_num, attend_num), device=device) 
                         num_targets = target_idx.size()[-1]
