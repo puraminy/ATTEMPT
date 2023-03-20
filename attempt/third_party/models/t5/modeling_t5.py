@@ -1137,7 +1137,6 @@ class T5Stack(T5PreTrainedModel):
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
             else:
-                self.apply_softmax_to = "none"
                 mylogs.bp("route")
                 attn_scores = router
                 if self.gen_conf is not None and "route_method" in self.gen_conf:
