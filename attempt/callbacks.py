@@ -80,7 +80,7 @@ class WBCallback(WandbCallback):
             ax1 = axes["A"]
             ax_t = ax1
         ax_t.set_title(title)
-        fig.set_size_inches(12.5, 6.5)
+        fig.set_size_inches(12.5, 4.5)
         if tags:
             ax1.axis("off")
             img = tag_to_image(tags)
