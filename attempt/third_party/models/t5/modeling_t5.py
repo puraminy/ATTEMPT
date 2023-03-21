@@ -1318,7 +1318,6 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = target_prompts.view(batch_size,
                         -1, self.prompt_dim, self.model_dim)
                 if len(source_idx_list) > 1 or self.attend_input:
-                    breakpoint()
                     target_idx = torch.unique_consecutive(target_idx, dim=1)  
                     source_idx_list = torch.tensor(source_idx_list, device=device).long()
                     target_idx_list = torch.tensor(target_idx_list, device=device).long()
