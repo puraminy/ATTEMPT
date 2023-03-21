@@ -833,6 +833,7 @@ def train(**kwargs):
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
+        attend_to_all = kwargs.setdefault("attend_to_all", False) 
         target_prompts = list(prompts.keys())
         # create and load target prompts
         mylogs.bp("mask")
@@ -846,9 +847,9 @@ def train(**kwargs):
             for i, n in enumerate(source_prompts, start=1):
                 encoder.attend_to_mask[i] = 0 
                 if n in encoder.attend_to:
-                    encoder.attend_to_mask[i] = 2 
+                    encoder.attend_to_mask[i] = 1 
                     attn_flag = True
-                if "_com" in n:
+                if "_com" in n or attend_to_all:
                     encoder.attend_to_mask[i] = 1 
                     attn_flag = True
             if not attn_flag or not use_private_prompts: 
@@ -1386,6 +1387,7 @@ def train(**kwargs):
             combs["rand-" + str(rm)] = mask
         combs["train"] = None
         ii = 0
+        kk = 0
         if model_args.shared_attn is False:
             for rm, mask in combs.items():
                 img_list = []
@@ -1496,7 +1498,8 @@ def train(**kwargs):
                 cur_img = img_list[-1]
                 sp = op.join(kwargs.save_path, "images") 
                 Path(sp).mkdir(exist_ok=True, parents=True)
-                pic = "router"
+                pic = "router_" + str(kk % 5)
+                kk += 1
                 pp = sp + "/pred_" + pic + ".png"
                 if Path(pp).is_file():
                     _image = Image.open(pp)
