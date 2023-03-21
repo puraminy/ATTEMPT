@@ -1499,21 +1499,27 @@ def train(**kwargs):
                 fname = "pred_" + rm + "_" + route_method 
                 wandb.log({fname:wandb.Image(new_im)})
 
-                img_buf = WBCallback.save_image(score=ss2, 
-                    y_labels=y_labels,
-                    x_labels=model.encoder.prompt_names, 
-                    title= exp_info["expid"], tags=mylogs.diff_args()) 
+            mylogs.bp("diff")
+            targets = model.encoder.target_encoders_idx
+            ss2 = model.encoder.router.index_select(0, targets)
+            diff_args = mylogs.diff_args()
+            if diff_args:
+                diff_args = diff_args["values_changed"]
+            img_buf = WBCallback.save_image(score=ss2, 
+                y_labels=y_labels,
+                x_labels=model.encoder.prompt_names, 
+                title= exp_info["expid"], tags=diff_args) 
 
-                cur_img = Image.open(img_buf)
-                sp = op.join(kwargs.save_path, "images") 
-                Path(sp).mkdir(exist_ok=True, parents=True)
-                pic = "router_" + str(kk % 5)
-                kk += 1
-                pp = sp + "/pred_" + pic + ".png"
-                if Path(pp).is_file():
-                    _image = Image.open(pp)
-                    cur_img = combine_y([cur_img, _image])
-                cur_img.save(pp)
+            cur_img = Image.open(img_buf)
+            sp = op.join(kwargs.save_path, "images") 
+            Path(sp).mkdir(exist_ok=True, parents=True)
+            pic = "router_" + str(kk % 5)
+            kk += 1
+            pp = sp + "/pred_" + pic + ".png"
+            if Path(pp).is_file():
+                _image = Image.open(pp)
+                cur_img = combine_y([cur_img, _image])
+            cur_img.save(pp)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():

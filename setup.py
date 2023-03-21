@@ -21,6 +21,7 @@ def setup_package():
             'torch',
             'transformers==4.6.0',
             'tqdm==4.27',
+            'deepdiff',
             'rouge_score'
         ],
     )

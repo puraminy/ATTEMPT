@@ -4,6 +4,7 @@ from os.path import expanduser
 from pytz import timezone
 import datetime
 from pathlib import Path
+from deepdiff import DeepDiff
 main_args = {}
 prev_args = {}
 
@@ -150,12 +151,12 @@ for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg
 def diff_args():
     if not prev_args:
         return None
-    diff = { k : main_args[k] for k in set(main_args) - set(prev_args) }
+    diff = DeepDiff(prev_args, main_args) 
     return diff
 
 def set_args(args):
     global main_args, prev_args 
-    prev_args = main_args
+    prev_args = main_args.copy()
     main_args =args
     tlog.handlers.clear()
     tags = "_".join(list(get_tag(args["tag"]).values()))
