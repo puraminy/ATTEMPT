@@ -48,7 +48,8 @@ class WBCallback(WandbCallback):
         fig.set_size_inches(12.5, 6.5)
         if add_tags:
             ax1.axis("off")
-            img = tag_to_image()
+            tags = mylogs.get_full_tag()
+            img = tag_to_image(tags)
             fig.figimage(img, 5, 100)
         for score, ax in zip(scores, axes):
             np_score = score.detach().cpu().numpy()
@@ -57,6 +58,40 @@ class WBCallback(WandbCallback):
                     xticklabels=x_labels,
                     yticklabels=y_labels,
                     linewidth=0.5)
+        #plt.tight_layout()
+        mylogs.bp("wand")
+        if fname:
+            wandb.log({fname:wandb.Image(fig)})
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format='png')
+        plt.close("all")
+        return img_buf
+
+    @staticmethod
+    def save_image(score, x_labels, y_labels, fname="", 
+            annot=True,title="", tags={}):
+        if not title: title = fname
+        if tags:
+            fig, axes = plt.subplot_mosaic("AB")
+            ax1, ax2 = axes["A"], axes["B"]
+            ax_t = ax2
+        else:
+            fig, axes = plt.subplot_mosaic("A")
+            ax1 = axes["A"]
+            ax_t = ax1
+        ax_t.set_title(title)
+        fig.set_size_inches(12.5, 6.5)
+        if tags:
+            ax1.axis("off")
+            img = tag_to_image(tags)
+            fig.figimage(img, 5, 100)
+
+        np_score = score.detach().cpu().numpy()
+        sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
+                annot_kws={'rotation': 90}, 
+                xticklabels=x_labels,
+                yticklabels=y_labels,
+                linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
         if fname:

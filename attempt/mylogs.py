@@ -5,6 +5,7 @@ from pytz import timezone
 import datetime
 from pathlib import Path
 main_args = {}
+prev_args = {}
 
 def args(key, default="no_default"):
     if key in main_args:
@@ -146,8 +147,15 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
     add_handler(logger, fname)
 
+def diff_args():
+    if not prev_args:
+        return None
+    diff = { k : main_args[k] for k in set(main_args) - set(prev_args) }
+    return diff
+
 def set_args(args):
-    global main_args 
+    global main_args, prev_args 
+    prev_args = main_args
     main_args =args
     tlog.handlers.clear()
     tags = "_".join(list(get_tag(args["tag"]).values()))
