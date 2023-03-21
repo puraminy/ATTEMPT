@@ -1498,7 +1498,13 @@ def train(**kwargs):
                 new_im = combine_y(img_list)
                 fname = "pred_" + rm + "_" + route_method 
                 wandb.log({fname:wandb.Image(new_im)})
-                cur_img = img_list[-1]
+
+                img_buf = WBCallback.save_image(scores=ss2, 
+                    y_labels=y_labels,
+                    x_labels=model.encoder.prompt_names, 
+                    title= exp_info["expid"], tags=mylogs.diff_args()) 
+
+                cur_img = Image.open(img_buf)
                 sp = op.join(kwargs.save_path, "images") 
                 Path(sp).mkdir(exist_ok=True, parents=True)
                 pic = "router_" + str(kk % 5)

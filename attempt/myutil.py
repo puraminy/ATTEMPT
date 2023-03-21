@@ -27,8 +27,7 @@ def text_to_image(s, *, dpi, xpos=10, ypos=0, **kwargs):
 import matplotlib.pyplot as plt
 from matplotlib import transforms
 
-def tag_to_image():
-    tags = mylogs.get_full_tag()
+def tag_to_image(tags):
     tags = dict(sorted(tags.items()))
     tag_labels = list(tags.keys())
     tag_values = list(tags.values())
@@ -60,7 +59,8 @@ def tag_to_image():
 
 def df_to_image(df, annot=True, title="results"):
     # Set background to white
-    tag_img = tag_to_image()
+    tags = mylogs.get_full_tag()
+    tag_img = tag_to_image(tags)
     fig, axes = plt.subplot_mosaic("ABB")
     ax1, ax2 = axes["A"], axes["B"]
     ax2.set_title(title)
