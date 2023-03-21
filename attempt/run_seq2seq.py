@@ -1499,7 +1499,7 @@ def train(**kwargs):
                 fname = "pred_" + rm + "_" + route_method 
                 wandb.log({fname:wandb.Image(new_im)})
 
-                img_buf = WBCallback.save_image(scores=ss2, 
+                img_buf = WBCallback.save_image(score=ss2, 
                     y_labels=y_labels,
                     x_labels=model.encoder.prompt_names, 
                     title= exp_info["expid"], tags=mylogs.diff_args()) 
