@@ -852,6 +852,9 @@ def train(**kwargs):
                 if "_com" in n or attend_to_all:
                     encoder.attend_to_mask[i] = 1 
                     attn_flag = True
+                if "_for" in n and not n in encoder.attend_to:
+                    encoder.attend_to_mask[i] = 0 
+                    attn_flag = True
             if not attn_flag or not use_private_prompts: 
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
