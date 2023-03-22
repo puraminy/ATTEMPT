@@ -28,7 +28,7 @@ def text_to_image(s, *, dpi, xpos=10, ypos=0, **kwargs):
 import matplotlib.pyplot as plt
 from matplotlib import transforms
 
-def tag_to_image(tags, get_buf=False):
+def tag_to_image(tags, get_image=False):
     tags = dict(sorted(tags.items()))
     tag_labels = list(tags.keys())
     tag_values = list(tags.values())
@@ -54,8 +54,9 @@ def tag_to_image(tags, get_buf=False):
     with BytesIO() as buf:
         fig.savefig(buf, dpi=100, format="png", bbox_inches="tight",
                     pad_inches=0)
-        if get_buf:
-            return buf
+        if get_image:
+            img = Image.open(buf)
+            return img 
         else:
             buf.seek(0)
             rgba = plt.imread(buf)
