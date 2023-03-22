@@ -62,7 +62,7 @@ def combine_x(images):
     total_width = sum(widths)
     max_height = max(heights)
 
-    new_im = Image.new('RGB', (total_width, max_height))
+    new_im = Image.new('RGB', (total_width, max_height),(255, 255, 255))
 
     x_offset = 0
     for im in images:
@@ -77,7 +77,7 @@ def combine_y(images):
     total_width = max(widths)
     max_height = sum(heights)
 
-    new_im = Image.new('RGB', (total_width, max_height))
+    new_im = Image.new('RGB', (total_width, max_height),(255, 255, 255) )
 
     y_offset = 0
     for im in images:
