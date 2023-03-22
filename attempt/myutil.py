@@ -54,12 +54,12 @@ def tag_to_image(tags, get_buf=False):
     with BytesIO() as buf:
         fig.savefig(buf, dpi=100, format="png", bbox_inches="tight",
                     pad_inches=0)
-    if get_buf:
-        return buf
-    else:
-        buf.seek(0)
-        rgba = plt.imread(buf)
-        return rgba
+        if get_buf:
+            return buf
+        else:
+            buf.seek(0)
+            rgba = plt.imread(buf)
+            return rgba
 
 def df_to_image(df, annot=True, title="results"):
     # Set background to white
