@@ -1518,9 +1518,12 @@ def train(**kwargs):
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title= exp_info["expid"], tags=da) 
+               title= exp_info["expid"], tags=None) 
 
             cur_img = Image.open(img_buf)
+            tags_buf = tag_to_image(da)
+            tags_img = Image.open(tags_buf)
+            cur_img = combine_x([cur_img, tags_img])
             sp = op.join(kwargs.save_path, "images") 
             Path(sp).mkdir(exist_ok=True, parents=True)
             pic = "router_" + str(exp_info["expid"])

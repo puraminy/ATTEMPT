@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.colors as clr
 import attempt.mylogs as mylogs
 import json
+from PIL import Image
 
 def text_to_image(s, *, dpi, xpos=10, ypos=0, **kwargs):
     # To convert a text string to an image, we can:
@@ -27,7 +28,7 @@ def text_to_image(s, *, dpi, xpos=10, ypos=0, **kwargs):
 import matplotlib.pyplot as plt
 from matplotlib import transforms
 
-def tag_to_image(tags):
+def tag_to_image(tags, get_buf=False):
     tags = dict(sorted(tags.items()))
     tag_labels = list(tags.keys())
     tag_values = list(tags.values())
@@ -53,9 +54,12 @@ def tag_to_image(tags):
     with BytesIO() as buf:
         fig.savefig(buf, dpi=100, format="png", bbox_inches="tight",
                     pad_inches=0)
+    if get_buf:
+        return buf
+    else:
         buf.seek(0)
         rgba = plt.imread(buf)
-    return rgba
+        return rgba
 
 def df_to_image(df, annot=True, title="results"):
     # Set background to white
