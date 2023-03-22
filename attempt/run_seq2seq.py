@@ -67,6 +67,7 @@ import json
 import glob
 import mylogs 
 import itertools, collections
+from attempt.myutil import tag_to_image
 from metrics.metrics import do_score
 from encoders.encoders import *
 from optim import *
