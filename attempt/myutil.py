@@ -34,7 +34,10 @@ def tag_to_image(tags, get_image=False):
     tag_values = list(tags.values())
     mylogs.bp("image")
 
-    fig = plt.figure(facecolor="none")
+    if get_image:
+        fig = plt.figure(facecolor="white")
+    else:
+        fig = plt.figure(facecolor="none")
     xpos = 0
     ypos = 0
     t = plt.gca().transData
@@ -52,8 +55,7 @@ def tag_to_image(tags, get_image=False):
                 weight="bold",fontsize=14)
         ypos += 0.08
         buf = BytesIO()
-        plt.savefig(buf, dpi=100, format="png", bbox_inches="tight",
-                    pad_inches=0)
+        plt.savefig(buf,  format="png")
         if get_image:
             img = Image.open(buf)
             plt.close("all")
