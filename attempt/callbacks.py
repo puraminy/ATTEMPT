@@ -72,7 +72,7 @@ class WBCallback(WandbCallback):
             annot=True,title="", tags={}):
         if not title: title = fname
         if tags:
-            fig, axes = plt.subplot_mosaic("AB")
+            fig, axes = plt.subplot_mosaic("A;B")
             ax1, ax2 = axes["A"], axes["B"]
             ax_t = ax2
         else:
@@ -84,7 +84,7 @@ class WBCallback(WandbCallback):
         if tags:
             ax1.axis("off")
             img = tag_to_image(tags)
-            fig.figimage(img, 5, 100)
+            fig.figimage(img, 100, 200)
 
         np_score = score.detach().cpu().numpy()
         sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
