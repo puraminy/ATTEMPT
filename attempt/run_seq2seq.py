@@ -1523,7 +1523,7 @@ def train(**kwargs):
             cur_img = Image.open(img_buf)
             sp = op.join(kwargs.save_path, "images") 
             Path(sp).mkdir(exist_ok=True, parents=True)
-            pic = "router_" + exp_info["expid"] 
+            pic = "router_" + str(exp_info["expid"])
             kk += 1
             pp = sp + "/pred_" + pic + ".png"
             if Path(pp).is_file():
