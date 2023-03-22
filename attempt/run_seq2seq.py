@@ -1500,15 +1500,25 @@ def train(**kwargs):
                 wandb.log({fname:wandb.Image(new_im)})
 
             mylogs.bp("diff")
+            test_rouge = wandb.run.summary["test_rouge"]
+            test_bert = wandb.run.summary["test_bert"]
+            num_preds = wandb.run.summary["num_preds"]
+
             targets = model.encoder.target_encoders_idx
             ss2 = model.encoder.router.index_select(0, targets)
             diff_args = mylogs.diff_args()
+            da = {}
+            da["test_rouge"] = test_rouge
+            da["test_bert"] = test_bert
+            da["num_preds"] = num_preds
             if diff_args:
-               diff_args = {k:v["new_value"] for k,v in diff_args["values_changed"].items()}
+                for k,v in diff_args["values_changed"].items():
+                    if not "output_dir" in k:
+                       da[k] = v["new_value"]
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title= exp_info["expid"], tags=diff_args) 
+               title= exp_info["expid"], tags=da) 
 
             cur_img = Image.open(img_buf)
             sp = op.join(kwargs.save_path, "images") 
