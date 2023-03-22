@@ -51,7 +51,7 @@ def tag_to_image(tags, get_image=False):
                 color=color_list[i % len(color_list)], 
                 weight="bold",fontsize=14)
         ypos += 0.08
-        buf = io.BytesIO()
+        buf = BytesIO()
         plt.savefig(buf, dpi=100, format="png", bbox_inches="tight",
                     pad_inches=0)
         if get_image:
