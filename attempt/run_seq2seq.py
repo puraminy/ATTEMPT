@@ -1504,7 +1504,7 @@ def train(**kwargs):
             ss2 = model.encoder.router.index_select(0, targets)
             diff_args = mylogs.diff_args()
             if diff_args:
-                diff_args = diff_args["values_changed"]
+                diff_args = {k:k["new_value"] for k in diff_args["values_changed"]}
             img_buf = WBCallback.save_image(score=ss2, 
                 y_labels=y_labels,
                 x_labels=model.encoder.prompt_names, 
