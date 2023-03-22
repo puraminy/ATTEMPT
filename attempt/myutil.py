@@ -54,17 +54,17 @@ def tag_to_image(tags, get_image=False):
                 color=color_list[i % len(color_list)], 
                 weight="bold",fontsize=14)
         ypos += 0.08
-        buf = BytesIO()
-        plt.savefig(buf,  format="png")
-        if get_image:
-            img = Image.open(buf)
-            plt.close("all")
-            return img 
-        else:
-            buf.seek(0)
-            rgba = plt.imread(buf)
-            plt.close("all")
-            return rgba
+    buf = BytesIO()
+    plt.savefig(buf,  format="png")
+    if get_image:
+        img = Image.open(buf)
+        plt.close("all")
+        return img 
+    else:
+        buf.seek(0)
+        rgba = plt.imread(buf)
+        plt.close("all")
+        return rgba
 
 def df_to_image(df, annot=True, title="results"):
     # Set background to white
