@@ -483,6 +483,7 @@ def train(**kwargs):
         nsp = len(data_args.source_prompts) 
     nsp += kwargs.setdefault("num_source_prompts", nsp) 
     num_source_prompts = nsp 
+    num_target_prompts = 1
     if model_args.attn_tuning is True:
        if model_args.compose_method == "cat":
             num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
