@@ -1515,7 +1515,7 @@ def train(**kwargs):
             if diff_args:
                 for k,v in diff_args["values_changed"].items():
                     if not "output_dir" in k:
-                       da[k] = v["new_value"]
+                       da[k] = v
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
