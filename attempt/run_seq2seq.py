@@ -1486,11 +1486,11 @@ def train(**kwargs):
                         test_bert = wandb.run.summary["test_bert"]
                         num_preds = wandb.run.summary["num_preds"]
                         if not "task" in da:
-                            da["task"] = task
+                            da["task"] = [task]
                         else:
                             da["task"].append(task)
                         if not "route_method" in da:
-                            da["route_method"] = route_method
+                            da["route_method"] = [route_method]
                         else:
                             da["route_method"].append(route_method)
                         if not "test_rouge" in da:
