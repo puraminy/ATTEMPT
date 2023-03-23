@@ -1482,6 +1482,9 @@ def train(**kwargs):
                         save_to = os.path.join(training_args.output_dir, 
                                 ds_conf + "_results_" + is_train + "_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
                         scores = do_score(df, "rouge@bert", save_to)
+                        test_rouge = wandb.run.summary["test_rouge"]
+                        test_bert = wandb.run.summary["test_bert"]
+                        num_preds = wandb.run.summary["num_preds"]
                         if not "task" in da:
                             da["task"] = task
                         else:
@@ -1522,9 +1525,6 @@ def train(**kwargs):
                 wandb.log({fname:wandb.Image(new_im)})
 
             mylogs.bp("diff")
-            test_rouge = wandb.run.summary["test_rouge"]
-            test_bert = wandb.run.summary["test_bert"]
-            num_preds = wandb.run.summary["num_preds"]
 
             targets = model.encoder.target_encoders_idx
             ss2 = model.encoder.router.index_select(0, targets)
