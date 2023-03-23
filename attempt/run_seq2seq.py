@@ -1540,7 +1540,7 @@ def train(**kwargs):
 
             cur_img = Image.open(img_buf)
             tags_img = tag_to_image(da, get_image=True)
-            cur_img = combine_x([tags_img, cur_img])
+            cur_img = combine_y([tags_img, cur_img])
             sp = op.join(kwargs.save_path, "images") 
             Path(sp).mkdir(exist_ok=True, parents=True)
             pic = "router_" + str(exp_info["expid"])
