@@ -38,6 +38,7 @@ def tag_to_image(tags, get_image=False):
         fig = plt.figure(facecolor="white")
     else:
         fig = plt.figure(facecolor="none")
+    fig.set_size_inches(12.5, 6.5)
     xpos = 0
     ypos = 0
     t = plt.gca().transData
