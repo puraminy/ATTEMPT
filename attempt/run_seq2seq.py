@@ -1498,11 +1498,11 @@ def train(**kwargs):
                         else:
                             da["test_rouge"].append(test_rouge)
                         if not "test_bert" in da:
-                            da["test_bert"] = test_bert
+                            da["test_bert"] = [test_bert]
                         else:
                             da["test_bert"].append(test_bert)
                         if not "num_preds" in da:
-                            da["num_preds"] = num_preds
+                            da["num_preds"] = [num_preds]
                         else:
                             da["num_preds"].append(num_preds)
                         ii += 1
