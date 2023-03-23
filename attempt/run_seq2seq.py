@@ -1392,6 +1392,7 @@ def train(**kwargs):
         combs["train"] = None
         ii = 0
         kk = 0
+        da = {}
         if model_args.shared_attn is False:
             for rm, mask in combs.items():
                 img_list = []
@@ -1481,6 +1482,26 @@ def train(**kwargs):
                         save_to = os.path.join(training_args.output_dir, 
                                 ds_conf + "_results_" + is_train + "_" + ds_name + "_" + route_method + "_" + str(kwargs.trial) + "_" + mylogs.now + "_" + str(ii)  + ".tsv")
                         scores = do_score(df, "rouge@bert", save_to)
+                        if not "task" in da:
+                            da["task"] = task
+                        else:
+                            da["task"].append(task)
+                        if not "route_method" in da:
+                            da["route_method"] = route_method
+                        else:
+                            da["route_method"].append(route_method)
+                        if not "test_rouge" in da:
+                            da["test_rouge"] = [test_rouge]
+                        else:
+                            da["test_rouge"].append(test_rouge)
+                        if not "test_bert" in da:
+                            da["test_bert"] = test_bert
+                        else:
+                            da["test_bert"].append(test_bert)
+                        if not "num_preds" in da:
+                            da["num_preds"] = num_preds
+                        else:
+                            da["num_preds"].append(num_preds)
                         ii += 1
                     mylogs.bp("pic")
                     targets = model.encoder.target_encoders_idx
@@ -1508,10 +1529,6 @@ def train(**kwargs):
             targets = model.encoder.target_encoders_idx
             ss2 = model.encoder.router.index_select(0, targets)
             diff_args = mylogs.diff_args()
-            da = {}
-            da["test_rouge"] = test_rouge
-            da["test_bert"] = test_bert
-            da["num_preds"] = num_preds
             if diff_args:
                 for k,v in diff_args["values_changed"].items():
                     if not "output_dir" in k:
