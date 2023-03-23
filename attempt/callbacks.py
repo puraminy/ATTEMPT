@@ -69,11 +69,13 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_image(score, x_labels, y_labels, fname="", 
-            annot=True,title="", tags={}):
+            annot=True,title="", df=None):
         if not title: title = fname
-        if tags:
+        if df is not None:
             fig, axes = plt.subplot_mosaic("A;B")
             ax1, ax2 = axes["A"], axes["B"]
+            ax1.table(cellText=df.values, colLabels=df.columns, fontsize=15, loc='center')
+            ax1.axis("off")
             ax_t = ax2
         else:
             fig, axes = plt.subplot_mosaic("A")
@@ -81,11 +83,6 @@ class WBCallback(WandbCallback):
             ax_t = ax1
         ax1.set_title(title)
         fig.set_size_inches(12.5, 6.5)
-        if tags:
-            ax1.axis("off")
-            img = tag_to_image(tags)
-            fig.figimage(img, 100, 200)
-
         np_score = score.detach().cpu().numpy()
         sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
                 annot_kws={'rotation': 90}, 
