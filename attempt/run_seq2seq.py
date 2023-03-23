@@ -64,6 +64,7 @@ from myds import my_interleave_datasets
 from conflicts import check_conflicts
 from callbacks import WBCallback, AnnealCallback
 import json
+import pandas as pd
 import glob
 import mylogs 
 import itertools, collections
@@ -1392,7 +1393,7 @@ def train(**kwargs):
         combs["train"] = None
         ii = 0
         kk = 0
-        da = {}
+        sdf_rows = []
         if model_args.shared_attn is False:
             for rm, mask in combs.items():
                 img_list = []
@@ -1485,26 +1486,13 @@ def train(**kwargs):
                         test_rouge = wandb.run.summary["test_rouge"]
                         test_bert = wandb.run.summary["test_bert"]
                         num_preds = wandb.run.summary["num_preds"]
-                        if not "task" in da:
-                            da["task"] = [task]
-                        else:
-                            da["task"].append(task)
-                        if not "route_method" in da:
-                            da["route_method"] = [route_method]
-                        else:
-                            da["route_method"].append(route_method)
-                        if not "test_rouge" in da:
-                            da["test_rouge"] = [test_rouge]
-                        else:
-                            da["test_rouge"].append(test_rouge)
-                        if not "test_bert" in da:
-                            da["test_bert"] = [test_bert]
-                        else:
-                            da["test_bert"].append(test_bert)
-                        if not "num_preds" in da:
-                            da["num_preds"] = [num_preds]
-                        else:
-                            da["num_preds"].append(num_preds)
+                        da = {}
+                        da["task"] = task
+                        da["route_method"] = route_method
+                        da["test_rouge"] = test_rouge
+                        da["test_bert"] = test_bert
+                        da["num_preds"] = num_preds
+                        sdf_rows.append(da)
                         ii += 1
                     mylogs.bp("pic")
                     targets = model.encoder.target_encoders_idx
@@ -1525,7 +1513,8 @@ def train(**kwargs):
                 wandb.log({fname:wandb.Image(new_im)})
 
             mylogs.bp("diff")
-
+            sdf = pd.DataFrame(data=sdf_rows)
+            da = {}
             targets = model.encoder.target_encoders_idx
             ss2 = model.encoder.router.index_select(0, targets)
             diff_args = mylogs.diff_args()
@@ -1536,7 +1525,7 @@ def train(**kwargs):
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title= exp_info["expid"], tags=None) 
+               title= exp_info["expid"], df=sdf) 
 
             cur_img = Image.open(img_buf)
             tags_img = tag_to_image(da, get_image=True)
