@@ -945,7 +945,7 @@ class T5Stack(T5PreTrainedModel):
         # self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
-        self.num_target_prompts = kwargs.num_target_prompts
+        self.num_target_prompts = config.num_target_prompts
         self.target_share = config.target_share 
         self.attend_for = config.attend_for 
         self.attend_private = config.attend_private 
