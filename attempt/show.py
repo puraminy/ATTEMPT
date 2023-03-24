@@ -726,8 +726,23 @@ def show_df(df):
                         new_im.save(dest)
             subprocess.run(["eog", dest])
         if char in ["o","O"]:
-            pname=df.iloc[sel_row]["image"]
-            subprocess.run(["eog", pname])
+            _agg = {}
+            for c in df.columns:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
+            pdf = df.groupby("expid").agg(_agg)
+            pdf = pdf.sort_values(by="rouge_score", ascending=False)
+            images = []
+            for idx, row in pdf.iterrows(): 
+                pic = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
+                images.append(pic)
+            pic = combine_y(images)
+            dest = os.path.join("temp","routers.png")
+            pic.save(dest)
+            #pname=df.iloc[sel_row]["image"]
+            subprocess.run(["eog", dest])
         elif char == "L":
             s_rows = sel_rows
             if not sel_rows:
@@ -984,10 +999,17 @@ def show_df(df):
                 sel_row = 0
                 sel_group = 0
         elif char == "c":
-            counts = {}
-            for col in df:
-               counts[col] = df[col].nunique()
-            df = pd.DataFrame(data=[counts], columns = df.columns)
+            backit(df, sel_cols)
+            if not "expid" in sel_cols:
+                sel_cols.insert(1, "expid")
+            _agg = {}
+            for c in sel_cols:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
+            df = df.groupby("expid").agg(_agg)
+            df = df.sort_values(by="rouge_score", ascending=False)
         elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
