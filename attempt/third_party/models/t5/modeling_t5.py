@@ -943,7 +943,7 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_rate = config.anneal_rate
         self.apply_softmax_to = config.apply_softmax_to
         # self.learn_source_prompts = config.learn_source_prompts
-        #######################################
+        ###########################################
         self.attend_target = attend_target
         self.num_target_prompts = config.num_target_prompts
         self.target_share = config.target_share 
