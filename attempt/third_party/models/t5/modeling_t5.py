@@ -945,6 +945,7 @@ class T5Stack(T5PreTrainedModel):
         # self.learn_source_prompts = config.learn_source_prompts
         #######################################
         self.attend_target = attend_target
+        self.num_target_prompts = kwargs.num_target_prompts
         self.target_share = config.target_share 
         self.attend_for = config.attend_for 
         self.attend_private = config.attend_private 
@@ -1188,8 +1189,11 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
-        num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
-        num_attend_to = num_attend_to // num_targets
+        if self.compose_method == "cat":
+            num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
+            num_attend_to = num_attend_to // num_targets
+        else:
+            num_attend_to = min(self.num_target_prompts, attend_to_idx.size()[1])
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
