@@ -74,6 +74,7 @@ from encoders.encoders import *
 from optim import *
 from PIL import Image
 import wandb
+from deepdiff import DeepDiff
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
@@ -286,7 +287,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
    not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks"]
-   args["tag"] = tags 
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = 0
@@ -296,6 +296,19 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["total_exp"] = total
    logger.info("Total experiments:%s", total)
    mylogs.bp("comb")
+   old_comb = None
+   ctags = []
+   for comb in tot_comb:
+       if old_comb is not None:
+           diff_comb = DeepDiff(comb, old_comb) 
+           vc = diff_comb["values_changed"]
+           for item in vc:
+               val = item.replace("root['","").replace("']","")
+               if not val in ctags:
+                   ctags.append(val)
+       old_comb = comb.copy()
+
+   args["tag"] = ctags 
    for comb in tot_comb:
        _output_dir = []
        prev_name = ""
@@ -483,25 +496,25 @@ def train(**kwargs):
         nsp = len(data_args.source_prompts) 
     nsp += kwargs.setdefault("num_source_prompts", nsp) 
     num_source_prompts = nsp 
-    num_target_prompts = 1
     if model_args.attn_tuning is True:
-       if model_args.compose_method == "cat":
-            num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
-            ntp = num_target_prompts
-            if ntp < 0: 
-                num_target_prompts = num_source_prompts
-            if num_source_prompts > 0:
-                num_target_prompts = min(num_target_prompts, num_source_prompts)
-            if model_args.attend_target and ntp < 0:
-                num_target_prompts += 1
-            if model_args.attend_input and ntp < 0:
-                num_target_prompts += 1
-            if use_private_prompts and ntp < 0:
-                num_target_prompts += 1
-            num_target_prompts = max(num_target_prompts, 1)
+        num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
+        ntp = num_target_prompts
+        if ntp < 0: 
+            num_target_prompts = num_source_prompts
+        if num_source_prompts > 0:
+            num_target_prompts = min(num_target_prompts, num_source_prompts)
+        if model_args.attend_target and ntp < 0:
+            num_target_prompts += 1
+        if model_args.attend_input and ntp < 0:
+            num_target_prompts += 1
+        if use_private_prompts and ntp < 0:
+            num_target_prompts += 1
+        num_target_prompts = max(num_target_prompts, 1)
+        if model_args.compose_method == "cat":
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-    kwargs["num_target_prompts"] = num_target_prompts
-    mylogs.main_args["num_target_prompts"] = num_target_prompts
+        kwargs["num_target_prompts"] = num_target_prompts
+        mylogs.main_args["num_target_prompts"] = num_target_prompts
+
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
@@ -1518,11 +1531,12 @@ def train(**kwargs):
             da = {}
             targets = model.encoder.target_encoders_idx
             ss2 = model.encoder.router.index_select(0, targets)
-            diff_args = mylogs.diff_args()
-            if diff_args:
-                for k,v in diff_args["values_changed"].items():
-                    if not "output_dir" in k and not "expid" in k:
-                       da[k] = v
+            _tag = kwargs.setdefault("tag",[])
+            da = mylogs.get_tag(_tag)  
+            #if diff_args:
+            #    for k,v in diff_args["values_changed"].items():
+            #        if not "output_dir" in k and not "expid" in k:
+            #           da[k] = v
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
