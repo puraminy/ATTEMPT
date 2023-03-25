@@ -266,6 +266,7 @@ def show_df(df):
     unique_cols = []
     group_sel_cols = []
     sel_fid = "" 
+    df_cond = True
     open_dfnames = [dfname]
     task = ""
     if "task_name" in df:
@@ -608,6 +609,15 @@ def show_df(df):
             sel_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
             seq = ""
+        elif char == "=":
+            col = sel_cols[cur_col]
+            val=df.iloc[sel_row][col]
+            if col == "exp_id": col = FID
+            if "filter" in consts:
+                consts["filter"] += " " + col + "='" + str(val) + "'"
+            else:
+                consts["filter"] = col + "='" + str(val) + "'"
+            df_cond = df_cond & (df[col] == val)
         elif char == "=" and prev_char == "x":
             col = info_cols[-1]
             sel_cols.insert(cur_col, col)
@@ -739,7 +749,7 @@ def show_df(df):
                 pic = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
                 images.append(pic)
             pic = combine_y(images)
-            dest = os.path.join("temp","routers.png")
+            dest = os.path.join("routers.png")
             pic.save(dest)
             #pname=df.iloc[sel_row]["image"]
             subprocess.run(["eog", dest])
@@ -946,7 +956,7 @@ def show_df(df):
             sel_rows = []
             for i in range(len(df)):
                 sel_rows.append(i)
-        elif char == "=": 
+        elif char == "==": 
             col = sel_cols[cur_col]
             exp=df.iloc[sel_row][col]
             if col == "exp_id": col = FID
@@ -1364,9 +1374,13 @@ def show_df(df):
                 y = cols[1]
                 #ax = df.plot.scatter(ax=ax, x=x, y=y)
                 ax = sns.regplot(df[x],df[y])
+        elif is_enter(ch) and prev_char == "=":
+           backit(df, sel_cols)
+           df = df[df_cond]
+           df_cond = True
         elif is_enter(ch) or char in ["f", "F"]:
             backit(df, sel_cols)
-            if is_enter(ch): char = "F"
+            if is_enter(ch): char = "f"
             col = sel_cols[cur_col]
             if col == "exp_id": col = FID
             if char == "f":
