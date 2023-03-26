@@ -268,6 +268,7 @@ def show_df(df):
     sel_fid = "" 
     df_cond = True
     open_dfnames = [dfname]
+    dot_cols = {}
     task = ""
     if "task_name" in df:
         task = df["task_name"][0]
@@ -609,6 +610,14 @@ def show_df(df):
             sel_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
             seq = ""
+        elif char == ".":
+            col = sel_cols[cur_col]
+            val=df.iloc[sel_row][col]
+            dot_cols[col] = val
+            if "sel" in consts:
+                consts["sel"] += " " + col + "='" + str(val) + "'"
+            else:
+                consts["sel"] = col + "='" + str(val) + "'"
         elif char == "=":
             col = sel_cols[cur_col]
             val=df.iloc[sel_row][col]
@@ -745,9 +754,20 @@ def show_df(df):
             pdf = df.groupby("expid").agg(_agg)
             pdf = pdf.sort_values(by="rouge_score", ascending=False)
             images = []
+            i = 1
             for idx, row in pdf.iterrows(): 
-                pic = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
-                images.append(pic)
+                _image = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
+                draw = ImageDraw.Draw(_image)
+                yy = 5
+                for cc in tag_cols:
+                    if cc.endswith("score"):
+                        draw.text((5, yy),"{}:{:.2f}".format(cc, row[cc]),
+                                (20,25,255),font=font)
+                    else:
+                        draw.text((5, yy),"{}:{}".format(cc, row[cc]),(20,25,255),font=font)
+                    yy += 70
+                images.append(_image)
+                i+=1
             pic = combine_y(images)
             dest = os.path.join("routers.png")
             pic.save(dest)
@@ -1374,6 +1394,21 @@ def show_df(df):
                 y = cols[1]
                 #ax = df.plot.scatter(ax=ax, x=x, y=y)
                 ax = sns.regplot(df[x],df[y])
+        elif (is_enter(ch) or char == "x") and prev_char == ".":
+            backit(df, sel_cols)
+            if char == "x":
+                consts["sel"] += " MAX"
+                score_agg = "max"
+            else:
+                consts["sel"] += " MEAN"
+                score_agg = "mean"
+            _agg = {}
+            for c in df.columns:
+                if c.endswith("score"):
+                    _agg[c] = score_agg
+                else:
+                    _agg[c] = "first"
+            df = df.groupby(list(dot_cols.keys())).agg(_agg).reset_index(drop=True)
         elif is_enter(ch) and prev_char == "=":
            backit(df, sel_cols)
            df = df[df_cond]
@@ -1506,6 +1541,8 @@ def show_df(df):
         elif char == "v":
             #do_wrap = not do_wrap
             sel_rows = []
+            dot_cols = {}
+            consts = {}
         elif char == "M" and prev_char == "x":
             info_cols = []
             for col in df.columns:
