@@ -692,8 +692,8 @@ def show_df(df):
             start = "pred"
             #breakpoint()
             for s_row in s_rows:
-                exp=df.iloc[s_row]["exp_id"]
-                cond = f"(main_df['{FID}'] == '{exp}')"
+                exp=df.iloc[s_row]["expid"]
+                cond = f"(main_df['expid'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
@@ -1048,11 +1048,11 @@ def show_df(df):
             _agg = {}
             for c in sel_cols:
                 if c.endswith("score"):
-                    _agg[c] = "mean"
+                    _agg[c] = "max"
                 else:
                     _agg[c] = "first"
-            df = df.groupby("expid").agg(_agg)
-            df = df.sort_values(by="rouge_score", ascending=False)
+            df = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
+            df = df.sort_values(by=["expid","prefix"], ascending=False)
         elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
