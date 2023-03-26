@@ -17,7 +17,7 @@ from comet.mycur.util import *
 from mylogs import * 
 import json
 from comet.utils.myutils import *
-from attempt.utils.utils import combine_x,combine_y
+from attempt.utils.utils import combine_x,combine_y,add_margin
 file_id = "name"
 from PIL import Image
 from PIL import ImageFont
@@ -259,7 +259,7 @@ def show_df(df):
     contexts = {"g":"grouped", "X":"view", "r":"main"}
     ax = None
     context = dfname
-    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 68)
+    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 48)
     seq = ""
     search = ""
     on_col_list = []
@@ -751,23 +751,36 @@ def show_df(df):
                     _agg[c] = "mean"
                 else:
                     _agg[c] = "first"
-            pdf = df.groupby("expid").agg(_agg)
-            pdf = pdf.sort_values(by="rouge_score", ascending=False)
+            pdf = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
+            pdf = pdf.sort_values(by=["expid","rouge_score"], ascending=False)
             images = []
             i = 1
+            eid = -1
             for idx, row in pdf.iterrows(): 
-                _image = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
-                draw = ImageDraw.Draw(_image)
-                yy = 5
-                for cc in tag_cols:
+                if row["expid"] != eid:
+                    eid = row["expid"]
+                    im = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
+                    xx = 100
+                    _image = add_margin(im, 0, 0, 0, 700, (255, 255, 255))
+                    draw = ImageDraw.Draw(_image)
+                yy = 10
+                for cc in ["prefix", "rouge_score", "bert_score", "num_preds"] + tag_cols:
                     if cc.endswith("score"):
-                        draw.text((5, yy),"{}:{:.2f}".format(cc, row[cc]),
+                        mm = map_cols[cc] if cc in map_cols else cc
+                        if xx == 100:
+                            draw.text((10, yy),"{}".format(mm),
                                 (20,25,255),font=font)
+                        draw.text((xx, yy),"{:.2f}".format(row[cc]),
+                                (0,5,5),font=font)
                     else:
-                        draw.text((5, yy),"{}:{}".format(cc, row[cc]),(20,25,255),font=font)
-                    yy += 70
-                images.append(_image)
-                i+=1
+                        mm = map_cols[cc] if cc in map_cols else cc
+                        if xx == 100:
+                            draw.text((10, yy),"{}".format(mm),(20,25,255),font=font)
+                        draw.text((xx, yy),"{}".format(row[cc]),(0,5,5),font=font)
+                    yy += 60
+                if xx == 100:
+                    images.append(_image)
+                xx += 180
             pic = combine_y(images)
             dest = os.path.join("routers.png")
             pic.save(dest)
