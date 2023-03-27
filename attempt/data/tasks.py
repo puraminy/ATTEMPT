@@ -610,8 +610,10 @@ class Atomic(AbstractTask):
     def __init__(self, config, task_args):
         super().__init__(config, task_args)
         self.data_path = task_args.data_path
-        if not self.rels:
+        if not task_args.rels:
             self.rels = [self.name]
+        else:
+            self.rels = task_args.rels
 
     def get_data_path(self, split):
         path = self.data_path
@@ -721,13 +723,9 @@ class AtomicRel(Atomic):
         return total_size
 
     def get_template(self):
-        src = "{input_text} |(prompt1)| {target_text}" 
-        target = "(mask) {target}"
+        src, target = super().get_template()
         parts = self.template.split("-")
         for part in parts:
-            if part == "unsup": 
-               src = "{input_text} (prompt1) {mask} {target_text}" 
-               target = "{mask}" + target
             if part == "rel":
                target = "{prefix}"
         return src, target
