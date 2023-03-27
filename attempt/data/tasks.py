@@ -720,24 +720,16 @@ class AtomicRel(Atomic):
     def check_n_obs(self, n_obs, total_size):
         return total_size
 
-    def get_template_format(self):
+    def get_template(self):
         src = "{input_text} |(prompt1)| {target_text}" 
         target = "(mask) {target}"
-        tn = self.template
-        if "unsup" in tn:
-           src = "{input_text} (prompt1) {mask} {target_text}" 
-        if "-rel" in tn:
-           target = "{prefix}"
-        elif "-tok" in tn:
-           target = "{rel_tok}"
-        elif "-nat" in tn:
-           target = "{rel_nat}"
-        elif "-word" in tn:
-           target = "{rel_word}"
-        else:
-           raise ValueError("Invalid template " + tn)
-        if "unsup" in tn:
-            target = "{mask}" + target
+        parts = self.template.split("-")
+        for part in parts:
+            if part == "unsup": 
+               src = "{input_text} (prompt1) {mask} {target_text}" 
+               target = "{mask}" + target
+            if part == "rel":
+               target = "{prefix}"
         return src, target
 
 class xAttr(Atomic):
