@@ -727,7 +727,7 @@ class AtomicRel(Atomic):
         parts = self.template.split("-")
         for part in parts:
             if part == "rel":
-               target = "{prefix}"
+               target = "{rel_tok}"
         return src, target
 
 class xAttr(Atomic):
