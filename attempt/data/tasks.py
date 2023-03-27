@@ -323,7 +323,7 @@ class AbstractTask(abc.ABC):
         mask = "<extra_id_0>"
         data = self.extend_data(data)
         data["mask"] = mask
-        data["prefix"] = self.name + ":"
+        #data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
         src_texts = src.format_map(data)
@@ -700,13 +700,6 @@ class AtomicRel(Atomic):
         self.test_samples_per_rel = task_args.test_samples
         self.rels = task_args.rels
 
-    def get_data_path(self, split):
-        path = self.data_path
-        if not path.startswith("/"):
-            path= op.join(mylogs.home, self.data_path)
-        path = op.join(path, split + '.tsv')
-        return path
-
     def preproc_df(self, df, split):
         if split == "train":
             samples_per_rel = self.train_samples_per_rel
@@ -721,6 +714,14 @@ class AtomicRel(Atomic):
 
     def check_n_obs(self, n_obs, total_size):
         return total_size
+
+    def get_data_path(self, split):
+        path = self.data_path
+        self.split = split
+        if not path.startswith("/"):
+            path= op.join(mylogs.home, self.data_path)
+        path = op.join(path, split + '.tsv')
+        return path
 
     def get_template(self):
         src, target = super().get_template()
