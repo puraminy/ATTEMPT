@@ -682,6 +682,8 @@ class Atomic(AbstractTask):
         tgt_texts = [str(example["target_text"])]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
+        extra_fields["prefix"] = example["prefix"]
+        extra_fields["rel"] = example["prefix"]
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
         return self.seq2seq_format(src_texts, tgt_texts, 
@@ -731,7 +733,7 @@ class AtomicRel(Atomic):
         parts = self.template.split("-")
         for part in parts:
             if part == "rel":
-               target = "{rel_tok}"
+               target = "{prefix}"
         return src, target
 
 class xAttr(Atomic):
