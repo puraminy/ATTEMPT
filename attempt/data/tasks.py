@@ -720,7 +720,10 @@ class AtomicRel(Atomic):
         self.split = split
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
-        path = op.join(path, split + '.tsv')
+        if split == "test":
+            path = op.join(path, self.config, 'test.tsv')
+        else:
+            path = op.join(path, split + '.tsv')
         return path
 
     def get_template(self):
