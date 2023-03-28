@@ -323,7 +323,7 @@ class AbstractTask(abc.ABC):
         mask = "<extra_id_0>"
         data = self.extend_data(data)
         data["mask"] = mask
-        #data["prefix"] = self.name + ":"
+        data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
         src_texts = src.format_map(data)
@@ -682,7 +682,6 @@ class Atomic(AbstractTask):
         tgt_texts = [str(example["target_text"])]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
-        extra_fields["prefix"] = example["prefix"]
         extra_fields["rel"] = example["prefix"]
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
@@ -735,6 +734,17 @@ class AtomicRel(Atomic):
             if part == "rel":
                target = "{prefix}"
         return src, target
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["head:", str(example["input_text"]), 
+                    "tail:", str(example["target_text"])]
+        tgt_texts = [str(example["prefix"])]
+        extra_fields = {}
+        extra_fields["event"] = example["input_text"]
+        extra_fields["tail"] = example["target_text"]
+        extra_fields["sel"] = example["sel"] if "sel" in example else False
+        return self.seq2seq_format(src_texts, tgt_texts, 
+                add_prefix=False, extra_fields=extra_fields)
 
 class xAttr(Atomic):
     name = "xAttr"
