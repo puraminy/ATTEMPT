@@ -730,7 +730,7 @@ class AtomicRel(Atomic):
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["head:", str(example["input_text"]), 
                     "tail:", str(example["target_text"])]
-        tgt_texts = [str(example["prefix"])]
+        tgt_texts = [example["prefix"].strip()]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
