@@ -414,7 +414,7 @@ def do_score(df, scorers, save_path, reval=False):
             hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
             best_hyp = preds[hi]
             best_ref = tails[ri]
-            hyp_counter[hi] += 1
+            #hyp_counter[hi] += 1
             if nli_model:
                 pair = (best_hyp, best_ref)
                 nli_scores = nli_model.predict(pair)  
