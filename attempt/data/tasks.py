@@ -727,14 +727,6 @@ class AtomicRel(Atomic):
             path = op.join(path, split + '.tsv')
         return path
 
-    def get_template(self):
-        src, target = super().get_template()
-        parts = self.template.split("-")
-        for part in parts:
-            if part == "rel":
-               target = "{prefix}"
-        return src, target
-
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["head:", str(example["input_text"]), 
                     "tail:", str(example["target_text"])]
