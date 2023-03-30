@@ -751,12 +751,20 @@ def show_df(df):
                     _agg[c] = "mean"
                 else:
                     _agg[c] = "first"
-            pdf = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
-            pdf = pdf.sort_values(by=["expid","rouge_score"], ascending=False)
+            if char == "O":
+                pdf = df
+            else:
+                pdf = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
+                pdf = pdf.sort_values(by=["expid","rouge_score"], ascending=False)
             images = []
-            i = 1
+            i = 0
             eid = -1
+            start = 0
             for idx, row in pdf.iterrows(): 
+                if i < sel_row:
+                    i += 1
+                    start += 1
+                    continue
                 if row["expid"] != eid:
                     eid = row["expid"]
                     im = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
@@ -771,7 +779,7 @@ def show_df(df):
                             draw.text((10, yy),"{}".format(mm),
                                 (20,25,255),font=font)
                         draw.text((xx, yy),"{:.2f}".format(row[cc]),
-                                (0,5,5),font=font)
+                                (230,5,5),font=font)
                     else:
                         mm = map_cols[cc] if cc in map_cols else cc
                         if xx == 100:
@@ -781,6 +789,9 @@ def show_df(df):
                 if xx == 100:
                     images.append(_image)
                 xx += 180
+                i+=1 
+                if i >= start + 10:
+                    break
             pic = combine_y(images)
             dest = os.path.join("routers.png")
             pic.save(dest)
