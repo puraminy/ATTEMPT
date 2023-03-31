@@ -606,6 +606,7 @@ def train(**kwargs):
 
     wandb_dir = kwargs.save_path #op.join("logs", experiment)
     Path(wandb_dir).mkdir(parents=True, exist_ok=True)
+    experiment = kwargs.experiment
     if not preview or preview=="one":
        wandb.init(
           # Set the project where this run will be logged
