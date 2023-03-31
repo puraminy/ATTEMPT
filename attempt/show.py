@@ -54,19 +54,14 @@ def remove_uniques(df, sel_cols, tag_cols):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["exp_id", "rouge_score", "pred_max_num"] + tag_cols:
+        if c in ["exp_id", "rouge_score", "pred_max_num"]:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
         else:
            _info_cols.append(c) 
-    if _sel_cols:
-        sel_cols = _sel_cols
-        _tag_cols = []
-        for _col in _sel_cols:
-            if _col in tag_cols:
-                _tag_cols.append(_col)
-    return _sel_cols, _info_cols, _tag_cols
+    _sel_cols = list(set(_sel_cols + tag_cols))
+    return _sel_cols, _info_cols, tag_cols
 
 def list_dfs(df, main_df, s_rows, FID):
     dfs_items = [] 
