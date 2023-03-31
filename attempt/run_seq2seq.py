@@ -502,8 +502,6 @@ def train(**kwargs):
 
 
     mylogs.bp("nsp")
-    target_prompt_length = adapter_args.num_prompt_tokens
-    source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
     nsp = 0
@@ -535,6 +533,8 @@ def train(**kwargs):
         kwargs["num_target_prompts"] = num_target_prompts
         mylogs.main_args["num_target_prompts"] = num_target_prompts
 
+    target_prompt_length = adapter_args.num_prompt_tokens
+    source_prompt_length = adapter_args.num_prompt_tokens
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
