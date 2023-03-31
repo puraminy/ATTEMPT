@@ -193,9 +193,15 @@ def cli():
     type=int,
     help="Max number of experiments to do (0 means all)"
 )
+@click.option(
+    "--new_exp_folder",
+    "-new",
+    is_flag=True,
+    help="Whether create a new directory for experiment when loadign an existing config file"
+)
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, download_model, max_exp):
+        debug, version, trial, rem, repeat, download_model, max_exp, new_exp_folder):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -204,7 +210,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
    exp_args = {}
-   save_path = ""
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
@@ -213,8 +218,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        save_path = exp_args["save_path"]
    if not save_path or experiment == "self":
        save_path = os.getcwd()
-   if not exp_conf and experiment != "self":
-       save_path = os.path.join(mylogs.logPath, experiment)
+   if (not exp_conf and experiment != "self") or new_exp_folder:
+       if new_exp_folder and save_path:
+          save_path = os.path.join(str(Path(save_path).parent), experiment)
+       else:
+          save_path = os.path.join(mylogs.logPath, experiment)
        if Path(save_path).exists() and rem:
            #if input("Are you sure you want to delete the experiment folder?") == "y":
            #shutil.rmtree(save_path)
