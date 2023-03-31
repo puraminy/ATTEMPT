@@ -60,7 +60,10 @@ def remove_uniques(df, sel_cols, tag_cols):
            _sel_cols.append(c)
         else:
            _info_cols.append(c) 
-    _sel_cols = list(set(_sel_cols + tag_cols))
+    if _sel_cols:
+        for _col in tag_cols:
+            if not _col in _sel_cols:
+                _sel_cols.append(_col)
     return _sel_cols, _info_cols, tag_cols
 
 def list_dfs(df, main_df, s_rows, FID):
