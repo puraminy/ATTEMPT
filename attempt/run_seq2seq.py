@@ -134,6 +134,13 @@ def cli():
     help="The name of experiment multi-valued variables for which you want to check the difference of their values, if not given it runs all combinations"
 )
 @click.option(
+    "--main_vars",
+    "-mv",
+    type=str,
+    default="",
+    help="The name of one multi-valued variable for which you want to check the difference of their values, if not given it runs all combinations"
+)
+@click.option(
     "--log_var",
     "-lv",
     type=str,
@@ -187,7 +194,7 @@ def cli():
     help="Max number of experiments to do (0 means all)"
 )
 @click.pass_context
-def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, 
+def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
         debug, version, trial, rem, repeat, download_model, max_exp):
    if debug:
        port = "1234"
@@ -260,6 +267,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    mylogs.bp("run")
    if not exp_vars:
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
+   if not main_vars:
+       main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
    elif type(exp_vars) != list:
        exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
@@ -268,7 +277,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
       if len(cc) > 1:
-           if vv.startswith("@"):
+           if vv.startswith("@") or vv.endswith("@"):
                vv = vv.strip("@")
                tags.append(vv.strip("^"))
            full_tags.append(vv.strip("^"))
@@ -314,6 +323,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
        prev_name = ""
        prev_item = ""
        conflict = "" 
+       mvars = {}
        for kk, (var_name,var_item) in enumerate(comb.items()):
            if var_name.startswith("^") and prev_name:
                prev_vals = values[kk-1]
@@ -323,7 +333,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
                if not (prev_item, var_item) in pairs:
                    conflict = prev_name + ":" + prev_item + " "+ var_name + ":" + var_item
                    break
-           args[var_name.strip("^")]=var_item
+           var_name = var_name.strip("^")
+           args[var_name]=var_item
+           if var_name in main_vars:
+               mvars[var_name] = var_item
            if not var_name in exclude_list:
                _output_dir.append(var_name + "_" + str(var_item))
            prev_name = var_name
@@ -337,6 +350,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var,
            return
 
        args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
+       args["main_vars"] = mvars
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
        _output_dir = str(args["expid"])
@@ -436,6 +450,7 @@ def train(**kwargs):
     preview = kwargs.setdefault("preview","")
     repeat = kwargs.setdefault("repeat",False)
     log_var = kwargs.setdefault("log_var","")
+    main_vars = kwargs.setdefault("main_vars",{})
     mylogs.set_args(kwargs.copy())
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments,
                                AdapterTrainingArguments))
@@ -579,6 +594,15 @@ def train(**kwargs):
         if not resolved:
             shutil.rmtree(training_args.output_dir)
             return "skipped"
+
+    if main_vars:
+        x = main_vars
+        y = prev_main_vars
+        repeated_items = {k: x[k] for k in x if k in y and x[k] == y[k]}
+        if len(repeated_items) == len(main_vars)
+            shutil.rmtree(training_args.output_dir)
+            return "skipped"
+        prev_main_vars = main_vars.copy()
 
     if log_var:
        mylogs.plog.handlers.clear()
