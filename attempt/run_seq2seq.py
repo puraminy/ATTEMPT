@@ -210,6 +210,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        debugpy.wait_for_client()  # blocks execution until client is attached
    exclude_list = []
    exp_args = {}
+   save_path = ""
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
@@ -524,8 +525,9 @@ def train(**kwargs):
         if model_args.compose_method == "cat":
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wavg":
-            target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-            adapter_args.num_prompt_tokens = target_prompt_length
+            pass
+            #target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
+            #adapter_args.num_prompt_tokens = target_prompt_length
 
         kwargs["num_target_prompts"] = num_target_prompts
         mylogs.main_args["num_target_prompts"] = num_target_prompts
