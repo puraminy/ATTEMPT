@@ -599,7 +599,6 @@ def train(**kwargs):
         x = main_vars
         y = mylogs.prev_main_vars
         repeated_items = {k: x[k] for k in x if k in y and x[k] == y[k]}
-        breakpoint()
         if len(repeated_items) == len(main_vars):
             shutil.rmtree(training_args.output_dir)
             return "skipped"
