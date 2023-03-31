@@ -404,18 +404,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
               continue 
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
-       wandb_dir = save_path #op.join("logs", experiment)
-       Path(wandb_dir).mkdir(parents=True, exist_ok=True)
-       if not preview or preview=="one":
-           wandb.init(
-              # Set the project where this run will be logged
-              project= experiment.replace("#","-").replace("/","-"), 
-              name=title,
-              dir=wandb_dir,
-              settings=wandb.Settings(symlink=False),
-              # Track hyperparameters and run metadata
-              config=tags_dict
-           )
        if debug:
            ctx.invoke(train, **args)
        else:
@@ -430,8 +418,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                raise Exception("An error occured in the experiment")
        if preview == "one":
            return
-       if not preview or preview=="one":
-           wandb.finish()
 
 @cli.command()
 def train(**kwargs):
@@ -617,6 +603,19 @@ def train(**kwargs):
         if not k in exp_info:
             exp_info[k] = v
 
+
+    wandb_dir = kwargs.save_path #op.join("logs", experiment)
+    Path(wandb_dir).mkdir(parents=True, exist_ok=True)
+    if not preview or preview=="one":
+       wandb.init(
+          # Set the project where this run will be logged
+          project= experiment.replace("#","-").replace("/","-"), 
+          name=title,
+          dir=wandb_dir,
+          settings=wandb.Settings(symlink=False),
+          # Track hyperparameters and run metadata
+          config=tags_dict
+       )
     if wandb.run is not None:
         exp_info["runid"] = wandb.run.id
     _tag = mylogs.get_tag(tag)  
@@ -1700,6 +1699,7 @@ def train(**kwargs):
             results[checkpoint_dir]["test_avg"] = np.mean(test_avg)
             results[checkpoint_dir]["test_each"] = test_metrics_all
     print(results)
+    wandb.finish()
     return results
 
 if __name__ == "__main__":
