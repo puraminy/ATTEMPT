@@ -241,7 +241,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if not download_model:
        args["load_path"] = mylogs.pretPath 
    args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
-   args["trial"] = trial
    args["version"] = version 
    args["break_point"] = break_point 
    args["preview"] = preview 
@@ -394,8 +393,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                       print(ii, " is equal to ", ee)
                       output_dir = jj["output_dir"].strip("%")
                       if glob.glob(op.join(output_dir, "*.tsv")):
+                          trial = jj["trial"] + 1
                           exp_exists = True
                       break
+       args["trial"] = trial
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
            conf_str = json.dumps(full_tags_dict, indent=2)
