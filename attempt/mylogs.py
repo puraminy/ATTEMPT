@@ -7,6 +7,7 @@ from pathlib import Path
 from deepdiff import DeepDiff
 main_args = {}
 prev_args = {}
+prev_main_vars = {}
 
 def args(key, default="no_default"):
     if key in main_args:

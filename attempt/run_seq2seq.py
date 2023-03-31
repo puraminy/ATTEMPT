@@ -597,12 +597,13 @@ def train(**kwargs):
 
     if main_vars:
         x = main_vars
-        y = prev_main_vars
+        y = mylogs.prev_main_vars
         repeated_items = {k: x[k] for k in x if k in y and x[k] == y[k]}
-        if len(repeated_items) == len(main_vars)
+        breakpoint()
+        if len(repeated_items) == len(main_vars):
             shutil.rmtree(training_args.output_dir)
             return "skipped"
-        prev_main_vars = main_vars.copy()
+        mylogs.prev_main_vars = main_vars.copy()
 
     if log_var:
        mylogs.plog.handlers.clear()
