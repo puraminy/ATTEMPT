@@ -54,7 +54,7 @@ def remove_uniques(df, sel_cols, tag_cols):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["exp_id", "rouge_score", "pred_max_num"]:
+        if c in ["exp_id", "rouge_score", "pred_max_num"] + tag_cols:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
