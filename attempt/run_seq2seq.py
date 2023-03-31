@@ -521,6 +521,9 @@ def train(**kwargs):
 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
+    kwargs["num_prompt_tokens"] = target_prompt_length 
+    kwargs["source_prompt_length"] = target_prompt_length 
+    kwargs["target_prompt_length"] = source_prompt_length 
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["train_samples"] = data_args.max_train_samples
