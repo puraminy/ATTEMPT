@@ -692,14 +692,14 @@ def show_df(df):
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
                 cond = f"(main_df['expid'] == '{exp}')"
-                tdf = main_df[main_df[FID] == exp]
+                tdf = main_df[main_df['expid'] == exp]
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
                 _selpath = os.path.join(path.parent, "pred_sel" + path.name) 
                 shutil.copy(path, _selpath)
                 grm = tdf.iloc[0]["gen_route_methods"]
                 runid = tdf.iloc[0]["runid"]
-                run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
+                run = "**/wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
                 spath = "images/" + runid
                 if Path(spath).exists():
