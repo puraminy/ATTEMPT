@@ -178,7 +178,7 @@ class AbstractTask(abc.ABC):
     ######### my template functions
     def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
         _pholder = place_holder
-        place_holder = place_holder.replace("task", self.name)  
+        place_holder = place_holder.replace("task", self.get_id())  
         place_holder = place_holder.replace("[", "<")  
         place_holder = place_holder.replace("]", ">")  
         while _pholder in template:
@@ -705,7 +705,7 @@ class AtomicRel(Atomic):
         self.rels = task_args.rels
 
     def get_id(self):
-        return self.name + "-".join(self.rels)
+        return "-".join(self.rels)
 
     def preproc_df(self, df, split):
         if split == "train":
