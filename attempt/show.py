@@ -44,7 +44,7 @@ def load_results(path):
     df.to_csv(path.replace("json", "tsv"), sep="\t", index = False)
     return df
 
-def remove_uniques(df, sel_cols, tag_cols):
+def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
     _info_cols = []
     _tag_cols = tag_cols
     _sel_cols = []
@@ -54,7 +54,7 @@ def remove_uniques(df, sel_cols, tag_cols):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["exp_id", "rouge_score", "pred_max_num"]:
+        if c in ["exp_id", "rouge_score", "pred_max_num"] + keep_cols:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
@@ -261,12 +261,14 @@ def show_df(df):
     seq = ""
     search = ""
     on_col_list = []
+    keep_cols = []
     unique_cols = []
     group_sel_cols = []
     sel_fid = "" 
     df_cond = True
     open_dfnames = [dfname]
     dot_cols = {}
+    selected_cols = []
     task = ""
     if "task_name" in df:
         task = df["task_name"][0]
@@ -399,7 +401,9 @@ def show_df(df):
                        else:
                           cell_color = sel_col_color
                    else:
-                       if sel_col == group_col:
+                       if sel_col in selected_cols:
+                          cell_color = sel_col_color
+                       elif sel_col == group_col:
                           cell_color = g_color
                        elif ii in sel_rows:
                           cell_color = MSG_COLOR
@@ -608,6 +612,15 @@ def show_df(df):
             sel_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
             seq = ""
+        elif char == "s":
+            col = sel_cols[cur_col]
+            if col in selected_cols:
+                if len(selected_cols) == 1:
+                    df = df.sort_values(by=col, ascending=asc)
+                    asc = not asc
+                selected_cols.remove(col)
+            else:
+                selected_cols.append(col)
         elif char == ".":
             col = sel_cols[cur_col]
             val=df.iloc[sel_row][col]
@@ -1033,13 +1046,11 @@ def show_df(df):
                 extra["FID"] = FID
                 df = filter_df
                 hotkey=hk
-        elif char == "s": 
-            if cur_col < len(sel_cols):
-                col = sel_cols[cur_col]
-                if col == sort:
-                    asc = not asc
-                sort = col
-                df = df.sort_values(by=sort, ascending=asc)
+        elif is_enter(ch) and prev_char == "s": 
+            sort = selected_cols + [col] 
+            df = df.sort_values(by=sort, ascending=asc)
+            selected_cols = []
+            asc = not asc
         elif char == "g":
             if group_col:
                 group_col = ""
@@ -1050,18 +1061,27 @@ def show_df(df):
                 group_col = col
                 sel_row = 0
                 sel_group = 0
-        elif char == "c":
+        elif char == "c" and not prev_char in ["c", "p"]:
             backit(df, sel_cols)
             if not "expid" in sel_cols:
                 sel_cols.insert(1, "expid")
             _agg = {}
             for c in sel_cols:
                 if c.endswith("score"):
-                    _agg[c] = "max"
+                    _agg[c] = "mean"
                 else:
                     _agg[c] = "first"
+            consts["options"] = "c: for expid,   p: for expid and prefix"
+        elif char == "p" and prev_char == "c":
+            df = back[-1]
+            consts["options"] = "b: back"
             df = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["expid","prefix"], ascending=False)
+        elif char == "c" and prev_char == "c":
+            consts["options"] = "b: back"
+            df = back[-1]
+            df = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
+            df = df.sort_values(by=["expid"], ascending=False)
         elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
@@ -1183,7 +1203,8 @@ def show_df(df):
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
             if len(df) > 1:
-                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
+                        orig_tag_cols, keep_cols)
                 unique_cols = info_cols.copy()
             info_cols_back = info_cols.copy()
             info_cols = []
@@ -1462,6 +1483,7 @@ def show_df(df):
                    sel_row = 0
                    if char == "f":
                        hotkey = hk
+                       keep_cols.append(col)
         if char == "V":
             backit(df, sel_cols)
             sel_col = sel_cols[cur_col]
@@ -1563,7 +1585,9 @@ def show_df(df):
         elif char == "v":
             #do_wrap = not do_wrap
             sel_rows = []
+            selected_cols = []
             dot_cols = {}
+            keep_cols = []
             consts = {}
         elif char == "M" and prev_char == "x":
             info_cols = []
