@@ -884,13 +884,15 @@ def train(**kwargs):
         tasks = data_args.task_name
         n_tasks = len(tasks)
         task_prompts = {}
-        for task in tasks:
-             p = AutoTask.get(task, None, task_args=task_args).get_prompts()
+        for task_name in tasks:
+             task = AutoTask.get(task_name, None, task_args=task_args)
+             p = task.get_prompts()
              prompts = {**prompts, **p}
-             if not task in task_prompts:
-                 task_prompts[task] = []
+             tid = task.get_id()
+             if not tid in task_prompts:
+                 task_prompts[tid] = []
              for k,v in p.items():
-                 task_prompts[task].extend(v)
+                 task_prompts[tid].extend(v)
 
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
