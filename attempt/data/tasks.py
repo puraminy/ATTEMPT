@@ -52,6 +52,9 @@ class AbstractTask(abc.ABC):
         self.task_args = task_args
         self.counter = {} #counter for logging items
 
+    def get_id(self):
+        return self.name 
+
     def get_max_target_length(self, tokenizer, default_max_length):
         if self.labels_list is not None:
             return max([len(tokenizer.encode(label)) for label in self.labels_list])
@@ -237,7 +240,7 @@ class AbstractTask(abc.ABC):
         return template
 
     def get_prompts(self):
-        data = {"task": self.name}
+        data = {"task": self.get_id()}
         self.fill_template(data)
         return self.prompt_set
 
@@ -351,7 +354,7 @@ class AbstractTask(abc.ABC):
         tgt = tgt[:100]
         data = {'source': src,
                 'target': tgt,
-                'task': self.name,
+                'task': self.get_id(),
                 ** extra_fields}
         extra_fields = {}
         extra_fields["event"] = orig_src 
@@ -700,6 +703,9 @@ class AtomicRel(Atomic):
         self.val_samples_per_rel = task_args.val_samples
         self.test_samples_per_rel = task_args.test_samples
         self.rels = task_args.rels
+
+    def get_id(self):
+        return self.name + self.rels
 
     def preproc_df(self, df, split):
         if split == "train":
