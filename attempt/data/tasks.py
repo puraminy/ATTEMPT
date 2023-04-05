@@ -705,7 +705,7 @@ class AtomicRel(Atomic):
         self.rels = task_args.rels
 
     def get_id(self):
-        return self.name + self.rels
+        return self.name + "-".join(self.rels)
 
     def preproc_df(self, df, split):
         if split == "train":
