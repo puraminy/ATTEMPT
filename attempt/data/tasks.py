@@ -226,7 +226,7 @@ class AbstractTask(abc.ABC):
                     num_holder = "_i"
                 place_holder = "[" + name + "_" + emb + "]"
                 if name == "task":
-                    name = self.name
+                    name = self.get_id()
                 template = self.fill_prompt(template, name, place_holder, plen=plen, 
                         num_holder=num_holder)
                 m = re.search(regex, template)
