@@ -229,8 +229,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            #shutil.rmtree(save_path)
            save_path = save_path.rstrip("/")
            dirs = glob.glob(save_path + '/*/')
-           for d in dirs:
-                shutil.rmtree(d)
+           ans = input("Do you want to delete '" + save_path + "'?")
+           if ans == "y":
+               for d in dirs:
+                    shutil.rmtree(d)
 
        if Path(save_path).is_file():
            os.remove(save_path)
