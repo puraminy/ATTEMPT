@@ -1149,9 +1149,11 @@ def show_df(df):
                 s2 = sel_rows[1]
                 infos = []
                 for col in df.columns:
+                    if col == "ftag" or col.startswith("test_") or "output_dir" in col:
+                        continue
                     i1 = df.iloc[s1][col]
                     i2 = df.iloc[s2][col]
-                    if i1 != i2:
+                    if str(i1) != str(i2):
                        infos.append(col + ":" + str(i1))
                        infos.append(col + ":" + str(i2))
                 subwin(infos)
