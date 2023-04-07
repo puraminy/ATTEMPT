@@ -1198,17 +1198,15 @@ class T5Stack(T5PreTrainedModel):
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
         if self.compose_method == "wavg" and self.sel_positives is True: 
-            attn_sel_scores = attn_scores[attn_scores > 0]
-            attn_sel_scores = attn_sel_scores.reshape(batch_size, 1, -1)
-            attend_to_sel_idx = (attn_scores > 0).nonzero()
-            attend_to_sel_idx = attend_to_sel_idx.reshape(batch_size, 1, -1)
+            positive_scores = attn_scores[attn_scores > 0]
+            positive_scores = positive_scores.reshape(batch_size, -1)
+            num_attend_to = positive_scores.size()[1]
+        if self.source_prompts_order == "unsorted":
+            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                    num_attend_to, sorted=False)
         else:
-            if self.source_prompts_order == "unsorted":
-                attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                        num_attend_to, sorted=False)
-            else:
-                attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                        num_attend_to, sorted=True)
+            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                    num_attend_to, sorted=True)
         mylogs.bp("att")
         if self.target_share == -2:
             top, _ = torch.max(attn_sel_scores, -1) 
