@@ -1032,10 +1032,10 @@ class T5Stack(T5PreTrainedModel):
         self.router = nn.Parameter(data=torch.empty((
             attend_num,
             attend_num 
-        ), device=device).uniform_(-1e-3, 1e-3))
+        ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
         self.target_router = nn.Parameter(data=torch.empty((
             attend_num
-        ), device=device).uniform_(-1e-3, 1e-3))
+        ), device=device).uniform_(0, 0))
 
 
 #        self.z = nn.Parameter(data=torch.empty((
