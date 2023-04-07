@@ -1149,7 +1149,9 @@ def show_df(df):
                 s2 = sel_rows[1]
                 infos = []
                 for col in df.columns:
-                    if col == "ftag" or col.startswith("test_") or "output_dir" in col:
+                    if (col == "ftag" or 
+                        col == "extra_fields" or col == "path" or col == "full_tag" 
+                        or col.startswith("test_") or "output_dir" in col):
                         continue
                     i1 = df.iloc[s1][col]
                     i2 = df.iloc[s2][col]
@@ -1212,19 +1214,25 @@ def show_df(df):
             info_cols = []
             df = df.sort_values(by = ["rouge_score"], ascending=False)
         elif char == "T":
-            exp=df.iloc[sel_row]["exp_id"]
-            score=df.iloc[sel_row]["rouge_score"]
-            cond = f"(main_df['{FID}'] == '{exp}')"
-            tdf = main_df[main_df[FID] == exp]
-            prefix=tdf.iloc[0]["prefix"]
-            expid=tdf.iloc[0]["expid"]
-            path=tdf.iloc[0]["path"]
-            js = os.path.join(str(Path(path).parent), "exp.json")
-            fname ="exp_" + str(expid) + "_" + prefix + "_" + str(round(score,2)) + ".json"
-            pfix = rowinput("prefix:")
-            fname = pfix + "_" + fname
-            dest = os.path.join(home, "results", fname)
-            shutil.copyfile(js, dest)
+            s_rows = sel_rows
+            if not sel_rows:
+                s_rows = [sel_row]
+            pfix = ""
+            for s_row in s_rows:
+                exp=df.iloc[s_row]["exp_id"]
+                score=df.iloc[s_row]["rouge_score"]
+                cond = f"(main_df['{FID}'] == '{exp}')"
+                tdf = main_df[main_df[FID] == exp]
+                prefix=tdf.iloc[0]["prefix"]
+                expid=tdf.iloc[0]["expid"]
+                path=tdf.iloc[0]["path"]
+                js = os.path.join(str(Path(path).parent), "exp.json")
+                fname ="exp_" + str(expid) + "_" + prefix + "_" + str(round(score,2)) + ".json"
+                if not pfix:
+                    pfix = rowinput("prefix:")
+                fname = pfix + "_" + fname
+                dest = os.path.join(home, "results", fname)
+                shutil.copyfile(js, dest)
         elif char == "U":
             left = 0
             backit(df, sel_cols)
