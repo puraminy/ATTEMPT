@@ -258,11 +258,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    var_names = [x.split("=")[0] for x in all_vars]
    values = [x.split("=")[1].split("#") for x in all_vars]
    var_dict = {k:n for k,n in zip(var_names, values)} 
+   _mvars = []
    for var in main_vars.split("--"):
        if "=" in var:
            var_name = var.split("=")[0]
            var_item = var.split("=")[1].split("#")
            var_dict[var_name] = var_item
+           _mvars.append(var_name)
+   if _mvars: main_vars = _mvars
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
        members = [x.strip("@") for x in val if not x in multi and not "@" in x.strip("@")]
