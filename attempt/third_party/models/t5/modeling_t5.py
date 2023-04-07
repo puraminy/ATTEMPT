@@ -1199,7 +1199,9 @@ class T5Stack(T5PreTrainedModel):
 
         if self.compose_method == "wavg" and self.sel_positives is True: 
             attn_sel_scores = attn_scores[attn_scores > 0]
+            attn_sel_scores = attn_sel_scores.view(batch_size, 1, -1)
             attend_to_sel_idx = (attn_scores > 0).nonzero()
+            attned_to_sel_idx = attend_to_sel_idx.view(batch_size, 1, -1)
         else:
             if self.source_prompts_order == "unsorted":
                 attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
