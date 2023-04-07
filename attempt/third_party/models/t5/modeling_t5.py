@@ -1198,7 +1198,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
         if self.compose_method == "wavg" and self.sel_positives is True: 
-            positive_scores = attn_scores[attn_scores > 0]
+            positive_scores = router[router > 0]
             positive_scores = positive_scores.reshape(batch_size, -1)
             num_attend_to = positive_scores.size()[1]
         if self.source_prompts_order == "unsorted":
