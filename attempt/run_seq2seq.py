@@ -729,7 +729,7 @@ def train(**kwargs):
     config.num_target_prompts = num_target_prompts
     config.attend_private = use_private_prompts 
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
-    config.learn_privates = kwargs.setdefault("learn_privates", False)
+    config.sel_positives = kwargs.setdefault("sel_positives", False)
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
