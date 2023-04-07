@@ -959,7 +959,7 @@ class T5Stack(T5PreTrainedModel):
         self.shared_attn = shared_attn
         self.learned_temperature = learned_temperature
         self.target_task_id = None
-        self.learn_privates = config.learn_privates
+        self.sel_positives = config.sel_positives
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1197,12 +1197,16 @@ class T5Stack(T5PreTrainedModel):
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
-        if self.source_prompts_order == "unsorted":
-            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                    num_attend_to, sorted=False)
+        if self.compose_method == "wavg" and self.sel_positives is True: 
+            attn_sel_scores = attn_scores[attn_scores > 0]
+            attend_to_sel_idx = (attn_scores > 0).nonzero()
         else:
-            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                    num_attend_to, sorted=True)
+            if self.source_prompts_order == "unsorted":
+                attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                        num_attend_to, sorted=False)
+            else:
+                attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
+                        num_attend_to, sorted=True)
         mylogs.bp("att")
         if self.target_share == -2:
             top, _ = torch.max(attn_sel_scores, -1) 
