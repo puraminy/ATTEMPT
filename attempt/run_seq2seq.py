@@ -214,7 +214,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
-        exp_args["conf"] = Path(exp_conf).stem
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
@@ -239,6 +238,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            os.remove(save_path)
        Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
+   args["conf"] = Path(exp_conf).stem
    args["save_path"] = save_path
    args["load_path"] = "" 
    args["is_debug"] = debug
