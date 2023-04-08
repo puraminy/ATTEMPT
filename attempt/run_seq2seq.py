@@ -368,7 +368,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            print(f"Max number of exp reached {max_exp} ")
            return
 
-       args["expid"] = ii if not "expid" in exp_args else exp_args["expid"]
+       args["expid"] = ii if not "expid" in exp_args else str(exp_args["expid"]) + "-" + str(ii)
        args["main_vars"] = mvars
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
