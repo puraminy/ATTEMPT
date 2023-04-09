@@ -262,6 +262,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    for var in main_vars.split("--"):
        if "=" in var:
            var_name = var.split("=")[0]
+           assert var_name in exp_args, var_name +" must be in experiment variables (config)"
            var_item = var.split("=")[1].split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
