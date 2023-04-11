@@ -406,7 +406,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                       print(ii, " is equal to ", ee)
                       output_dir = jj["output_dir"].strip("%")
                       if glob.glob(op.join(output_dir, "*.tsv")):
-                          trial = jj["trial"] + 1
+                          trial = int(jj["trial"]) + 1
                           exp_exists = True
                       break
        args["trial"] = trial
