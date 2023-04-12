@@ -1475,25 +1475,26 @@ def show_df(df):
                 canceled, col, val = list_df_values(main_df, col, get_val=True)
             else:
                 canceled, col, val = list_df_values(df, col, get_val=True)
+            cond = ""
             if not canceled:
                if type(val) == str:
-                    cond = f"df['{col}'] == '{val}'"
+                  cond = f"df['{col}'] == '{val}'"
                else:
-                    cond = f"df['{col}'] == {val}"
-               if cond:
-                   mlog.info("cond %s, ", cond)
-                   if char == "f":
-                       df = main_df
-                   df = df[eval(cond)]
-                   #df = df.reset_index()
-                   filter_df = df
-                   if not "filter" in extra:
-                        extra["filter"] = []
-                   extra["filter"].append(cond)
-                   sel_row = 0
-                   if char == "f":
-                       hotkey = hk
-                       keep_cols.append(col)
+                  cond = f"df['{col}'] == {val}"
+            mlog.info("cond %s, ", cond)
+            if char == "f":
+               df = main_df
+            if cond:
+               df = df[eval(cond)]
+               #df = df.reset_index()
+               filter_df = df
+               if not "filter" in extra:
+                  extra["filter"] = []
+               extra["filter"].append(cond)
+               sel_row = 0
+            if char == "f":
+               hotkey = hk
+               keep_cols.append(col)
         if char == "V":
             backit(df, sel_cols)
             sel_col = sel_cols[cur_col]
