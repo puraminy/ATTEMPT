@@ -536,6 +536,8 @@ def train(**kwargs):
         num_target_prompts = max(num_target_prompts, 1)
         if model_args.compose_method == "cat":
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
+        elif model_args.compose_method == "wcat":
+            target_prompt_length = 2 * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wavg":
             pass
             #target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
