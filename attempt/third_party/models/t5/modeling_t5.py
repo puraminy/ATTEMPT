@@ -1246,6 +1246,7 @@ class T5Stack(T5PreTrainedModel):
 
         if self.apply_softmax_to == "after":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
+        mylogs.bp("att")
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
@@ -1255,10 +1256,11 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "wcat":
             avg_prompts = torch.einsum(
-                    'bts, btsld -> btld', attn_sel_scores, attend_to[:-1])
-            last_prompt = attend_to[-1]
+                    'bts, btsld -> btld', attn_sel_scores[:,:,:-1], 
+                     attend_to[:,:,:-1,:,:])
+            last_prompt = attend_to[:,:,-1,:,:]
             soft_prompts = torch.cat(
-                   [avg_prompts, last_prompt], dim=-1)
+                   [avg_prompts, last_prompt], dim=2)
         # Add target embedding when attend_target is not True
         if add_target is True:
            ts = target_shares.reshape(batch_size, 1, 1, 1)
