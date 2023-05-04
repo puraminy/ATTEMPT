@@ -1162,8 +1162,13 @@ class T5Stack(T5PreTrainedModel):
             x = self.layer_norm(x)
             #x = x.unsqueeze(-1)
             x = torch.transpose(x, 1,2)
-            agg_scores = avg_attend_for.bmm(
-                x) / self.temperature
+            if self.compose_method == "rcat":
+                agg_scores = avg_attend_for.bmm(
+                    x) / self.temperature
+            else:
+                agg_scores = attn_scores
+                attn_scores = avg_attend_for.bmm(
+                    x) / self.temperature
 
         # implement token level model
         elif self.attn_method == "token":
@@ -1250,7 +1255,7 @@ class T5Stack(T5PreTrainedModel):
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
-        elif self.compose_method == "rcat":
+        elif self.compose_method == "rcat" or self.compose_method == "scat":
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = torch.einsum(
