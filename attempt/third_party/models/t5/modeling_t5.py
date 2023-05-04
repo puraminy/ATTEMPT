@@ -1160,7 +1160,7 @@ class T5Stack(T5PreTrainedModel):
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
-            #x = x.unsqueeze(-1)
+            #x = x.unsqueeze(-1) ###
             x = torch.transpose(x, 1,2)
             if self.compose_method == "rcat":
                 agg_scores = avg_attend_for.bmm(
