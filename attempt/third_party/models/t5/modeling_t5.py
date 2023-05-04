@@ -1124,7 +1124,7 @@ class T5Stack(T5PreTrainedModel):
             else:
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
-        if self.attn_method == "rb":
+        if "rb" in self.attn_method or "sub" in self.attn_method:
             route_method = self.route_method
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
@@ -1155,14 +1155,14 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = avg_attend_for.bmm(
                 x) / self.temperature
 
-        elif self.attn_method == "sub":
+        if "sub" in self.attn_method:
             x = self.attn_W_down(avg_attend_to)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
             #x = x.unsqueeze(-1)
             x = torch.transpose(x, 1,2)
-            attn_scores = avg_attend_for.bmm(
+            agg_scores = avg_attend_for.bmm(
                 x) / self.temperature
 
         # implement token level model
@@ -1250,6 +1250,11 @@ class T5Stack(T5PreTrainedModel):
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
+        elif self.compose_method == "rcat":
+            soft_prompts = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to)
+            soft_prompts = torch.einsum(
+                'bts, btsld -> btld', agg_scores, soft_prompts)
         elif self.compose_method == "cat":
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to)
