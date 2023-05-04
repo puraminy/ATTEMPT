@@ -261,9 +261,9 @@ class AbstractTask(abc.ABC):
                target = target.replace("(mask)","")
             if part == "pcom":
                src = src.replace("(prompt)", "[com_i] (prompt) ",1)
-            if part == "p0":
+            if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
-            if part == "px0":
+            if part == "px0" or part == "0":
                src = src.replace("(prefix)", "",1)
             if part == "px":
                src = src.replace("(prefix)", "{prefix}",1)
