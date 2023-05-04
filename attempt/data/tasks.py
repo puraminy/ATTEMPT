@@ -366,6 +366,7 @@ class AbstractTask(abc.ABC):
         src_text, tgt_text = self.fill_template(data) 
         extra_fields["query"] = src_text
         extra_fields["resp"] = tgt_text
+        extra_fields["target_text"] = tgt_text
         if not "examples" in self.counter:
             self.counter["examples"] = 1
         if self.counter["examples"] < 5:
