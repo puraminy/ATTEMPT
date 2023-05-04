@@ -246,7 +246,7 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) {target}"
+        target = "(mask) (nat) {target}"
         return src, target
 
     def get_template(self):
@@ -277,8 +277,10 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "{prompt_sht} (prompt) ",1)
             if part == "pshr":
                src = src.replace("(prompt)", "{prompt_shr} (prompt) ",1)
-            if part == "nat": 
+            if part == "nat_inp": 
                src = src.replace("(nat)", ", {rel_nat}")
+            if part == "nat_tgt": 
+               target = target.replace("(nat)", ", {rel_nat}")
 
         return src, target
 
@@ -676,7 +678,6 @@ class Atomic(AbstractTask):
         cond = cond.strip("|")
         if cond: df = df[eval(cond)]
         return df
-
 
     #### ppppppppppppppp 
     def preprocessor(self, example, add_prefix=True):
