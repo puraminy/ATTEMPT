@@ -1267,8 +1267,8 @@ def show_df(df):
             sel_rows = []
             on_col_list = ["pred_text1"]
             other_col = "target_text"
-            #if char =="i": 
-            #    group_col = "input_text"
+            if char =="i": 
+                group_col = "input_text"
             #    on_col_list = ["input_text"] 
             #    other_col = "pred_text1"
             if char =="t": 
