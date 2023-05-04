@@ -1546,13 +1546,13 @@ def train(**kwargs):
                             #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                             #label = re.sub(r'<.*?>','', label)
                             label = label.strip()
-                            df.at[i, "target_text"] = label 
+                            df.at[i, "target_text"] = extra["target_text"] #label 
                             sel = False
                             if "sel" in extra:
                                 sel = extra["sel"] 
                             df.at[i, "sel"] = sel 
                             df.at[i, "query"] = extra["query"]  
-                            df.at[i, "resp"] = extra["resp"]  
+                            df.at[i, "resp"] = label # extra["resp"]  
                             mylogs.bp("decode")
                             pred = tokenizer.decode(predictions[i], 
                                     skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
