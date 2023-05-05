@@ -50,6 +50,7 @@ def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
     _sel_cols = []
     _df = df.nunique()
     items = {k:c for k,c in _df.items()}
+    df.columns = df.columns.get_level_values(0)
     for c in sel_cols:
         if not c in items:
             continue
@@ -64,10 +65,6 @@ def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
         for _col in tag_cols:
             if not _col in _sel_cols:
                 _sel_cols.append(_col)
-    if "template" in _sel_cols:
-        _sel_cols.remove("template")
-    if "template" in tag_cols:
-        tag_cols.remove("template")
 
     return _sel_cols, _info_cols, tag_cols
 
