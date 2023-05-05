@@ -620,6 +620,8 @@ def train(**kwargs):
             if not k in mylogs.prev_main_vars:
                 mylogs.prev_main_vars[k] = []
             mylogs.prev_main_vars[k].append(v)
+        if preview == "mavar":
+            return
 
     if log_var:
        mylogs.plog.handlers.clear()
