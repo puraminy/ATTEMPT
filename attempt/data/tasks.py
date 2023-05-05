@@ -364,7 +364,7 @@ class AbstractTask(abc.ABC):
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
         if not self.generation:
-            src = src[:400]
+            src = src[:300]
             tgt = tgt[:10]
         else:
             src = src[:300]
