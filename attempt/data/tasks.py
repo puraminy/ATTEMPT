@@ -252,6 +252,7 @@ class AbstractTask(abc.ABC):
     def get_template(self):
         src, target = self.get_template_format()
         parts = self.template.split("-")
+        pcom = 0 # number of shared prompts among all tasks
         for part in parts:
             if part == "unsup": 
                src = src.replace("(mask)", "{mask}")
@@ -261,6 +262,7 @@ class AbstractTask(abc.ABC):
                target = target.replace("(mask)","")
             if part == "pcom":
                src = src.replace("(prompt)", "[com_i] (prompt) ",1)
+               pcom += 1
             if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
             if part == "px0" or part == "0":
@@ -282,9 +284,9 @@ class AbstractTask(abc.ABC):
             if part == "nat_tgt": 
                target = target.replace("(nat)", ", {rel_nat}")
 
-        return src, target
+        return src, target, pcom
 
-    def extend_data(self, data):
+    def extend_data(self, data, pcom=0):
         mylogs.bp("task")
         if "task" in data:
             task = data["task"]
@@ -316,8 +318,10 @@ class AbstractTask(abc.ABC):
             prompt_shr = ["[" + w + "_i]" for w in rel_sh]
             data["prompt_shr"] = " ".join(prompt_shr)
             # psht is for comparision. it uses task specific prompts with the length 
-            # of shared prompts, however prompts for each tasks are distnict
-            l = self.get_prompt_length(0)*len(rel_sh)
+            # of shared prompts concatenated to each other, 
+            # however prompts for each tasks are distnict
+            # it also substract the length of common or shared prompts among all tasks
+            l = self.get_prompt_length(0)*(len(rel_sh) - pcom)
             prompt_sht = "[task" + "_" + str(l) + "]" 
             data["prompt_sht"] = prompt_sht
 
@@ -325,14 +329,14 @@ class AbstractTask(abc.ABC):
 
     def fill_template(self, data):
         mylogs.bp("fill")
-        src,tgt = self.get_template()
+        src,tgt,pcom = self.get_template()
         # remove unused place holders
         src = re.sub(r'\(.*?\)','',src)
         src = re.sub(' +', ' ',src)
         tgt = re.sub(r'\(.*?\)','',tgt)
 
         mask = "<extra_id_0>"
-        data = self.extend_data(data)
+        data = self.extend_data(data, pcom=pcom)
         data["mask"] = mask
         data["prefix"] = self.name + ":"
         data = defdict(data)
