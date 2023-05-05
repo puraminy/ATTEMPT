@@ -27,6 +27,7 @@ class AbstractTask(abc.ABC):
     preprocessor: Callable = NotImplemented
     metric = NotImplemented
     metric_names = NotImplemented
+    generation = False
     split_map = None
     labels_list = None
     samples_per_head = 1
@@ -362,8 +363,12 @@ class AbstractTask(abc.ABC):
         sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
-        src = src[:350]
-        tgt = tgt[:100]
+        if not self.generation:
+            src = src[:400]
+            tgt = tgt[:10]
+        else:
+            src = src[:300]
+            tgt = tgt[:100]
         data = {'source': src,
                 'target': tgt,
                 'task': self.get_id(),
@@ -620,6 +625,7 @@ class Atomic(AbstractTask):
     name = "atomic"
     metric = [metrics.rouge]
     metric_names = ["rouge"]
+    generation = True
     do_shuffle = True
     samples_per_head = 3
     rels = []
