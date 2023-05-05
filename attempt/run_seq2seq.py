@@ -406,7 +406,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                       print(ii, " is equal to ", ee)
                       output_dir = jj["output_dir"].strip("%")
                       if glob.glob(op.join(output_dir, "*.tsv")):
-                          trial = int(jj["trial"]) + 1
+                          trial = int(jj["trial"]) + 1 if "trial" in jj else 2
                           exp_exists = True
                       break
        args["trial"] = trial
@@ -621,7 +621,7 @@ def train(**kwargs):
                 mylogs.prev_main_vars[k] = []
             mylogs.prev_main_vars[k].append(v)
         if preview == "mavar":
-            return
+            return 
 
     if log_var:
        mylogs.plog.handlers.clear()
