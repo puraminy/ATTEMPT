@@ -245,8 +245,8 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target}"
+        src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (pshr) (prompt) (mask)" 
+        target = "(mask) (nat) (pshr) {target}"
         return src, target
 
     def get_template(self):
@@ -280,7 +280,9 @@ class AbstractTask(abc.ABC):
             if part == "nat_inp": 
                src = src.replace("(nat)", ", {rel_nat}")
             if part == "nat_tgt": 
-               target = target.replace("(nat)", ", {rel_nat}")
+               target = target.replace("(nat)", "{rel_nat}")
+            if part == "pshr_tgt": 
+               target = target.replace("(pshr)", "{prompt_shr}")
 
         return src, target
 
