@@ -1439,11 +1439,7 @@ def train(**kwargs):
             task_args=task_args).get_max_target_length(
             tokenizer=tokenizer, default_max_length=data_args.max_target_length)
             for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
-        counter = 1
         for k, name in enumerate(test_datasets):
-            if counter > 1:
-                break
-            counter += 1
             if model_args.shared_attn is True:
                 test_datasets[name] = test_datasets[name].map(
                     functools.partial(
@@ -1492,7 +1488,11 @@ def train(**kwargs):
                     attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                     model.encoder.attn_scores = torch.zeros(
                         (attend_num, attend_num), device=device) 
+                    counter = 1
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                        if counter > 1:
+                            break
+                        counter += 1
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
