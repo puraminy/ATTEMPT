@@ -306,11 +306,17 @@ class AbstractTask(abc.ABC):
 
             rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
             rel_sh = rel_sh.split()
+            # prompt shr creates same prompts for shared tokens of tasks, 
+            # the length of prompts 
+            # is specified with i
             prompt_sh = ["[" + w + "_i]" for w in rel_sh]
             data["prompt_sh"] = " ".join(prompt_sh)
+            # prompt is the same as prompt sh but the tokens are shuffled 
             shuffle(rel_sh)
             prompt_shr = ["[" + w + "_i]" for w in rel_sh]
             data["prompt_shr"] = " ".join(prompt_shr)
+            # psht is for comparision. it uses task specific prompts with the length 
+            # of shared prompts, however prompts for each tasks are distnict
             l = self.get_prompt_length(0)*len(rel_sh)
             prompt_sht = "[task" + "_" + str(l) + "]" 
             data["prompt_sht"] = prompt_sht
