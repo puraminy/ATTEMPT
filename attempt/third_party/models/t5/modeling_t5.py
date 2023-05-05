@@ -921,6 +921,7 @@ class T5Stack(T5PreTrainedModel):
         ################# MyCode
         self.prompt_encoders = []
         self.embedding_dim = self.config.hidden_size
+        # all prompt ids for all tasks
         self.task_prompt_ids = []
         self.router = None
         self.training = True
@@ -1300,10 +1301,13 @@ class T5Stack(T5PreTrainedModel):
             batch_size = inputs_embeds.shape[0]
             num_prompt_encoders = len(self.prompt_encoders) + 1
             #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
+            # prompt masks for all prompt tokens
             prompt_masks = self.get_prompt_token_fn(input_ids)
+            # exteract prompt ids of tasks in the batch
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
+            # a list of indexes to target encoders (one encoder per task)
             target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
             source_idx_list = [0] # 0 is for input 
             target_idx_list = []
@@ -1333,6 +1337,7 @@ class T5Stack(T5PreTrainedModel):
                     emb = encoder(encoder.net_inps)
                     target_idx[target_masks] = ii
             target_prompts = torch.stack(target_prompts_list) 
+            # averaging target prompts in the case that there are shared prompts
             mask = target_prompts !=0
             target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
             if self.attn_prompt_tuning:
