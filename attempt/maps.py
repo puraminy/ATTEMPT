@@ -26,7 +26,7 @@ REL_TO_PHRASE = {
 }
 REL_TO_SHARED_TOKENS = {
     "mnli":"cls nli ms ",
-    "sst2";"cls neg  ms ss sq",
+    "sst2":"cls neg  ms ss sq",
     "superglue-wic":"cls syn ss",
     "qqp":"cls dup sq qr",
     "rte":"cls nli qr",
