@@ -1439,7 +1439,11 @@ def train(**kwargs):
             task_args=task_args).get_max_target_length(
             tokenizer=tokenizer, default_max_length=data_args.max_target_length)
             for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
+        counter = 1
         for k, name in enumerate(test_datasets):
+            if counter > 1:
+                break
+            counter += 1
             if model_args.shared_attn is True:
                 test_datasets[name] = test_datasets[name].map(
                     functools.partial(
