@@ -915,6 +915,9 @@ def train(**kwargs):
             extend_tokenizer(tokenizer, prompt_tokens)
 
         encoders_prompts = prompts
+        # task prompts has one encoder per task where they could have shared tokens
+        # shared encoders has one encoder per prompt ids. 
+        # If two tasks use similar prompts they recieve the output of same encoders
         if prompt_sharing == "shared_tokens":
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
