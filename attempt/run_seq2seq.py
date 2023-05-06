@@ -865,6 +865,28 @@ def train(**kwargs):
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
         model.resize_token_embeddings(len(tokenizer))
+        # mmmmmmmmmmmmm Add target prompts
+        prompts = {}
+        prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
+        tasks = data_args.task_name
+        n_tasks = len(tasks)
+        task_prompts = {}
+        task_prompts_sets ={}
+        for task_name in tasks:
+             task = AutoTask.get(task_name, None, task_args=task_args)
+             p = task.get_prompts()
+             prompts = {**prompts, **p}
+             tid = task.get_id()
+             if not tid in task_prompts:
+                 task_prompts[tid] = []
+                 task_prompts_sets[tid] = []
+             for k,v in p.items():
+                 task_prompts[tid].extend(v)
+                 task_prompts_sets[tid].append(k)
+
+        for name, prompt_tokens in prompts.items():
+            extend_tokenizer(tokenizer, prompt_tokens)
+
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
@@ -876,15 +898,21 @@ def train(**kwargs):
                     ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
+        if kwargs.setdefault("use_prompt_set", False):
+            pset = []
+            for t in data_args.task_name:
+                pset.extend(task_prompts_sets[t])
+            pset = set(pset)
+            source_prompts.extend(["source_" + t for t in pset]) 
 
         kwargs["num_source_prompts"] = len(source_prompts)
         mylogs.main_args["num_source_prompts"] = len(source_prompts)
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
+                    is_source = True,
                     length = adapter_args.num_prompt_tokens,
                     encoder_type=adapter_args.prompt_encoder_type) 
-            encoder.is_source =True
             if "_for" in encoder.name:
                 encoder.is_shared = False
             if kwargs.setdefault("init_from_words", False):
@@ -895,30 +923,12 @@ def train(**kwargs):
                         length = adapter_args.num_prompt_tokens)
             prompt_encoders.append(encoder)
 
-        # mmmmmmmmmmmmm Add target prompts
-        prompts = {}
-        prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
-        tasks = data_args.task_name
-        n_tasks = len(tasks)
-        task_prompts = {}
-        for task_name in tasks:
-             task = AutoTask.get(task_name, None, task_args=task_args)
-             p = task.get_prompts()
-             prompts = {**prompts, **p}
-             tid = task.get_id()
-             if not tid in task_prompts:
-                 task_prompts[tid] = []
-             for k,v in p.items():
-                 task_prompts[tid].extend(v)
-
-        for name, prompt_tokens in prompts.items():
-            extend_tokenizer(tokenizer, prompt_tokens)
-
+        ############################ Create Target Prompt Encoders #############
         encoders_prompts = prompts
         # task prompts has one encoder per task where they could have shared tokens
         # shared encoders has one encoder per prompt ids. 
         # If two tasks use similar prompts they recieve the output of same encoders
-        if prompt_sharing == "shared_tokens":
+        if prompt_sharing == "shared_prompts" or "shared_source_encoders":
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
@@ -931,6 +941,8 @@ def train(**kwargs):
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
                     encoder_type=adapter_args.prompt_encoder_type) 
+            if name in task_prompts_sets:
+                encoder.attend_to.extend(["source_" + x for x in task_prompts_sets[name]])
             encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
