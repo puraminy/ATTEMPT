@@ -1125,15 +1125,15 @@ class T5Stack(T5PreTrainedModel):
             else:
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
+        route_method = self.route_method
         if self.attn_method == "const":
             route_idx = attend_to_idx
-            router = torch.zeros(target_idx.size()[1],
+            router = torch.ones(target_idx.size()[1],
                     route_idx.size()[1], 
                     device=inputs_embeds.device)
             router = router.repeat(batch_size, 1, 1)
             attn_scores = router
         elif self.attn_method == "rb":
-            route_method = self.route_method
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 
@@ -1163,7 +1163,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = avg_attend_for.bmm(
                 x) / self.temperature
 
-        if self.attn_method == "sub":
+        elif self.attn_method == "sub":
             x = self.attn_W_down(avg_attend_to)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
@@ -1354,6 +1354,7 @@ class T5Stack(T5PreTrainedModel):
                     target_idx = torch.unique_consecutive(target_idx, dim=1)  
                     source_idx_list = torch.tensor(source_idx_list, device=device).long()
                     target_idx_list = torch.tensor(target_idx_list, device=device).long()
+                    #target_idx = target_idx_list.repeat(batch_size, 1)
                     source_idx = source_idx_list.repeat(batch_size, 1)
                     attn_mask = attn_mask.repeat(batch_size, 1, 1)
                     sel_attn_mask = batched_index_select(attn_mask, 2, 
