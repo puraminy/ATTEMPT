@@ -33,6 +33,7 @@ REL_TO_SHARED_TOKENS = {
     "oEffect":"event after others effect",
     "oReact":"adj after others react",
     "oWant":"event after others want",
+    "atomic-rels":"event after they want",
     "xAttr":"adj always they seen",
     "xEffect":"event after they effect",
     "xIntent":"event before they want",
