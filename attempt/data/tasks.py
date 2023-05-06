@@ -291,6 +291,7 @@ class AbstractTask(abc.ABC):
         mylogs.bp("task")
         if "task" in data:
             task = data["task"]
+            teask = self.name
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else task
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else task
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
