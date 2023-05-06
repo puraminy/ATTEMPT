@@ -1125,7 +1125,14 @@ class T5Stack(T5PreTrainedModel):
             else:
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
-        if "rb" in self.attn_method or "sub" in self.attn_method:
+        if self.attn_method == "const":
+            route_idx = attend_to_idx
+            router = torch.zeros(target_idx.size()[1],
+                    route_idx.size()[1], 
+                    device=inputs_embeds.device)
+            router = router.repeat(batch_size, 1, 1)
+            attn_scores = router
+        elif self.attn_method == "rb":
             route_method = self.route_method
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
@@ -1156,20 +1163,15 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = avg_attend_for.bmm(
                 x) / self.temperature
 
-        if "sub" in self.attn_method:
+        if self.attn_method == "sub":
             x = self.attn_W_down(avg_attend_to)
             x = self.attn_non_linear(x)
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
             #x = x.unsqueeze(-1) ###
             x = torch.transpose(x, 1,2)
-            if self.compose_method == "rcat":
-                agg_scores = avg_attend_for.bmm(
-                    x) / self.temperature
-            else:
-                agg_scores = attn_scores
-                attn_scores = avg_attend_for.bmm(
-                    x) / self.temperature
+            attn_scores = avg_attend_for.bmm(
+                x) / self.temperature
 
         # implement token level model
         elif self.attn_method == "token":

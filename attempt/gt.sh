@@ -365,7 +365,7 @@ if [ "$method" = "pt" ]; then
    params="${params} --prompt_learning_rate=0.1"
    params="${params} --num_prompt_tokens=24"
    params="${params} --prompt_encoder_type=mlp#emb#!lstm"
-   params="${params} --prompt_sharing=!shared_tokens#shared_encoders"
+   params="${params} --prompt_sharing=!shared_prompts#shared_encoders"
    params="${params} --template=sup-p0-px0-px-pt#unsup-p0-px0-px-pt#!sup-p0-px0-px-psh" 
    params="${params} --init_from_words=False"
    params="${params} --save_these_prompts=all"
