@@ -882,7 +882,8 @@ def train(**kwargs):
                  task_prompts_sets[tid] = []
              for k,v in p.items():
                  task_prompts[tid].extend(v)
-                 task_prompts_sets[tid].append(k)
+             rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
+             task_prompts_sets[tid].extend(rel_sh.split())
 
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
@@ -898,7 +899,8 @@ def train(**kwargs):
                     ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
-        if kwargs.setdefault("use_prompt_set", False):
+        use_prompt_set = kwargs.setdefault("use_prompt_set", False)
+        if use_prompt_set:
             pset = []
             for t in data_args.task_name:
                 pset.extend(task_prompts_sets[t])
@@ -928,7 +930,7 @@ def train(**kwargs):
         # task prompts has one encoder per task where they could have shared tokens
         # shared encoders has one encoder per prompt ids. 
         # If two tasks use similar prompts they recieve the output of same encoders
-        if prompt_sharing == "shared_prompts" or "shared_source_encoders":
+        if prompt_sharing == "shared_prompts":
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
@@ -956,7 +958,7 @@ def train(**kwargs):
                 if "_for" in n and not n in encoder.attend_to:
                     encoder.attend_to_mask[i] = 0 
                     attn_flag = True
-            if not attn_flag or not use_private_prompts: 
+            if not attn_flag or (not use_private_prompts and not use_prompt_set): 
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
