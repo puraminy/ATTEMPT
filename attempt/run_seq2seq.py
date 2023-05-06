@@ -1489,7 +1489,6 @@ def train(**kwargs):
                     model.encoder.attn_scores = torch.zeros(
                         (attend_num, attend_num), device=device) 
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                        counter += 1
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
