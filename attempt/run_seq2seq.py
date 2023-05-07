@@ -876,7 +876,7 @@ def train(**kwargs):
              task = AutoTask.get(task_name, None, task_args=task_args)
              p = task.get_prompts()
              prompts = {**prompts, **p}
-             tid = task.get_id()
+             tid = task_name #get_id()
              if not tid in task_prompts:
                  task_prompts[tid] = []
                  task_prompts_sets[tid] = []
