@@ -237,7 +237,7 @@ class AbstractTask(abc.ABC):
     def insert_prompts(self, template):
         mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_([a-zA-Z\?\d]+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z\d]+)_([a-zA-Z\?\d]+)\]")
         return template
 
     def get_prompts(self):
@@ -274,6 +274,8 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "[task_i] (prompt) ",1)
             if part == "pw":
                src = src.replace("(prompt)", "{prompt_fw} (prompt) ",1)
+            if part == "pi":
+               src = src.replace("(prompt)", "{prompt_i} (prompt) ",1)
             if part == "psh":
                src = src.replace("(prompt)", "{prompt_sh} (prompt) ",1)
             if part == "psht":
@@ -292,11 +294,14 @@ class AbstractTask(abc.ABC):
         if "task" in data:
             task = data["task"]
             task = self.name
+            num_prompts = self.task_args.setdefault("num_prompts",1)
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else task
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else task
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
+            prompt_i = ["[p" + str(i) + "_i]" for i in range(num_prompts)]
+            data["prompt_i"] = " ".join(prompt_i)
             prompts_fw = ["[task_" + w + "]" for w in rel_fw]
             prompts_fw_cycle = []
             for i in range(self.get_prompt_length(0)):

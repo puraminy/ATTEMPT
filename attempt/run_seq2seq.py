@@ -510,6 +510,7 @@ def train(**kwargs):
 
 
     mylogs.bp("nsp")
+    num_prompts = kwargs.setdefault("num_prompts", 1) 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
@@ -568,6 +569,7 @@ def train(**kwargs):
     task_args["train_samples"] = data_args.max_train_samples
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
+    task_args["num_prompts"] = num_prompts 
     task_args["prompt_length"] = target_prompt_length 
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
@@ -880,6 +882,7 @@ def train(**kwargs):
         logger.info("%s tokens was addded", added)
         model.resize_token_embeddings(len(tokenizer))
         # mmmmmmmmmmmmm Add target prompts
+        mylogs.bp("encoders")
         prompts = {}
         prompt_sharing = kwargs.setdefault("prompt_sharing", "shared_encoders") 
         tasks = data_args.task_name
