@@ -433,6 +433,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                done = ctx.invoke(train, **args)
                if done != "skipped":
                    exps_done += 1
+               elif preview == "lict":
+                   c = input("check for conflicts!")
            except Exception as e:
                print(f"================ {ii}/{total} =====================")
                exp_conf = json.dumps(args, indent=2)
