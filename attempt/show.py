@@ -714,8 +714,10 @@ def show_df(df):
                 shutil.copy(path, _selpath)
                 grm = tdf.iloc[0]["gen_route_methods"]
                 runid = tdf.iloc[0]["runid"]
-                run = "**/wandb/offline*" + runid + f"/files/media/images/{start}*.png"
+                run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
                 paths = glob(run)
+                if not paths:
+                    paths = glob("**/" + run)
                 spath = "images/" + runid
                 if Path(spath).exists():
                     shutil.rmtree(spath)
