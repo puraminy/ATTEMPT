@@ -983,6 +983,8 @@ def train(**kwargs):
                         length = target_prompt_length)
             prompt_encoders.append(encoder)
 
+        exp_info["num_encoders"] = len(prompt_encoders)
+        exp_info["len_encoders"] = ",".join([str(e.length) for e in prompt_encoders])
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, 
             source_prompt_length,
