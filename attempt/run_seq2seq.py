@@ -514,7 +514,21 @@ def train(**kwargs):
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
+    use_prompt_set = kwargs.setdefault("use_prompt_set", False)
+
+
+    task_prompts_sets ={}
+    tasks = data_args.task_name
+    for task_name in tasks:
+        tid = task_name
+        if not tid in task_prompts_sets:
+           task_prompts_sets[tid] = []
+        rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
+        task_prompts_sets[tid].extend(rel_sh.split())
+
     nsp = 0
+    if use_prompt_set:
+        nsp = max([len(s) for s in task_prompts_sets.values()])
     if data_args.source_prompts is not None:
         nsp = len(data_args.source_prompts) 
     nsp += kwargs.setdefault("num_source_prompts", nsp) 
@@ -899,7 +913,6 @@ def train(**kwargs):
                     ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
-        use_prompt_set = kwargs.setdefault("use_prompt_set", False)
         if use_prompt_set:
             pset = []
             for t in data_args.task_name:
