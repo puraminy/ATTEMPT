@@ -276,6 +276,10 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "{prompt_fw} (prompt) ",1)
             if part == "pn":
                src = src.replace("(prompt)", "{prompt_n} (prompt) ",1)
+            if part == "pnt":
+               src = src.replace("(prompt)", "{prompt_nt} (prompt) ",1)
+            if part == "pnr":
+               src = src.replace("(prompt)", "{prompt_nr} (prompt) ",1)
             if part == "psh":
                src = src.replace("(prompt)", "{prompt_sh} (prompt) ",1)
             if part == "psht":
@@ -302,6 +306,14 @@ class AbstractTask(abc.ABC):
             rel_fw = rel_fw.split()
             prompt_n = ["[p" + str(i) + "_i]" for i in range(num_prompts)]
             data["prompt_n"] = " ".join(prompt_n)
+
+            shuffle(prompt_n)
+            data["prompt_nr"] = " ".join(prompt_n)
+
+            l = self.get_prompt_length(0)*(len(prompt_n) - pcom)
+            prompt_nt = "[task" + "_" + str(l) + "]" 
+            data["prompt_nt"] = prompt_nt
+
             prompts_fw = ["[task_" + w + "]" for w in rel_fw]
             prompts_fw_cycle = []
             for i in range(self.get_prompt_length(0)):
