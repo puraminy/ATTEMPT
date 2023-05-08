@@ -1136,6 +1136,7 @@ def train(**kwargs):
         if trainer_shuffle:
             train_dataset = concatenate_datasets(train_datasets)
         else:
+            mylogs.bp("myint")
             train_dataset = my_interleave_datasets(train_datasets, 
                 batch_size=training_args.per_device_train_batch_size)
     if preview == "data":
