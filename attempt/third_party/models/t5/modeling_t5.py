@@ -617,6 +617,7 @@ class T5Attention(nn.Module):
 class T5LayerSelfAttention(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False, adapter_config=None):
         super().__init__()
+        self.is_decoder = config.is_decoder
         self.adapter_config = adapter_config
         self.SelfAttention = T5Attention(
             config, has_relative_attention_bias=has_relative_attention_bias, adapter_config=adapter_config)
@@ -656,7 +657,7 @@ class T5LayerSelfAttention(nn.Module):
         y = attention_output[0]
         if self.train_task_adapters:
             y = self.adapter_controller(y, task)
-        if True: #TODO self.adapter_config.attn_tuning:
+        if not self.is_decoder: #TODO self.adapter_config.attn_tuning:
             pmask = self.adapter_config.prompt_masks
             s = pmask.size()
             y = torch.zeros((s[0],s[1], 768), device=y.device)
