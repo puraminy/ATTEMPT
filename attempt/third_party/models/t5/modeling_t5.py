@@ -617,6 +617,7 @@ class T5Attention(nn.Module):
 class T5LayerSelfAttention(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False, adapter_config=None):
         super().__init__()
+        self.adapter_config = adapter_config
         self.SelfAttention = T5Attention(
             config, has_relative_attention_bias=has_relative_attention_bias, adapter_config=adapter_config)
         self.layer_norm = T5LayerNorm(
@@ -655,7 +656,14 @@ class T5LayerSelfAttention(nn.Module):
         y = attention_output[0]
         if self.train_task_adapters:
             y = self.adapter_controller(y, task)
-        hidden_states = hidden_states + self.dropout(y)
+        if True: #TODO self.adapter_config.attn_tuning:
+            pmask = self.adapter_config.prompt_masks
+            s = pmask.size()
+            y = torch.zeros((s[0],s[1], 768), device=y.device)
+            y2 = self.adapter_config.soft_prompts
+            y[pmask] = y2 
+
+        hidden_states = hidden_states + y # self.dropout(y)
         # add attentions if we output them
         outputs = (hidden_states,) + attention_output[1:]
         return outputs
@@ -1408,7 +1416,7 @@ class T5Stack(T5PreTrainedModel):
                             source_idx=source_idx, 
                             target_idx=target_idx, 
                             task=task)
-                    self.adapter_config.soft_prompts = soft_prompts
+                    self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
                     #inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     if (not self.training or mylogs.is_debug()): 
                         mylogs.bp("pred")
@@ -1431,10 +1439,10 @@ class T5Stack(T5PreTrainedModel):
                             x_labels=self.prompt_names, 
                             title=self.route_method, add_tags=False) 
                 else:
-                    self.adapter_config.soft_prompts = target_prompts
+                    self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                     #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
-                self.adapter_config.soft_prompts = target_prompts
+                self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                 #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
         return input_ids
