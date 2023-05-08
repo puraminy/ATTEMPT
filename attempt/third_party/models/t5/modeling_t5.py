@@ -638,6 +638,7 @@ class T5LayerSelfAttention(nn.Module):
         use_cache=False,
         output_attentions=False,
         task_block_adapters=None,
+        task_ids=None,
         task=None
     ):
         normed_hidden_states = self.layer_norm(hidden_states)
@@ -650,6 +651,7 @@ class T5LayerSelfAttention(nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
+        mylogs.bp("adapt")
         y = attention_output[0]
         if self.train_task_adapters:
             y = self.adapter_controller(y, task)
@@ -726,6 +728,7 @@ class T5Block(nn.Module):
         output_attentions=False,
         return_dict=True,
         task_block_adapters=None,
+        task_ids = None,
         task=None
     ):
 
@@ -754,6 +757,7 @@ class T5Block(nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
             task_block_adapters=task_block_adapters,
+            task_ids=task_ids,
             task=task
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
@@ -1697,6 +1701,7 @@ class T5Stack(T5PreTrainedModel):
                     past_key_value=past_key_value,
                     use_cache=use_cache,
                     output_attentions=output_attentions,
+                    task_ids=task_ids,
                     task=task
                 )
 
