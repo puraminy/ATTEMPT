@@ -354,6 +354,8 @@ class T5Attention(nn.Module):
         self.bitfit = adapter_config.bitfit if adapter_config is not None else False
         self.is_decoder = config.is_decoder
         self.has_relative_attention_bias = has_relative_attention_bias
+        # mmmmmmm
+        self.adapter_config = adapter_config
 
         self.relative_attention_num_buckets = config.relative_attention_num_buckets
         self.d_model = config.d_model
@@ -371,6 +373,12 @@ class T5Attention(nn.Module):
                            bias=False if not self.bitfit else True)
         self.o = nn.Linear(self.inner_dim, self.d_model,
                            bias=False if not self.bitfit else True)
+
+        #   My code
+        self.attn_W_down = nn.Linear(self.d_model, self.inner_dim, bias=False)
+        self.attn_W_up = nn.Linear(self.inner_dim, self.d_model, bias=False)
+        self.attn_non_linear = nn.SiLU()
+        self.layer_norm = nn.LayerNorm(self.d_model)
 
         if self.has_relative_attention_bias:
             self.relative_attention_bias = nn.Embedding(
@@ -530,6 +538,18 @@ class T5Attention(nn.Module):
                     hidden_states = past_key_value
             return hidden_states
 
+        #### Mycod qqqqqqqqqqqqqqqqqqqq
+        mylogs.bp("query_fwd")
+        #x = self.attn_W_down(hidden_states)
+        #x = self.attn_non_linear(x)
+        #x = self.attn_W_up(x)
+        #x = self.layer_norm(x)
+
+        if not self.is_decoder:
+            prompt_masks = self.adapter_config.prompt_masks
+            soft_prompts = self.adapter_config.soft_prompts
+            hidden_states[prompt_masks]= soft_prompts.view(-1, self.d_model)
+        #########
         # get query states
         # (batch_size, n_heads, seq_length, dim_per_head)
         query_states = shape(self.q(hidden_states))
@@ -1305,6 +1325,7 @@ class T5Stack(T5PreTrainedModel):
             #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
             # prompt masks for all prompt tokens
             prompt_masks = self.get_prompt_token_fn(input_ids)
+            self.adapter_config.prompt_masks = prompt_masks
             # exteract prompt ids of tasks in the batch
             target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
@@ -1383,7 +1404,8 @@ class T5Stack(T5PreTrainedModel):
                             source_idx=source_idx, 
                             target_idx=target_idx, 
                             task=task)
-                    inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                    self.adapter_config.soft_prompts = soft_prompts
+                    #inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     if (not self.training or mylogs.is_debug()): 
                         mylogs.bp("pred")
                         num_targets = target_idx.size()[-1]
@@ -1405,9 +1427,11 @@ class T5Stack(T5PreTrainedModel):
                             x_labels=self.prompt_names, 
                             title=self.route_method, add_tags=False) 
                 else:
-                    inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                    self.adapter_config.soft_prompts = target_prompts
+                    #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
-                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                self.adapter_config.soft_prompts = target_prompts
+                #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
         return input_ids
     ######################################################
