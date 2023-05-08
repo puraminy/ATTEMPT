@@ -47,6 +47,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert model_args.add_target, " Target share not None is for add target"
             if kwargs.use_private_prompts is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
+        elif adapter_args.train_task_adapters:
+            pass
         else:
             assert not adapter_args.prefix_tuning, "Prompt tuning and prefix tuning can't be on at the same time"
             if training_args.do_train:

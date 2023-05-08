@@ -545,7 +545,7 @@ class T5Attention(nn.Module):
         #x = self.attn_W_up(x)
         #x = self.layer_norm(x)
 
-        if not self.is_decoder:
+        if False: #not self.is_decoder:
             prompt_masks = self.adapter_config.prompt_masks
             soft_prompts = self.adapter_config.soft_prompts
             hidden_states[prompt_masks]= soft_prompts.view(-1, self.d_model)
