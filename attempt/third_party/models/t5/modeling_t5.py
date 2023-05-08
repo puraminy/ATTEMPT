@@ -657,7 +657,7 @@ class T5LayerSelfAttention(nn.Module):
         y = attention_output[0]
         if self.train_task_adapters:
             y = self.adapter_controller(y, task)
-        if not self.is_decoder: #TODO self.adapter_config.attn_tuning:
+        if False: #not self.is_decoder: #TODO self.adapter_config.attn_tuning:
             pmask = self.adapter_config.prompt_masks
             s = pmask.size()
             y = torch.zeros((s[0],s[1], 768), device=y.device)
@@ -1418,7 +1418,7 @@ class T5Stack(T5PreTrainedModel):
                             target_idx=target_idx, 
                             task=task)
                     self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
-                    #inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                    inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
                     if (not self.training or mylogs.is_debug()): 
                         mylogs.bp("pred")
                         num_targets = target_idx.size()[-1]
@@ -1441,10 +1441,10 @@ class T5Stack(T5PreTrainedModel):
                             title=self.route_method, add_tags=False) 
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                    #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                    inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             else:
                 self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                #inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
             return None
         return input_ids
     ######################################################
