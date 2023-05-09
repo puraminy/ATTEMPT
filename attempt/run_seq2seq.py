@@ -985,9 +985,11 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_prompts: 
                 mylogs.bp("load")
+                ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 if not model_args.attn_tuning or encoder.is_source:
                     encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
+                        ignore_if_not_exist=ignore_if_not_exist,
                         length = target_prompt_length)
             prompt_encoders.append(encoder)
 
