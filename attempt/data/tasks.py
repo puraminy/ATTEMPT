@@ -298,15 +298,21 @@ class AbstractTask(abc.ABC):
         if "task" in data:
             task = data["task"]
             task = self.name
-            num_prompts = self.task_args.setdefault("num_prompts",1)
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else task
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else task
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
-            prompt_n = ["[p" + str(i) + "_i]" for i in range(num_prompts)]
-            data["prompt_n"] = " ".join(prompt_n)
+            num_prompts = self.task_args.setdefault("num_prompts",1)
+            task_comb = self.task_args.setdefault("task_comb", "none")
+            tid = self.task_args["id"]
+            if task_comb == "none":
+                prompt_n = ["[p" + str(tid) + str(i) + "_i]" for i in range(num_prompts)]
+            elif task_comb == "comb":
+                prompt_n = ["[p" + str(ii) + "0_i]" for ii in range(1, tid + 1)]
+                prompt_n.extend(["[p" + str(tid) + "_i]"])
 
+            data["prompt_n"] = " ".join(prompt_n)
             shuffle(prompt_n)
             data["prompt_nr"] = " ".join(prompt_n)
 
