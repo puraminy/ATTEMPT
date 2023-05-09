@@ -186,7 +186,8 @@ class AbstractTask(abc.ABC):
         while _pholder in template:
             if num_holder in _pholder:
                 prompt = ""
-                for i in range(self.pcounter, plen):
+                start = self.pcounter
+                for i in range(start, start + plen):
                     token = place_holder
                     if num_holder != "_1":
                         token = token.replace(num_holder, "_" + str(i))  
