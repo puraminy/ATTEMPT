@@ -30,6 +30,7 @@ class AbstractTask(abc.ABC):
     generation = False
     split_map = None
     labels_list = None
+    pcounter = 0
     samples_per_head = 1
     map_labels = {} # verbelizer
     split_to_data_split: Mapping[str, str] = \
@@ -185,13 +186,14 @@ class AbstractTask(abc.ABC):
         while _pholder in template:
             if num_holder in _pholder:
                 prompt = ""
-                for i in range(plen):
+                for i in range(self.pcounter, plen):
                     token = place_holder
                     if num_holder != "_1":
                         token = token.replace(num_holder, "_" + str(i))  
                     else:
                         token = token.replace(num_holder, "")  
                     prompt += " " + token
+                    self.pcounter += 1
             else:
                 prompt = place_holder
             prompt = prompt.strip()
@@ -214,6 +216,7 @@ class AbstractTask(abc.ABC):
     def fill_prompt_regex(self, template, regex):
         m = re.search(regex, template)
         pnum = 0
+        self.pcounter = 0
         while m: 
             if len(m.groups()) == 2:
                 name = m.groups()[0]
