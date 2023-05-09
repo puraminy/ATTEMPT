@@ -786,6 +786,15 @@ class AtomicRel(Atomic):
         return self.seq2seq_format(src_texts, tgt_texts, 
                 add_prefix=False, extra_fields=extra_fields)
 
+class Causes(Atomic):
+    name = "Causes"
+
+class xReason(Atomic):
+    name = "xReason"
+
+class Desires(Atomic):
+    name = "Desires"
+
 class xAttr(Atomic):
     name = "xAttr"
 
@@ -1263,6 +1272,9 @@ TASK_MAPPING = OrderedDict(
     [
         ('atomic', Atomic),
         ('xIntent', xIntent),
+        ('xReason', xReason),
+        ('Desires', Desires),
+        ('Causes', Causes),
         ('xAttr', xAttr),
         ('xNeed', xNeed),
         ('xReact', xReact),
