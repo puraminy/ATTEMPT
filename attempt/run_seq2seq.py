@@ -990,7 +990,8 @@ def train(**kwargs):
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
                         length = target_prompt_length)
-                mylogs.bp("load")
+                if break_point ==  "load":
+                    breakpoint()
             prompt_encoders.append(encoder)
 
         exp_info["num_encoders"] = len(prompt_encoders)
