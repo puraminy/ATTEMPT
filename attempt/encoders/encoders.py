@@ -97,7 +97,7 @@ class PromptEncoder(torch.nn.Module):
             if not ignore_if_not_exist: 
                 assert len(files) > 0, fname + " doesn't exists to be loaded!"
                 assert len(files) == 1, fname + " are multiple files!"
-            return
+            return False
         fname = files[0]
         mapl=torch.device('cpu')
         self.is_loaded = True
@@ -113,6 +113,7 @@ class PromptEncoder(torch.nn.Module):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.net_inps = torch.arange(self.length, device=self.device)
         mylogs.tinfo("Prompt for %s was loaded ", self.name)
+        return True
 
     def init_embedding(self, init_embs):
         if init_embs:
