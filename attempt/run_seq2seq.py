@@ -895,7 +895,7 @@ def train(**kwargs):
         #  tttttttttttt
         for ti, task_name in enumerate(tasks, start=1):
              task_args["id"] = ti
-             task = AutoTask.get(task_name, None, task_args=task_args)
+             task = AutoTask.get(task_name, None, task_args=task_args.copy())
              p = task.get_prompts()
              prompts = {**prompts, **p}
              tid = task_name #get_id()
