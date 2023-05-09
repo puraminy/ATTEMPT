@@ -306,6 +306,7 @@ class AbstractTask(abc.ABC):
             num_prompts = self.task_args.setdefault("num_prompts",1)
             task_comb = self.task_args.setdefault("task_comb", "none")
             tid = self.task_args["id"]
+            prompt_n = []
             if task_comb == "none":
                 prompt_n = ["[p" + str(tid) + str(i) + "_i]" for i in range(num_prompts)]
             elif task_comb == "comb":
@@ -744,7 +745,6 @@ class AtomicRel(Atomic):
         self.train_samples_per_rel = task_args.train_samples
         self.val_samples_per_rel = task_args.val_samples
         self.test_samples_per_rel = task_args.test_samples
-        self.rels = task_args.rels
 
     def get_id(self):
         return "-".join(self.rels)
