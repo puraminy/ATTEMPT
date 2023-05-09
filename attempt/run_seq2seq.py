@@ -990,7 +990,7 @@ def train(**kwargs):
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
                         length = target_prompt_length)
-                if break_point ==  "load":
+                if bp ==  "load":
                     breakpoint()
             prompt_encoders.append(encoder)
 
