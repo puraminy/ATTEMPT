@@ -579,7 +579,6 @@ def train(**kwargs):
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
-    task_args = dotdict(task_args)
 
     # an option to explicitly specify the method of training 
     # (pt: prompt-tuning, ft:fine-tuning, px:prefix-tuning etc.)
@@ -895,7 +894,8 @@ def train(**kwargs):
         #  tttttttttttt
         for ti, task_name in enumerate(tasks, start=1):
              task_args["id"] = ti
-             task = AutoTask.get(task_name, None, task_args=task_args.copy())
+             task_args = dotdict(task_args.copy())
+             task = AutoTask.get(task_name, None, task_args=task_args)
              p = task.get_prompts()
              prompts = {**prompts, **p}
              tid = task_name #get_id()
