@@ -1005,7 +1005,7 @@ def train(**kwargs):
 
         exp_info["num_encoders"] = len(prompt_encoders)
         exp_info["len_encoders"] = ",".join([str(e.length) for e in prompt_encoders])
-        exp_info["ftag"].append("len_encoders")
+        exp_info["taginfo"].append("len_encoders")
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, 
             source_prompt_length,
