@@ -942,12 +942,16 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_source_prompts and not "_for" in prompt: 
                 # and not "_com" in prompt and not "_for" in prompt:
+                ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 if bp == "load":
                     breakpoint()
-                is_loaded = encoder.load(prompts_dir, prefix=prompts_prefix,
+                is_loaded = encoder.load(prompts_dir, 
+                        prefix=prompts_prefix,
+                        ignore_if_not_exist=ignore_if_not_exist,
                         length = adapter_args.num_prompt_tokens)
                 if bp == "load":
                     breakpoint()
+                exp_info["load_" + prompt] = is_loaded
             prompt_encoders.append(encoder)
 
         ############################ Create Target Prompt Encoders #############
