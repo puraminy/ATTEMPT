@@ -940,7 +940,8 @@ def train(**kwargs):
                 encoder.is_shared = False
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_source_prompts: # and not "_com" in prompt and not "_for" in prompt:
+            if load_source_prompts and not "_for" in prompt: 
+                # and not "_com" in prompt and not "_for" in prompt:
                 if bp == "load":
                     breakpoint()
                 is_loaded = encoder.load(prompts_dir, prefix=prompts_prefix,
