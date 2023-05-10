@@ -992,6 +992,7 @@ def train(**kwargs):
                 is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
+                        as_saved=True,
                         length = target_prompt_length)
                 if bp ==  "load":
                     breakpoint()
