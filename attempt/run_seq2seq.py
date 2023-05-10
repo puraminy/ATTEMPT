@@ -1358,7 +1358,6 @@ def train(**kwargs):
             if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
                 trainer.model.update_layer_norm_weights(load_path)
         dpath = os.path.join(load_path, "router.pt")
-        mylogs.bp("load")
         if model_args.attn_tuning is True and Path(dpath).is_file():
             trainer.model.update_router(dpath)
     # Training
