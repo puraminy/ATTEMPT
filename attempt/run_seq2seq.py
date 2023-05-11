@@ -1638,12 +1638,16 @@ def train(**kwargs):
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
-                    img_buf = WBCallback.save_image(score=ss1, 
-                        y_labels=y_labels,
-                        x_labels=model.encoder.prompt_names, 
-                        title="exp " + str(kwargs.expid) + ":" + rm + "_" + route_method) 
-                    im = Image.open(img_buf)
-                    img_list.append(im)
+                    for score in [ss1, ss2, ss3]:
+                        img_buf = WBCallback.save_image(score=score, 
+                            y_labels=y_labels,
+                            x_labels=model.encoder.prompt_names, 
+                            title="exp " + str(kwargs.expid) + ":" + rm + "_" \
+                                    + route_method) \
+                                    + model_args.compse_method \
+                                    + "_" + model_args.attn_method 
+                        im = Image.open(img_buf)
+                        img_list.append(im)
 
                 new_im = combine_y(img_list)
                 fname = "pred_" + str(exp_info["expid"]) + rm + "_" + route_method 
