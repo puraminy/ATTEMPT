@@ -1638,11 +1638,10 @@ def train(**kwargs):
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
-                    img_buf = WBCallback.save_images(scores=[ss1], 
+                    img_buf = WBCallback.save_image(score=ss1, 
                         y_labels=y_labels,
                         x_labels=model.encoder.prompt_names, 
-                        title="exp " + str(kwargs.expid) + ":" + rm + "_" + route_method, 
-                        add_tags=False) 
+                        title="exp " + str(kwargs.expid) + ":" + rm + "_" + route_method) 
                     im = Image.open(img_buf)
                     img_list.append(im)
 
