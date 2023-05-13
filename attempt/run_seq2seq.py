@@ -1643,9 +1643,9 @@ def train(**kwargs):
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
                             title="exp " + str(kwargs.expid) + ":" + rm + "_" \
-                                    + route_method) \
+                                    + route_method \
                                     + model_args.compose_method \
-                                    + "_" + model_args.attn_method 
+                                    + "_" + model_args.attn_method) 
                         im = Image.open(img_buf)
                         img_list.append(im)
 
