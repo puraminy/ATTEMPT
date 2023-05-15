@@ -1301,7 +1301,9 @@ class T5Stack(T5PreTrainedModel):
                 'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "concat":
-            soft_prompts = attend_to 
+            attn_sel_scores[True] = 1
+            soft_prompts = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "wcat":
             avg_prompts = torch.einsum(

@@ -123,7 +123,7 @@ while [ "$cont" -eq 1 ]; do
          _task="atomic-rels" #xAttr@xIntent@xWant@xReact" 
          #_temp="sup-p0-px0-px-pt-rel"
          _temp="sup-px-pt-rel"
-         #@xEffect@oEffect@oReact@xNeed"
+         #@xEffect@oEffect@xEffect@xNeed"
          _addt=False
          _lsp=False
          cont=1
@@ -141,12 +141,17 @@ while [ "$cont" -eq 1 ]; do
          ;;
       *"_atasks"*) # debug is enabled
          bash_params=$(echo "$bash_params" | sed "s/_atasks//")
-         _task="xAttr@xIntent@Causes@Desires@xReason@xWant@oReact@xNeed"
+         _task="xAttr@xIntent@Causes@Desires@xReason@xWant@xEffect@xNeed"
          cont=1
          ;;
       *"_sep-atasks"*) # debug is enabled
          bash_params=$(echo "$bash_params" | sed "s/_sep-atasks//")
-         _task="xAttr#xIntent#Causes#Desires#xReason#xWant#oReact#xNeed"
+         _task="xAttr#xIntent#Causes#Desires#xReason#xWant#xEffect#xNeed"
+         cont=1
+         ;;
+      *"_minus-atasks"*) # debug is enabled
+         bash_params=$(echo "$bash_params" | sed "s/_sep-atasks//")
+         _task="Causes#Desires#xReason#xWant#xEffect#xNeed"
          cont=1
          ;;
       *"_gtasks"*) # debug is enabled
@@ -172,7 +177,7 @@ while [ "$cont" -eq 1 ]; do
          _attn="rb"
          _sph=3
          _task="xAttr@xIntent@xWant" #xAttr@xIntent@xWant@xReact" 
-         #@xEffect@oEffect@oReact@xNeed"
+         #@xEffect@oEffect@xEffect@xNeed"
          _addt=False
          _lsp=False
          cont=1
@@ -524,7 +529,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@target_share_temperature=1."
    params="${params} --source_prompt_learning_rate=0.01"
    params="${params} --target_prompt_learning_rate=0.01"
-   params="${params} --attn_learning_rate=0.0001"
+   params="${params} --attn_learning_rate=0.01"
    params="${params} --@attn_method=$_attn"
    params="${params} --@anneal_dir=-1"
    params="${params} --temperature=1."
