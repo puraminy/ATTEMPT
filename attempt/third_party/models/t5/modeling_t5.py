@@ -1301,7 +1301,9 @@ class T5Stack(T5PreTrainedModel):
                 'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "concat":
-            soft_prompts = attend_to 
+            attn_sel_scores[True] = 1
+            soft_prompts = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "wcat":
             avg_prompts = torch.einsum(
@@ -1440,8 +1442,10 @@ class T5Stack(T5PreTrainedModel):
                         y_labels = [self.prompt_names[i] for i in targets]
                         img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
                             y_labels=y_labels,
-                            x_labels=self.prompt_names, 
-                            title=self.route_method, add_tags=False) 
+                            x_labels=self.prompt_names,
+                            title=self.route_method + ":" \
+                                    + self.compose_method + ":" + self.attn_method, 
+                            add_tags=False) 
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
