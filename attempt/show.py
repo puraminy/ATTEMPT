@@ -1189,7 +1189,10 @@ def show_df(df):
                     _agg[c] = ["first", "nunique"]
             gb = df.groupby(col)
             counts = gb.size().to_frame(name='group_records')
-            df = (counts.join(gb.agg(_agg)))
+            counts.columns = counts.columns.to_flat_index()
+            gbdf = gb.agg(_agg)
+            gbdf.columns = gbdf.columns.to_flat_index()
+            df = (counts.join(gbdf))
             df = df.reset_index(drop=True)
             scols = [c for c in df.columns if type(c) != tuple]
             tcols = [c for c in df.columns if type(c) == tuple]
