@@ -315,7 +315,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
+   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = 0
@@ -394,7 +394,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        exp_exists = False
        if existing_exps:
            for ee in existing_exps:
-               print("Checking existaince for ", ee)
+               if preview == "ex-why":
+                   print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
                    are_equal = True
@@ -402,7 +403,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                        if not k in not_conf: 
                            if not k in jj or strval(v) != strval(jj[k]):
                                are_equal =False
-                               print("It's not equal to because ", k, " is ",v, " against ", strval(jj[k]))
+                               if preview == "ex-why":
+                                   print("It's not equal to because ", k, " is ",v, " against ", strval(jj[k]))
                                break
                    if are_equal:
                       print(ii, " is equal to ", ee)
@@ -427,7 +429,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
               print("Skipping experiment ", ii, ": The experiment already exists!")
               continue 
        # preview existing experiments 
-       if preview == "ex" or preview == "exists" or preview == "show exists": #
+       if preview == "ex" or preview == "ex-why" or preview == "exists": #
            continue
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
