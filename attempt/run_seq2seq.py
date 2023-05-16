@@ -394,6 +394,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        exp_exists = False
        if existing_exps:
            for ee in existing_exps:
+               print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
                    are_equal = True
@@ -401,6 +402,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                        if not k in not_conf: 
                            if not k in jj or strval(v) != strval(jj[k]):
                                are_equal =False
+                               print("It's not equal to because ", k, " is ",v, " against ", strval(jj[k]))
                                break
                    if are_equal:
                       print(ii, " is equal to ", ee)
