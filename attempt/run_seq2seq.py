@@ -424,7 +424,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            if not preview and not repeat:
               print("Skipping experiment ", ii, ": The experiment already exists!")
               continue 
-       if preview == "ex" or preview == "exists" or preview == "show exists":
+       # preview existing experiments 
+       if preview == "ex" or preview == "exists" or preview == "show exists": #
            continue
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
