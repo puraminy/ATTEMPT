@@ -422,8 +422,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if exp_exists:
            args["output_dir"] = "%" + output_dir 
            if not preview and not repeat:
-              print("Skipping experiment:", ii)
+              print("Skipping experiment ", ii, ": The experiment already exists!")
               continue 
+       if preview == "ex" or preview == "exists" or preview == "show exists":
+           continue
        with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
            print(exp_conf, file=f)
        if debug:
@@ -1643,7 +1645,7 @@ def train(**kwargs):
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
                             title="exp " + str(kwargs.expid) + ":" + rm + "_" \
-                                    + route_method \
+                                    + route_method + " " \
                                     + model_args.compose_method \
                                     + "_" + model_args.attn_method) 
                         im = Image.open(img_buf)
