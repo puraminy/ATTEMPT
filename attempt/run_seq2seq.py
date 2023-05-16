@@ -1663,11 +1663,16 @@ def train(**kwargs):
             #if diff_args:
             #    for k,v in diff_args["values_changed"].items():
             #        if not "output_dir" in k and not "expid" in k:
+
             #           da[k] = v
+
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title= exp_info["expid"], df=None) 
+               title="exp " + str(kwargs.expid) + ":" \
+                        + model_args.compose_method \
+                        + "_" + model_args.attn_method,
+                df=None) 
 
             cur_img = Image.open(img_buf)
             #tags_img = tag_to_image(da, get_image=True)

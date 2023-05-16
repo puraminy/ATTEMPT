@@ -1442,8 +1442,10 @@ class T5Stack(T5PreTrainedModel):
                         y_labels = [self.prompt_names[i] for i in targets]
                         img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
                             y_labels=y_labels,
-                            x_labels=self.prompt_names, 
-                            title=self.route_method, add_tags=False) 
+                            x_labels=self.prompt_names,
+                            title=self.route_method + ":" \
+                                    + self.compose_method + ":" + self.attn_method, 
+                            add_tags=False) 
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                     inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
