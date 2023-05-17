@@ -1226,8 +1226,8 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if self.apply_softmax_to == "before":
             attn_scores = F.softmax(attn_scores, -1)
-        if self.normalize is True:
-            attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
+        # if self.normalize is True:
+        #    attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         if self.compose_method == "cat":
@@ -1273,20 +1273,25 @@ class T5Stack(T5PreTrainedModel):
         attend_to = attend_to.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
 
-        if route_method == "rb" and not self.training:
-            with torch.no_grad():
-                attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
-                    logits=attn_sel_scores).rsample()  
-        elif route_method == "sigmoid":
-            mylogs.bp("sigm")
-            attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
-        elif route_method == "sign":
-            attn_sel_scores[attn_sel_scores <= 0] = 0
-            attn_sel_scores[attn_sel_scores > 0] = 1
+        if not self.training:
+            if route_method == "none":
+                pass
+            elif route_method == "rb":
+                with torch.no_grad():
+                    attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
+                        logits=attn_sel_scores).rsample()  
+            elif route_method == "sigmoid":
+                mylogs.bp("sigm")
+                attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
+            elif route_method == "sign":
+                attn_sel_scores[attn_sel_scores <= 0] = 0
+                attn_sel_scores[attn_sel_scores > 0] = 1
 
 
         if self.apply_softmax_to == "after":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
+        if self.apply_softmax_to == "norm":
+            attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         mylogs.bp("att")
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
