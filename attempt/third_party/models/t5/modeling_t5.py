@@ -1274,7 +1274,7 @@ class T5Stack(T5PreTrainedModel):
                 self.src_prompt_dim, self.model_dim)
 
         if not self.training:
-            if route_method == "none":
+            if route_method == "direct":
                 pass
             elif route_method == "rb":
                 with torch.no_grad():
