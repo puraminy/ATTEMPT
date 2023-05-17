@@ -1566,6 +1566,8 @@ def train(**kwargs):
                         trainer.save_metrics("test", metrics)
                         ds_conf = data_args.test_dataset_config_name[idx]
                         ds_name = data_args.test_dataset_name[idx]
+                        ds_name = "none" if not ds_name else ds_name
+                        ds_conf = "none" if not ds_conf else ds_conf
 
                         # sssssssssss
                         #predictions = np.argmax(predictions, axis=1)
