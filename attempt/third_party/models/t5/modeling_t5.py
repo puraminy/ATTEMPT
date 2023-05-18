@@ -1292,6 +1292,11 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
         if self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
+        if self.apply_softmax_to == "minmax":
+            _min, _ = torch.min(attn_sel_scores, dim=-1, keepdim=True)
+            _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
+            attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
+
         mylogs.bp("att")
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
