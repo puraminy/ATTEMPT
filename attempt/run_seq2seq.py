@@ -318,7 +318,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
-   ii = 0
+   ii = len(existing_exps) + 1
    exps_done = 0
    orig_args = args.copy()
    total = len(tot_comb)
@@ -406,13 +406,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                                if preview == "ex-why":
                                    print("It's not equal to because ", k, " is ",v, " against ", strval(jj[k]))
                                break
-                   if are_equal:
-                      print(ii, " is equal to ", ee)
-                      output_dir = jj["output_dir"].strip("%")
-                      if glob.glob(op.join(output_dir, "*.tsv")):
-                          trial = int(jj["trial"]) + 1 if "trial" in jj else 2
-                          exp_exists = True
-                      break
+               if are_equal:
+                  print(ii, " is equal to ", ee)
+                  output_dir = jj["output_dir"].strip("%")
+                  if glob.glob(op.join(output_dir, "*.tsv")):
+                      trial = int(jj["trial"]) + 1 if "trial" in jj else 2
+                      exp_exists = True
+                  break
        args["trial"] = trial
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
