@@ -1224,9 +1224,9 @@ class T5Stack(T5PreTrainedModel):
 
         mylogs.bp("att")
         if self.apply_softmax_to == "before":
+            if self.normalize is True:
+               attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
             attn_scores = F.softmax(attn_scores, -1)
-        # if self.normalize is True:
-        #    attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
 
         num_targets = attend_for.size()[1] 
         if self.compose_method == "cat":
@@ -1294,6 +1294,9 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
         if self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
+        if self.apply_softmax_to == "normafter":
+            attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
+            attn_sel_scores = F.softmax(attn_sel_scores, -1)
         if self.apply_softmax_to == "minmax":
             _min, _ = torch.min(attn_sel_scores, dim=-1, keepdim=True)
             _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
