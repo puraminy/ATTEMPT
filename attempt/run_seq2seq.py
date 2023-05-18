@@ -1654,7 +1654,7 @@ def train(**kwargs):
                             title="exp " + str(kwargs.expid) + ":" + rm + "_" \
                                     + route_method \
                                     + "_" + model_args.compose_method \
-                                    + "_" + model_args.apply_softmax_to \
+                                    + "_" + kwargs.apply_softmax_to \
                                     + "_" + model_args.attn_method) 
                         im = Image.open(img_buf)
                         img_list.append(im)
@@ -1681,7 +1681,7 @@ def train(**kwargs):
                x_labels=model.encoder.prompt_names, 
                title="last-seq " + str(kwargs.expid) + ":" \
                         + model_args.compose_method \
-                        + "_" + model_args.apply_softmax_to \
+                        + "_" + kwargs.apply_softmax_to \
                         + "_" + model_args.attn_method,
                 df=None) 
 
