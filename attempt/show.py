@@ -243,8 +243,8 @@ def show_df(df):
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
     if "expid" in tag_cols:
-        tag_cols.append("expid")
-    tag_cols.insert(1, "expid")
+        tag_cols.remove("expid")
+    #tag_cols.insert(1, "expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
@@ -1180,7 +1180,7 @@ def show_df(df):
             if True:
                 info_cols = ["bert_score", "num_preds"]
             if True: #col == "fid":
-                sel_cols = ["rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+                sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
 
             _agg = {}
             group_sel_cols = sel_cols.copy()
