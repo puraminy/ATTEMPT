@@ -58,7 +58,6 @@ from attempt.callbacks import WBCallback
 # My utility function
 ############
 def batched_index_select(inp, dim, index):
-    #out1 = torch.cat([torch.index_select(a, dim -1, i.squeeze(0)).unsqueeze(0) for a, i in zip(inp, index)])
     views = [inp.shape[0]] + [1 if i != dim else -1 for i in range(1, len(inp.shape))]
     expanse = list(inp.shape)
     expanse[0] = -1
@@ -1447,7 +1446,7 @@ class T5Stack(T5PreTrainedModel):
                         tscore = torch.zeros((ascore.size()[0],
                             self.attn_scores.size()[1]), device=device)
                         tscore[:, src_idx] = ascore 
-                        self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
+                        self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
                         targets = self.target_encoders_idx
                         ss1 = self.attn_scores.index_select(0, targets)
                         ss2 = self.router.index_select(0, targets)
