@@ -55,7 +55,7 @@ def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["exp_id", "rouge_score", "pred_max_num"] + keep_cols:
+        if c in ["exp_id", "expid", "rouge_score", "pred_max_num"] + keep_cols:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
@@ -242,7 +242,8 @@ def show_df(df):
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
-    tag_cols.remove("expid")
+    if not "expid" in tag_cols:
+        tag_cols.append("expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
