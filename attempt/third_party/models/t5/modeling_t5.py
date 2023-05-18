@@ -1234,7 +1234,8 @@ class T5Stack(T5PreTrainedModel):
             num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
-            num_attend_to = min(self.num_target_prompts, attend_to_idx.size()[1])
+            num_attend_to = self.num_target_prompts
+        num_attend_to = min(self.num_target_prompts, attend_to_idx.size()[1])
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
