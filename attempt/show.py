@@ -242,8 +242,9 @@ def show_df(df):
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
-    if not "expid" in tag_cols:
+    if "expid" in tag_cols:
         tag_cols.append("expid")
+    tag_cols.insert(1, "expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
