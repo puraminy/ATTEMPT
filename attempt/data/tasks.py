@@ -563,7 +563,7 @@ class COLA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"0": "unacceptable", "1":"acceptable"}
+    map_labels = {"0": "unaccept", "1":"acceptable"}
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
