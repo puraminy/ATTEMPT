@@ -1289,7 +1289,7 @@ class T5Stack(T5PreTrainedModel):
                 attn_sel_scores[attn_sel_scores > 0] = 1
 
 
-        if self.apply_softmax_to == "nan":
+        if self.apply_softmax_to == "nothing":
             pass
         if self.apply_softmax_to == "after":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
