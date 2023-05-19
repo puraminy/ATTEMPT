@@ -431,15 +431,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        # preview existing experiments 
        if preview == "ex" or preview == "ex-why" or preview == "exists": #
            continue
-       with open(os.path.join(save_path, "conf_" + str(ii) + ".json"), "w") as f:
-           print(exp_conf, file=f)
        if debug:
            ctx.invoke(train, **args)
        else:
            try:
                done = ctx.invoke(train, **args)
                if done != "skipped":
-                   exps_done += 1
+                   conf_fname = os.path.join(save_path, "conf_" + args["expid"] + ".json")
+                   with open(conf_fname, "w") as f:
+                       print(exp_conf, file=f)
+                  exps_done += 1
                elif preview == "lict":
                    c = input("check for conflicts!")
            except Exception as e:
