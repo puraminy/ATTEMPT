@@ -23,10 +23,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                     assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif adapter_args.prompt_tuning:
-            if model.attn_method == "const":
-                assert model_args.route_method == "direct", "route method for const method must be nothing"  
-            elif model.attn_method == "rb":
-                assert model_args.route_method == "direct", "route method for const method must be nothing"  
+            if model_args.attn_method == "const":
+                assert model_args.route_method == "direct", "route method for const method must be direct"  
 
             if kwargs.prompt_sharing == "shared_prompts":
                 assert not "-pnt" in kwargs.template and not "-psht" in kwargs.template, "Shared_prompts is for templates with shared prompt"
