@@ -437,7 +437,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            try:
                done = ctx.invoke(train, **args)
                if done != "skipped":
-                   conf_fname = os.path.join(save_path, "conf_" + args["expid"] + ".json")
+                   conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
                        print(exp_conf, file=f)
                    exps_done += 1
