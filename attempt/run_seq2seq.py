@@ -440,7 +440,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    conf_fname = os.path.join(save_path, "conf_" + args["expid"] + ".json")
                    with open(conf_fname, "w") as f:
                        print(exp_conf, file=f)
-                  exps_done += 1
+                   exps_done += 1
                elif preview == "lict":
                    c = input("check for conflicts!")
            except Exception as e:
