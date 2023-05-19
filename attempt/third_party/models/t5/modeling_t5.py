@@ -1290,19 +1290,22 @@ class T5Stack(T5PreTrainedModel):
 
         if self.apply_softmax_to == "nothing":
             pass
-        if self.apply_softmax_to == "after":
+        elif self.apply_softmax_to == "after":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
-        if self.apply_softmax_to == "norm":
+        elif self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-        if self.apply_softmax_to == "normafter":
+        elif self.apply_softmax_to == "normafter":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
-        if self.apply_softmax_to == "minmax":
+        elif self.apply_softmax_to == "minmax":
             _min, _ = torch.min(attn_sel_scores, dim=-1, keepdim=True)
             _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
             attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
 
         mylogs.bp("att")
+        if self.apply_softmax_to == "nothing":
+            if attn_method == "const":
+                assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to)
