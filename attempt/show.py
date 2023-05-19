@@ -244,6 +244,8 @@ def show_df(df):
         tag_cols = list(tags.keys())
     if "expid" in tag_cols:
         tag_cols.remove("expid")
+    if "expid" in df:
+        df["expid"] = df["expid"].astype(str)
     #tag_cols.insert(1, "expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
@@ -1027,7 +1029,7 @@ def show_df(df):
             df = main_df[main_df[col] == exp]
             filter_df = df
             hotkey = hk
-        elif char  == "a": 
+        elif char  == "a" and prev_char == "a": 
             col = sel_cols[cur_col]
             FID = col 
             extra["FID"] = FID
@@ -1083,11 +1085,19 @@ def show_df(df):
             consts["options"] = "b: back"
             df = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["expid","prefix"], ascending=False)
-        elif char == "c" and prev_char == "c":
+        elif char == "a": 
             consts["options"] = "b: back"
-            df = back[-1]
+            backit(df, sel_cols)
+            if not "expid" in sel_cols:
+                sel_cols.insert(1, "expid")
+            _agg = {}
+            for c in sel_cols:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
             df = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
-            df = df.sort_values(by=["expid"], ascending=False)
+            df = df.sort_values(by=["rouge_score"], ascending=False)
         elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
