@@ -1304,7 +1304,7 @@ class T5Stack(T5PreTrainedModel):
 
         mylogs.bp("att")
         if self.apply_softmax_to == "nothing":
-            if attn_method == "const":
+            if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
