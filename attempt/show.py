@@ -1187,9 +1187,9 @@ def show_df(df):
             col = [col, "prefix"]
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
-            if True:
+            if False:
                 info_cols = ["bert_score", "num_preds"]
-            if True: #col == "fid":
+            if False: #col == "fid":
                 sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
 
             _agg = {}
