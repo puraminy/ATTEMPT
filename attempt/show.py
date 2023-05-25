@@ -897,7 +897,8 @@ def show_df(df):
                         info_cols.remove(col)
                 else:
                     info_cols.append(col)
-
+            save_obj(sel_cols, "sel_cols", context)
+            save_obj(info_cols, "sel_cols", context)
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
             df = df[(df.prefix != inp.prefix) | 
