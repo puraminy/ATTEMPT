@@ -501,8 +501,9 @@ def show_df(df):
             #fffff
             infos,_ = row_print(df, col_widths, True)
             refresh()
-        _sel_col = sel_cols[cur_col]
-        infos.append(_sel_col)
+        if cur_col < len(sel_cols):
+            _sel_col = sel_cols[cur_col]
+            infos.append(_sel_col)
         for c in info_cols:
             if not c in df:
                 continue
@@ -1624,6 +1625,7 @@ def show_df(df):
                 info_cols = ["bert_score", "num_preds"]
             if prev_char == "v": 
                 sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+                save_obj(sel_cols, "sel_cols", context)
         elif char == "M" and prev_char == "x":
             info_cols = []
             for col in df.columns:
