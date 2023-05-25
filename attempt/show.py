@@ -501,7 +501,7 @@ def show_df(df):
             #fffff
             infos,_ = row_print(df, col_widths, True)
             refresh()
-        if cur_col < len(sel_cols):
+        if cur_col < len(sel_cols) - 1 and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
             infos.append(_sel_col)
         for c in info_cols:
