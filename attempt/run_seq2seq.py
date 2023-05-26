@@ -1,4 +1,4 @@
-## coding=utf-8
+# coding=utf-8
 # Copyright The HuggingFace Team and The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -958,6 +958,9 @@ def train(**kwargs):
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
                         length = adapter_args.num_prompt_tokens)
+                ignore_train_if_exist = kwargs.setdefault("ignore_train_if_exist", False)
+                if is_loaded and ignore_train_if_exist:
+                    training_args.do_train = False
                 if bp == "load":
                     breakpoint()
                 exp_info["load_" + prompt] = is_loaded
@@ -1690,7 +1693,7 @@ def train(**kwargs):
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title = str(kwargs.expid) + str(main_vars)  \
+               title = str(kwargs.expid) + str(main_vars) \
                         + model_args.compose_method \
                         + "_" + kwargs.apply_softmax_to \
                         + "_" + model_args.attn_method,
