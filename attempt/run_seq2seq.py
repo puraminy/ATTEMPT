@@ -1661,7 +1661,7 @@ def train(**kwargs):
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
-                            title="exp " + str(kwargs.expid) + ":" + rm + "_" \
+                            title = str(kwargs.expid) + str(main_vars) + \
                                     + route_method \
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
@@ -1689,7 +1689,7 @@ def train(**kwargs):
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title="last-seq " + str(kwargs.expid) + ":" \
+               title = str(kwargs.expid) + str(main_vars) + \
                         + model_args.compose_method \
                         + "_" + kwargs.apply_softmax_to \
                         + "_" + model_args.attn_method,
