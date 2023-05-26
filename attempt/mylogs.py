@@ -9,6 +9,8 @@ import pickle
 from pathlib import Path
 from appdirs import *
 from appdirs import AppDirs
+import json
+
 appname = "attempt"
 appauthor = "ahmad"
 profile = "ahmad"
@@ -178,7 +180,8 @@ def set_args(args):
 
 
 
-def save_obj(obj, name, directory, data_dir=True, common=False):
+def save_obj(obj, name, directory, data_dir=True, common=False, is_json=False):
+    is_json = is_json or type(obj) == dict
     if obj is None or name.strip() == "":
         logging.info(f"Empty object to save: {name}")
         return
@@ -189,12 +192,18 @@ def save_obj(obj, name, directory, data_dir=True, common=False):
     else:
         folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
     Path(folder).mkdir(parents=True, exist_ok=True)
-    fname = os.path.join(folder, name + '.pkl')
-    with open(fname, 'wb') as f:
-        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+    if not is_json:
+        fname = os.path.join(folder, name + '.pkl')
+        with open(fname, 'wb') as f:
+            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        fname = os.path.join(folder, name + '.json')
+        with open(fname, 'wb') as f:
+            json.dump(obj, f)
 
 
-def load_obj(name, directory, default=None, data_dir=True, common =False):
+def load_obj(name, directory, default=None, data_dir=True, common =False, is_json=False):
+    is_json = is_json or type(obj) == dict
     if not data_dir:
         folder = directory
     elif common:
@@ -202,19 +211,27 @@ def load_obj(name, directory, default=None, data_dir=True, common =False):
     else:
         folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
 
-    fname = os.path.join(folder, name + ".pkl")
-    obj_file = Path(fname)
-    if not obj_file.is_file():
-        return default
-    with open(fname, 'rb') as f:
-        return pickle.load(f)
+    if not is_json:
+        fname = os.path.join(folder, name + ".pkl")
+        obj_file = Path(fname)
+        if not obj_file.is_file():
+            return default
+        with open(fname, 'rb') as f:
+            return pickle.load(f)
+    else:
+        fname = os.path.join(folder, name + ".json")
+        obj_file = Path(fname)
+        if not obj_file.is_file():
+            return default
+        with open(fname, 'rb') as f:
+            return json.load(f)
 
 
-def is_obj(name, directory, common = False):
+def is_obj(name, directory, common = False, ext=".pkl"):
     if common:
         folder = user_data_dir(appname, appauthor) + "/" + directory  
     else:
         folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
-    if not name.endswith('.pkl'):
-        name = name + '.pkl'
+    if not name.endswith(ext):
+        name = name + ext
     fname = os.path.join(folder, name)
