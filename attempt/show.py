@@ -1231,6 +1231,7 @@ def show_df(df):
                     ren[c] = c.replace("_first","")
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
+            df = df.sort_values(by = ["rouge_score"], ascending=False)
         elif char == "z": 
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
@@ -1240,7 +1241,6 @@ def show_df(df):
             info_cols = []
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
-            df = df.sort_values(by = ["rouge_score"], ascending=False)
         elif char == "T":
             s_rows = sel_rows
             if not sel_rows:
