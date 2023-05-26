@@ -958,9 +958,10 @@ def train(**kwargs):
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
                         length = adapter_args.num_prompt_tokens)
-                ignore_train_if_exist = kwargs.setdefault("ignore_train_if_exist", False)
-                if is_loaded and ignore_train_if_exist:
-                    training_args.do_train = False
+                if is_loaded:
+                    logger.info("%s was loaded", encoder.name)
+                else:
+                    logger.info("% doesn't exist and wasn't loaded", encoder.name)
                 if bp == "load":
                     breakpoint()
                 exp_info["load_" + prompt] = is_loaded
@@ -1011,6 +1012,10 @@ def train(**kwargs):
                         ignore_if_not_exist=ignore_if_not_exist,
                         as_saved=True,
                         length = target_prompt_length)
+                ignore_train_if_exist = kwargs.setdefault("ignore_train_if_exist", False)
+                if is_loaded and ignore_train_if_exist:
+                    training_args.do_train = False
+                    logger.info("%s training was ignored", encoder.name)
                 if bp ==  "load":
                     breakpoint()
             prompt_encoders.append(encoder)
