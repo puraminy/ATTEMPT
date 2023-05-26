@@ -885,10 +885,6 @@ def train(**kwargs):
         base_folder_stem = base_folder.stem
         base_folder_name = base_folder.name
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
-    if not model_args.attn_tuning: 
-        prompts_prefix = "pt_" + prompts_prefix 
-    else: 
-        prompts_prefix = "att_" + prompts_prefix 
 
     prompts_prefix = prompts_prefix.strip("_")
     if adapter_args.prompt_tuning:
@@ -1431,6 +1427,10 @@ def train(**kwargs):
 
         # Save prompts
         if adapter_args.prompt_tuning:
+            if not model_args.attn_tuning: 
+                prompts_prefix = "pt_" + prompts_prefix 
+            else: 
+                prompts_prefix = "att_" + prompts_prefix 
             ssp = kwargs.setdefault("save_source_prompts", False) 
             model.store_encoders(output_dir = training_args.output_dir,
                                  save_source_prompts = ssp, prefix=prompts_prefix)
