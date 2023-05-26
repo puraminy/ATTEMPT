@@ -260,7 +260,7 @@ def show_df(df):
 
     #wwwwwwwwww
     colors = ['blue','orange','green', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
-    contexts = {"g":"grouped", "X":"view", "r":"main"}
+    contexts = {"g":"main", "G":"main", "X":"view", "r":"main"}
     ax = None
     context = dfname
     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 48)
@@ -540,7 +540,7 @@ def show_df(df):
         vals = []
         get_cmd = False
         adjust = True
-        context = contexts[char] if char in contexts else ""
+        # context = contexts[char] if char in contexts else char
         if ch == cur.KEY_NPAGE:
             left += 20
             adjust = False
@@ -898,8 +898,8 @@ def show_df(df):
                         info_cols.remove(col)
                 else:
                     info_cols.append(col)
-            save_obj(sel_cols, "sel_cols", "main")
-            save_obj(info_cols, "sel_cols", "main")
+            save_obj(sel_cols, "sel_cols", context)
+            save_obj(info_cols, "sel_cols", context)
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
             df = df[(df.prefix != inp.prefix) | 
@@ -1178,17 +1178,18 @@ def show_df(df):
                        infos.append(col + ":" + str(i2))
                 subwin(infos)
         elif char == "z":
-            sel_cols =  load_obj("sel_cols", "main", [])
-            info_cols = load_obj("info_cols", "main", [])
+            sel_cols =  load_obj("sel_cols", context, [])
+            info_cols = load_obj("info_cols", context, [])
         elif char == "G":
             backit(df, sel_cols)
+            context = "main"
             if FID == "input_text":
                 context = "inp2"
             col = FID
             left = 0
             col = [col, "prefix"]
-            sel_cols =  load_obj("sel_cols", "main", [])
-            info_cols = load_obj("info_cols", "main", [])
+            sel_cols =  load_obj("sel_cols", context, [])
+            info_cols = load_obj("info_cols", context, [])
             if False:
                 info_cols = ["bert_score", "num_preds"]
             if False: #col == "fid":
