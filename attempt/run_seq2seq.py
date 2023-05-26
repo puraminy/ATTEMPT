@@ -874,7 +874,7 @@ def train(**kwargs):
     if prompts_prefix is None: prompts_prefix = ""
     if prompts_prefix in kwargs:
         prompts_prefix = kwargs[prompts_prefix]
-    if not load_source_prompts:
+    if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" + str(kwargs.expid)
     if prompts_prefix and training_args.do_train:
         prompts_dir = model_args.prompt_encoders_dir
