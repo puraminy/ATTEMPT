@@ -946,6 +946,7 @@ def train(**kwargs):
                     encoder_type=adapter_args.prompt_encoder_type) 
             if "_for" in encoder.name:
                 encoder.is_shared = False
+                encoder.is_private = True
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if load_source_prompts and not "_for" in prompt: 
@@ -1037,12 +1038,20 @@ def train(**kwargs):
         model, training_args, adapter_args, adapter_config)
    
     learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", False) 
+    learn_private_prompts = kwargs.setdefault("learn_private_prompts", True) 
     for encoder in prompt_encoders: 
         if encoder.is_source:
             if model_args.learn_source_prompts:
                 if encoder.is_loaded and not learn_loaded_prompts:
                     continue
+                if encoder.is_private and not learn_private_prompts:
+                    continue
                 for n,p in encoder.named_parameters():
+                    p.requires_grad = True
+            else:
+                if encoder.is_loaded and learn_loaded_prompts:
+                    p.requires_grad = True
+                if encoder.is_private and learn_private_prompts:
                     p.requires_grad = True
         else:
             if model_args.learn_target_prompts:
