@@ -1676,8 +1676,8 @@ def show_df(df):
         elif char == ":":
             cmd = rowinput() #default=prev_cmd)
         elif char == "q":
-            cmd = rowinput("Are you sure you want to exit? (y/n)")
-            if cmd == "y":
+            cmd = rowinput("Are you sure you want to exit? (q(y)/n)")
+            if cmd == "y" or cmd == "q":
                 ch = ord("q")
                 save_df(df)
             else:
@@ -2004,6 +2004,7 @@ def list_values(vals,si=0, sels=[]):
     tag_win = cur.newwin(15, 70, 3, 5)
     tag_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     tag_win.border()
+    vals = sorted(vals)
     key = "_".join([str(x) for x in vals[:4]])
     if si == 0:
         if key in si_hash:
