@@ -1060,6 +1060,7 @@ def train(**kwargs):
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
+    exp_info["rgrad-nrgrad"] = str(rgrad) + "|" + str(nrgrad)
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     mylogs.bp("freeze")
 
