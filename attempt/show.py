@@ -265,6 +265,7 @@ def show_df(df):
     context = dfname
     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 48)
     seq = ""
+    reset = False
     search = ""
     on_col_list = []
     keep_cols = []
@@ -899,7 +900,7 @@ def show_df(df):
                 else:
                     info_cols.append(col)
             save_obj(sel_cols, "sel_cols", context)
-            save_obj(info_cols, "sel_cols", context)
+            save_obj(info_cols, "info_cols", context)
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
             df = df[(df.prefix != inp.prefix) | 
@@ -1178,6 +1179,7 @@ def show_df(df):
                        infos.append(col + ":" + str(i2))
                 subwin(infos)
         elif char == "z":
+            consts["context"] = context
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
         elif char == "G":
@@ -1190,10 +1192,11 @@ def show_df(df):
             col = [col, "prefix"]
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
-            if False:
+            if reset:
                 info_cols = ["bert_score", "num_preds"]
-            if False: #col == "fid":
+            if reset: #col == "fid":
                 sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+            reset = False
 
             _agg = {}
             group_sel_cols = sel_cols.copy()
@@ -1228,12 +1231,15 @@ def show_df(df):
                     ren[c] = c.replace("_first","")
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
+        elif char == "z" and prev_char == "z":
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         orig_tag_cols, keep_cols)
                 unique_cols = info_cols.copy()
             info_cols_back = info_cols.copy()
             info_cols = []
+            save_obj(sel_cols, "sel_cols", context)
+            save_obj(info_cols, "info_cols", context)
             df = df.sort_values(by = ["rouge_score"], ascending=False)
         elif char == "T":
             s_rows = sel_rows
@@ -1866,6 +1872,7 @@ def show_df(df):
             filter_df = orig_df
             df = filter_df
             FID = "fid" 
+            reset = True
             sel_cols = group_sel_cols 
             save_obj([], "sel_cols", context)
             save_obj([], "info_cols", context)

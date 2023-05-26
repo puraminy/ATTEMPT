@@ -180,8 +180,7 @@ def set_args(args):
 
 
 
-def save_obj(obj, name, directory, data_dir=True, common=False, is_json=False):
-    is_json = is_json or type(obj) == dict
+def save_obj(obj, name, directory, data_dir=True, common=False, is_json=True):
     if obj is None or name.strip() == "":
         logging.info(f"Empty object to save: {name}")
         return
@@ -198,12 +197,11 @@ def save_obj(obj, name, directory, data_dir=True, common=False, is_json=False):
             pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
     else:
         fname = os.path.join(folder, name + '.json')
-        with open(fname, 'wb') as f:
+        with open(fname, 'w') as f:
             json.dump(obj, f)
 
 
-def load_obj(name, directory, default=None, data_dir=True, common =False, is_json=False):
-    is_json = is_json or type(obj) == dict
+def load_obj(name, directory, default=None, data_dir=True, common =False, is_json=True):
     if not data_dir:
         folder = directory
     elif common:
