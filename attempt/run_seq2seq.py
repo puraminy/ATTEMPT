@@ -881,12 +881,16 @@ def train(**kwargs):
         if prompts_dir and not prompts_dir.startswith("/"):
             prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
     else:
-        if not prompts_prefix:
-           prompts_prefix = "pt" if not model_args.attn_tuning else "att"
         base_folder = Path(kwargs.save_path)
         base_folder_stem = base_folder.stem
         base_folder_name = base_folder.name
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
+    if not self.attn_tuning: 
+        prompts_prefix = "pt_" + prompts_prefix 
+    else: 
+        prompts_prefix = "att_" + prompts_prefix 
+
+    prompts_prefix = prompts_prefix.strip("_")
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
@@ -1016,7 +1020,7 @@ def train(**kwargs):
                 if is_loaded and ignore_train_if_exist:
                     training_args.do_train = False
                     logger.info("%s training was ignored", encoder.name)
-                if bp ==  "load":
+                if bp == "load":
                     breakpoint()
             prompt_encoders.append(encoder)
 
@@ -1429,7 +1433,7 @@ def train(**kwargs):
         if adapter_args.prompt_tuning:
             ssp = kwargs.setdefault("save_source_prompts", False) 
             model.store_encoders(output_dir = training_args.output_dir,
-                                 save_source_prompts = ssp)
+                                 save_source_prompts = ssp, prefix=prompts_prefix)
             prompts_to_save = kwargs.setdefault("save_these_prompts", []) 
             if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
