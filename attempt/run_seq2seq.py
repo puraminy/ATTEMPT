@@ -1663,7 +1663,7 @@ def train(**kwargs):
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
                             title = str(kwargs.expid) + str(main_vars) + \
-                                    + route_method \
+                                    + str(rm) \
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
                                     + "_" + model_args.attn_method) 
