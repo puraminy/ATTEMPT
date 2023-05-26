@@ -1178,7 +1178,7 @@ def show_df(df):
                        infos.append(col + ":" + str(i1))
                        infos.append(col + ":" + str(i2))
                 subwin(infos)
-        elif char == "z":
+        elif char == "z" and prev_char == "z":
             consts["context"] = context
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
@@ -1231,7 +1231,7 @@ def show_df(df):
                     ren[c] = c.replace("_first","")
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
-        elif char == "z" and prev_char == "z":
+        elif char == "z": 
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         orig_tag_cols, keep_cols)
