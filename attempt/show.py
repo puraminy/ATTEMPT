@@ -898,8 +898,8 @@ def show_df(df):
                         info_cols.remove(col)
                 else:
                     info_cols.append(col)
-            save_obj(sel_cols, "sel_cols", context)
-            save_obj(info_cols, "sel_cols", context)
+            save_obj(sel_cols, "sel_cols", "main")
+            save_obj(info_cols, "sel_cols", "main")
         elif char in ["o","O"] and prev_char == "x":
             inp = df.loc[df.index[sel_row],["prefix", "input_text"]]
             df = df[(df.prefix != inp.prefix) | 
@@ -1178,8 +1178,8 @@ def show_df(df):
                        infos.append(col + ":" + str(i2))
                 subwin(infos)
         elif char == "z":
-            sel_cols =  load_obj("sel_cols", context, [])
-            info_cols = load_obj("info_cols", context, [])
+            sel_cols =  load_obj("sel_cols", "main", [])
+            info_cols = load_obj("info_cols", "main", [])
         elif char == "G":
             backit(df, sel_cols)
             if FID == "input_text":
@@ -1187,8 +1187,8 @@ def show_df(df):
             col = FID
             left = 0
             col = [col, "prefix"]
-            sel_cols =  load_obj("sel_cols", context, [])
-            info_cols = load_obj("info_cols", context, [])
+            sel_cols =  load_obj("sel_cols", "main", [])
+            info_cols = load_obj("info_cols", "main", [])
             if False:
                 info_cols = ["bert_score", "num_preds"]
             if False: #col == "fid":
