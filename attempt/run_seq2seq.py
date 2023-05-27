@@ -872,21 +872,18 @@ def train(**kwargs):
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
     if prompts_prefix is None: prompts_prefix = ""
-    if prompts_prefix in kwargs:
-        prompts_prefix = kwargs[prompts_prefix]
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" + str(kwargs.expid)
-    if prompts_prefix and training_args.do_train:
-        prompts_dir = model_args.prompt_encoders_dir
-        if prompts_dir and not prompts_dir.startswith("/"):
-            prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
+
+    prompts_dir = model_args.prompt_encoders_dir
+    if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
+        prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
     else:
         base_folder = Path(kwargs.save_path)
         base_folder_stem = base_folder.stem
         base_folder_name = base_folder.name
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
-    prompts_prefix = prompts_prefix.strip("_")
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
@@ -1004,7 +1001,7 @@ def train(**kwargs):
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_prompts: 
+            if not model_args.attn_tuning and  load_prompts: 
                 ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 # if not model_args.attn_tuning or encoder.is_source:
                 is_loaded = encoder.load(prompts_dir, 
@@ -1427,10 +1424,11 @@ def train(**kwargs):
 
         # Save prompts
         if adapter_args.prompt_tuning:
-            if not model_args.attn_tuning: 
-                prompts_prefix = "pt_" + prompts_prefix 
-            else: 
-                prompts_prefix = "att_" + prompts_prefix 
+            #if not model_args.attn_tuning: 
+            #    prompts_prefix = "pt_" + prompts_prefix 
+            #else: 
+            #    prompts_prefix = "att_" + prompts_prefix 
+            #prompts_prefix = prompts_prefix.strip("_")
             ssp = kwargs.setdefault("save_source_prompts", False) 
             model.store_encoders(output_dir = training_args.output_dir,
                                  save_source_prompts = ssp, prefix=prompts_prefix)

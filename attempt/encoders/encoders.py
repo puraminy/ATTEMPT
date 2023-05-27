@@ -79,12 +79,14 @@ class PromptEncoder(torch.nn.Module):
         self.init_embedding(init_embs)
         return prompt_ids 
 
-    def get_filename(self, length=None, prefix="pt", as_saved=False):
+    def get_filename(self, length=None, prefix="", as_saved=False):
         length = length if length is not None else self.length
         if as_saved: 
-            fname=prefix + "_" + self.enc_type + "_" + self.name + "_" + str(length) + ".pt"
+            fname= (prefix + "_" if prefix else "") + \
+                    self.enc_type + "_" + self.name + "_" + str(length) + ".pt"
         else:
-            fname=prefix + "_" + self.name + "_" + str(length) + ".pt"
+            fname=(prefix + "_" if prefix else "") \
+                    + self.name + "_" + str(length) + ".pt"
         if self.is_source:
             fname = fname.replace("source_","") 
         return fname

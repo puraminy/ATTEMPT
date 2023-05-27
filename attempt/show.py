@@ -468,7 +468,8 @@ def show_df(df):
     consts = {}
     extra = {"filter":[]}
     orig_df = main_df.copy()
-    while ch != ord("q"):
+    prev_char = ""
+    while prev_char != "q":
         text_win.clear()
         group_rows = []
         left = min(left, max_col  - width)
@@ -535,6 +536,9 @@ def show_df(df):
         else:
             ch, hotkey = ord(hotkey[0]), hotkey[1:]
         char = chr(ch)
+        if char != "q" and prev_char == "q": 
+            consts["exit"] = ""
+            prev_char = ""
         extra["inp"] = char
 
         seq += char
@@ -1676,12 +1680,10 @@ def show_df(df):
         elif char == ":":
             cmd = rowinput() #default=prev_cmd)
         elif char == "q":
-            cmd = rowinput("Are you sure you want to exit? (q(y)/n)")
-            if cmd == "y" or cmd == "q":
-                ch = ord("q")
-                save_df(df)
-            else:
-                ch = 0
+            save_df(df)
+            # if prev_char != "q": mbeep()
+            consts["exit"] = "hit q another time to exit"
+            prev_char = "q" # temporary line for exit on one key  #comment me
         if cmd.startswith("cp="):
             _, folder, dest = cmd.split("=")
             spath = main_df.iloc[0]["path"]
@@ -1838,7 +1840,7 @@ def show_df(df):
             sel_row = int(cmd)
         elif cmd == "q" or cmd == "wq":
             save_df(df)
-            ch = ord("q")
+            prev_char = "q" 
         elif not char in ["q", "S","r"]:
             pass
             #mbeep()
