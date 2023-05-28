@@ -1177,6 +1177,8 @@ class T5Stack(T5PreTrainedModel):
             if self.training:
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
+                if route_method == "sigmoid":
+                    attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
             else:
                 mylogs.bp("route")
                 attn_scores = router
