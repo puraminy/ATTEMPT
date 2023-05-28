@@ -277,8 +277,8 @@ def show_df(df):
     dot_cols = {}
     selected_cols = []
     task = ""
-    if "task_name" in df:
-        task = df["task_name"][0]
+    if "prefix" in df:
+        task = df["prefix"][0]
     #if not "learning_rate" in df:
     #    df[['fid_no_lr', 'learning_rate']] = df['fid'].str.split('_lr_', 1, expand=True)
     if not "plen" in df:
@@ -1339,8 +1339,8 @@ def show_df(df):
                 sel_exp = exp
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
-                if "task_name" in df:
-                    task = df.iloc[0]["task_name"]
+                if "prefix" in df:
+                    task = df.iloc[0]["prefix"]
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 unique_cols = info_cols.copy()
