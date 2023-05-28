@@ -2028,6 +2028,7 @@ def list_df_values(df, col ="", get_val=True,si=0,vi=0, sels=[]):
         is_cancled, col = list_values(cols,si, sels)
     val = ""
     if col and get_val and not is_cancled:
+        df[col] = df[col].astype(str)
         vals = sorted(list(df[col].unique()))
         is_cancled, val = list_values(vals,vi, sels)
     return is_cancled, col, val 
