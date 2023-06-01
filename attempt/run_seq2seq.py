@@ -1087,12 +1087,13 @@ def train(**kwargs):
     #max_target_length = data_args.max_target_length
     padding = "max_length" if data_args.pad_to_max_length else False
     ########### rrrrrr
+    hit_count = kwargs.setdefault("hc", 3)
     def preprocess_function(examples, max_target_length, task_id=None):
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
         if preview == "data":
-            mylogs.plog.info("sourece: %s", examples["source"][:3])
-            mylogs.plog.info("target: %s", examples["target"][:3])
+            mylogs.plog.info("sourece: %s", examples["source"][:hit_count])
+            mylogs.plog.info("target: %s", examples["target"][:hit_count])
 
         if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])

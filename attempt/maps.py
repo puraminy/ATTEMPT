@@ -25,12 +25,12 @@ REL_TO_PHRASE = {
     'cola':"Is it grammatical or meaningful",
 }
 REL_TO_SHARED_TOKENS = {
-    "mnli":"qnli mnli rte",
+    "mnli":"mnli qnli rte",
     "rte":"mnli qnli rte",
     "qnli":"mnli qnli rte",
     "sst2":"mrpc sst2 qqp",
     "mrpc":"mrpc sst2 qqp",
-    "qqp":"sst2 qqp mrpc",
+    "qqp":"mrpc sst2 qqp",
     "superglue-wic":"cls wic syn ss",
     "oEffect":"event after others effect",
     "oReact":"adj after others react",
