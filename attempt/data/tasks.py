@@ -186,7 +186,9 @@ class AbstractTask(abc.ABC):
         while _pholder in template:
             if num_holder in _pholder:
                 prompt = ""
-                start = self.pcounter
+                start = 0
+                if num_holder == "_j":
+                    start = self.pcounter
                 for i in range(start, start + plen):
                     token = place_holder
                     if num_holder != "_1":
@@ -229,6 +231,9 @@ class AbstractTask(abc.ABC):
                 if emb == "i":
                     plen = self.get_prompt_length(pnum) 
                     num_holder = "_i"
+                elif emb == "j":
+                    plen = self.get_prompt_length(pnum) 
+                    num_holder = "_j"
                 place_holder = "[" + name + "_" + emb + "]"
                 if name == "task":
                     name = self.get_id()
@@ -341,7 +346,7 @@ class AbstractTask(abc.ABC):
             # prompt shr creates same prompts for shared tokens of tasks, 
             # the length of prompts 
             # is specified with i
-            prompt_sh = ["[" + w + "_i]" for w in rel_sh]
+            prompt_sh = ["[" + w + "_j]" for w in rel_sh]
             data["prompt_sh"] = " ".join(prompt_sh)
             # prompt is the same as prompt sh but the tokens are shuffled 
             shuffle(rel_sh)
