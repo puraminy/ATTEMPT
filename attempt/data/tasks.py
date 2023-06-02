@@ -187,7 +187,7 @@ class AbstractTask(abc.ABC):
             if num_holder in _pholder:
                 prompt = ""
                 start = 0
-                if num_holder == "_j":
+                if num_holder == "_i":
                     start = self.pcounter
                 for i in range(start, start + plen):
                     token = place_holder
@@ -346,11 +346,11 @@ class AbstractTask(abc.ABC):
             # prompt shr creates same prompts for shared tokens of tasks, 
             # the length of prompts 
             # is specified with i
-            prompt_sh = ["[" + w + "_j]" for w in rel_sh]
+            prompt_sh = ["[" + w + "_i]" for w in rel_sh]
             data["prompt_sh"] = " ".join(prompt_sh)
             # prompt is the same as prompt sh but the tokens are shuffled 
             shuffle(rel_sh)
-            prompt_shr = ["[" + w + "_i]" for w in rel_sh]
+            prompt_shr = ["[" + w + "_j]" for w in rel_sh]
             data["prompt_shr"] = " ".join(prompt_shr)
             # psht is for comparision. it uses task specific prompts with the length 
             # of shared prompts concatenated to each other, 
