@@ -1674,7 +1674,7 @@ def train(**kwargs):
                                         "_" + route_method + "_" + str(kwargs.trial) + \
                                         "_" + mylogs.now + "_" + str(ii)  + ".tsv")
 
-                        df, scores = evaluate_test(task, test_datasets, save_to, gen_conf)
+                        df, scores = evaluate_test(task, test_dataset, save_to, gen_conf)
                         df["prefix"] = ds_name
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")
