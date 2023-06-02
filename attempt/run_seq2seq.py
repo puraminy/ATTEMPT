@@ -587,6 +587,7 @@ def train(**kwargs):
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
+    task_args["id"] = kwargs["expid"]
 
     # an option to explicitly specify the method of training 
     # (pt: prompt-tuning, ft:fine-tuning, px:prefix-tuning etc.)
@@ -899,8 +900,8 @@ def train(**kwargs):
         #  tttttttttttt
         for ti, task_name in enumerate(tasks, start=1):
              task_args["id"] = ti
-             task_args = dotdict(task_args.copy())
-             task = AutoTask.get(task_name, None, task_args=task_args)
+             t_args = dotdict(task_args.copy())
+             task = AutoTask.get(task_name, None, task_args=t_args)
              p = task.get_prompts()
              prompts = {**prompts, **p}
              tid = task_name #get_id()
@@ -1044,24 +1045,25 @@ def train(**kwargs):
    
     learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", False) 
     learn_private_prompts = kwargs.setdefault("learn_private_prompts", True) 
-    for encoder in prompt_encoders: 
-        if encoder.is_source:
-            if model_args.learn_source_prompts:
-                if encoder.is_loaded and not learn_loaded_prompts:
-                    continue
-                if encoder.is_private and not learn_private_prompts:
-                    continue
-                for n,p in encoder.named_parameters():
-                    p.requires_grad = True
+    if adapter_args.prompt_tuning:
+        for encoder in prompt_encoders: 
+            if encoder.is_source:
+                if model_args.learn_source_prompts:
+                    if encoder.is_loaded and not learn_loaded_prompts:
+                        continue
+                    if encoder.is_private and not learn_private_prompts:
+                        continue
+                    for n,p in encoder.named_parameters():
+                        p.requires_grad = True
+                else:
+                    if encoder.is_loaded and learn_loaded_prompts:
+                        p.requires_grad = True
+                    if encoder.is_private and learn_private_prompts:
+                        p.requires_grad = True
             else:
-                if encoder.is_loaded and learn_loaded_prompts:
-                    p.requires_grad = True
-                if encoder.is_private and learn_private_prompts:
-                    p.requires_grad = True
-        else:
-            if model_args.learn_target_prompts:
-                for n,p in encoder.named_parameters():
-                    p.requires_grad = True
+                if model_args.learn_target_prompts:
+                    for n,p in encoder.named_parameters():
+                        p.requires_grad = True
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
@@ -1122,6 +1124,7 @@ def train(**kwargs):
 
     column_names = ['source', 'target', 'extra_fields']
     performance_metrics = {}
+    task_args = dotdict(task_args.copy())
     if training_args.do_train:
         # Load datasets from files if your target datasets are not in huggingface datasets.
         if data_args.train_files is not None:
@@ -1273,6 +1276,8 @@ def train(**kwargs):
     grouped_params = []
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
+    prompt_params = []
+    
     if model_args.attn_learning_rate is not None:
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
