@@ -1039,7 +1039,7 @@ def show_df(df):
             extra["FID"] = FID
             df = filter_df
             hotkey=hk
-        elif char == "A":
+        elif char == "A" and prev_char == "g":
             col = sel_cols[cur_col]
             FID = col 
             extra["FID"] = FID
@@ -1089,7 +1089,7 @@ def show_df(df):
             consts["options"] = "b: back"
             df = df.groupby(["expid","prefix"]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["expid","prefix"], ascending=False)
-        elif char == "a": 
+        elif char == "A": 
             consts["options"] = "b: back"
             backit(df, sel_cols)
             if not "expid" in sel_cols:
@@ -1101,6 +1101,18 @@ def show_df(df):
                 else:
                     _agg[c] = "first"
             df = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
+            df = df.sort_values(by=["rouge_score"], ascending=False)
+        elif char == "a": 
+            consts["options"] = "b: back"
+            backit(df, sel_cols)
+            col = sel_cols[cur_col]
+            _agg = {}
+            for c in sel_cols:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
+            df = df.groupby([col]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["rouge_score"], ascending=False)
         elif char == "u":
             preds = df["pred_text1"].tolist()
