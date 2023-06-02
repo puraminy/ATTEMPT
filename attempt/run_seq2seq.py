@@ -1277,7 +1277,6 @@ def train(**kwargs):
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     prompt_params = []
-    
     if model_args.attn_learning_rate is not None:
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
@@ -1339,6 +1338,9 @@ def train(**kwargs):
         eval_ds = None
     wb_callback = WBCallback()
     anneal_callback = AnnealCallback() 
+    callbacks = []
+    if adapter_args.prompt_tuning:
+       callbacks = [wb_callback, anneal_callback]
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
@@ -1354,7 +1356,7 @@ def train(**kwargs):
             evaluation_metrics=task_metric,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             shared=model_args.shared_attn,
-            callbacks = [wb_callback, anneal_callback],
+            callbacks = callbacks, 
             shuffle = trainer_shuffle,
             optimizers=(optim, scheduler)
         )
@@ -1367,7 +1369,7 @@ def train(**kwargs):
             data_info=data_info,
             tokenizer=tokenizer,
             data_collator=data_collator,
-            callbacks = [wb_callback, anneal_callback],
+            callbacks = callbacks, 
             shuffle = trainer_shuffle,
             save_checkpoint = kwargs.setdefault("save_checkpoint", False),
             compute_metrics=compute_metrics if training_args.predict_with_generate else None,
