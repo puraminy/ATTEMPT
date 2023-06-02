@@ -1549,7 +1549,7 @@ def train(**kwargs):
             data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         # multi-task evaluations
-        def evaluate_test(task, test_dataset, gen_conf = {}, save_to):
+        def evaluate_test(task, test_dataset, save_to,  gen_conf = {}):
             predictions, labels, metrics = trainer.predict(
                     gen_conf = gen_conf,
                     test_dataset=test_dataset,
@@ -1646,7 +1646,7 @@ def train(**kwargs):
                 save_to = os.path.join(training_args.output_dir, 
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
-                df, scores = evaluate_test(task, test_datasets, gen_conf, save_to)
+                df, scores = evaluate_test(task, test_datasets, save_to)
         else:
             for rm, mask in combs.items():
                 img_list = []
@@ -1674,8 +1674,7 @@ def train(**kwargs):
                                         "_" + route_method + "_" + str(kwargs.trial) + \
                                         "_" + mylogs.now + "_" + str(ii)  + ".tsv")
 
-                        df, scores = evaluate_test(task, test_datasets, gen_conf, save_to)
-
+                        df, scores = evaluate_test(task, test_datasets, save_to, gen_conf)
                         df["prefix"] = ds_name
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")
