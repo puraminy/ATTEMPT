@@ -1647,7 +1647,7 @@ def train(**kwargs):
                 save_to = os.path.join(training_args.output_dir, 
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
-                df, scores = evaluate_test(task, test_datasets, save_to, ds_name)
+                df, scores = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             for rm, mask in combs.items():
                 img_list = []
