@@ -673,7 +673,7 @@ class Atomic(AbstractTask):
     do_shuffle = True
     samples_per_head = 3
     rels = []
-    def __init__(self, config, task_args):
+    def __init__(self, config, task_args, task=""):
         super().__init__(config, task_args)
         self.data_path = task_args.data_path
         if not task_args.rels:
@@ -759,7 +759,7 @@ class xIntent(Atomic):
 class AtomicRel(Atomic):
     name = "atomic-rels"
     samples_per_rel = 100
-    def __init__(self, config, task_args):
+    def __init__(self, config, task_args, task=""):
         super().__init__(config, task_args)
         self.train_samples_per_rel = task_args.train_samples
         self.val_samples_per_rel = task_args.val_samples
