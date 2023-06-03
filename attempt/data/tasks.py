@@ -895,6 +895,24 @@ class ParsNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
+class PAWS1(AbstractTask):
+    name = "paws"
+    labels_list = ["0", "1"]
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    split_to_data_split = {"train": "train",
+                           "validation": "validation",
+                           "test": "test"}
+
+    def load_dataset(self, split):
+        return datasets.load_dataset('paws', 'labeled_final', split=split)
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["sentence1:", example['sentence1'],
+                     "sentence2:", example["sentence2"]]
+        tgt_texts = [str(example['label'])]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
 
 class PAWS(AbstractTask):
     name = "paws"
@@ -907,11 +925,14 @@ class PAWS(AbstractTask):
     map_labels = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('paws', split=split)
+        path = op.join(mylogs.home,"paws", "final", split + ".tsv") 
+        df = pd.read_table(path)
+        ds = Dataset.from_pandas(df)
+        return ds
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence1:", example['sentence1'],
-                     "sentence2: ", example["sentence2"]]
+                     "sentence2:", example["sentence2"]]
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
@@ -1286,28 +1307,6 @@ class WinoGrande(AbstractTask):
                      "option0:", example["option1"],
                      "option1:", example["option1"]]
         tgt_texts = [str(int(example["answer"]) - 1)]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
-
-
-class PAWS(AbstractTask):
-    name = "paws"
-    labels_list = ["0", "1"]
-    metric = [metrics.accuracy]
-    metric_names = ["accuracy"]
-    split_to_data_split = {"train": "train",
-                           "validation": "validation",
-                           "test": "test"}
-
-    def load_dataset(self, split):
-        return datasets.load_dataset('tsv', 
-                                     data_files={
-                                         'mylogs.home + '/paws/final/train.tsv'],
-                                         })
-
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["sentence1:", example['sentence1'],
-                     "sentence2:", example["sentence2"]]
-        tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
