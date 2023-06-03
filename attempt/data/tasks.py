@@ -272,6 +272,8 @@ class AbstractTask(abc.ABC):
             if part == "unsup": 
                src = src.replace("(mask)", "{mask}")
                target = target.replace("(mask)","{mask}")
+            if part == "unsupnat": 
+               target = target.replace("(mask)","{mask}")
             if part == "sup":
                src = src.replace("(mask)", "")
                target = target.replace("(mask)","")
@@ -862,8 +864,8 @@ class MNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"yes", "1":"no", "2": "contradict"}
-    rel_nat = "premise entails hypothesis:"
+    map_labels = {"0":"entails", "1":"unrelated", "2": "contradicts"}
+    rel_nat = "premise {mask} hypothesis:"
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
