@@ -897,21 +897,21 @@ class ParsNLI(AbstractTask):
 
 
 class PAWS(AbstractTask):
-    name = "snli"
-    labels_list = ["0", "1", "2"]
+    name = "paws"
+    labels_list = ["0", "1"]
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"en", "1":"neutral", "2": "contradiction"}
+    map_labels = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('snli', split=split)
+        return datasets.load_dataset('paws', split=split)
 
     def preprocessor(self, example, add_prefix=True):
-        src_texts = ["premise:", example['premise'],
-                     "hypothesis: ", example["hypothesis"]]
+        src_texts = ["sentence1:", example['sentence1'],
+                     "sentence2: ", example["sentence2"]]
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
