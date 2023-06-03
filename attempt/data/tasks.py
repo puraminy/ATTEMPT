@@ -41,11 +41,16 @@ class AbstractTask(abc.ABC):
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
                                      "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
-    def __init__(self, config, task_args):
+    def __init__(self, config, task_args, task=""):
         self.config = config
         self.seed = task_args.data_seed
         self.template = task_args.template
         ## list of prompts
+        if task: 
+            self.task_name = task
+        self.rel_nat = task
+        self.rel_tok = "<" + task + ">"
+        self.rel_word = task
         self.prompt_set = {} 
         prompt_config = {}
         prompt_config["length"] = task_args.prompt_length
@@ -307,9 +312,9 @@ class AbstractTask(abc.ABC):
         if "task" in data:
             task = data["task"]
             task = self.name
-            data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else task
-            data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else task
-            data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
+            data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
+            data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
+            data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else self.rel_nat
             rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_fw = rel_fw.split()
             num_prompts = self.task_args.setdefault("num_prompts",1)
@@ -857,7 +862,8 @@ class MNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"en", "1":"neutral", "2": "contradiction"}
+    map_labels = {"0":"yes", "1":"no", "2": "contradict"}
+    rel_nat = "premise entails hypothesis:"
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
@@ -1336,7 +1342,7 @@ class AutoTask:
     @classmethod
     def get(self, task, config, task_args=None):
         if task in TASK_MAPPING:
-            return TASK_MAPPING[task](config, task_args)
+            return TASK_MAPPING[task](config, task_args, task)
         raise ValueError(
             "Unrecognized task {} for AutoTask Model: {}.\n"
             "Task name should be one of {}.".format(
