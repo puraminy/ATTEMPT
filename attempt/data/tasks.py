@@ -31,6 +31,7 @@ class AbstractTask(abc.ABC):
     split_map = None
     labels_list = None
     pcounter = 0
+    rel_nat = None
     samples_per_head = 1
     map_labels = {} # verbelizer
     split_to_data_split: Mapping[str, str] = \
@@ -48,7 +49,8 @@ class AbstractTask(abc.ABC):
         ## list of prompts
         if task: 
             self.task_name = task
-        self.rel_nat = task
+        if not self.rel_nat:
+            self.rel_nat = task
         self.rel_tok = "<" + task + ">"
         self.rel_word = task
         self.prompt_set = {} 
@@ -302,7 +304,7 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "{prompt_sht} (prompt) ",1)
             if part == "pshr":
                src = src.replace("(prompt)", "{prompt_shr} (prompt) ",1)
-            if part == "nat_inp": 
+            if part == "nat_inp" or part == "nat": 
                src = src.replace("(nat)", ", {rel_nat}")
             if part == "nat_tgt": 
                target = target.replace("(nat)", ", {rel_nat}")
@@ -385,6 +387,7 @@ class AbstractTask(abc.ABC):
         # fill the templates with data
         src_texts = src.format_map(data)
         tgt_texts = tgt.format_map(data)
+        src_texts = src_texts.replace("{mask}", mask)
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
