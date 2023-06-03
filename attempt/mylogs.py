@@ -51,8 +51,8 @@ def get_tag(tags=None, args=None, as_str=False):
 
 tehran = timezone('Asia/Tehran')
 now = datetime.datetime.now(tehran)
-now = now.strftime('%m-%d-%H:%M')
 today = now.strftime('%Y-%m-%d')
+now = now.strftime('%m-%d-%H:%M')
 home = expanduser("~")
 colab = not "ahmad" in home and not "pouramini" in home
 if not colab: 
