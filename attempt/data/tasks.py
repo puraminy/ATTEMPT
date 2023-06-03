@@ -484,7 +484,12 @@ class PIQA(AbstractTask):
                            "test": "validation"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('piqa', split=split)
+        # return datasets.load_dataset('piqa', split=split)
+        path = op.join(mylogs.home, "piqa","final", split + ".csv")
+        # return datasets.load_dataset('csv', data_files=path)
+        df = pd.read_csv(path)
+        ds = Dataset.from_pandas(df)
+        return ds
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["question:", example['goal'], "choice1:",
