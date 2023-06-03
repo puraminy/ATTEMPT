@@ -896,10 +896,13 @@ def show_df(df):
             if not canceled:
                 if col in sel_cols: 
                     sel_cols.remove(col)
-                sel_cols.insert(cur_col, col)
-                orig_tag_cols.append(col)
                 if col in info_cols:
                     info_cols.remove(col)
+                if ch == cur.KEY_IC:
+                    sel_cols.insert(cur_col, col)
+                else:
+                    info_cols.append(col)
+                orig_tag_cols.append(col)
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
         elif char in ["o","O"] and prev_char == "x":
