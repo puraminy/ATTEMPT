@@ -1299,7 +1299,10 @@ class PAWS(AbstractTask):
                            "test": "test"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('paws', 'labeled_final', split=split)
+        return datasets.load_dataset('tsv', 
+                                     data_files={
+                                         'mylogs.home + '/paws/final/train.tsv'],
+                                         })
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence1:", example['sentence1'],
