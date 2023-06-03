@@ -1567,6 +1567,10 @@ def train(**kwargs):
             if bp == "test": breakpoint()
             df["pred_text1"] = ""
             df["prefix"] = ds_name
+            df["template"] = data_args.template
+            df["resp"] = ""
+            df["query"] = ""
+            df["langs"] = "en2en"
             for k,v in metrics.items():
                 df[k] = v
             #df["rouge_score"] = 0.0
@@ -1609,10 +1613,6 @@ def train(**kwargs):
                 pred = pred.strip()
                 df.at[i, "pred_text1"] = pred
             df = df.drop(columns=["input_ids","labels","attention_mask"])
-            df["template"] = data_args.template
-            df["resp"] = ""
-            df["query"] = ""
-            df["langs"] = "en2en"
             scores = do_score(df, "rouge@bert", save_to)
             return df, scores
 
@@ -1639,6 +1639,7 @@ def train(**kwargs):
         sdf_rows = []
         if not adapter_args.prompt_tuning:
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                task = task.split("_")[0]
                 ds_conf = data_args.test_dataset_config_name[idx]
                 ds_name = data_args.test_dataset_name[idx]
                 ds_name = "none" if not ds_name else ds_name
