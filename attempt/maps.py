@@ -23,6 +23,12 @@ REL_TO_PHRASE = {
     'isFilledBy': "<isFilledBy>",
     'HinderedBy':"<HinderedBy>",
     'cola':"Is it grammatical or meaningful",
+    "mnli":"",
+    "rte":"mnli qnli rte",
+    "qnli":"mnli qnli rte",
+    "sst2":"mrpc sst2 qqp",
+    "mrpc":"mrpc sst2 qqp",
+    "qqp":"mrpc sst2 qqp",
 }
 REL_TO_SHARED_TOKENS = {
     "mnli":"mnli qnli rte",
