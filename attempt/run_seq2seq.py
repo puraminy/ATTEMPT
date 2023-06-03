@@ -1569,7 +1569,8 @@ def train(**kwargs):
             df["prefix"] = ds_name
             df["template"] = data_args.template
             df["resp"] = ""
-            df["date"] = mylogs.now 
+            df["time"] = mylogs.now 
+            df["date"] = mylogs.today 
             df["query"] = ""
             df["langs"] = "en2en"
             for k,v in metrics.items():
