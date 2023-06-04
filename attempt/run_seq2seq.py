@@ -1593,13 +1593,13 @@ def train(**kwargs):
                 else:
                     inp = tokenizer.decode(row["input_ids"], 
                         skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                    inp = re.sub(r'<.*?>','', inp)
-                    inp = inp.strip()
+                inp = re.sub(r'<.*?>','', inp)
+                inp = inp.strip()
                 df.at[i, "input_text"] = inp #extra["event"] 
                 label = extra["tail"] if "tail" in extra else "na"
                 #label = tokenizer.decode(row["labels"], 
                 #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
-                #label = re.sub(r'<.*?>','', label)
+                label = re.sub(r'<.*?>','', label)
                 label = label.strip()
                 df.at[i, "target_text"] = extra["target_text"] #label 
                 sel = False
