@@ -1622,9 +1622,9 @@ def show_df(df):
             sel_cols.remove(col)
             save_obj(sel_cols, "sel_cols", context)
         elif ch == cur.KEY_SDC:
-            col = sel_cols[cur_col]
-            sel_cols.remove(col)
-            info_cols.append(col)
+            #col = sel_cols[cur_col]
+            #sel_cols.remove(col)
+            col = info_cols.pop()
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "sel_cols", context)
         elif ch == cur.KEY_SDC and prev_char == 'x':
