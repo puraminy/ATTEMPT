@@ -563,7 +563,7 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"1":"equal", "0":"unequal"} #equivalent not_equivalent
+    map_labels = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
