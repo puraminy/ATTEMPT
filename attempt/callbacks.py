@@ -12,6 +12,20 @@ import json, os
 import io
 from PIL import Image
 
+import logging
+logger = logging.getLogger(__name__)
+
+class PTLearningRateCallback(TrainerCallback):
+    def on_log(self, args, state, control, logs = None, **kwargs):
+        model = kwargs.pop("model", None)
+        mylogs.bp("ptlr")
+        lr = kwargs.pop("lr_scheduler", None)
+        if lr:
+            logs["slr"] = lr._last_lr[0]
+            logs["tlr"] = lr._last_lr[1]
+            logs["lr"] = lr._last_lr[2]
+        logger.info(logs)
+
 class AnnealCallback(TrainerCallback):
     def on_step_begin(self, args, state, control, **kwargs):
         mylogs.bp("anneal")
