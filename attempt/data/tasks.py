@@ -401,7 +401,12 @@ class AbstractTask(abc.ABC):
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
         if self.map_labels:
-            targets = [self.map_labels[label] for label in targets]
+            tt = []
+            for label in targets:
+                assert label in self.map_labels, self.name + ":" + label \
+                        + ":" + str(self.map_labels)
+                tt.append(self.map_labels[label])
+            targets = tt 
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
@@ -482,13 +487,14 @@ class PIQA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"0":"Choice1", "1":"Choice2"}
+    map_labels = {"0.0":"Choice1", "1.0":"Choice2"}
 
     def load_dataset(self, split):
         # return datasets.load_dataset('piqa', split=split)
         path = op.join(mylogs.home, "piqa","final", split + ".csv")
         # return datasets.load_dataset('csv', data_files=path)
         df = pd.read_csv(path)
+        #df.label = df.label.astype(int)
         ds = Dataset.from_pandas(df)
         return ds
 
