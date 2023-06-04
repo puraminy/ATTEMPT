@@ -730,12 +730,16 @@ def train(**kwargs):
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
-
-    steps = 0
-    samples_per_head = kwargs.setdefault("samples_per_head",1)
+    tasks = data_args.task_name
     mylogs.bp("steps")
+    total_samples = 0
+    for ti, task_name in enumerate(tasks, start=1):
+         t_args = dotdict(task_args.copy())
+         task = AutoTask.get(task_name, None, task_args=t_args)
+         total_samples += data_args.max_train_samples * task.samples_per_head
+    steps = 0
     if training_args.do_train:
-        steps = n_tasks * data_args.max_train_samples * samples_per_head * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+        steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     mylogs.bp("steps")
     if model_args.anneal_rate is None: 
         anneal_rate = 1/(steps + 5) 

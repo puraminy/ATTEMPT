@@ -21,8 +21,9 @@ class PTLearningRateCallback(TrainerCallback):
         mylogs.bp("ptlr")
         lr = kwargs.pop("lr_scheduler", None)
         if lr:
-            logs["slr"] = lr._last_lr[0]
-            logs["tlr"] = lr._last_lr[1]
+            #logs["slr"] = lr._last_lr[0]
+            #logs["tlr"] = lr._last_lr[1]
+            logs["step"] = state.global_step 
             logs["lr"] = lr._last_lr[2]
         logger.info(logs)
 
