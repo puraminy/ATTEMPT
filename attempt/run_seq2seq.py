@@ -873,6 +873,7 @@ def train(**kwargs):
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
     if prompts_prefix is None: prompts_prefix = ""
+    #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" + str(kwargs.expid)
 
