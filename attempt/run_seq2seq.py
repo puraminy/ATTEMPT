@@ -62,7 +62,7 @@ from metrics.metrics import build_compute_metrics_fn
 ###### my imports
 from myds import my_interleave_datasets
 from conflicts import check_conflicts
-from callbacks import WBCallback, AnnealCallback
+from callbacks import WBCallback, AnnealCallback, PTLearningRateCallback
 import json
 import pandas as pd
 import glob
@@ -1339,9 +1339,10 @@ def train(**kwargs):
         eval_ds = None
     wb_callback = WBCallback()
     anneal_callback = AnnealCallback() 
+    ptlr_callback = PTLearningRateCallback()
     callbacks = []
     if adapter_args.prompt_tuning:
-       callbacks = [wb_callback, anneal_callback]
+       callbacks = [ptlr_callback, wb_callback, anneal_callback]
     if kwargs.use_optimizer:
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
