@@ -487,7 +487,7 @@ class PIQA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"0.0":"Choice1", "1.0":"Choice2"}
+    map_labels = {"0":"Choice1", "1":"Choice2", "0.0":"Choice1", "1.0":"Choice2"}
 
     def load_dataset(self, split):
         # return datasets.load_dataset('piqa', split=split)
