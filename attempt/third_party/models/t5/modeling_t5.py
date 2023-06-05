@@ -954,6 +954,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_encoders = []
         self.embedding_dim = self.config.hidden_size
         # all prompt ids for all tasks
+        self.com_prompt_ids = []
         self.task_prompt_ids = []
         self.router = None
         self.training = True
@@ -1043,12 +1044,16 @@ class T5Stack(T5PreTrainedModel):
         self.num_src_encoders = 0
         if source_prompts:
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
+        com_prompt_ids = []
         task_prompt_ids = []
         self.attn_mask = torch.ones(attend_num, attend_num, device=device)
         src_list = []
         tgt_list = []
         for i, encoder in enumerate(self.prompt_encoders, start=1):
-            task_prompt_ids.extend(encoder.prompt_ids)
+            if encoder.is_holder:
+                com_prompt_ids.extend(encoder.prompt_ids)
+            else:
+                task_prompt_ids.extend(encoder.prompt_ids)
             encoder.to(device)
             if source_prompts and encoder.name in source_prompts:
                 encoder.src_idx = i
@@ -1060,6 +1065,7 @@ class T5Stack(T5PreTrainedModel):
         self.source_encoders_idx = torch.tensor(src_list, device=device)
         self.target_encoders_idx = torch.tensor(tgt_list, device=device)
 
+        self.com_prompt_ids = torch.tensor(com_prompt_ids, device=device)
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
         self.router = nn.Parameter(data=torch.empty((
@@ -1347,7 +1353,11 @@ class T5Stack(T5PreTrainedModel):
         return (ar1[..., None] == ar2).any(-1)
 
     @property
-    def get_prompt_token_fn(self):
+    def get_com_prompt_ids_fn(self):
+        return lambda x: self.isin(x, self.com_prompt_ids)
+
+    @property
+    def get_task_prompt_ids_fn(self):
         return lambda x: self.isin(x, self.task_prompt_ids)
 
     # pppppppppp
@@ -1362,17 +1372,25 @@ class T5Stack(T5PreTrainedModel):
             num_prompt_encoders = len(self.prompt_encoders) + 1
             #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
             # prompt masks for all prompt tokens
-            prompt_masks = self.get_prompt_token_fn(input_ids)
-            self.adapter_config.prompt_masks = prompt_masks
+            target_prompt_masks = self.get_com_prompt_ids_fn(input_ids)
+            self.adapter_config.prompt_masks = target_prompt_masks
             # exteract prompt ids of tasks in the batch
-            target_prompt_ids = input_ids[prompt_masks].view(batch_size,-1) 
-            target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+            com_prompt_ids = input_ids[target_prompt_masks].view(batch_size,-1) 
+
+            task_prompt_masks = self.get_task_prompt_ids_fn(input_ids)
+            sp_prompt_ids = input_ids[task_prompt_masks].view(batch_size,-1) 
+            
+            target_prompts = torch.zeros((*com_prompt_ids.size(), self.model_dim), 
+                                          device=device) 
+            task_prompts = torch.zeros((*sp_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             # a list of indexes to target encoders (one encoder per task)
-            target_idx = torch.zeros_like(target_prompt_ids, device=device).long() 
+            target_idx = torch.zeros_like(com_prompt_ids, device=device).long() 
             source_idx_list = [0] # 0 is for input 
             target_idx_list = []
             target_prompts_list = []
+            task_idx_list = []
+            task_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
                  self.src_prompt_dim, self.model_dim), device=device) 
@@ -1384,10 +1402,22 @@ class T5Stack(T5PreTrainedModel):
                     continue
 
                 prompt_token_fn = encoder.get_prompt_token_fn()
-                target_masks = prompt_token_fn(target_prompt_ids)
-                if target_masks.any():
+                target_masks = prompt_token_fn(com_prompt_ids)
+                if not target_masks.any():
+                    task_masks = prompt_token_fn(sp_prompt_ids)
+                    if task_masks.any():
+                        #find input ids for prompt tokens
+                        prompt_input_ids = sp_prompt_ids[task_masks]
+                        #call forwards on prompt encoder whose outputs are prompt embeddings
+                        out = encoder(prompt_input_ids, tids)
+                        prompt_embeds = out.to(device)
+                        task_prompts_clone = task_prompts.clone()
+                        task_prompts_clone[task_masks] = prompt_embeds
+                        task_prompts_list.append(task_prompts_clone)
+                        task_idx_list.append(ii)
+                else: 
                     #find input ids for prompt tokens
-                    prompt_input_ids = target_prompt_ids[target_masks]
+                    prompt_input_ids = com_prompt_ids[target_masks]
                     #call forwards on prompt encoder whose outputs are prompt embeddings
                     out = encoder(prompt_input_ids, tids)
                     prompt_embeds = out.to(device)
@@ -1397,81 +1427,87 @@ class T5Stack(T5PreTrainedModel):
                     target_idx_list.append(ii)
                     emb = encoder(encoder.net_inps)
                     target_idx[target_masks] = ii
-            target_prompts = torch.stack(target_prompts_list) 
+            task_prompts = torch.stack(task_prompts_list) 
+            # averaging task prompts in the case that there are shared prompts
+            mask = task_prompts !=0
+            task_prompts = (task_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+            inputs_embeds[task_prompt_masks]=task_prompts.view(-1, self.model_dim)
             # averaging target prompts in the case that there are shared prompts
-            mask = target_prompts !=0
-            target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
-            if self.attn_prompt_tuning:
-                attn_mask = self.attn_mask
-                if not self.training: 
-                    mylogs.bp("ccc")
-                    if self.gen_conf is not None and "attn_mask" in self.gen_conf:
-                        attn_mask = self.gen_conf["attn_mask"] 
-                target_prompts = target_prompts.view(batch_size,
-                        -1, self.prompt_dim, self.model_dim)
-                if len(source_idx_list) > 1 or self.attend_input:
-                    target_idx = torch.unique_consecutive(target_idx, dim=1)  
-                    source_idx_list = torch.tensor(source_idx_list, device=device).long()
-                    target_idx_list = torch.tensor(target_idx_list, device=device).long()
-                    #target_idx = target_idx_list.repeat(batch_size, 1)
-                    source_idx = source_idx_list.repeat(batch_size, 1)
-                    attn_mask = attn_mask.repeat(batch_size, 1, 1)
-                    sel_attn_mask = batched_index_select(attn_mask, 2, 
+            if target_prompts_list:
+                target_prompts = torch.stack(target_prompts_list) 
+                mask = target_prompts != 0
+                target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+                if self.attn_prompt_tuning:
+                    attn_mask = self.attn_mask
+                    if not self.training: 
+                        mylogs.bp("ccc")
+                        if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+                            attn_mask = self.gen_conf["attn_mask"] 
+                    target_prompts = target_prompts.view(batch_size,
+                            -1, self.prompt_dim, self.model_dim)
+                    if len(source_idx_list) > 1 or self.attend_input:
+                        target_idx = torch.unique_consecutive(target_idx, dim=1)  
+                        source_idx_list = torch.tensor(source_idx_list, device=device).long()
+                        target_idx_list = torch.tensor(target_idx_list, device=device).long()
+                        #target_idx = target_idx_list.repeat(batch_size, 1)
+                        source_idx = source_idx_list.repeat(batch_size, 1)
+                        attn_mask = attn_mask.repeat(batch_size, 1, 1)
+                        sel_attn_mask = batched_index_select(attn_mask, 2, 
+                                source_idx.unsqueeze(1))
+                        sel_attn_mask = batched_index_select(sel_attn_mask, 1, 
+                                target_idx.unsqueeze(1))
+                        s_mask = sel_attn_mask.bool().squeeze(1)
+                        source_idx = source_idx[s_mask].view(batch_size, -1)
+                        src_prompts = src_prompts.repeat(batch_size, 1, 1, 1) 
+                        sel_prompts = batched_index_select(src_prompts, 1, 
                             source_idx.unsqueeze(1))
-                    sel_attn_mask = batched_index_select(sel_attn_mask, 1, 
-                            target_idx.unsqueeze(1))
-                    s_mask = sel_attn_mask.bool().squeeze(1)
-                    source_idx = source_idx[s_mask].view(batch_size, -1)
-                    src_prompts = src_prompts.repeat(batch_size, 1, 1, 1) 
-                    sel_prompts = batched_index_select(src_prompts, 1, 
-                        source_idx.unsqueeze(1))
-                    if self.attend_target is True:
-                        pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-                        tpv = target_prompts.view(batch_size,-1,self.model_dim)
-                        avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
-                        avg_tp = avg_tp.view(batch_size, -1, 
-                                self.src_prompt_dim, self.model_dim)
-                        sel_prompts = torch.cat((sel_prompts,
-                            avg_tp), dim=1)
-                        source_idx = torch.cat([source_idx, target_idx], dim=1)
-                    soft_prompts, attn_scores,source_idx = self.attend_prompts(
-                            inputs_embeds, 
-                            src_prompts = sel_prompts, 
-                            target_prompts = target_prompts,
-                            add_target = self.add_target, 
-                            source_idx=source_idx, 
-                            target_idx=target_idx, 
-                            task=task)
-                    self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
-                    inputs_embeds[prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                    if (not self.training or mylogs.is_debug()): 
-                        mylogs.bp("pred")
-                        num_targets = target_idx.size()[-1]
-                        source_idx = source_idx.view(batch_size, num_targets, -1)
-                        src_idx = source_idx[batch_size - 1]
-                        tgt_idx = target_idx[batch_size - 1]
-                        ascore = attn_scores[batch_size - 1]
-                        tscore = torch.zeros((ascore.size()[0],
-                            self.attn_scores.size()[1]), device=device)
-                        tscore[:, src_idx] = ascore 
-                        self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
-                        targets = self.target_encoders_idx
-                        ss1 = self.attn_scores.index_select(0, targets)
-                        ss2 = self.router.index_select(0, targets)
-                        ss3 = self.attn_mask.index_select(0, targets)
-                        y_labels = [self.prompt_names[i] for i in targets]
-                        img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
-                            y_labels=y_labels,
-                            x_labels=self.prompt_names,
-                            title=self.route_method + ":" \
-                                    + self.compose_method + ":" + self.attn_method, 
-                            add_tags=False) 
+                        if self.attend_target is True:
+                            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+                            tpv = target_prompts.view(batch_size,-1,self.model_dim)
+                            avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
+                            avg_tp = avg_tp.view(batch_size, -1, 
+                                    self.src_prompt_dim, self.model_dim)
+                            sel_prompts = torch.cat((sel_prompts,
+                                avg_tp), dim=1)
+                            source_idx = torch.cat([source_idx, target_idx], dim=1)
+                        soft_prompts, attn_scores,source_idx = self.attend_prompts(
+                                inputs_embeds, 
+                                src_prompts = sel_prompts, 
+                                target_prompts = target_prompts,
+                                add_target = self.add_target, 
+                                source_idx=source_idx, 
+                                target_idx=target_idx, 
+                                task=task)
+                        self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
+                        inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)
+                        if (not self.training or mylogs.is_debug()): 
+                            mylogs.bp("pred")
+                            num_targets = target_idx.size()[-1]
+                            source_idx = source_idx.view(batch_size, num_targets, -1)
+                            src_idx = source_idx[batch_size - 1]
+                            tgt_idx = target_idx[batch_size - 1]
+                            ascore = attn_scores[batch_size - 1]
+                            tscore = torch.zeros((ascore.size()[0],
+                                self.attn_scores.size()[1]), device=device)
+                            tscore[:, src_idx] = ascore 
+                            self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
+                            targets = self.target_encoders_idx
+                            ss1 = self.attn_scores.index_select(0, targets)
+                            ss2 = self.router.index_select(0, targets)
+                            ss3 = self.attn_mask.index_select(0, targets)
+                            y_labels = [self.prompt_names[i] for i in targets]
+                            img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                                y_labels=y_labels,
+                                x_labels=self.prompt_names,
+                                title=self.route_method + ":" \
+                                        + self.compose_method + ":" + self.attn_method, 
+                                add_tags=False) 
+                    else:
+                        self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
+                        inputs_embeds[target_prompt_masks]= target_prompts.view(-1, self.model_dim)
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                    inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
-            else:
-                self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                inputs_embeds[prompt_masks]= target_prompts.view(-1, self.model_dim)
+                    inputs_embeds[target_prompt_masks]=target_prompts.view(-1, self.model_dim)
             return None
         return input_ids
     ######################################################
@@ -2204,6 +2240,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.num_src_encoders = 0
         self.source_encoders_idx = None
         self.target_encoders_idx = None
+        self.com_prompt_ids = []
         self.task_prompt_ids = []
         self.attn_scores = None
         self.attn_mask = None

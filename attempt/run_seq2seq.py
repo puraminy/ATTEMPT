@@ -431,12 +431,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        # preview existing experiments 
        if preview == "ex" or preview == "ex-why" or preview == "exists": #
            continue
+       done = "na"
        if debug:
            ctx.invoke(train, **args)
        else:
            try:
                done = ctx.invoke(train, **args)
-               if done != "skipped":
+               if done != "has_conflict" and done != "is_repeated":
                    conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
                        print(exp_conf, file=f)
@@ -448,7 +449,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                exp_conf = json.dumps(args, indent=2)
                print(exp_conf)
                raise Exception("An error occured in the experiment")
-       if preview == "one":
+       if preview == "one" or (preview == "data" and done == "data_preview"):
            return
 
 @cli.command()
@@ -580,7 +581,8 @@ def train(**kwargs):
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
     task_args["num_prompts"] = num_prompts 
-    task_args["prompt_length"] = target_prompt_length 
+    task_args["target_prompt_length"] = target_prompt_length 
+    task_args["prompt_length"] = adapter_args.num_prompt_tokens
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
     task_args["add_prefix"] = data_args.add_prefix
@@ -634,7 +636,7 @@ def train(**kwargs):
         mylogs.dlog.info("-------------------------------------")
         if not resolved:
             shutil.rmtree(training_args.output_dir)
-            return "skipped"
+            return "has_conflict"
 
     if main_vars:
         x = main_vars
@@ -642,7 +644,7 @@ def train(**kwargs):
         repeated_items = {k: x[k] for k in x if k in y and x[k] in y[k]}
         if len(repeated_items) == len(main_vars):
             shutil.rmtree(training_args.output_dir)
-            return "skipped"
+            return "is_repeated"
         for k,v in main_vars.items():
             if not k in mylogs.prev_main_vars:
                 mylogs.prev_main_vars[k] = []
@@ -990,6 +992,8 @@ def train(**kwargs):
                     encoder_type=adapter_args.prompt_encoder_type) 
             if name in task_prompts_sets:
                 encoder.attend_to.extend(["source_" + x for x in task_prompts_sets[name]])
+            if prompt_tokens[0].startswith("<com_"):
+                encoder.is_holder = True
             encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
@@ -1188,7 +1192,7 @@ def train(**kwargs):
             train_dataset = my_interleave_datasets(train_datasets, 
                 batch_size=training_args.per_device_train_batch_size)
     if preview == "data":
-       return 
+       return "data_preview" 
     if training_args.do_eval:
         if data_args.validation_files is not None:
             eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
