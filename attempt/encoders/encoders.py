@@ -42,6 +42,7 @@ class PromptEncoder(torch.nn.Module):
         self.is_source = is_source
         self.is_loaded = False
         self.is_shared = True 
+        self.is_holder = False
         self.is_private = False
         self.src_idx = -1
         self.attend_to_mask = None

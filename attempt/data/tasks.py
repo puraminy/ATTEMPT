@@ -56,6 +56,7 @@ class AbstractTask(abc.ABC):
         self.prompt_set = {} 
         prompt_config = {}
         prompt_config["length"] = task_args.prompt_length
+        prompt_config["target_length"] = task_args.target_prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
         self.prompt_config = prompt_config
         self.task_args = task_args
@@ -215,7 +216,11 @@ class AbstractTask(abc.ABC):
             template = template.replace(_pholder,prompt, 1)
         return template
 
-    def get_prompt_length(self, pnum):
+    def get_prompt_length(self, pnum, is_target = False):
+        if is_target:
+            tlength = self.prompt_config["target_length"]
+            if tlength is None: return 0
+            return tlength
         plength = self.prompt_config["length"]
         if plength is None: return 0
         if type(plength) == list:
@@ -241,6 +246,9 @@ class AbstractTask(abc.ABC):
                 elif emb == "j":
                     plen = self.get_prompt_length(pnum) 
                     num_holder = "_j"
+                elif emb == "k":
+                    plen = self.get_prompt_length(pnum, is_target=True) 
+                    num_holder = "_k"
                 place_holder = "[" + name + "_" + emb + "]"
                 if name == "task":
                     name = self.get_id()
@@ -280,7 +288,7 @@ class AbstractTask(abc.ABC):
                src = src.replace("(mask)", "")
                target = target.replace("(mask)","")
             if part == "pcom":
-               src = src.replace("(prompt)", "[com_i] (prompt) ",1)
+               src = src.replace("(prompt)", "[com_k] (prompt) ",1)
                pcom += 1
             if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
