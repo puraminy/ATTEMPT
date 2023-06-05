@@ -330,11 +330,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    for comb in tot_comb:
        if old_comb is not None:
            diff_comb = DeepDiff(comb, old_comb) 
-           vc = diff_comb["values_changed"]
-           for item in vc:
-               val = item.replace("root['","").replace("']","")
-               if not val in ctags:
-                   ctags.append(val)
+           if "values_changed" in diff_comb:
+               vc = diff_comb["values_changed"]
+               for item in vc:
+                   val = item.replace("root['","").replace("']","")
+                   if not val in ctags:
+                       ctags.append(val)
        old_comb = comb.copy()
 
    args["tag"] = ctags 
