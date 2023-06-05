@@ -1500,14 +1500,15 @@ class T5Stack(T5PreTrainedModel):
                             tscore[:, src_idx] = ascore 
                             self.attn_scores[tgt_idx.reshape(-1,1), :] = tscore 
                             targets = self.target_encoders_idx
-                            ss1 = self.attn_scores.index_select(0, targets)
+                            ss1 = self.attn_scores  
+                            # self.attn_scores.index_select(0, targets)
                             ss2 = self.router.index_select(0, targets)
                             ss3 = self.attn_mask.index_select(0, targets)
                             y_labels = [self.prompt_names[i] for i in targets]
                             img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
                                 y_labels=y_labels,
                                 x_labels=self.prompt_names,
-                                title=self.route_method + ":" \
+                                title= "at5:" + self.route_method + ":" \
                                         + self.compose_method + ":" + self.attn_method, 
                                 add_tags=False) 
                     else:
