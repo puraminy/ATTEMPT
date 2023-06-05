@@ -261,8 +261,8 @@ class AbstractTask(abc.ABC):
 
     def insert_prompts(self, template):
         mylogs.bp("fill_prompt")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z]+)_(\d+)\]")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z\d]+)_([a-zA-Z\?\d]+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z-]+)_(\d+)\]")
+        template = self.fill_prompt_regex(template, "\[([@a-zA-Z\d-]+)_([a-zA-Z\?\d]+)\]")
         return template
 
     def get_prompts(self):
@@ -292,7 +292,7 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "[com_k] (prompt) ",1)
                pcom += 1
             if part == "ptar":
-               src = src.replace("(prompt)", "[com_task_k] (prompt) ",1)
+               src = src.replace("(prompt)", "[com-task_k] (prompt) ",1)
             if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
             if part == "px0" or part == "0":
