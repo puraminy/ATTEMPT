@@ -250,8 +250,9 @@ class AbstractTask(abc.ABC):
                     plen = self.get_prompt_length(pnum, is_target=True) 
                     num_holder = "_k"
                 place_holder = "[" + name + "_" + emb + "]"
-                if name == "task":
-                    name = self.get_id()
+                if "task" in name:
+                    tid = self.get_id()
+                    name = name.replace("task", tid)
                 template = self.fill_prompt(template, name, place_holder, plen=plen, 
                         num_holder=num_holder)
                 m = re.search(regex, template)
@@ -290,6 +291,8 @@ class AbstractTask(abc.ABC):
             if part == "pcom":
                src = src.replace("(prompt)", "[com_k] (prompt) ",1)
                pcom += 1
+            if part == "ptar":
+               src = src.replace("(prompt)", "[com_task_k] (prompt) ",1)
             if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
             if part == "px0" or part == "0":
