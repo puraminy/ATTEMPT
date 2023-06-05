@@ -527,21 +527,21 @@ def train(**kwargs):
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
-    use_prompt_set = kwargs.setdefault("use_prompt_set", False)
+    use_source_set = kwargs.setdefault("use_source_set", False)
 
 
-    task_prompts_sets ={}
+    task_source_prompts_set ={}
     tasks = data_args.task_name
     for task_name in tasks:
         tid = task_name
-        if not tid in task_prompts_sets:
-           task_prompts_sets[tid] = []
+        if not tid in task_source_prompts_set:
+           task_source_prompts_set[tid] = []
         rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
-        task_prompts_sets[tid].extend(rel_sh.split())
+        task_source_prompts_set[tid].extend(rel_sh.split())
 
     nsp = 0
-    if use_prompt_set:
-        nsp = max([len(s) for s in task_prompts_sets.values()])
+    if use_source_set:
+        nsp = max([len(s) for s in task_source_prompts_set.values()])
     if data_args.source_prompts is not None:
         nsp = len(data_args.source_prompts) 
     nsp += kwargs.setdefault("num_source_prompts", nsp) 
@@ -904,7 +904,7 @@ def train(**kwargs):
         tasks = data_args.task_name
         n_tasks = len(tasks)
         task_prompts = {}
-        task_prompts_sets ={}
+        task_source_prompts_set ={}
         #  tttttttttttt
         for ti, task_name in enumerate(tasks, start=1):
              task_args["id"] = ti
@@ -915,11 +915,11 @@ def train(**kwargs):
              tid = task_name #get_id()
              if not tid in task_prompts:
                  task_prompts[tid] = []
-                 task_prompts_sets[tid] = []
+                 task_source_prompts_set[tid] = []
              for k,v in p.items():
                  task_prompts[tid].extend(v)
              rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
-             task_prompts_sets[tid].extend(rel_sh.split())
+             task_source_prompts_set[tid].extend(rel_sh.split())
 
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
@@ -935,10 +935,10 @@ def train(**kwargs):
                     ["source_com" + str(sp) for sp in range(nsp)])
         if use_private_prompts:
             source_prompts.extend(["source_for_" + t for t in data_args.task_name])
-        if use_prompt_set:
+        if use_source_set:
             pset = []
             for t in data_args.task_name:
-                pset.extend(task_prompts_sets[t])
+                pset.extend(task_source_prompts_set[t])
             pset = set(pset)
             source_prompts.extend(["source_" + t for t in pset]) 
 
@@ -991,12 +991,13 @@ def train(**kwargs):
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
                     encoder_type=adapter_args.prompt_encoder_type) 
-            if name in task_prompts_sets:
-                encoder.attend_to.extend(["source_" + x for x in task_prompts_sets[name]])
+            if name in task_source_prompts_set:
+                encoder.attend_to.extend(
+                        ["source_" + x for x in task_source_prompts_set[name]])
             if prompt_tokens[0].startswith("<tar-"):
                 encoder.is_target = True
                 nn = name.replace("tar-","")
-                encoder.attend_to.extend(["source_for" +  nn])
+                encoder.attend_to.extend(["source_for_" +  nn])
             encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
@@ -1010,7 +1011,7 @@ def train(**kwargs):
                 if "_for" in n and not n in encoder.attend_to:
                     encoder.attend_to_mask[i] = 0 
                     attn_flag = True
-            if not attn_flag or (not use_private_prompts and not use_prompt_set): 
+            if not attn_flag or (not use_private_prompts and not use_source_set): 
                 encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
