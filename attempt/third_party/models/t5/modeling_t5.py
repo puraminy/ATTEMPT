@@ -1435,15 +1435,16 @@ class T5Stack(T5PreTrainedModel):
                     emb = encoder(encoder.net_inps)
                     target_idx[target_masks] = ii
                     ii += 1
-            task_prompts = torch.stack(task_prompts_list) 
-            # averaging task prompts in the case that there are shared prompts
-            mask = task_prompts !=0
-            task_prompts = (task_prompts*mask).sum(dim=0)/mask.sum(dim=0)
-            inputs_embeds[task_prompt_masks]=task_prompts.view(-1, self.model_dim)
-            # averaging target prompts in the case that there are shared prompts
+            if task_prompts_list:
+                task_prompts = torch.stack(task_prompts_list) 
+                # averaging task prompts in the case that there are shared prompts
+                mask = task_prompts !=0
+                task_prompts = (task_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+                inputs_embeds[task_prompt_masks]=task_prompts.view(-1, self.model_dim)
             if target_prompts_list:
                 target_prompts = torch.stack(target_prompts_list) 
                 mask = target_prompts != 0
+                # averaging target prompts in the case that there are shared prompts
                 target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
                 if self.attn_prompt_tuning:
                     attn_mask = self.attn_mask
