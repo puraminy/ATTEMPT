@@ -994,7 +994,7 @@ def train(**kwargs):
             if name in task_prompts_sets:
                 encoder.attend_to.extend(["source_" + x for x in task_prompts_sets[name]])
             if prompt_tokens[0].startswith("<com-"):
-                encoder.is_holder = True
+                encoder.is_target = True
             encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
