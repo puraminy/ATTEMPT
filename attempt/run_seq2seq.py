@@ -983,10 +983,10 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         attend_to_all = kwargs.setdefault("attend_to_all", False) 
-        target_prompts = list(prompts.keys())
+        target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<com-")]  
         # create and load target prompts
         mylogs.bp("mask")
-        num_attend_to = len(source_prompts) + len(encoders_prompts) + 1 # one for input 
+        num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
