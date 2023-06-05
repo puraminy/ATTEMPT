@@ -292,7 +292,7 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prompt)", "[com_k] (prompt) ",1)
                pcom += 1
             if part == "ptar":
-               src = src.replace("(prompt)", "[com-task_k] (prompt) ",1)
+               src = src.replace("(prompt)", "[tar-task_k] (prompt) ",1)
             if part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
             if part == "px0" or part == "0":

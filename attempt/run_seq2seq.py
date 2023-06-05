@@ -983,7 +983,7 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         attend_to_all = kwargs.setdefault("attend_to_all", False) 
-        target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<com-")]  
+        target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
         # create and load target prompts
         mylogs.bp("mask")
         num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
@@ -993,8 +993,10 @@ def train(**kwargs):
                     encoder_type=adapter_args.prompt_encoder_type) 
             if name in task_prompts_sets:
                 encoder.attend_to.extend(["source_" + x for x in task_prompts_sets[name]])
-            if prompt_tokens[0].startswith("<com-"):
+            if prompt_tokens[0].startswith("<tar-"):
                 encoder.is_target = True
+                nn = name.replace("tar-","")
+                encoder.attend_to.extend(["source_for" +  nn])
             encoder.attend_to_mask = [1]*num_attend_to 
             attn_flag = False
             for i, n in enumerate(source_prompts, start=1):
