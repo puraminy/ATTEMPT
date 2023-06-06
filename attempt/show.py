@@ -792,25 +792,30 @@ def show_df(df):
                     continue
                 if row["expid"] != eid:
                     eid = row["expid"]
-                    im = Image.open("images/pred_router_"+ str(row["expid"]) + ".png")
-                    xx = 100
-                    _image = add_margin(im, 0, 0, 0, 700, (255, 255, 255))
-                    draw = ImageDraw.Draw(_image)
+                    paths = glob("**/images/pred_router_"+ str(row["expid"]) + ".png")
+                    if not paths:
+                        paths = glob("images/pred_router_"+ str(row["expid"]) + ".png")
+                    if paths:
+                        im = Image.open(paths[0])
+                        xx = 100
+                        _image = add_margin(im, 0, 0, 0, 700, (255, 255, 255))
+                        draw = ImageDraw.Draw(_image)
                 yy = 10
-                for cc in ["prefix", "rouge_score", "bert_score", "num_preds"] + tag_cols:
-                    if cc.endswith("score"):
-                        mm = map_cols[cc] if cc in map_cols else cc
-                        if xx == 100:
-                            draw.text((10, yy),"{}".format(mm),
-                                (20,25,255),font=font)
-                        draw.text((xx, yy),"{:.2f}".format(row[cc]),
-                                (230,5,5),font=font)
-                    else:
-                        mm = map_cols[cc] if cc in map_cols else cc
-                        if xx == 100:
-                            draw.text((10, yy),"{}".format(mm),(20,25,255),font=font)
-                        draw.text((xx, yy),"{}".format(row[cc]),(0,5,5),font=font)
-                    yy += 60
+                if False:
+                    for cc in ["prefix", "rouge_score", "bert_score", "num_preds"] + tag_cols:
+                        if cc.endswith("score"):
+                            mm = map_cols[cc] if cc in map_cols else cc
+                            if xx == 100:
+                                draw.text((10, yy),"{}".format(mm),
+                                    (20,25,255),font=font)
+                            draw.text((xx, yy),"{:.2f}".format(row[cc]),
+                                    (230,5,5),font=font)
+                        else:
+                            mm = map_cols[cc] if cc in map_cols else cc
+                            if xx == 100:
+                                draw.text((10, yy),"{}".format(mm),(20,25,255),font=font)
+                            draw.text((xx, yy),"{}".format(row[cc]),(0,5,5),font=font)
+                        yy += 60
                 if xx == 100:
                     images.append(_image)
                 xx += 180
@@ -1076,6 +1081,7 @@ def show_df(df):
                 group_col = col
                 sel_row = 0
                 sel_group = 0
+            df = df.sort_values(by=group_col)
         elif char == "c" and not prev_char in ["c", "p"]:
             backit(df, sel_cols)
             if not "expid" in sel_cols:
