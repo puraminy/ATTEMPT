@@ -331,9 +331,9 @@ def show_df(df):
                g_row = row[group_col]
                if _print and _sel_row >= 0 and ii >= _sel_row - 1:
                    g_text = "{:^{}}".format(g_row, COLS)
-                   mprint("\n", text_win, color = HL_COLOR) 
+                   # mprint("\n", text_win, color = HL_COLOR) 
                    mprint(g_text, text_win, color = HL_COLOR) 
-                   mprint("\n", text_win, color = HL_COLOR) 
+                   # mprint("\n", text_win, color = HL_COLOR) 
                if g_start >= 0:
                    group_rows = range(g_start, ii)
                    g_start = -1
