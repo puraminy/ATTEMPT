@@ -1085,7 +1085,7 @@ def show_df(df):
                     group_col = col
                     sel_row = 0
                     sel_group = 0
-                    df = df.sort_values(by=[group_col, sort])
+                    df = df.sort_values(by=[group_col, sort], ascending=[True, False])
         elif char == "c" and not prev_char in ["c", "p"]:
             backit(df, sel_cols)
             if not "expid" in sel_cols:
