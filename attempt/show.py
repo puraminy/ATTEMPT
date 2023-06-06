@@ -1072,16 +1072,17 @@ def show_df(df):
             selected_cols = []
             asc = not asc
         elif char == "g":
-            if group_col:
-                group_col = ""
-                sel_row = 0
-                sel_group = 0
-            elif cur_col < len(sel_cols):
+            if cur_col < len(sel_cols):
                 col = sel_cols[cur_col]
-                group_col = col
-                sel_row = 0
-                sel_group = 0
-            df = df.sort_values(by=group_col)
+                if col == group_col:
+                    group_col = ""
+                    sel_row = 0
+                    sel_group = 0
+                else:
+                    group_col = col
+                    sel_row = 0
+                    sel_group = 0
+                    df = df.sort_values(by=group_col)
         elif char == "c" and not prev_char in ["c", "p"]:
             backit(df, sel_cols)
             if not "expid" in sel_cols:
