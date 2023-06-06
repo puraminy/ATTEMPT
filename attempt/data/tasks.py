@@ -581,7 +581,7 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    map_labels = {"0":"nod","1":"duplicate"}
+    map_labels = {"0":"bitekrar","1":"tekrari"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
@@ -919,25 +919,6 @@ class ParsNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
-class PAWS1(AbstractTask):
-    name = "paws"
-    labels_list = ["0", "1"]
-    metric = [metrics.accuracy]
-    metric_names = ["accuracy"]
-    split_to_data_split = {"train": "train",
-                           "validation": "validation",
-                           "test": "test"}
-
-    def load_dataset(self, split):
-        return datasets.load_dataset('paws', 'labeled_final', split=split)
-
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["sentence1:", example['sentence1'],
-                     "sentence2:", example["sentence2"]]
-        tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
-
-
 class PAWS(AbstractTask):
     name = "paws"
     labels_list = ["0", "1"]
@@ -946,7 +927,7 @@ class PAWS(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    map_labels = {"0":"nod","1":"duplicate"}
+    map_labels = {"0":"bitekrar","1":"tekrari"}
 
     def load_dataset(self, split):
         path = op.join(mylogs.home,"paws", "final", split + ".tsv") 
