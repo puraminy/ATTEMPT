@@ -1300,7 +1300,6 @@ class T5Stack(T5PreTrainedModel):
                 attn_sel_scores[attn_sel_scores <= 0] = 0
                 attn_sel_scores[attn_sel_scores > 0] = 1
 
-
         if self.apply_softmax_to == "nothing":
             pass
         elif self.apply_softmax_to == "after":
@@ -1513,8 +1512,10 @@ class T5Stack(T5PreTrainedModel):
                                         + self.compose_method + ":" + self.attn_method, 
                                 add_tags=False) 
                     else:
-                        self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                        inputs_embeds[target_prompt_masks]= target_prompts.view(-1, self.model_dim)
+                        self.adapter_config.soft_prompts=target_prompts.view(-1, 
+                                self.model_dim)
+                        inputs_embeds[target_prompt_masks]= target_prompts.view(-1, 
+                                self.model_dim)
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                     inputs_embeds[target_prompt_masks]=target_prompts.view(-1, self.model_dim)
