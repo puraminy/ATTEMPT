@@ -82,6 +82,7 @@ def list_dfs(df, main_df, s_rows, FID):
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
         tdf = tdf[["pred_text1", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
+        sort = "rouge_score"
         dfs.append(tdf)
     return dfs
 
@@ -99,6 +100,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
         tdf = tdf[tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
+        sort = "rouge_score"
         if len(tdf) > 1:
             tdf = tdf.groupby(on_col_list).first()
             tdf = tdf.reset_index()
@@ -267,6 +269,7 @@ def show_df(df):
     seq = ""
     reset = False
     search = ""
+    sort = "rouge_score"
     on_col_list = []
     keep_cols = []
     unique_cols = []
@@ -1082,7 +1085,7 @@ def show_df(df):
                     group_col = col
                     sel_row = 0
                     sel_group = 0
-                    df = df.sort_values(by=group_col)
+                    df = df.sort_values(by=[group_col, sort])
         elif char == "c" and not prev_char in ["c", "p"]:
             backit(df, sel_cols)
             if not "expid" in sel_cols:
@@ -1112,6 +1115,7 @@ def show_df(df):
                     _agg[c] = "first"
             df = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["rouge_score"], ascending=False)
+            sort = "rouge_score"
         elif char == "a": 
             consts["options"] = "b: back"
             backit(df, sel_cols)
@@ -1124,6 +1128,7 @@ def show_df(df):
                     _agg[c] = "first"
             df = df.groupby([col]).agg(_agg).reset_index(drop=True)
             df = df.sort_values(by=["rouge_score"], ascending=False)
+            sort = "rouge_score"
         elif char == "u":
             preds = df["pred_text1"].tolist()
             golds = df["target_text"].tolist()
@@ -1255,6 +1260,7 @@ def show_df(df):
             df = df.rename(columns=ren)
             df["avg_len"] = avg_len
             df = df.sort_values(by = ["rouge_score"], ascending=False)
+            sort = "rouge_score"
         elif char == "z": 
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
@@ -1368,6 +1374,7 @@ def show_df(df):
                 unique_cols = info_cols.copy()
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
+                sort = "input_text"
                 info_cols = []
                 df = df.reset_index()
             if len(df) > 1:
