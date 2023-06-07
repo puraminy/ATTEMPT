@@ -1730,9 +1730,10 @@ def train(**kwargs):
                             im = Image.open(img_buf)
                             img_list.append(im)
 
-                new_im = combine_y(img_list)
-                fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
-                wandb.log({fname:wandb.Image(new_im)})
+                if img_list:
+                    new_im = combine_y(img_list)
+                    fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
+                    wandb.log({fname:wandb.Image(new_im)})
 
             mylogs.bp("diff")
             sdf = pd.DataFrame(data=sdf_rows)
