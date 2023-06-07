@@ -75,7 +75,8 @@ class WBCallback(WandbCallback):
                         yticklabels=y_labels,
                         linewidth=0.5)
             except ValueError:
-                pass
+                plt.close("all")
+                return None
         #plt.tight_layout()
         mylogs.bp("wand")
         if fname:
@@ -109,7 +110,8 @@ class WBCallback(WandbCallback):
                     yticklabels=y_labels,
                     linewidth=0.5)
         except ValueError:
-            pass
+            plt.close("all")
+            return None
         #plt.tight_layout()
         mylogs.bp("wand")
         if fname:

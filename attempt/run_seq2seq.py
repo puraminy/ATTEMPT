@@ -1726,8 +1726,9 @@ def train(**kwargs):
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
                                     + "_" + model_args.attn_method) 
-                        im = Image.open(img_buf)
-                        img_list.append(im)
+                        if img_buf:
+                            im = Image.open(img_buf)
+                            img_list.append(im)
 
                 new_im = combine_y(img_list)
                 fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
@@ -1754,19 +1755,19 @@ def train(**kwargs):
                         + "_" + kwargs.apply_softmax_to \
                         + "_" + model_args.attn_method,
                 df=None) 
-
-            cur_img = Image.open(img_buf)
-            #tags_img = tag_to_image(da, get_image=True)
-            #cur_img = combine_x([tags_img, cur_img])
-            sp = op.join(kwargs.save_path, "images") 
-            Path(sp).mkdir(exist_ok=True, parents=True)
-            pic = "router_" + str(exp_info["expid"])
-            kk += 1
-            pp = sp + "/pred_" + pic + ".png"
-            if Path(pp).is_file():
-                _image = Image.open(pp)
-                cur_img = combine_y([cur_img, _image])
-            cur_img.save(pp)
+            if img_buf:
+                cur_img = Image.open(img_buf)
+                #tags_img = tag_to_image(da, get_image=True)
+                #cur_img = combine_x([tags_img, cur_img])
+                sp = op.join(kwargs.save_path, "images") 
+                Path(sp).mkdir(exist_ok=True, parents=True)
+                pic = "router_" + str(exp_info["expid"])
+                kk += 1
+                pp = sp + "/pred_" + pic + ".png"
+                if Path(pp).is_file():
+                    _image = Image.open(pp)
+                    cur_img = combine_y([cur_img, _image])
+                cur_img.save(pp)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():
