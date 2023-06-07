@@ -1251,7 +1251,8 @@ class T5Stack(T5PreTrainedModel):
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
-        if self.compose_method == "wavg" and self.sel_positives is True: 
+        if (not self.training and self.compose_method == "wavg" 
+                and self.sel_positives is True): 
             positive_scores = router[router >= 0]
             positive_scores = positive_scores.reshape(batch_size, -1)
             num_attend_to = positive_scores.size()[1]
@@ -1478,7 +1479,7 @@ class T5Stack(T5PreTrainedModel):
                             sel_prompts = torch.cat((sel_prompts,
                                 avg_tp), dim=1)
                             source_idx = torch.cat([source_idx, target_idx], dim=1)
-                        soft_prompts, attn_scores,source_idx = self.attend_prompts(
+                        soft_prompts, attn_scores, source_idx = self.attend_prompts(
                                 inputs_embeds, 
                                 src_prompts = sel_prompts, 
                                 target_prompts = target_prompts,
