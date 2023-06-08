@@ -1376,8 +1376,8 @@ class AutoTask:
         if task in TASK_MAPPING:
             return TASK_MAPPING[task](config, task_args, task)
         raise ValueError(
-            "Unrecognized task {} for AutoTask Model: {}.\n"
-            "Task name should be one of {}.".format(
+            "Unrecognized task {} for AutoTask Model.\n" + \
+            "Task name should be one of {}.".format(task,
                 ", ".join(c for c in TASK_MAPPING.keys())
             )
         )
