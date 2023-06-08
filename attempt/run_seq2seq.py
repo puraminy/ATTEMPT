@@ -671,7 +671,7 @@ def train(**kwargs):
     if not preview or preview=="one":
        wandb.init(
           # Set the project where this run will be logged
-          project= experiment.replace("#","-").replace("/","-"), 
+          project= experiment.replace("#","-").replace("/","-")[:100], 
           name=title,
           dir=wandb_dir,
           settings=wandb.Settings(symlink=False),
