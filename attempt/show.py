@@ -1398,7 +1398,7 @@ def show_df(df):
                 sel_cols = ["fid","input_text","pred_text1","target_text","bert_score", "hscore", "rouge_score", "prefix"]
                 df = df[sel_cols]
                 df = df.sort_values(by="bert_score", ascending=False)
-        elif char == "D" or char == "d":
+        elif char == "D": 
             s_rows = sel_rows
             if FID == "fid":
                 mdf = main_df.groupby("fid", as_index=False).first()
@@ -1627,7 +1627,7 @@ def show_df(df):
                 info_cols = []
                 if col in df:
                     df = df.drop(df[df[col] == val].index)
-        elif ch == cur.KEY_DC:
+        elif ch == cur.KEY_DC or char == "d":
             col = sel_cols[cur_col]
             if col in orig_tag_cols:
                 orig_tag_cols.remove(col)
