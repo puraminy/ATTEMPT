@@ -1714,11 +1714,14 @@ def train(**kwargs):
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
+                    _main_vars = main_vars.copy()
+                    if "task_name" in _main_vars:
+                        del _main_vars["task_name"]
                     for score in [ss1, ss2, ss3]:
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
-                            title = str(kwargs.expid) + str(main_vars)  \
+                            title = str(kwargs.expid) + str(_main_vars)  \
                                     + route_method \
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
@@ -1744,11 +1747,14 @@ def train(**kwargs):
             #        if not "output_dir" in k and not "expid" in k:
 
             #           da[k] = v
+            _main_vars = main_vars.copy()
+            if "task_name" in _main_vars:
+                del _main_vars["task_name"]
 
             img_buf = WBCallback.save_image(score=ss2, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
-               title = str(kwargs.expid) + str(main_vars) \
+               title = str(kwargs.expid) + str(_main_vars) \
                         + model_args.compose_method \
                         + "_" + kwargs.apply_softmax_to \
                         + "_" + model_args.attn_method,
