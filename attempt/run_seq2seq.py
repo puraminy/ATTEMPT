@@ -1070,11 +1070,6 @@ def train(**kwargs):
                         continue
                     for n,p in encoder.named_parameters():
                         p.requires_grad = True
-                else:
-                    if encoder.is_loaded and learn_loaded_prompts:
-                        p.requires_grad = True
-                    if encoder.is_private and learn_private_prompts:
-                        p.requires_grad = True
             else:
                 if model_args.learn_target_prompts:
                     for n,p in encoder.named_parameters():
