@@ -26,7 +26,7 @@ class PTLearningRateCallback(TrainerCallback):
             #logs["step"] = state.global_step 
             last_lrs = lr.get_last_lr()
             for i, llr in enumerate(last_lrs):
-                logs["lr" + str(i)] = '{:.2f}'.format('{}'.format(llr)) 
+                logs["lr" + str(i)] = '{:3}'.format('{}'.format(llr)) 
         logger.info(logs)
 
 class AnnealCallback(TrainerCallback):
