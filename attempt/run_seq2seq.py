@@ -1329,7 +1329,7 @@ def train(**kwargs):
     mylogs.bp("opt")
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
-                model_args.prompt_learning_rate, 
+                model_args.source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
     else:
         optim = AdamW(grouped_params, lr=training_args.learning_rate)
