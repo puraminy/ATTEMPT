@@ -892,7 +892,7 @@ class MNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"entails", "1":"neutral", "2": "contradicts"}
+    labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
     rel_nat = "premise {mask} hypothesis."
 
     def load_dataset(self, split):
