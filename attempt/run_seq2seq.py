@@ -1324,7 +1324,7 @@ def train(**kwargs):
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
-    grouped_params.append({'params': other_params})
+    grouped_params.append({'params': other_params, 'lr': training_args.learning_rate})
     #### ooooo 
     mylogs.bp("opt")
     if kwargs.opt_type == "sep":
@@ -1332,7 +1332,7 @@ def train(**kwargs):
                 model_args.source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
     else:
-        optim = AdamW(grouped_params, lr=training_args.learning_rate)
+        optim = AdamW(grouped_params) #, lr=training_args.learning_rate)
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
