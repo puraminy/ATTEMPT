@@ -1302,6 +1302,13 @@ def train(**kwargs):
         
 
     ########### My Code
+    target_prompt_learning_rate = model_args.target_prompt_learning_rate 
+    if target_prompt_learning_rate is None:
+        source_prompt_learning_rate = model_args.source_prompt_learning_rate 
+        target_prompt_learning_rate = model_args.source_prompt_learning_rate 
+    if target_prompt_learning_rate is None:
+        target_prompt_learning_rate = model_args.prompt_learning_rate 
+        source_prompt_learning_rate = model_args.prompt_learning_rate 
     src_prompt_params = []
     tgt_prompt_params = []
     mylogs.bp("opt")
@@ -1317,9 +1324,9 @@ def train(**kwargs):
         src_prompt_params = set(src_prompt_params)
         tgt_prompt_params = set(tgt_prompt_params)
         grouped_params.append({'params': list(src_prompt_params), 
-            'lr': model_args.source_prompt_learning_rate})
+            'lr': source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
-            'lr': model_args.target_prompt_learning_rate})
+            'lr': target_prompt_learning_rate})
         prompt_params = list(src_prompt_params) + list(tgt_prompt_params)
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
@@ -1330,7 +1337,7 @@ def train(**kwargs):
     mylogs.bp("opt")
     if kwargs.opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
-                model_args.source_prompt_learning_rate, 
+                source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
     else:
         optim = AdamW(grouped_params) #, lr=training_args.learning_rate)
