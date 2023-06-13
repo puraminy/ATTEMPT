@@ -618,8 +618,8 @@ class IMDB(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
-                           "validation": "validation",
-                           "test": "validation"}
+                           "validation": "train",
+                           "test": "test"}
     labels_map = {"0":"negative", "1":"positive"}
     rel_nat = "The sentiment is {mask}"
 
@@ -637,8 +637,8 @@ class SST2(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
-                           "validation": "train",
-                           "test": "test"}
+                           "validation": "validation",
+                           "test": "validation"}
     labels_map = {"0":"negative", "1":"positive"}
     rel_nat = "The sentiment is {mask}"
 
