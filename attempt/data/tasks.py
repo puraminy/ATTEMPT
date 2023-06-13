@@ -633,7 +633,7 @@ class IMDB(AbstractTask):
 
 
 class TweetEval(AbstractTask):
-    name = "tweet_eval"
+    name = "tweet-eval"
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -644,7 +644,7 @@ class TweetEval(AbstractTask):
     rel_nat = "The sentiment is {mask}"
 
     def load_dataset(self, split):
-        return datasets.load_dataset('tweet_eval', 'sentiment',
+        return datasets.load_dataset('tweet-eval', 'sentiment',
                                      split=split)
 
     def preprocessor(self, example, add_prefix=True):
@@ -1378,7 +1378,7 @@ TASK_MAPPING = OrderedDict(
         ('mrpc', MRPC),
         ('cola', COLA),
         ('sst2', SST2),
-        ('tweet_eval', TweetEval),
+        ('tweet-eval', TweetEval),
         ('imdb', IMDB),
         ('qnli', QNLI),
         ('rte', RTE),
