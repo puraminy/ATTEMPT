@@ -631,6 +631,29 @@ class IMDB(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
+
+class SST2(AbstractTask):
+    name = "tweet_eval"
+    labels_list = ["0", "1"]
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    split_to_data_split = {"train": "train",
+                           "validation": "validation",
+                           "test": "validation"}
+    labels_map = {"0":"negative", "1":"neutral", "2":"positive"}
+    rel_nat = "The sentiment is {mask}"
+
+    def load_dataset(self, split):
+        return datasets.load_dataset('tweet_eval', 'sentiment',
+                                     split=split)
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["sentence:", example['text']]
+        tgt_texts = [str(example['label'])]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
+
+
 class SST2(AbstractTask):
     name = "sst2"
     labels_list = ["0", "1"]
