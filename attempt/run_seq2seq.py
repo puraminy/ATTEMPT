@@ -554,6 +554,8 @@ def train(**kwargs):
             num_target_prompts = num_source_prompts
         if num_source_prompts > 0:
             num_target_prompts = min(num_target_prompts, num_source_prompts)
+        else:
+            num_target_prompts = 1
         if model_args.attend_target and ntp < 0:
             num_target_prompts += 1
         if model_args.attend_input and ntp < 0:
