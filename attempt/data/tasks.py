@@ -632,7 +632,7 @@ class IMDB(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
 
-class SST2(AbstractTask):
+class TweetEval(AbstractTask):
     name = "tweet_eval"
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
@@ -1378,6 +1378,7 @@ TASK_MAPPING = OrderedDict(
         ('mrpc', MRPC),
         ('cola', COLA),
         ('sst2', SST2),
+        ('tweet_eval', TweetEval),
         ('imdb', IMDB),
         ('qnli', QNLI),
         ('rte', RTE),
