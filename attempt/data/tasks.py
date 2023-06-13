@@ -633,8 +633,8 @@ class IMDB(AbstractTask):
 
 
 class TweetEval(AbstractTask):
-    name = "tweet-eval"
-    labels_list = ["0", "1"]
+    name = "tweet_eval"
+    labels_list = ["0", "1", "2"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
