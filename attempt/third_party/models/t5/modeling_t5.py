@@ -1394,7 +1394,6 @@ class T5Stack(T5PreTrainedModel):
             source_idx_list = [0] # 0 is for input 
             target_idx_list = []
             target_prompts_list = []
-            task_idx_list = []
             task_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
@@ -1421,7 +1420,6 @@ class T5Stack(T5PreTrainedModel):
                         task_prompts_clone = task_prompts.clone()
                         task_prompts_clone[task_masks] = prompt_embeds
                         task_prompts_list.append(task_prompts_clone)
-                        task_idx_list.append(ii)
                 else: 
                     #find input ids for prompt tokens
                     prompt_input_ids = target_prompt_ids[target_masks]
@@ -1432,7 +1430,6 @@ class T5Stack(T5PreTrainedModel):
                     target_prompts_clone[target_masks] = prompt_embeds
                     target_prompts_list.append(target_prompts_clone)
                     target_idx_list.append(ii)
-                    emb = encoder(encoder.net_inps)
                     target_idx[target_masks] = ii
                     ii += 1
             if task_prompts_list:
@@ -1452,9 +1449,9 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("ccc")
                         if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                             attn_mask = self.gen_conf["attn_mask"] 
-                    target_prompts = target_prompts.view(batch_size,
-                            -1, self.prompt_dim, self.model_dim)
                     if len(source_idx_list) > 1 or self.attend_input:
+                        target_prompts = target_prompts.view(batch_size,
+                            -1, self.prompt_dim, self.model_dim)
                         target_idx = torch.unique_consecutive(target_idx, dim=1)  
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
