@@ -633,7 +633,7 @@ class IMDB(AbstractTask):
 
 
 class TweetEval(AbstractTask):
-    name = "tweet_eval"
+    name = "tweet-eval"
     labels_list = ["0", "1", "2"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -644,7 +644,7 @@ class TweetEval(AbstractTask):
     rel_nat = "The sentiment is {mask}"
 
     def load_dataset(self, split):
-        return datasets.load_dataset('tweet-eval', 'sentiment',
+        return datasets.load_dataset('tweet_eval', 'sentiment',
                                      split=split)
 
     def preprocessor(self, example, add_prefix=True):
