@@ -743,6 +743,8 @@ def train(**kwargs):
          t_args = dotdict(task_args.copy())
          task = AutoTask.get(task_name, None, task_args=t_args)
          total_samples += data_args.max_train_samples * task.samples_per_head
+
+    training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
     steps = 0
     if training_args.do_train:
         steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
