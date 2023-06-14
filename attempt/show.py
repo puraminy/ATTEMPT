@@ -1796,6 +1796,13 @@ def show_df(df):
             map_cols[sel_col] = new_name
             save_obj(map_cols, "map_cols", "atomic")
             cur_col += 1
+        if cmd == "cp":
+            exp=df.iloc[sel_row]["expid"]
+            exp = str(exp)
+            spath = tdf.iloc[0]["path"]
+            oldpath = Path(spath).parent
+            new_path = rowinput("copy to:", default=oldpath)
+            shutil.copy(oldpath, newpath)
         if cmd == "repall":
             canceled, col,val = list_df_values(main_df, get_val=False)
             if not canceled:
