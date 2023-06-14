@@ -1759,6 +1759,7 @@ def train(**kwargs):
             sdf = pd.DataFrame(data=sdf_rows)
             da = {}
             targets = model.encoder.target_encoders_idx
+            ss1 = model.encoder.attn_scores.index_select(0, targets)
             ss2 = model.encoder.router.index_select(0, targets)
             _tag = kwargs.setdefault("tag",[])
             da = mylogs.get_tag(_tag)  
@@ -1771,27 +1772,28 @@ def train(**kwargs):
             if "task_name" in _main_vars:
                 del _main_vars["task_name"]
 
-            img_buf = WBCallback.save_image(score=ss2, 
-               y_labels=y_labels,
-               x_labels=model.encoder.prompt_names, 
-               title = str(kwargs.expid) + str(_main_vars) \
-                        + model_args.compose_method \
-                        + "_" + kwargs.apply_softmax_to \
-                        + "_" + model_args.attn_method,
-                df=None) 
-            if img_buf:
-                cur_img = Image.open(img_buf)
-                #tags_img = tag_to_image(da, get_image=True)
-                #cur_img = combine_x([tags_img, cur_img])
-                sp = op.join(kwargs.save_path, "images") 
-                Path(sp).mkdir(exist_ok=True, parents=True)
-                pic = "router_" + str(exp_info["expid"])
+            for score in [ss1, ss2]:
+                img_buf = WBCallback.save_image(score=score, 
+                   y_labels=y_labels,
+                   x_labels=model.encoder.prompt_names, 
+                   title = str(kwargs.expid) + str(_main_vars) \
+                            + model_args.compose_method \
+                            + "_" + kwargs.apply_softmax_to \
+                            + "_" + model_args.attn_method,
+                    df=None) 
+                if img_buf:
+                    cur_img = Image.open(img_buf)
+                    #tags_img = tag_to_image(da, get_image=True)
+                    #cur_img = combine_x([tags_img, cur_img])
+                    sp = op.join(kwargs.save_path, "images") 
+                    Path(sp).mkdir(exist_ok=True, parents=True)
+                    pic = "router_" + str(exp_info["expid"])
+                    pp = sp + "/pred_" + pic + ".png"
+                    if Path(pp).is_file():
+                        _image = Image.open(pp)
+                        cur_img = combine_y([cur_img, _image])
+                    cur_img.save(pp)
                 kk += 1
-                pp = sp + "/pred_" + pic + ".png"
-                if Path(pp).is_file():
-                    _image = Image.open(pp)
-                    cur_img = combine_y([cur_img, _image])
-                cur_img.save(pp)
 
             if kwargs.setdefault("eval_test", False):
                 for task, test_dataset in test_datasets.items():
