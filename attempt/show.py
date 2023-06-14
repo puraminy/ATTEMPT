@@ -1,4 +1,5 @@
 import curses as cur
+from distutils.dir_util import copy_tree
 import subprocess
 from functools import reduce
 import matplotlib.pyplot as plt
@@ -1796,13 +1797,17 @@ def show_df(df):
             map_cols[sel_col] = new_name
             save_obj(map_cols, "map_cols", "atomic")
             cur_col += 1
-        if cmd == "copy":
+        if cmd == "copy" or char == "\\":
             exp=df.iloc[sel_row]["expid"]
             exp = str(exp)
             spath = tdf.iloc[0]["path"]
-            oldpath = Path(spath).parent
-            new_path = rowinput("copy to:", default=oldpath)
-            shutil.copy(oldpath, newpath)
+            oldpath = Path(spath).parent.parent
+            pred_file = os.path.join(oldpath, "images", "pred_router_" + exp + ".png") 
+            oldpath = os.path.join(oldpath, exp)
+            newpath = rowinput(f"copy {oldpath} to:", default=oldpath)
+            new_pred_file = os.path.join(newpath, "images", "pred_router_" + exp + ".png") 
+            shutil.copyfile(pred_file, new_pred_file)
+            copy_tree(oldpath, newpath)
         if cmd == "repall":
             canceled, col,val = list_df_values(main_df, get_val=False)
             if not canceled:
