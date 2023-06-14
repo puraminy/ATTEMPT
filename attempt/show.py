@@ -1796,7 +1796,7 @@ def show_df(df):
             map_cols[sel_col] = new_name
             save_obj(map_cols, "map_cols", "atomic")
             cur_col += 1
-        if cmd == "cp":
+        if cmd == "copy":
             exp=df.iloc[sel_row]["expid"]
             exp = str(exp)
             spath = tdf.iloc[0]["path"]
