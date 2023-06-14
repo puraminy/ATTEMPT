@@ -1314,7 +1314,9 @@ def train(**kwargs):
     src_prompt_params = []
     tgt_prompt_params = []
     mylogs.bp("opt")
+    learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning:
+        learning_rate = target_prompt_learning_rate
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
            if para_list: 
@@ -1342,7 +1344,7 @@ def train(**kwargs):
                 source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
     else:
-        optim = AdamW(grouped_params) #, lr=training_args.learning_rate)
+        optim = AdamW(grouped_params, lr=learning_rate)
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
