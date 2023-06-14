@@ -20,6 +20,11 @@ class PTLearningRateCallback(TrainerCallback):
         model = kwargs.pop("model", None)
         mylogs.bp("ptlr")
         lr = kwargs.pop("lr_scheduler", None)
+        optimizer = kwargs.pop("optimizer", None)
+        if optimizer:
+            for i, param_group in enumerate(optimizer.param_groups):
+               logger.info(f"Learning rate for parameter group {i}: {param_group['lr']}")
+
         if lr:
             #logs["slr"] = lr._last_lr[0]
             #logs["tlr"] = lr._last_lr[1]
