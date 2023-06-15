@@ -893,6 +893,8 @@ def train(**kwargs):
     prompts_prefix = str(prompts_prefix)
     if prompts_prefix is None: prompts_prefix = ""
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
+    if not prompts_prefix or prompts_prefix == "1":
+        prompts_prefix = str(data_args.max_train_samples)
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" + str(kwargs.expid)
 
