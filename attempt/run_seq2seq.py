@@ -1313,9 +1313,9 @@ def train(**kwargs):
 
     ########### My Code
     target_prompt_learning_rate = model_args.target_prompt_learning_rate 
+    source_prompt_learning_rate = model_args.source_prompt_learning_rate 
     if target_prompt_learning_rate is None:
-        source_prompt_learning_rate = model_args.source_prompt_learning_rate 
-        target_prompt_learning_rate = model_args.source_prompt_learning_rate 
+        source_prompt_learning_rate = source_prompt_learning_rate 
     if target_prompt_learning_rate is None:
         target_prompt_learning_rate = model_args.prompt_learning_rate 
         source_prompt_learning_rate = model_args.prompt_learning_rate 
