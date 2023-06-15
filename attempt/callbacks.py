@@ -21,14 +21,14 @@ class PTLearningRateCallback(TrainerCallback):
         mylogs.bp("ptlr")
         lr = kwargs.pop("lr_scheduler", None)
         optimizer = kwargs.pop("optimizer", None)
-        if optimizer:
-            for i, param_group in enumerate(optimizer.param_groups):
-               logger.info(f"Learning rate for parameter group {i}: {param_group['lr']}")
+        #if optimizer:
+        #    for i, param_group in enumerate(optimizer.param_groups):
+        #       logger.info(f"Learning rate for parameter group {i}: {param_group['lr']}")
 
         if lr:
             #logs["slr"] = lr._last_lr[0]
             #logs["tlr"] = lr._last_lr[1]
-            logs["step"] = state.global_step 
+            #logs["step"] = state.global_step 
             last_lrs = lr.get_last_lr()
             for i, llr in enumerate(last_lrs):
                 logs["lr" + str(i)] = '{:3}'.format('{}'.format(llr)) 
