@@ -1328,7 +1328,7 @@ def train(**kwargs):
         for encoder in model.prompt_encoders:
            para_list =[p for p in encoder.parameters() if p.requires_grad]
            if para_list: 
-               if encoder.is_source:
+               if encoder.is_source and not encoder.is_private:
                    src_prompt_params.extend(para_list)
                else:
                    tgt_prompt_params.extend(para_list)
