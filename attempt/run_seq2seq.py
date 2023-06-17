@@ -1306,7 +1306,7 @@ def train(**kwargs):
                 or name == "encoder.attn_W_down.weight" 
                 or name == "encoder.layer_norm.weight"):
                 attn_params.append(param)
-            if name == "encoder.router":
+            if name == "encoder.router" or name == "encoder.target_router":
                 attn_params.append(param)
 
         attn_params = set(attn_params)
