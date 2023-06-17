@@ -1033,7 +1033,7 @@ class T5Stack(T5PreTrainedModel):
 
     def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
-        src_tgt_encoders = prompt_encoders # [e for e in self.prompt_encoders if e.is_source or e.is_target]
+        src_tgt_encoders = [e for e in self.prompt_encoders if e.is_source or e.is_target]
         mylogs.bp("set")
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -1421,6 +1421,8 @@ class T5Stack(T5PreTrainedModel):
                         task_prompts_clone = task_prompts.clone()
                         task_prompts_clone[task_masks] = prompt_embeds
                         task_prompts_list.append(task_prompts_clone)
+                    else:
+                        ii += 1
                 else: 
                     #find input ids for prompt tokens
                     prompt_input_ids = target_prompt_ids[target_masks]
@@ -1432,7 +1434,7 @@ class T5Stack(T5PreTrainedModel):
                     target_prompts_list.append(target_prompts_clone)
                     target_idx_list.append(ii)
                     target_idx[target_masks] = ii
-                ii += 1
+                    ii += 1
             if task_prompts_list:
                 task_prompts = torch.stack(task_prompts_list) 
                 # averaging task prompts in the case that there are shared prompts
