@@ -218,10 +218,14 @@ class AbstractTask(abc.ABC):
         return template
 
     def get_prompt_length(self, pnum, is_target = False):
+        mylogs.bp("plen")
         if is_target:
             tlength = self.prompt_config["target_length"]
             if tlength is None: return 0
-            return tlength
+            if type(tlength) == list:
+                return tlength[pnum] if pnum < len(tlength) else tlength[-1]
+            else:
+                return tlength
         plength = self.prompt_config["length"]
         if plength is None: return 0
         if type(plength) == list:

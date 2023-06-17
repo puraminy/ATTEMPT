@@ -592,7 +592,8 @@ def train(**kwargs):
     task_args["test_samples"] = data_args.max_test_samples
     task_args["num_prompts"] = num_prompts 
     task_args["target_prompt_length"] = target_prompt_length 
-    task_args["prompt_length"] = adapter_args.num_prompt_tokens
+    task_args["prompt_length"] = kwargs.setdefault("prompt_length", 
+                                    adapter_args.num_prompt_tokens)
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
     task_args["template"] = data_args.template
     task_args["add_prefix"] = data_args.add_prefix
