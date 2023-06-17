@@ -474,11 +474,13 @@ class Squad(AbstractTask):
         return self.seq2seq_format(source, target, add_prefix)
 
 
+from datasets.utils import DownloadConfig
 class DROP(AbstractTask):
     name = "drop"
     metric = [metrics.squad]
 
     def load_dataset(self, split):
+        dc = DownloadConfig(proxies=dict(
         return datasets.load_dataset("drop", split=split)
 
     def preprocessor(self, example, add_prefix):
@@ -1395,7 +1397,7 @@ TASK_MAPPING = OrderedDict(
         ('superglue-wic', SuperGLUEWIC),
         ('superglue-wsc.fixed', SuperGLUEWSCFixed),
         ('superglue-record', SuperGLUERecord),
-        ('multi_nli', MultiNLI),
+        ('multinli', MultiNLI),
         ('snli', SNLI),
         ('piqa', PIQA),
         ('drop', DROP),
