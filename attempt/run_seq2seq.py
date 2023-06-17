@@ -1583,6 +1583,7 @@ def train(**kwargs):
         logger.info("*** Test ***")
         # multi-task evaluations
         def evaluate_test(task, test_dataset, save_to, ds_name, gen_conf = {}):
+            mylogs.bp("ttt")
             predictions, labels, metrics = trainer.predict(
                     gen_conf = gen_conf,
                     test_dataset=test_dataset,
@@ -1664,7 +1665,7 @@ def train(**kwargs):
         combs = {}
         num_random_masks = kwargs.setdefault("num_random_masks",0)
         ntp = kwargs.num_target_prompts
-        mylogs.bp("ccc")
+        mylogs.bp("ttt")
         for rm in range(num_random_masks):
             mask = model.encoder.random_attn_mask(rm, ntp)
             combs["rand-" + str(rm)] = mask
