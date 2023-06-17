@@ -482,10 +482,13 @@ class DROP(AbstractTask):
     def load_dataset(self, split):
         if split == "train":
             return datasets.load_dataset("json", 
-                    data_files="~/drop/drop_dataset/drop_dataset_train.json")
+                    data_files=op.join(
+                        mylogs.home, "drop/drop_dataset/drop_dataset_train.json"))
         else:
             return datasets.load_dataset("json", 
-                    data_files="~/drop/drop_dataset/drop_dataset_dev.json")
+                    data_files=op.join(
+                        mylogs.home, "drop/drop_dataset/drop_dataset_dev.json"))
+
 
     def preprocessor(self, example, add_prefix):
         answer = pad_punctuation(example['answers_spans']['spans'][0])
