@@ -474,17 +474,18 @@ class Squad(AbstractTask):
         return self.seq2seq_format(source, target, add_prefix)
 
 
-from datasets.utils import DownloadConfig
+
 class DROP(AbstractTask):
     name = "drop"
     metric = [metrics.squad]
 
     def load_dataset(self, split):
-        dc = DownloadConfig(proxies={
-            "http":"https://fodev.org:8118",
-            "https":"https://fodev.org:8118",
-            })
-        return datasets.load_dataset("drop", split=split, download_config=dc)
+        if split == "train":
+            return datasets.load_dataset("json", 
+                    data_files="~/drop/drop_dataset/drop_dataset_train.json")
+        else:
+            return datasets.load_dataset("json", 
+                    data_files="~/drop/drop_dataset/drop_dataset_dev.json")
 
     def preprocessor(self, example, add_prefix):
         answer = pad_punctuation(example['answers_spans']['spans'][0])
