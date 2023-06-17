@@ -1432,7 +1432,7 @@ class T5Stack(T5PreTrainedModel):
                     target_prompts_list.append(target_prompts_clone)
                     target_idx_list.append(ii)
                     target_idx[target_masks] = ii
-                    ii += 1
+                ii += 1
             if task_prompts_list:
                 task_prompts = torch.stack(task_prompts_list) 
                 # averaging task prompts in the case that there are shared prompts
