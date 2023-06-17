@@ -481,8 +481,8 @@ class DROP(AbstractTask):
 
     def load_dataset(self, split):
         dc = DownloadConfig(proxies={
-            "HTTPS_PROXY":"https://fodev.org:8118",
-            "HTTP_PROXY":"https://fodev.org:8118",
+            "http":"https://fodev.org:8118",
+            "https":"https://fodev.org:8118",
             })
         return datasets.load_dataset("drop", split=split, download_config=dc)
 
