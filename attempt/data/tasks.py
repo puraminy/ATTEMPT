@@ -480,8 +480,11 @@ class DROP(AbstractTask):
     metric = [metrics.squad]
 
     def load_dataset(self, split):
-        dc = DownloadConfig(proxies=dict(
-        return datasets.load_dataset("drop", split=split)
+        dc = DownloadConfig(proxies={
+            "HTTPS_PROXY":"https://fodev.org:8118",
+            "HTTP_PROXY":"https://fodev.org:8118",
+            })
+        return datasets.load_dataset("drop", split=split, download_config=dc)
 
     def preprocessor(self, example, add_prefix):
         answer = pad_punctuation(example['answers_spans']['spans'][0])
