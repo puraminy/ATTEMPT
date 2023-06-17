@@ -594,7 +594,7 @@ def do_score(df, scorers, save_path, reval=False):
     #wandb.run.log({"Summary": gtable})
     title = f"{prefix}: rg {test_rouge} | {test_bert} | {num_preds} up, mp: {pred_max_num} | {pred_max}"
     tdf = {"rouge_score":0, "bert_score":1}
-    gdf = gdf.append(tdf, ignore_index = True)
+    gdf = pd.concat([gdf, DataFrame([tdf])], ignore_index=True)
     gdf = pd.concat([gdf, scores])
     fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
     wandb.run.log({prefix: wandb.Image(fig)})
