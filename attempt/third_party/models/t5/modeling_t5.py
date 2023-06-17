@@ -1263,15 +1263,6 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
                     num_attend_to, sorted=True)
         mylogs.bp("att")
-        if self.target_share == -2:
-            top, _ = torch.max(attn_sel_scores, -1) 
-            target_shares = top.transpose(0,1)
-        if self.target_share == -3:
-            top, _ = torch.max(attn_sel_scores, -1) 
-            target_shares = 1 - top.transpose(0,1)
-        if self.target_share == -4:
-            top = torch.mean(attn_sel_scores, -1) 
-            target_shares = 1 - top.transpose(0,1)
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
             attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
@@ -1316,6 +1307,15 @@ class T5Stack(T5PreTrainedModel):
             _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
             attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
 
+        if self.target_share == -2:
+            top, _ = torch.max(attn_sel_scores, -1) 
+            target_shares = top.transpose(0,1)
+        elif self.target_share == -3:
+            top, _ = torch.max(attn_sel_scores, -1) 
+            target_shares = 1 - top.transpose(0,1)
+        elif self.target_share == -4:
+            top = torch.mean(attn_sel_scores, -1) 
+            target_shares = 1 - top.transpose(0,1)
         mylogs.bp("att")
         if self.apply_softmax_to == "nothing":
             if self.attn_method == "const":
