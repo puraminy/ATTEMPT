@@ -1065,6 +1065,7 @@ def train(**kwargs):
         return 
 
     mylogs.bp("freeze")
+    mylogs.bp("rgrad")
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     mylogs.plog.info("Before freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
@@ -1741,7 +1742,7 @@ def train(**kwargs):
                     _main_vars = main_vars.copy()
                     if "task_name" in _main_vars:
                         del _main_vars["task_name"]
-                    for score in [ss1, ss2, ss3]:
+                    for score in [ss1]: #, ss2, ss3]:
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
