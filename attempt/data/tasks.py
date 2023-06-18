@@ -485,11 +485,11 @@ class DROP(AbstractTask):
 
     def load_dataset(self, split):
         if split == "train":
-            return datasets.load_dataset("json", 
+            return datasets.load_dataset("json", field="history_690", 
                     data_files=op.join(
                         mylogs.home, "drop/drop_dataset/drop_dataset_train.json"))
         else:
-            return datasets.load_dataset("json", 
+            return datasets.load_dataset("json", field="history_690",
                     data_files=op.join(
                         mylogs.home, "drop/drop_dataset/drop_dataset_dev.json"))
 
@@ -1341,6 +1341,8 @@ class SuperGLUERecord(AbstractTask):
             new_batch["source"].extend([inputs] * num_duplicates)
             new_batch["target"].extend(
                 ex["answers"] if num_answers > 0 else ["<unk>"])
+            new_batch = self.seq2seq_format(new_batch["source"], new_batch["target"],
+                    add_prefix)
             new_batch["task"].extend([self.name] * num_duplicates)
             new_batch["extra_fields"].extend(
                 [{"answers": ex["answers"]}]*num_duplicates)
