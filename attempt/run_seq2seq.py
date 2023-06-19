@@ -382,7 +382,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            ee += 1 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
-       args["expid"] = experiment[:10] + "-" + ee
+       args["expid"] = experiment[:10].replace("/","-") + "-" + str(ee)
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
@@ -1737,6 +1737,7 @@ def train(**kwargs):
                     mylogs.bp("pic")
                     targets = model.encoder.target_encoders_idx
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
+                    ssq = torch.round(ss1*100)/100
                     ss2 = model.encoder.router.index_select(0, targets)
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
