@@ -297,7 +297,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    full_tags.extend([x for x in exp_vars if not "^" in x])
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
-      if len(cc) > 1:
+      if len(cc) > 1 and (not main_vars or vv in main_vars):
            if vv.startswith("@") or vv.endswith("@"):
                vv = vv.strip("@")
                tags.append(vv.strip("^"))
