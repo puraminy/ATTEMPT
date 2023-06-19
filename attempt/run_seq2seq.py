@@ -459,6 +459,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
 
+# main program
 @cli.command()
 def train(**kwargs):
     # See all possible arguments in src/transformers/training_args.py
