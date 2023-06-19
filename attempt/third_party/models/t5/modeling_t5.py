@@ -1449,7 +1449,7 @@ class T5Stack(T5PreTrainedModel):
                 mask = target_prompts != 0
                 # averaging target prompts in the case that there are shared prompts
                 target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
-                if self.attn_prompt_tuning:
+                if self.attn_prompt_tuning and not self.target_share == 1:
                     attn_mask = self.attn_mask
                     if not self.training: 
                         mylogs.bp("ccc")
