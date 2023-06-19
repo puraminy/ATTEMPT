@@ -724,8 +724,8 @@ def show_df(df):
                 tdf = main_df[main_df['expid'] == exp]
                 path=tdf.iloc[0]["path"]
                 path = Path(path)
-                _selpath = os.path.join(path.parent, "pred_sel" + path.name) 
-                shutil.copy(path, _selpath)
+                #_selpath = os.path.join(path.parent, "pred_sel" + path.name) 
+                #shutil.copy(path, _selpath)
                 grm = tdf.iloc[0]["gen_route_methods"]
                 runid = tdf.iloc[0]["runid"]
                 run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
@@ -1362,8 +1362,8 @@ def show_df(df):
             else:
                 path = df.iloc[sel_row]["path"]
                 path = Path(path)
-                _selpath = os.path.join(path.parent, "sel_" + path.name) 
-                shutil.copyfile(path, _selpath)
+                #_selpath = os.path.join(path.parent, "sel_" + path.name) 
+                #shutil.copyfile(path, _selpath)
                 exp=df.iloc[sel_row]["exp_id"]
                 sel_exp = exp
                 cond = f"(main_df['{FID}'] == '{exp}')"
