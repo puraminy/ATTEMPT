@@ -1346,9 +1346,12 @@ class T5Stack(T5PreTrainedModel):
                    [avg_prompts, last_prompt], dim=2)
         # Add target embedding when attend_target is not True
         if add_target is True:
-           ts = target_shares.reshape(batch_size, 1, 1, 1)
-           soft_prompts = (1 - ts) * soft_prompts + \
-                           ts * target_prompts
+           if self.target_share == 1:
+               soft_prompts = target_prompts
+           elif self.target_share != 0:
+               ts = target_shares.reshape(batch_size, 1, 1, 1)
+               soft_prompts = (1 - ts) * soft_prompts + \
+                               ts * target_prompts
            attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
