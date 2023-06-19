@@ -286,10 +286,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    values = list(var_dict.values())
    inp_exp_vars = exp_vars
    mylogs.bp("run")
-   if not exp_vars:
-       exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    if not main_vars:
        main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
+   if not exp_vars:
+       if main_vars:
+           exp_vars = main_vars
+       else:
+           exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
        exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
@@ -297,13 +300,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    full_tags.extend([x for x in exp_vars if not "^" in x])
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
-      if len(cc) > 1 and (not main_vars or vv in main_vars):
+      if len(cc) > 1:
            if vv.startswith("@") or vv.endswith("@"):
                vv = vv.strip("@")
                tags.append(vv.strip("^"))
            full_tags.append(vv.strip("^"))
            values[ii] = [x for x in cc if not x.startswith("!")] 
-           if exp_vars and not vv in exp_vars:
+           if (exp_vars and not vv in exp_vars) or (main_vars and not vv in main_vars):
                values[ii] = [values[ii][0]] # ignore the rest of values for this item 
       if len(values[ii]) == 1:
            if not vv.startswith("@"):
