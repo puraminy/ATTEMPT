@@ -769,7 +769,6 @@ def show_df(df):
                 for key, img_list in imgs.items():
                     if len(img_list) > 1:
                         new_im = combine_y(img_list)
-                        new_im = img_list[0]
                         name = key 
                         dest = os.path.join("temp", name.strip("-") + ".png")
                         new_im.save(dest)
