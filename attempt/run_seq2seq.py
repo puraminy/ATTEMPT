@@ -289,10 +289,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if not main_vars:
        main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
    if not exp_vars:
-       if main_vars:
-           exp_vars = main_vars
-       else:
-           exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
+       #if main_vars:
+       #    exp_vars = main_vars
+       #else:
+       exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
        exp_vars = inp_exp_vars = [exp_vars]
    if exp_vars and not log_var:
