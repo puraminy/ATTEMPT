@@ -1913,9 +1913,9 @@ def show_df(df):
             df = filter_df
             FID = "fid" 
             reset = True
-            sel_cols = group_sel_cols 
-            save_obj([], "sel_cols", context)
-            save_obj([], "info_cols", context)
+            #sel_cols = group_sel_cols 
+            #save_obj([], "sel_cols", context)
+            #save_obj([], "info_cols", context)
             hotkey = hk
         if char == "r" and prev_char == "x":
             df = main_df
