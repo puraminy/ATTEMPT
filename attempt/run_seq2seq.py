@@ -1435,9 +1435,14 @@ def train(**kwargs):
             trainer.model.update_attention_weights_sub(attention_paths)
             if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
                 trainer.model.update_layer_norm_weights(load_path)
-        dpath = os.path.join(load_path, "router.pt")
-        if model_args.attn_tuning is True and Path(dpath).is_file():
-            trainer.model.update_router(dpath)
+        dpath = os.path.join(load_path, prompts_prefix + "_router.pt")
+        if model_args.attn_tuning is True:
+            if Path(dpath).is_file():
+                trainer.model.update_router(dpath)
+            else:
+                dpath = os.path.join(prompts_dir, prompts_prefix + "_router.pt")
+                if Path(dpath).is_file():
+                    trainer.model.update_router(dpath)
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -1484,7 +1489,7 @@ def train(**kwargs):
             if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
-                        prompts_only=True, 
+                        prompts_and_router_only=True, 
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
                         prefix=prompts_prefix)
@@ -1893,9 +1898,13 @@ def train(**kwargs):
             if (model_args.load_layer_norm is True 
                 and "layer_norm_bias.pt" in checkpoint_dir):
                 trainer.model.update_layer_norm_weights(checkpoint_dir)
-            dpath = os.path.join(checkpoint_dir, "router.pt")
+            dpath = os.path.join(checkpoint_dir, prompts_prefix + "_router.pt")
             if model_args.attn_tuning is True and Path(dpath).is_file():
                 trainer.model.update_router(dpath)
+            else:
+                dpath = os.path.join(prompts_dir, prompts_prefix + "_router.pt")
+                if Path(dpath).is_file():
+                    trainer.model.update_router(dpath)
 
             test_metrics_all = {}
             test_avg = []
