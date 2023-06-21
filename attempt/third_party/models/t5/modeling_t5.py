@@ -2324,8 +2324,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         attn_tuning = self.attn_tuning
         for name, param in self.named_parameters():
             # Save attention and layer norm weights.
-            if (attn_tuning is True and "encoder.router" == name
-                    and "router" in prompts_to_save):
+            if attn_tuning is True and "encoder.router" == name:
                 attn_weights_params = param
                 torch.save(attn_weights_params, os.path.join(
                     output_dir, prefix +  "_router.pt"))
