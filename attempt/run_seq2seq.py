@@ -892,11 +892,31 @@ def train(**kwargs):
     if model_args.load_layer_norm is True and model_args.layer_norm_dir is not None:
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
+    prompts_dir = model_args.prompt_encoders_dir
+    if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
+        prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
+    else:
+        base_folder = Path(kwargs.save_path)
+        base_folder_stem = base_folder.stem
+        base_folder_name = base_folder.name
+        prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
+
+    router_prefix = kwargs.setdefault("router_prefix", "") 
+    if not router_prefix or router_prefix == "1":
+        router_prefix = str(data_args.max_train_samples)
+
+    router_prefix = "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
+    dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
+    mylogs.bp("router")
+    if model_args.attn_tuning is True:
+       if Path(dpath).is_file():
+          model.update_router(dpath)
+          # mask = model.router[model.router > 0.1] 
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code pppppp
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
-    router_prefix = kwargs.setdefault("router_prefix", "") 
     prompts_prefix = str(prompts_prefix)
     if prompts_prefix is None: prompts_prefix = ""
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
@@ -909,15 +929,6 @@ def train(**kwargs):
 
     if not router_prefix:
         router_prefix = prompts_prefix
-
-    prompts_dir = model_args.prompt_encoders_dir
-    if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
-        prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
-    else:
-        base_folder = Path(kwargs.save_path)
-        base_folder_stem = base_folder.stem
-        base_folder_name = base_folder.name
-        prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
