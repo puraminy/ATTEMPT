@@ -896,13 +896,19 @@ def train(**kwargs):
     ######################## My code pppppp
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+    router_prefix = kwargs.setdefault("router_prefix", "") 
     prompts_prefix = str(prompts_prefix)
     if prompts_prefix is None: prompts_prefix = ""
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if not prompts_prefix or prompts_prefix == "1":
         prompts_prefix = str(data_args.max_train_samples)
     if not load_source_prompts and model_args.attn_tuning:
-        prompts_prefix = prompts_prefix + "_" + str(kwargs.expid)
+        prompts_prefix = prompts_prefix + "_" \
+                + kwargs.experiment.split("/")[0] \
+                + "_" + kwargs.expid
+
+    if not router_prefix:
+        router_prefix = prompts_prefix
 
     prompts_dir = model_args.prompt_encoders_dir
     if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
@@ -1435,12 +1441,12 @@ def train(**kwargs):
             trainer.model.update_attention_weights_sub(attention_paths)
             if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
                 trainer.model.update_layer_norm_weights(load_path)
-        dpath = os.path.join(load_path, prompts_prefix + "_router.pt")
+        dpath = os.path.join(load_path, router_prefix + "_router.pt")
         if model_args.attn_tuning is True:
             if Path(dpath).is_file():
                 trainer.model.update_router(dpath)
             else:
-                dpath = os.path.join(prompts_dir, prompts_prefix + "_router.pt")
+                dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
                 if Path(dpath).is_file():
                     trainer.model.update_router(dpath)
     # Training
@@ -1898,11 +1904,11 @@ def train(**kwargs):
             if (model_args.load_layer_norm is True 
                 and "layer_norm_bias.pt" in checkpoint_dir):
                 trainer.model.update_layer_norm_weights(checkpoint_dir)
-            dpath = os.path.join(checkpoint_dir, prompts_prefix + "_router.pt")
+            dpath = os.path.join(checkpoint_dir, router_prefix + "_router.pt")
             if model_args.attn_tuning is True and Path(dpath).is_file():
                 trainer.model.update_router(dpath)
             else:
-                dpath = os.path.join(prompts_dir, prompts_prefix + "_router.pt")
+                dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
                 if Path(dpath).is_file():
                     trainer.model.update_router(dpath)
 
