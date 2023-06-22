@@ -1043,7 +1043,7 @@ def train(**kwargs):
                 encoder.is_target = True
                 nn = name.replace("tar-","")
                 encoder.attend_to.extend(["source_for_" +  nn])
-            if router_dict and name in router_dict:
+            if False: #TODO router_dict and name in router_dict:
                 encoder.attend_to_mask = [1 if r > 0.1 else 0 for r in router_dict[name]] 
             else: 
                 encoder.attend_to_mask = [1]*num_attend_to 
