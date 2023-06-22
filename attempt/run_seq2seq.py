@@ -910,6 +910,7 @@ def train(**kwargs):
     router_prefix = "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
     mylogs.bp("router")
     use_saved_router = kwargs.setdefault("use_saved_router", False) 
+    router_dict = None
     if model_args.attn_tuning is True and use_saved_router:
        dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
        if Path(dpath).is_file():
