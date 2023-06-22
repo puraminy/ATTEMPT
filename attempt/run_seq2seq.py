@@ -1501,7 +1501,10 @@ def train(**kwargs):
             #prompts_prefix = prompts_prefix.strip("_")
             ssp = kwargs.setdefault("save_source_prompts", False) 
             model.store_encoders(output_dir = training_args.output_dir,
-                                 save_source_prompts = ssp, prefix=prompts_prefix)
+                                 save_source_prompts = ssp, 
+                                 prefix=prompts_prefix,
+                                 router_prefix=router_prefix)
+
             prompts_to_save = kwargs.setdefault("save_these_prompts", []) 
             if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
@@ -1509,8 +1512,8 @@ def train(**kwargs):
                         prompts_and_router_only=True, 
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
-                        prefix=prompts_prefix)
-
+                        prefix=prompts_prefix, 
+                        router_prefix=router_prefix)
 
         if kwargs.setdefault("save_model", False):
             # save all model parameters and tokenizers 

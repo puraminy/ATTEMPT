@@ -2311,7 +2311,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def store_encoders(self, output_dir = None, 
             prompts_only=False, 
             prompts_and_router_only=False,
-            save_source_prompts = False, prompts_to_save=None, prefix=""):
+            save_source_prompts = False, prompts_to_save=None, prefix="", 
+            router_prefix=""):
         prefix = prefix.strip("_")
         for encoder in self.prompt_encoders:
             if not save_source_prompts and encoder.is_source:
@@ -2327,7 +2328,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             if attn_tuning is True and "encoder.router" == name:
                 attn_weights_params = param
                 torch.save(attn_weights_params, os.path.join(
-                    output_dir, prefix +  "_router.pt"))
+                    output_dir, router_prefix +  "_router.pt"))
                 if prompts_and_router_only: return
             if attn_tuning is True and "encoder.attn_Wa.weight" == name:
                 attn_weights_params = param
