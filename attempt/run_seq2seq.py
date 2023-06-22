@@ -911,7 +911,7 @@ def train(**kwargs):
     if model_args.attn_tuning is True:
        if Path(dpath).is_file():
           model.update_router(dpath)
-          # mask = model.router[model.router > 0.1] 
+          mask = model.encoder.router[model.encoder.router > 0.1] 
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code pppppp

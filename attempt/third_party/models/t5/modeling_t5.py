@@ -2323,13 +2323,17 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             encoder.save(output_dir, prefix=prefix)
         if prompts_only: return
         attn_tuning = self.attn_tuning
+        mylogs.bp("router")
+        if attn_tuning is True:
+            router_dict = {}
+            for i, n in enumerate(self.encoder.prompt_names):
+                router_dict[n] = self.encoder.router[i]
+            torch.save(router_dict, os.path.join(
+                        output_dir, router_prefix +  "_router.pt"))
+
+        if prompts_and_router_only: return
         for name, param in self.named_parameters():
             # Save attention and layer norm weights.
-            if attn_tuning is True and "encoder.router" == name:
-                attn_weights_params = param
-                torch.save(attn_weights_params, os.path.join(
-                    output_dir, router_prefix +  "_router.pt"))
-                if prompts_and_router_only: return
             if attn_tuning is True and "encoder.attn_Wa.weight" == name:
                 attn_weights_params = param
                 torch.save(attn_weights_params, os.path.join(
@@ -2373,7 +2377,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.mul_prefix_emb.data = embeddings.clone().detach()
 
     def update_router(self, path):
-        self.encoder.router.data = torch.load(path)
+        mapl=torch.device('cpu')
+        self.encoder.router = torch.load(path, map_location=mapl)
     # update attention weights
     def update_attention_weights(self, attention):
         self.encoder.attn_Wa.data = attention.cuda()
