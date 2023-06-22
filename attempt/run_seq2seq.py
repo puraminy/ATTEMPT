@@ -918,6 +918,7 @@ def train(**kwargs):
        dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
        if not Path(dpath).is_file():
            kwargs["use_saved_router"] = "NA" # Not found
+           raise ValueError(dpath + " not found!")
        else:
           router_dict = torch.load(dpath, map_location='cpu')
           attend_num = len(router_dict)
