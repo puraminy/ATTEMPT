@@ -811,6 +811,9 @@ def train(**kwargs):
     config.num_target = len(data_args.task_name)
     config.temperature = model_args.temperature
     config.learned_temperature = model_args.learned_temperature
+    sign_router = kwargs.setdefault("sign_router", False) 
+    if sign_router:
+       model_args.learn_attention = False
     config.learn_attention = model_args.learn_attention
     config.learn_source_prompts = model_args.learn_source_prompts
     config.learn_target_prompts = model_args.learn_target_prompts
@@ -921,11 +924,11 @@ def train(**kwargs):
                 attend_num 
           ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
           for i,(k,v) in enumerate(router_dict.items()):
+               if sign_router:
+                   with torch.no_grad():
+                       v[v > 0] = 1.
+                       v[v <= 0] = 0.
                model.encoder.router[i].data.copy_(v.data)
-        sign_router = kwargs.setdefault("sign_router", False) 
-        if sign_router:
-           model.encoder.router[ model.encoder.router > 0 ] = 1
-           model.encoder.router[ model.encoder.router <= 0 ] = 0
 
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
