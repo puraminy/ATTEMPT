@@ -922,6 +922,10 @@ def train(**kwargs):
           ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
           for i,(k,v) in enumerate(router_dict.items()):
                model.encoder.router[i].data.copy_(v.data)
+        sign_router = kwargs.setdefault("sign_router", False) 
+        if sign_router:
+           model.encoder.router[ model.encoder.router > 0 ] = 1
+           model.encoder.router[ model.encoder.router <= 0 ] = 0
 
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
@@ -1331,7 +1335,7 @@ def train(**kwargs):
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     prompt_params = []
-    if model_args.attn_learning_rate is not None:
+    if model_args.attn_learning_rate is not None and model_arts.learn_attention:
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
                 or name == "encoder.attn_W_down.weight" 

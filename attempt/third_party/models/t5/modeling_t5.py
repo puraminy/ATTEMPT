@@ -962,6 +962,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_dim = None
         self.gen_conf = None
         self.route_method = config.route_method
+        self.learn_attention = config.learn_attention
         self.normalize = config.normalize
         self.sig_coef = config.sig_coef
         self.prompt_tuning = config.prompt_tuning
@@ -1187,7 +1188,7 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
-            if self.training:
+            if self.training and self.learn_attention:
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
                 if route_method == "sigmoid":
