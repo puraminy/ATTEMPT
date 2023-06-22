@@ -916,7 +916,9 @@ def train(**kwargs):
     router_dict = None
     if model_args.attn_tuning is True and use_saved_router:
        dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
-       if Path(dpath).is_file():
+       if not Path(dpath).is_file():
+           kwargs["use_saved_router"] = "NA" # Not found
+       else:
           router_dict = torch.load(dpath, map_location='cpu')
           attend_num = len(router_dict)
           model.encoder.router = torch.nn.Parameter(data=torch.empty((
