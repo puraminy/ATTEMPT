@@ -1463,6 +1463,7 @@ class T5Stack(T5PreTrainedModel):
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
                         #target_idx = target_idx_list.repeat(batch_size, 1)
+                        mylogs.bp("nmask")
                         source_idx = source_idx_list.repeat(batch_size, 1)
                         attn_mask = attn_mask.repeat(batch_size, 1, 1)
                         sel_attn_mask = batched_index_select(attn_mask, 2, 

@@ -906,12 +906,14 @@ def train(**kwargs):
         router_prefix = str(data_args.max_train_samples)
 
     router_prefix = "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
-    dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
     mylogs.bp("router")
     if model_args.attn_tuning is True:
+       dpath = os.path.join(prompts_dir, router_prefix + "_router_dict.pt")
        if Path(dpath).is_file():
-          model.update_router(dpath)
-          mask = model.encoder.router[model.encoder.router > 0.1] 
+          router_dict = torch.load(dpath, map_location='cpu')
+       dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
+       if Path(dpath).is_file():
+           model.update_router(dpath)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     ######################## My code pppppp
@@ -1035,21 +1037,21 @@ def train(**kwargs):
                 encoder.is_target = True
                 nn = name.replace("tar-","")
                 encoder.attend_to.extend(["source_for_" +  nn])
-            encoder.attend_to_mask = [1]*num_attend_to 
-            attn_flag = False
-            for i, n in enumerate(source_prompts, start=1):
-                encoder.attend_to_mask[i] = 0 
-                if n in encoder.attend_to:
-                    encoder.attend_to_mask[i] = 1 
-                    attn_flag = True
-                if "_com" in n or attend_to_all:
-                    encoder.attend_to_mask[i] = 1 
-                    attn_flag = True
-                if "_for" in n and not n in encoder.attend_to:
+            if router_dict and name in router_dict:
+                encoder.attend_to_mask = [1 if r > 0.1 else 0 for r in router_dict[name]] 
+            else: 
+                encoder.attend_to_mask = [1]*num_attend_to 
+                attn_flag = False
+                for i, n in enumerate(source_prompts, start=1):
                     encoder.attend_to_mask[i] = 0 
-                    attn_flag = True
-            if not attn_flag or (not use_private_prompts and not use_source_set): 
-                encoder.attend_to_mask = [1]*num_attend_to # attend to all 
+                    if n in encoder.attend_to or "_com" in n or attend_to_all:
+                        encoder.attend_to_mask[i] = 1 
+                        attn_flag = True
+                    if "_for" in n and not n in encoder.attend_to:
+                        encoder.attend_to_mask[i] = 0 
+                        attn_flag = True
+                if not attn_flag or (not use_private_prompts and not use_source_set): 
+                    encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if not model_args.attn_tuning and  load_prompts: 
