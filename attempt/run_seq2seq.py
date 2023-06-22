@@ -907,7 +907,8 @@ def train(**kwargs):
 
     router_prefix = "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
     mylogs.bp("router")
-    if model_args.attn_tuning is True:
+    use_saved_router = kwargs.setdefault("use_saved_router", False) 
+    if model_args.attn_tuning is True and use_saved_router:
        dpath = os.path.join(prompts_dir, router_prefix + "_router_dict.pt")
        if Path(dpath).is_file():
           router_dict = torch.load(dpath, map_location='cpu')
