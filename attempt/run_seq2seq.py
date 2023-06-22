@@ -1521,12 +1521,14 @@ def train(**kwargs):
                                  router_prefix=router_prefix)
 
             prompts_to_save = kwargs.setdefault("save_these_prompts", []) 
+            save_router = kwargs.setdefault("save_router", False) 
             if prompts_to_save:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
                         prompts_and_router_only=True, 
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
+                        save_router = save_router,
                         prefix=prompts_prefix, 
                         router_prefix=router_prefix)
 

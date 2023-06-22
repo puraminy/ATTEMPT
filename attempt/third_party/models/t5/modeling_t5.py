@@ -2315,7 +2315,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             prompts_only=False, 
             prompts_and_router_only=False,
             save_source_prompts = False, prompts_to_save=None, prefix="", 
-            router_prefix=""):
+            router_prefix="", save_router=False):
         prefix = prefix.strip("_")
         for encoder in self.prompt_encoders:
             if not save_source_prompts and encoder.is_source:
@@ -2327,7 +2327,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         if prompts_only: return
         attn_tuning = self.attn_tuning
         mylogs.bp("router")
-        if attn_tuning is True:
+        if attn_tuning is True and save_router:
             router_dict = {}
             for i, n in enumerate(self.encoder.prompt_names):
                 router_dict[n] = self.encoder.router[i]
