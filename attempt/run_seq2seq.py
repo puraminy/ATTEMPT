@@ -915,13 +915,13 @@ def train(**kwargs):
        dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
        if Path(dpath).is_file():
           router_dict = torch.load(dpath, map_location='cpu')
-       attend_num = len(router_dict)
-       model.encoder.router = torch.nn.Parameter(data=torch.empty((
-            attend_num,
-            attend_num 
-       ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
-       for i,(k,v) in enumerate(router_dict.items()):
-           model.encoder.router[i].data.copy_(v.data)
+          attend_num = len(router_dict)
+          model.encoder.router = torch.nn.Parameter(data=torch.empty((
+                attend_num,
+                attend_num 
+          ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+          for i,(k,v) in enumerate(router_dict.items()):
+               model.encoder.router[i].data.copy_(v.data)
 
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
