@@ -1338,7 +1338,7 @@ def train(**kwargs):
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     prompt_params = []
-    if model_args.attn_learning_rate is not None and model_arts.learn_attention:
+    if model_args.attn_learning_rate is not None and model_args.learn_attention:
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
                 or name == "encoder.attn_W_down.weight" 
