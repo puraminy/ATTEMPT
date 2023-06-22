@@ -892,6 +892,7 @@ def train(**kwargs):
     if model_args.load_layer_norm is True and model_args.layer_norm_dir is not None:
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
+    ######################## My code pppppp
     prompts_dir = model_args.prompt_encoders_dir
     if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
@@ -901,6 +902,7 @@ def train(**kwargs):
         base_folder_name = base_folder.name
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     router_prefix = kwargs.setdefault("router_prefix", "") 
     if not router_prefix or router_prefix == "1":
         router_prefix = str(data_args.max_train_samples)
@@ -909,15 +911,17 @@ def train(**kwargs):
     mylogs.bp("router")
     use_saved_router = kwargs.setdefault("use_saved_router", False) 
     if model_args.attn_tuning is True and use_saved_router:
-       dpath = os.path.join(prompts_dir, router_prefix + "_router_dict.pt")
-       if Path(dpath).is_file():
-          router_dict = torch.load(dpath, map_location='cpu')
        dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
        if Path(dpath).is_file():
-           model.update_router(dpath)
+          router_dict = torch.load(dpath, map_location='cpu')
+       attend_num = len(router_dict)
+       model.encoder.router = torch.nn.Parameter(data=torch.empty((
+            attend_num,
+            attend_num 
+       ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+       for i,(k,v) in enumerate(router_dict.items()):
+           model.encoder.router[i].data.copy_(v.data)
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    ######################## My code pppppp
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
     prompts_prefix = str(prompts_prefix)
