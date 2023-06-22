@@ -1073,10 +1073,11 @@ class T5Stack(T5PreTrainedModel):
         self.target_prompt_ids = torch.tensor(target_prompt_ids, device=device)
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
-        self.router = nn.Parameter(data=torch.empty((
-            attend_num,
-            attend_num 
-        ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+        if self.router is None:
+            self.router = nn.Parameter(data=torch.empty((
+                attend_num,
+                attend_num 
+            ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
         self.target_router = nn.Parameter(data=torch.empty((
             attend_num
         ), device=device).uniform_(0, 0))
