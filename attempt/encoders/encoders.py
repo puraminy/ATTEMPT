@@ -89,7 +89,7 @@ class PromptEncoder(torch.nn.Module):
             fname=(prefix + "_" if prefix else "") \
                     + self.name + "_" + str(length) + ".pt"
         if self.is_source:
-            fname = fname.replace("source_","") 
+            fname = fname.replace("source_","src_") 
         return fname
 
     def save(self, save_dir, prefix="pt"):
