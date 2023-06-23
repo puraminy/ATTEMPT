@@ -1797,7 +1797,7 @@ def train(**kwargs):
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
-                            title = str(kwargs.expid) + "\n" + str(_main_vars) + "\n" + \
+                            title = str(kwargs.expid) + "\n" + str(_main_vars) + "\n" \
                                     + route_method \
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
