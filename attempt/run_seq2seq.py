@@ -906,11 +906,12 @@ def train(**kwargs):
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    router_prefix = kwargs.setdefault("router_prefix", "") 
-    if not router_prefix or router_prefix == "1":
+    router_prefix = kwargs.setdefault("router_prefix", None) 
+    if router_prefix is None or router_prefix == "1":
         router_prefix = str(data_args.max_train_samples)
 
-    router_prefix = "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
+    router_prefix = str(router_prefix) + "_" + \
+            "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
     mylogs.bp("router")
     use_saved_router = kwargs.setdefault("use_saved_router", False) 
     router_dict = None
@@ -934,11 +935,10 @@ def train(**kwargs):
                model.encoder.router[i].data.copy_(v.data)
 
     mylogs.bp("penc")
-    prompts_prefix = kwargs.setdefault("prompts_prefix", "") 
+    prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
     prompts_prefix = str(prompts_prefix)
-    if prompts_prefix is None: prompts_prefix = ""
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
-    if not prompts_prefix or prompts_prefix == "1":
+    if prompts_prefix is None or prompts_prefix == "1":
         prompts_prefix = str(data_args.max_train_samples)
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" \
@@ -1797,7 +1797,7 @@ def train(**kwargs):
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
-                            title = str(kwargs.expid) + str(_main_vars)  \
+                            title = str(kwargs.expid) + "\n" + str(_main_vars) + "\n" + \
                                     + route_method \
                                     + "_" + model_args.compose_method \
                                     + "_" + kwargs.apply_softmax_to \
