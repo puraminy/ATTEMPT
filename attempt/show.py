@@ -482,6 +482,7 @@ def show_df(df):
         top = max(top, 0)
         sel_row = min(sel_row, len(df) - 1)
         sel_row = max(sel_row, 0)
+        sel_rows = list(set(sel_rows))
         sel_group = max(sel_group, 0)
         #sel_group = min(sel_row, sel_group)
         cur_col = min(cur_col, len(sel_cols) - 1)
