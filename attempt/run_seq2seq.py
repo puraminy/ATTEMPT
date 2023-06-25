@@ -1788,6 +1788,12 @@ def train(**kwargs):
                     mylogs.bp("pic")
                     targets = model.encoder.target_encoders_idx
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
+                    sim = torch.zeros((ss1.size()[0],ss1.size()[0]))
+                    cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+                    for i in ss1.size()[0]:
+                        for j in ss1.size()[0]:
+                           sim[i][j] = cos(ss1[i], ss1[j]) 
+
                     ssq = torch.round(ss1*100)/100
                     ss2 = model.encoder.router.index_select(0, targets)
                     mask = model.encoder.attn_mask if mask is None else mask
@@ -1796,7 +1802,7 @@ def train(**kwargs):
                     _main_vars = main_vars.copy()
                     if "task_name" in _main_vars:
                         del _main_vars["task_name"]
-                    for score in [ss1]: #, # ss2, ss3]:
+                    for score in [ss1, sim]: #, # ss2, ss3]:
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=model.encoder.prompt_names, 
