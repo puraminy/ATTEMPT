@@ -1802,10 +1802,18 @@ def train(**kwargs):
                     _main_vars = main_vars.copy()
                     if "task_name" in _main_vars:
                         del _main_vars["task_name"]
+                    if "num_train_epochs" in _main_vars:
+                        del _main_vars["num_train_epochs"]
+                    if "max_train_samples" in _main_vars:
+                        del _main_vars["max_train_samples"]
                     for score in [ss1, sim]: #, # ss2, ss3]:
+                        if score == sim:
+                            x_labels = y_labels
+                        else:
+                            x_labels = model.encoder.prompt_names 
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
-                            x_labels=model.encoder.prompt_names, 
+                            x_labels=x_labels,
                             title = str(kwargs.expid) + "\n" + str(_main_vars)) 
                                     #+ "\n" \
                                     #+ route_method \
