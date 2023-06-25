@@ -74,16 +74,13 @@ class WBCallback(WandbCallback):
             img = tag_to_image(tags)
             fig.figimage(img, 5, 100)
         for score, ax in zip(scores, axes):
-            try:
-                np_score = score.detach().cpu().numpy()
+            np_score = score.detach().cpu().numpy()
+            if np_scores.size != 0:
                 sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
                         annot_kws={'rotation': 90}, 
                         xticklabels=x_labels,
                         yticklabels=y_labels,
                         linewidth=0.5)
-            except ValueError:
-                plt.close("all")
-                return None
         #plt.tight_layout()
         mylogs.bp("wand")
         if fname:
@@ -109,15 +106,14 @@ class WBCallback(WandbCallback):
             ax_t = ax1
         ax1.set_title(title)
         fig.set_size_inches(12.5, 6.5)
-        try:
-            np_score = score.detach().cpu().numpy()
+        np_score = score.detach().cpu().numpy()
+        if np_score.size != 0:
             sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
                     annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,
                     yticklabels=y_labels,
                     linewidth=0.5)
-        except ValueError:
-            plt.close("all")
+        else:
             return None
         #plt.tight_layout()
         mylogs.bp("wand")
