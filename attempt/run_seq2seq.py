@@ -1806,8 +1806,8 @@ def train(**kwargs):
                         del _main_vars["num_train_epochs"]
                     if "max_train_samples" in _main_vars:
                         del _main_vars["max_train_samples"]
-                    for score in [ss1, sim]: #, # ss2, ss3]:
-                        if score == sim:
+                    for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
+                        if ii == 1: # sim
                             x_labels = y_labels
                         else:
                             x_labels = model.encoder.prompt_names 
