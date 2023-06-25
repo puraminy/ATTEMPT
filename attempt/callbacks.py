@@ -75,7 +75,7 @@ class WBCallback(WandbCallback):
             fig.figimage(img, 5, 100)
         for score, ax in zip(scores, axes):
             np_score = score.detach().cpu().numpy()
-            if np_scores.size != 0:
+            if np_score.size != 0:
                 sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
                         annot_kws={'rotation': 90}, 
                         xticklabels=x_labels,
