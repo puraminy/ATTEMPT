@@ -942,8 +942,8 @@ def train(**kwargs):
         prompts_prefix = str(data_args.max_train_samples)
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix + "_" \
-                + kwargs.experiment.split("/")[0] \
-                + "_" + kwargs.expid
+                + kwargs.experiment.split("/")[0] 
+                # + "_" + kwargs.expid
 
     if not router_prefix:
         router_prefix = prompts_prefix
