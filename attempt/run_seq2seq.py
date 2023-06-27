@@ -1799,6 +1799,7 @@ def train(**kwargs):
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
                     y_labels = [model.encoder.prompt_names[i] for i in targets]
+                    sdf = pd.DataFrame(data=sdf_rows)
                     _main_vars = main_vars.copy()
                     if "task_name" in _main_vars:
                         del _main_vars["task_name"]
@@ -1814,6 +1815,7 @@ def train(**kwargs):
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=x_labels,
+                            df = sdf,
                             title = str(kwargs.expid) + "\n" + str(_main_vars)) 
                                     #+ "\n" \
                                     #+ route_method \
