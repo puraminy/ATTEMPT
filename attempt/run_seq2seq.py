@@ -1815,7 +1815,6 @@ def train(**kwargs):
                         img_buf = WBCallback.save_image(score=score, 
                             y_labels=y_labels,
                             x_labels=x_labels,
-                            df = sdf,
                             title = str(kwargs.expid) + "\n" + str(_main_vars)) 
                                     #+ "\n" \
                                     #+ route_method \
