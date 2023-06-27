@@ -1660,9 +1660,9 @@ def show_df(df):
             dot_cols = {}
             keep_cols = []
             consts = {}
-            if prev_char == "v":
+            if prev_char == "x":
                 info_cols = ["bert_score", "num_preds"]
-            if prev_char == "v": 
+            if prev_char == "x": 
                 sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
                 save_obj(sel_cols, "sel_cols", context)
         elif char == "M" and prev_char == "x":
