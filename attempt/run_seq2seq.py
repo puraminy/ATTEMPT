@@ -385,6 +385,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            ee += 1 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
+       args["cat"] = experiment.split("/")[-1] 
        args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if not save_path:
            output_dir = os.getcwd()
