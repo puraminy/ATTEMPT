@@ -428,9 +428,11 @@ class AbstractTask(abc.ABC):
         sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
+        src = src.strip()
+        tgt = tgt.strip()
         if not self.generation:
             src = src[:350]
-            tgt = tgt[:10]
+            tgt = tgt[:20]
         else:
             src = src[:300]
             tgt = tgt[:100]
@@ -1338,21 +1340,19 @@ class SuperGLUERecord(AbstractTask):
                 inputs = self.name + " " + inputs
             # duplicates the samples based on  number of answers.
             num_answers = len(ex["answers"])
-            num_duplicates = np.maximum(1, num_answers)
-            new_batch["source"].extend([inputs] * num_duplicates)
-            new_batch["target"].extend(
-                ex["answers"] if num_answers > 0 else ["<unk>"])
-            new_batch = self.seq2seq_format(new_batch["source"], new_batch["target"],
-                    add_prefix)
-            new_batch["task"].extend([self.name] * num_duplicates)
-            new_batch["extra_fields"].extend(
-                [{"answers": ex["answers"]}]*num_duplicates)
+            answers = ex["answers"] if num_answers > 0 else ["<unk>"]
+            for ans in answers:
+                fmt = self.seq2seq_format([inputs],[ans], add_prefix)
+                new_batch["source"].extend([fmt["source"]])
+                new_batch["target"].extend([fmt["target"]])
+                new_batch["task"].extend([self.name])
+                exf = {**fmt["extra_fields"], **{"answers": ex["answers"]}}
+                new_batch["extra_fields"].extend([exf])
         return new_batch
 
     def map_dataset(self, dataset, add_prefix=True):
         return dataset.map(functools.partial(self.preprocessor, add_prefix=add_prefix),
                            batched=True, remove_columns=dataset.column_names)
-
 
 class WinoGrande(AbstractTask):
     name = "winogrande"
