@@ -80,14 +80,15 @@ class PromptEncoder(torch.nn.Module):
         self.init_embedding(init_embs)
         return prompt_ids 
 
-    def get_filename(self, length=None, prefix="", as_saved=False):
+    def get_filename(self, length=None, prefix="", as_saved=False, name=""):
+        if not name: name = self.name
         length = length if length is not None else self.length
         if as_saved: 
             fname= (prefix + "_" if prefix else "") + \
-                    self.enc_type + "_" + self.name + "_" + str(length) + ".pt"
+                    self.enc_type + "_" + name + "_" + str(length) + ".pt"
         else:
             fname=(prefix + "_" if prefix else "") \
-                    + self.name + "_" + str(length) + ".pt"
+                    + name + "_" + str(length) + ".pt"
         if self.is_source:
             fname = fname.replace("source_","") 
         return fname
@@ -107,8 +108,9 @@ class PromptEncoder(torch.nn.Module):
         return False
 
     def load(self, load_dir, prefix="pt", length = None, as_saved=False, 
-            ignore_if_not_exist=False):
-        fname = os.path.join(load_dir, self.get_filename(length, prefix, as_saved=as_saved))
+            ignore_if_not_exist=False, name=""):
+        fname = os.path.join(load_dir, self.get_filename(length, prefix, 
+            as_saved=as_saved, name=name))
         files = glob.glob(fname)
         if  len(files) == 0:
             if not ignore_if_not_exist: 
