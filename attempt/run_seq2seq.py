@@ -1017,7 +1017,7 @@ def train(**kwargs):
                 load_private_prompts = kwargs.setdefault("load_private_prompts", True)
                 if bp == "load":
                     breakpoint()
-                if load_private_prompts and is_private:
+                if load_private_prompts and encoder.is_private:
                     enc_name = encoder.name.replace("for","mlp")
                 is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
