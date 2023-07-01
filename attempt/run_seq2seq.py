@@ -552,6 +552,9 @@ def train(**kwargs):
         task_source_prompts_set[tid].extend(rel_sh.split())
 
     nsp = 0
+    source_per_task = kwargs.setdefault("source_per_task", False) 
+    if source_per_task:
+        nsp = len(tasks)
     if use_source_set:
         nsp = max([len(s) for s in task_source_prompts_set.values()])
     if data_args.source_prompts is not None:
