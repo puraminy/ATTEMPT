@@ -1014,10 +1014,12 @@ def train(**kwargs):
                 encoder.is_private = True
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if load_source_prompts: # and not "_for" in prompt: 
+
+            load_private_prompts = kwargs.setdefault("load_private_prompts", True)
+            if load_source_prompts or (load_private_prompts and encoder.is_private): 
+                # and not "_for" in prompt: 
                 # and not "_com" in prompt and not "_for" in prompt:
                 ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
-                load_private_prompts = kwargs.setdefault("load_private_prompts", True)
                 if bp == "load":
                     breakpoint()
                 enc_name = ""
