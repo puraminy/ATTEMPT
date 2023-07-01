@@ -941,12 +941,14 @@ def train(**kwargs):
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
     prompts_prefix = str(prompts_prefix)
+    load_private_prompts = kwargs.setdefault("load_private_prompts", True)
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if prompts_prefix is None or prompts_prefix == "1":
         prompts_prefix = str(data_args.max_train_samples)
     if not load_source_prompts and model_args.attn_tuning:
-        prompts_prefix = prompts_prefix + "_" \
-                + kwargs.experiment.split("/")[0] 
+        prompts_prefix = prompts_prefix 
+                # + "_" \
+                # + kwargs.experiment.split("/")[0] 
                 # + "_" + kwargs.expid
 
     if not router_prefix:
@@ -1015,7 +1017,6 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
 
-            load_private_prompts = kwargs.setdefault("load_private_prompts", True)
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 # and not "_for" in prompt: 
                 # and not "_com" in prompt and not "_for" in prompt:
