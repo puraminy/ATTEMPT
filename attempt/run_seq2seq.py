@@ -941,7 +941,7 @@ def train(**kwargs):
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
     prompts_prefix = str(prompts_prefix)
-    load_private_prompts = kwargs.setdefault("load_private_prompts", True)
+    load_private_prompts = kwargs.setdefault("load_private_prompts", False)
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if prompts_prefix is None or prompts_prefix == "1":
         prompts_prefix = str(data_args.max_train_samples)

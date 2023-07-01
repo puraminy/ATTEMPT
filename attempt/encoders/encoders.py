@@ -88,7 +88,8 @@ class PromptEncoder(torch.nn.Module):
                     self.enc_type + "_" + name + "_" + str(length) + ".pt"
         else:
             fname=(prefix + "_" if prefix else "") \
-                    + name + "_" + str(length) + ".pt"
+                    self.enc_type + "_" + name + "_" + str(length) + ".pt"
+                    #+ name + "_" + str(length) + ".pt"
         if self.is_source:
             fname = fname.replace("source_","") 
         return fname
