@@ -1027,20 +1027,19 @@ def train(**kwargs):
                 if encoder.is_private:
                     if load_private_prompts: 
                         enc_name = encoder.name.replace("for","mlp")
-                    else:
-                        continue
-                is_loaded = encoder.load(prompts_dir, 
+                if enc_name or not encoder.is_private:
+                    is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
                         ignore_if_not_exist=ignore_if_not_exist,
                         length = adapter_args.num_prompt_tokens,
                         name=enc_name)
-                if is_loaded:
-                    logger.info("%s was loaded", encoder.name)
-                else:
-                    logger.info("% doesn't exist and wasn't loaded", encoder.name)
-                if bp == "load":
-                    breakpoint()
-                exp_info["load_" + prompt] = is_loaded
+                    if is_loaded:
+                        logger.info("%s was loaded", encoder.name)
+                    else:
+                        logger.info("% doesn't exist and wasn't loaded", encoder.name)
+                    if bp == "load":
+                        breakpoint()
+                    exp_info["load_" + prompt] = is_loaded
             prompt_encoders.append(encoder)
 
         ############################ Create Target Prompt Encoders #############
