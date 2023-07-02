@@ -386,15 +386,18 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        args["main_vars"] = mvars
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
-       ee = int(args["expid"]) 
-       _output_dir = str(ee)
-       output_dir = os.path.join(save_path, _output_dir)
-       while Path(output_dir).exists():
-           ee += 1 
+       if exp_conf:
+           output_dir = exp_args["output_dir"]
+       else:
+           ee = int(args["expid"]) 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
-       args["cat"] = experiment.split("/")[-1] 
-       args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
+           while Path(output_dir).exists():
+               ee += 1 
+               _output_dir = str(ee)
+               output_dir = os.path.join(save_path, _output_dir)
+           args["cat"] = experiment.split("/")[-1] 
+           args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
@@ -1498,8 +1501,19 @@ def train(**kwargs):
                         length = adapter_args.num_prompt_tokens)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
         if model_args.attn_tuning is True:
-            assert Path(dpath).is_file(), dpath + " doesn't exist to load model"
-            trainer.model.update_router(dpath)
+              assert Path(dpath).is_file(), dpath + " doesn't exist to load model"
+              router_dict = torch.load(dpath, map_location='cpu')
+              attend_num = len(router_dict)
+              model.encoder.router = torch.nn.Parameter(data=torch.empty((
+                    attend_num,
+                    attend_num 
+              ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+              for i,(k,v) in enumerate(router_dict.items()):
+                   if sign_router:
+                       with torch.no_grad():
+                           v[v > 0] = 1.
+                           v[v <= 0] = 0.
+                   model.encoder.router[i].data.copy_(v.data)
     # Training
     if training_args.do_train:
         checkpoint = None
