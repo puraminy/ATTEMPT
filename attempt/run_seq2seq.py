@@ -330,7 +330,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
-   ii = len(existing_exps) + 1
+   ii = len(existing_exps) 
    exps_done = 0
    orig_args = args.copy()
    total = len(tot_comb)
@@ -936,7 +936,7 @@ def train(**kwargs):
            kwargs["use_saved_router"] = "NA" # Not found
            raise ValueError(dpath + " not found!")
        else:
-          router_dict = torch.load(dpath, map_location='cpu')
+          router_dict = torch.load(dpath, map_location=device)
           attend_num = len(router_dict)
           model.encoder.router = torch.nn.Parameter(data=torch.empty((
                 attend_num,
@@ -948,6 +948,7 @@ def train(**kwargs):
                        v[v > 0] = 1.
                        v[v <= 0] = 0.
                model.encoder.router[i].data.copy_(v.data)
+          model.encoder.router.to(device=device)
 
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
@@ -1487,6 +1488,7 @@ def train(**kwargs):
     def load_model(load_path, lsp=False):
         #model.load_encoders(load_path, load_source_prompts=lsp)
         dpath = os.path.join(load_path, "attn_W_down.pt")
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attention_paths = [dpath, 
                 os.path.join(load_path, "attn_W_up.pt")]
         if model_args.attn_tuning is True and Path(dpath).is_file():
@@ -1499,10 +1501,11 @@ def train(**kwargs):
                         prefix=prompts_prefix,
                         ignore_if_not_exist=False,
                         length = adapter_args.num_prompt_tokens)
+                encoder.to(device)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
         if model_args.attn_tuning is True:
               assert Path(dpath).is_file(), dpath + " doesn't exist to load model"
-              router_dict = torch.load(dpath, map_location='cpu')
+              router_dict = torch.load(dpath, map_location=device)
               attend_num = len(router_dict)
               model.encoder.router = torch.nn.Parameter(data=torch.empty((
                     attend_num,
