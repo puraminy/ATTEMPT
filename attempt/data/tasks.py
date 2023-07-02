@@ -597,7 +597,7 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"no","1":"yes"}
+    labels_map = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
@@ -986,7 +986,7 @@ class PAWS(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"no","1":"yes"}
+    labels_map = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
         path = op.join(mylogs.home,"paws", "final", split + ".tsv") 
