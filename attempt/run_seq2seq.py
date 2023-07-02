@@ -1539,6 +1539,7 @@ def train(**kwargs):
             #else: 
             #    prompts_prefix = "att_" + prompts_prefix 
             #prompts_prefix = prompts_prefix.strip("_")
+            prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
             save_all_prompts = kwargs.setdefault("save_all_prompts", False) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
             if not prompts_to_save:
@@ -1551,7 +1552,6 @@ def train(**kwargs):
                                  prefix=prompts_prefix,
                                  router_prefix=router_prefix)
 
-            prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
             save_router = kwargs.setdefault("save_router", False) 
             if prompts_to_save or save_router:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
