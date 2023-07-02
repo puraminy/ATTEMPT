@@ -225,13 +225,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
           save_path = os.path.join(str(Path(save_path).parent), experiment)
        else:
           save_path = os.path.join(mylogs.logPath, experiment)
-       if Path(save_path).exists() 
+       if Path(save_path).exists():
           if not rem:
                while Path(save_path).exists():
-                   ans = input("Do you want to delete '" + save_path + "'? (y or newname)")
-                   if ans == "y": 
+                  ans = input("Do you want to delete '" + save_path + \
+                           "'? d)delete u)use  newname)")
+                  if ans == "d": 
                       rem = True
-                   else:
+                  elif ans == "u":
+                      break
+                  else:
                       experiment = ans
                       save_path = os.path.join(mylogs.logPath, experiment)
           if rem:
@@ -1023,8 +1026,6 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
-                # and not "_for" in prompt: 
-                # and not "_com" in prompt and not "_for" in prompt:
                 ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 if bp == "load":
                     breakpoint()
@@ -1489,14 +1490,16 @@ def train(**kwargs):
             trainer.model.update_attention_weights_sub(attention_paths)
             if model_args.load_layer_norm and "layer_norm_bias.pt" in load_path: 
                 trainer.model.update_layer_norm_weights(load_path)
+        if lsp:
+            for encoder in model.prompt_encoders:
+                encoder.load(load_path, 
+                        prefix=prompts_prefix,
+                        ignore_if_not_exist=False,
+                        length = adapter_args.num_prompt_tokens)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
         if model_args.attn_tuning is True:
-            if Path(dpath).is_file():
-                trainer.model.update_router(dpath)
-            else:
-                dpath = os.path.join(prompts_dir, router_prefix + "_router.pt")
-                if Path(dpath).is_file():
-                    trainer.model.update_router(dpath)
+            assert Path(dpath).is_file(), dpath + " doesn't exist to load model"
+            trainer.model.update_router(dpath)
     # Training
     if training_args.do_train:
         checkpoint = None
@@ -1591,8 +1594,7 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            lsp = kwargs.setdefault("load_source_prompts",False)
-            load_model(training_args.output_dir, lsp=lsp)
+            load_model(training_args.output_dir, lsp=True)
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
@@ -1610,6 +1612,9 @@ def train(**kwargs):
 
     # Test
     if training_args.do_test:
+        reval = not training_args.do_train and training_args.do_test 
+        if reval: 
+            load_model(training_args.output_dir, lsp=True)
         if data_args.test_files is not None:
             test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
@@ -1730,7 +1735,7 @@ def train(**kwargs):
 
         ##################
         if not training_args.do_train:
-            load_model(training_args.output_dir, lsp=False)
+            load_model(training_args.output_dir, lsp=True)
         results = {}
         gen_conf = {}
         ds_backup = None
