@@ -225,13 +225,18 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
           save_path = os.path.join(str(Path(save_path).parent), experiment)
        else:
           save_path = os.path.join(mylogs.logPath, experiment)
-       if Path(save_path).exists() and rem:
-           #if input("Are you sure you want to delete the experiment folder?") == "y":
-           #shutil.rmtree(save_path)
-           save_path = save_path.rstrip("/")
-           dirs = glob.glob(save_path + '/*/')
-           ans = input("Do you want to delete '" + save_path + "'?")
-           if ans == "y":
+       if Path(save_path).exists() 
+          if not rem:
+               while Path(save_path).exists():
+                   ans = input("Do you want to delete '" + save_path + "'? (y or newname)")
+                   if ans == "y": 
+                      rem = True
+                   else:
+                      experiment = ans
+                      save_path = os.path.join(mylogs.logPath, experiment)
+          if rem:
+               save_path = save_path.rstrip("/")
+               dirs = glob.glob(save_path + '/*/')
                for d in dirs:
                     shutil.rmtree(d)
 
