@@ -1541,19 +1541,22 @@ def train(**kwargs):
             #prompts_prefix = prompts_prefix.strip("_")
             save_all_prompts = kwargs.setdefault("save_all_prompts", False) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
+            if not prompts_to_save:
+                prompts_to_save = "all" if save_all_prompts else None
             model.store_encoders(output_dir = training_args.output_dir,
+                                 prompts_and_router_only=model_args.attn_tuning, 
                                  save_source_prompts = ssp, 
+                                 prompts_to_save = prompts_to_save, 
+                                 save_router=True,
                                  prefix=prompts_prefix,
                                  router_prefix=router_prefix)
 
             prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
-            if not prompts_to_save:
-                prompts_to_save = "all" if save_all_prompts else None
             save_router = kwargs.setdefault("save_router", False) 
             if prompts_to_save or save_router:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
-                        prompts_and_router_only=True, 
+                        prompts_and_router_only=model_args.attn_tuning, 
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
                         save_router = save_router,
