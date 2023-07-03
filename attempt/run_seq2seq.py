@@ -401,12 +401,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
-       exp_conf = json.dumps(args, indent=2)
+       _conf = json.dumps(args, indent=2)
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
-           print(exp_conf)
+           print(_conf)
            with open("logs/exp_" + str(ii) + ".json","w") as f:
-               print(exp_conf, file=f)
+               print(_conf, file=f)
            continue
        # break point before running to check arguments (breakpoint must be check)
        mylogs.bp("check")
@@ -463,14 +463,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                if done != "has_conflict" and done != "is_repeated":
                    conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
-                       print(exp_conf, file=f)
+                       print(_conf, file=f)
                    exps_done += 1
                elif preview == "lict":
                    c = input("check for conflicts!")
            except Exception as e:
                print(f"================ {ii}/{total} =====================")
-               exp_conf = json.dumps(args, indent=2)
-               print(exp_conf)
+               _conf = json.dumps(args, indent=2)
+               print(_conf)
                raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
