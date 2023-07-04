@@ -1640,7 +1640,7 @@ def train(**kwargs):
     if training_args.do_test:
         reval = not training_args.do_train and training_args.do_test 
         if reval: 
-            load_model(training_args.output_dir, lsp=True)
+            load_model(training_args.output_dir, lsp=model_args.attn_tuning)
         if data_args.test_files is not None:
             test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args).get(
@@ -1761,7 +1761,7 @@ def train(**kwargs):
 
         ##################
         if not training_args.do_train:
-            load_model(training_args.output_dir, lsp=True)
+            load_model(training_args.output_dir, lsp=model_args.attn_tuning)
         results = {}
         gen_conf = {}
         ds_backup = None
