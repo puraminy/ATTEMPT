@@ -512,6 +512,8 @@ def train(**kwargs):
             logger.info("ARGS: %s=%s", k, v)
             v = strval(v)
             new_kwargs[k] = v
+            if not k in exp_info:
+                exp_info[k] = v
             if hasattr(model_args,k):
                 setattr(model_args, k, v)
             elif hasattr(data_args,k):
