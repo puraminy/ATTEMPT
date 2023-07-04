@@ -1,6 +1,6 @@
 #!/usr/bin/bash
-shopt -s expand_aliases 
-source ~/aa
+# shopt -s expand_aliases 
+# source ~/aa
 
 extra_params=""
 run_params=""
@@ -511,7 +511,7 @@ else
    echo "exp: ${exp} "
    echo "Run Params: ${run_params} "
    echo "Training ..."
-   runat run ${run_params} -exp $exp ${params} ${extra_params} 
+   python3 run_seq2seq.py run ${run_params} -exp $exp ${params} ${extra_params} 
 fi
 if [ $? != 0 ] && [ "$onError" = "break" ];
 then

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
-shopt -s expand_aliases 
-source ~/aa
+# shopt -s expand_aliases 
+# source ~/aa
 ####################
 bash_params=""
 global_run_params=""
@@ -205,10 +205,10 @@ do_exp() {
       elif [ -n "$_pvv" ]; then
          echo "run would be ${run}"
          if [ -n "$_pvv" ]; then
-            run $run _pv
+            bash train.sh $run _pv
          fi
       else
-         if ! run $run ; then
+         if ! bash train.sh $run ; then
             echo "exit 1"
             exit 1
          fi
