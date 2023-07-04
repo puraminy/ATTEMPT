@@ -228,8 +228,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if Path(save_path).exists():
           if not rem:
                while Path(save_path).exists():
-                  ans = input("Do you want to delete '" + save_path + \
-                           "'? d)delete u)use  newname)")
+                  ans = "u" #input("Do you want to delete '" + save_path + \
+                            #"'? d)delete u)use  newname)")
                   if ans == "d": 
                       rem = True
                   elif ans == "u":
@@ -265,7 +265,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    all_vars = [x.strip("--") for x in ctx.args]
    var_names = [x.split("=")[0] for x in all_vars]
-   values = [x.split("=")[1].split("#") for x in all_vars]
+   values = []
+   for x in all_vars:
+       _vv = x.split("=")
+       if len(_vv) < 2:
+           assert False, "invalid argument " + str(x) + "|" + str(_vv)
+       _vvv = _vv[1].split("#")
+       values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
    _mvars = []
    for var in main_vars.split("--"):
@@ -512,8 +518,6 @@ def train(**kwargs):
             logger.info("ARGS: %s=%s", k, v)
             v = strval(v)
             new_kwargs[k] = v
-            if not k in exp_info:
-                exp_info[k] = v
             if hasattr(model_args,k):
                 setattr(model_args, k, v)
             elif hasattr(data_args,k):
@@ -694,7 +698,7 @@ def train(**kwargs):
     for k,v in kwargs.items():
         if not k in exp_info:
             exp_info[k] = v
-
+    exp_info["attn_learning_rate"] = model_args.attn_learning_rate
 
     wandb_dir = kwargs.save_path #op.join("logs", experiment)
     Path(wandb_dir).mkdir(parents=True, exist_ok=True)
