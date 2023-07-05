@@ -210,10 +210,17 @@ class MatPromptEncoder(PromptEncoder):
             intrinsic_dim
         )).uniform_(-1e-3, 1e-3))
         self.A = shared_mat 
+        hsize = intrinsic_dim
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(intrinsic_dim, hsize),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hsize, intrinsic_dim)
+        )
 
     def forward_step(self, index_list, tids=None, training=True):
         # z = self.embedding(self.net_inps)
-        running_weight = torch.mm(self.z, self.A) 
+        z = self.mlp(self.z)
+        running_weight = torch.mm(z, self.A) 
         running_weight = running_weight.view(self.length, -1)
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds 
@@ -241,8 +248,8 @@ class MLPPromptEncoder(PromptEncoder):
 
     def forward_step(self, index_list, tids=None, training=True):
         embs = self.embedding(self.net_inps)
-        z = self.mlp(embs)
-        ret_embeds = F.embedding(index_list, z)
+        running_weight = self.mlp(embs)
+        ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds 
 
 class LSTMEmbeddingPromptEncoder(PromptEncoder):
