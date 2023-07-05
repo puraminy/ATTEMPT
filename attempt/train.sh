@@ -188,7 +188,11 @@ echo "---------- Tasks: $_tasks"
 _task=$_tasks
 
 if [ -z "$_single" ] && [ -z "$_multi" ]; then
-   _multi=True
+   if [ -n "$_pt" ]; then
+      _multi=False
+   else
+      _multi=True
+   fi
 fi
 
 if [ -n "$_multi" ]; then

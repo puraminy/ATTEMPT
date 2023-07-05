@@ -1411,7 +1411,8 @@ def train(**kwargs):
     if adapter_args.prompt_tuning:
         learning_rate = target_prompt_learning_rate
         for encoder in model.prompt_encoders:
-           para_list =[p for p in encoder.parameters() if p.requires_grad]
+           para_list =[
+                   p for n, p in encoder.named_parameters() if p.requires_grad and n != "A"]
            if para_list: 
                if encoder.is_source and not encoder.is_private:
                    src_prompt_params.extend(para_list)
@@ -1428,6 +1429,8 @@ def train(**kwargs):
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
+    if shared_mat is not None:
+        other_params.append(shared_mat)
     if other_params:
         grouped_params.append({'params': other_params, 'lr': training_args.learning_rate})
     #### ooooo 
