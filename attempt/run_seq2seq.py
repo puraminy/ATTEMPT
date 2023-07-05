@@ -1023,12 +1023,21 @@ def train(**kwargs):
 
         kwargs["num_source_prompts"] = len(source_prompts)
         mylogs.main_args["num_source_prompts"] = len(source_prompts)
+        shared_mat = None
+        intrinsic_dim = 300
+        if adapter_args.prompt_encoder_type == "mat":
+            bound = 1 / math.sqrt(adapter_args.num_prompt_tokens * model.embedding_dim)
+            shared_mat = nn.Parameter(data=torch.empty((
+                intrinsic_dim,
+                adapter_args.num_prompt_tokens, * model.embedding_dim
+            )).uniform_(-bound, bound), requires_grad=False)
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
                     is_source = True,
                     length = adapter_args.num_prompt_tokens,
-                    encoder_type=adapter_args.prompt_encoder_type) 
+                    encoder_type=adapter_args.prompt_encoder_type
+                    shared_mat= shared_mat) 
             if "_for" in encoder.name:
                 encoder.is_shared = False
                 encoder.is_private = True
@@ -1075,7 +1084,8 @@ def train(**kwargs):
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
-                    encoder_type=adapter_args.prompt_encoder_type) 
+                    encoder_type=adapter_args.prompt_encoder_type, 
+                    shared_mat= shared_mat) 
             if name in task_source_prompts_set:
                 encoder.attend_to.extend(
                         ["source_" + x for x in task_source_prompts_set[name]])

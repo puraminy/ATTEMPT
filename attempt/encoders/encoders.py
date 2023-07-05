@@ -201,19 +201,15 @@ class EmbeddingPromptEncoder(PromptEncoder):
 
 class MatPromptEncoder(PromptEncoder):
     enc_type = "mat"
-    def __init__(self, n_prompts, intrinsic_dim, n_prompt_tokens, temperature, **kwargs):
+    def __init__(self, shared_mat, n_prompts, 
+            intrinsic_dim, temperature, **kwargs):
         super().__init__(**kwargs)
         self.temperature = temperature 
         self.z = nn.Parameter(data=torch.empty((
             n_prompts,
             intrinsic_dim
         )).uniform_(-1e-3, 1e-3))
-
-        bound = 1 / math.sqrt(n_prompt_tokens * self.embedding_dim)
-        self.A = nn.Parameter(data=torch.empty((
-            intrinsic_dim,
-            n_prompt_tokens, * self.embedding_dim
-        )).uniform_(-bound, bound), requires_grad=False)
+        self.A = shared_mat 
 
     def forward_step(self, index_list, tids=None, training=True):
         running_weight = torch.mm(self.z, self.A) 
@@ -329,7 +325,7 @@ def extend_tokenizer(tokenizer, prompt_tokens = []):
         tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
 
 def create_encoder(name, model, tokenizer, prompt_tokens, 
-        length=None, encoder_type="lstm", is_source = False):
+        length=None, encoder_type="lstm", is_source = False, shared_mat=None):
     embedding_dim = model.config.hidden_size
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
@@ -361,7 +357,6 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
 
     elif encoder_type.startswith("mat"):
         prompt_encoder = MatPromptEncoder(
-                n_prompt_tokens=length,
                 n_prompts= len(prompt_tokens),
                 intrinsic_dim=300,
                 temperature=5,
@@ -369,7 +364,8 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 length = length,
                 is_source = is_source,
                 model=model, tokenizer=tokenizer,
-                prompt_tokens=prompt_tokens) 
+                prompt_tokens=prompt_tokens, 
+                shared_mat=shared_mat) 
     else:
         _enc_type = encoder_type.split("@")
         num_layers = 1
