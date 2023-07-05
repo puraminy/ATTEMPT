@@ -194,26 +194,26 @@ class PromptEncoder(torch.nn.Module):
             return detached_embeddings
 
 class EmbeddingPromptEncoder(PromptEncoder):
+    enc_type = "emb"
     def forward_step(self, index_list, tids=None, training=True):
         ret_embeds = self.embedding(index_list)
         return ret_embeds 
 
 class MatPromptEncoder(PromptEncoder):
-    def __init__(self, prefix_config, **kwargs):
+    enc_type = "mat"
+    def __init__(self, n_prompts, intrinsic_dim, n_prompt_tokens, temperature, **kwargs):
         super().__init__(**kwargs)
-        self.prefix_config = prefix_config
-        if prefix_config is not None:
-            self.temperature = self.prefix_config['temperature']
-            self.z = nn.Parameter(data=torch.empty((
-                prefix_config['n_prompts'],
-                prefix_config['intrinsic_dim']
-            )).uniform_(-1e-3, 1e-3))
+        self.temperature = temperature 
+        self.z = nn.Parameter(data=torch.empty((
+            n_prompts,
+            intrinsic_dim
+        )).uniform_(-1e-3, 1e-3))
 
-            bound = 1 / math.sqrt(prefix_config['n_prompt_tokens'] * self.embedding_dim)
-            self.A = nn.Parameter(data=torch.empty((
-                prefix_config['intrinsic_dim'],
-                prefix_config['n_prompt_tokens'] * self.embedding_dim
-            )).uniform_(-bound, bound), requires_grad=False)
+        bound = 1 / math.sqrt(n_prompt_tokens * self.embedding_dim)
+        self.A = nn.Parameter(data=torch.empty((
+            intrinsic_dim,
+            n_prompt_tokens, * self.embedding_dim
+        )).uniform_(-bound, bound), requires_grad=False)
 
     def forward_step(self, index_list, tids=None, training=True):
         running_weight = torch.mm(self.z, self.A) 
@@ -361,7 +361,10 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
 
     elif encoder_type.startswith("mat"):
         prompt_encoder = MatPromptEncoder(
-                prefix_config=prefix_config, 
+                n_prompt_tokens=length,
+                n_prompts= len(prompt_tokens),
+                intrinsic_dim=300,
+                temperature=5,
                 name = name, 
                 length = length,
                 is_source = is_source,
