@@ -1025,18 +1025,19 @@ def train(**kwargs):
         mylogs.main_args["num_source_prompts"] = len(source_prompts)
         shared_mat = None
         intrinsic_dim = 300
+        mylogs.bp("mat")
         if adapter_args.prompt_encoder_type == "mat":
-            bound = 1 / math.sqrt(adapter_args.num_prompt_tokens * model.embedding_dim)
-            shared_mat = nn.Parameter(data=torch.empty((
+            bound = 1 / math.sqrt(adapter_args.num_prompt_tokens * config.d_model)
+            shared_mat = torch.nn.Parameter(data=torch.empty((
                 intrinsic_dim,
-                adapter_args.num_prompt_tokens, * model.embedding_dim
+                adapter_args.num_prompt_tokens * config.d_model
             )).uniform_(-bound, bound), requires_grad=False)
         for prompt in source_prompts: 
             encoder, enc_type = create_encoder(prompt, model, tokenizer, 
                     prompt_tokens=[],
                     is_source = True,
                     length = adapter_args.num_prompt_tokens,
-                    encoder_type=adapter_args.prompt_encoder_type
+                    encoder_type=adapter_args.prompt_encoder_type,
                     shared_mat= shared_mat) 
             if "_for" in encoder.name:
                 encoder.is_shared = False

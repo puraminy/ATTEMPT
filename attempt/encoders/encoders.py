@@ -212,7 +212,9 @@ class MatPromptEncoder(PromptEncoder):
         self.A = shared_mat 
 
     def forward_step(self, index_list, tids=None, training=True):
+        # z = self.embedding(self.net_inps)
         running_weight = torch.mm(self.z, self.A) 
+        running_weight = running_weight.view(self.length, -1)
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds 
 
@@ -357,7 +359,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
 
     elif encoder_type.startswith("mat"):
         prompt_encoder = MatPromptEncoder(
-                n_prompts= len(prompt_tokens),
+                n_prompts= 1, #len(prompt_tokens),
                 intrinsic_dim=300,
                 temperature=5,
                 name = name, 
