@@ -241,6 +241,7 @@ if [ -z "$_pdir" ]; then  _pdir=prompts; fi
 if [ -z "$_msl" ]; then  _msl=200; fi
 if [ -z "$_mtl" ]; then  _mtl=120; fi
 if [ -z "$_sph" ]; then  _sph=1; fi
+if [ -z "$_mc" ]; then  _mc=False; fi #multi choice format
 
 # eeeee
 if [ -n "$_test" ]; then
@@ -303,6 +304,7 @@ params="${params} --@max_train_samples=$_tn"
 params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
 params="${params} --samples_per_head=$_sph"
+params="${params} --multi_choice=$_mc"
 #params="${params} --data_seed=123"
 params="${params} --overwrite_cache=True"
 if [ -z $_seed ]; then

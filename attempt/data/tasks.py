@@ -59,6 +59,7 @@ class AbstractTask(abc.ABC):
         prompt_config["length"] = task_args.prompt_length
         prompt_config["target_length"] = task_args.target_prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
+        self.multi_choice = task_args.multi_choice
         self.prompt_config = prompt_config
         self.task_args = task_args
         self.counter = {} #counter for logging items
@@ -217,7 +218,7 @@ class AbstractTask(abc.ABC):
             template = template.replace(_pholder,prompt, 1)
         return template
 
-    def get_prompt_length(self, pnum, is_target = False):
+    def get_prompt_length(self, pnum = 0, is_target = False):
         mylogs.bp("plen")
         if is_target:
             tlength = self.prompt_config["target_length"]
@@ -407,13 +408,6 @@ class AbstractTask(abc.ABC):
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
-        labellist = self.label_list
-        self.option_lens = [len(opt) for opt in labellist]
-        self.option_starts = [0]
-        for i in range(1, len(labellist)):
-            self.option_starts.append(self.option_starts[i - 1] + 1 + self.option_lens[i - 1])
-        self.max_input_len = 511 - sum(self.option_lens) - len(labellist) - self.get_prompt_length()
-
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
                        add_prefix: bool = False,
@@ -424,12 +418,19 @@ class AbstractTask(abc.ABC):
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
         if self.labels_map and self.map_labels:
+            labels_list = []
+            for label in self.labels_list:
+                labels_list.append(self.labels_map[label])
+
             tt = []
             for label in targets:
                 assert label in self.labels_map, self.name + ":" + label \
                         + ":" + str(self.labels_map)
                 tt.append(self.labels_map[label])
             targets = tt 
+        else:
+            labels_list = self.labels_list
+            
         add_prefix = self.task_args.setdefault("add_prefix", False)
         orig_src = ' '.join(sources)
         sources = [src_prefix]+sources if add_prefix else sources
@@ -437,12 +438,17 @@ class AbstractTask(abc.ABC):
         tgt =  ' '.join(targets)
         src = src.strip()
         tgt = tgt.strip()
-        if not self.generation:
-            src = src[:350]
-            tgt = tgt[:20]
-        else:
-            src = src[:300]
-            tgt = tgt[:100]
+
+        prompt_len = self.get_prompt_length()
+        max_input_len = 511 - len(tgt) - prompt_len
+        if self.multi_choice:
+            max_input_len -= 9 # for options tag
+            max_input_len -= sum([len(l) + 1 for l in labels_list])
+
+        src = src[:max_input_len]
+        if self.multi_choice:
+            src = src + " options:" + ",".join(labels_list)
+
         data = {'source': src,
                 'target': tgt,
                 'task': self.get_id(),
