@@ -238,8 +238,8 @@ if [ -z "$_sp" ]; then  _sp=True; fi # save prompts
 if [ -z "$_ai" ]; then  _ai=False; fi
 if [ -z "$_lp" ]; then  _lp=True; fi
 if [ -z "$_pdir" ]; then  _pdir=prompts; fi
-if [ -z "$_msl" ]; then  _msl=200; fi
-if [ -z "$_mtl" ]; then  _mtl=120; fi
+if [ -z "$_msl" ]; then  _msl=400; fi
+if [ -z "$_mtl" ]; then  _mtl=50; fi
 if [ -z "$_sph" ]; then  _sph=1; fi
 if [ -z "$_mc" ]; then  _mc=False; fi #multi choice format
 

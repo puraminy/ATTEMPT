@@ -42,10 +42,11 @@ class AbstractTask(abc.ABC):
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
                                      "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
-    def __init__(self, config, task_args, task=""):
+    def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
         self.seed = task_args.data_seed
         self.template = task_args.template
+        self.tokenizer = tokenizer
         ## list of prompts
         if task: 
             self.task_name = task
@@ -445,7 +446,6 @@ class AbstractTask(abc.ABC):
             max_input_len -= 9 # for options tag
             max_input_len -= sum([len(l) + 1 for l in labels_list])
 
-        src = src[:max_input_len]
         if self.multi_choice:
             src = src + " options:" + ",".join(labels_list)
 
@@ -1446,9 +1446,9 @@ TASK_MAPPING = OrderedDict(
 
 class AutoTask:
     @classmethod
-    def get(self, task, config, task_args=None):
+    def get(self, task, config, task_args=None, tokenizer=None):
         if task in TASK_MAPPING:
-            return TASK_MAPPING[task](config, task_args, task)
+            return TASK_MAPPING[task](config, task_args, task, tokenizer)
         raise ValueError(
             "Unrecognized task {} for AutoTask Model.\n" + \
             "Task name should be one of {}.".format(task,
