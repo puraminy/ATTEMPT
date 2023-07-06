@@ -1853,14 +1853,14 @@ def train(**kwargs):
                     targets = model.encoder.target_encoders_idx
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
                     slen = ss1.size()[1] - ss1.size()[0]
-                    tlen = ssq.size()[0]
+                    tlen = ss1.size()[0]
                     sim = torch.zeros((tlen, tlen))
                     cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                     for i in range(tlen):
                         for j in range(tlen):
                             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) 
 
-                    ssq = torch.round(ss1*100)/100
+                    ss1 = torch.round(ss1*100)/100
                     ss2 = model.encoder.router.index_select(0, targets)
                     mask = model.encoder.attn_mask if mask is None else mask
                     ss3 = mask.index_select(0, targets)
