@@ -214,7 +214,7 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
-if [ -z "$_bs" ]; then  _bs=32; fi
+if [ -z "$_bs" ]; then  _bs=16; fi
 if [ -z "$_lr" ]; then  _lr=0.01; fi
 if [ -z "$_alr" ]; then _alr=0.07; fi
 if [ -z "$_numt" ]; then  _numt=50; fi
@@ -390,7 +390,7 @@ if [ "$method" = "at" ]; then
 fi
 if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi
 if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi
-if [ -z "$_oppx" ]; then  _oppx="pat"; fi
+if [ -z "$_opx" ]; then  _opx="pat"; fi
 
 # prompt tuning common settings
 if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
@@ -401,7 +401,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
    params="${params} --load_prompts=$_lp"
    params="${params} --ignore_train_if_exist=True"
    params="${params} --prompts_prefix=$_ppx"
-   params="${params} --output_prompts_prefix=$_oppx"
+   params="${params} --output_prompts_prefix=$_opx"
 fi
 
 if [ -z $_adapter ]; then 

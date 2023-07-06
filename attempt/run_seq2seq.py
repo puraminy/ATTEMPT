@@ -1580,7 +1580,7 @@ def train(**kwargs):
             prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
             save_all_prompts = kwargs.setdefault("save_all_prompts", False) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
-            opp = kwargs.setdefault("output_prompts_prefix", "pat") 
+            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
             if not prompts_to_save:
                 prompts_to_save = "all" if save_all_prompts else None
             model.store_encoders(output_dir = training_args.output_dir,
@@ -1588,7 +1588,7 @@ def train(**kwargs):
                                  save_source_prompts = ssp, 
                                  prompts_to_save = prompts_to_save, 
                                  save_router=True,
-                                 prefix= opp + "_" + prompts_prefix,
+                                 prefix= opp,
                                  router_prefix=router_prefix)
 
             save_router = kwargs.setdefault("save_router", False) 
@@ -1599,7 +1599,7 @@ def train(**kwargs):
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
                         save_router = save_router,
-                        prefix= opp +  "_" + prompts_prefix, 
+                        prefix= opp,
                         router_prefix=router_prefix)
 
         if kwargs.setdefault("save_model", False):
