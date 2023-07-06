@@ -388,8 +388,9 @@ if [ "$method" = "at" ]; then
    params="${params} --attn_method=sub"
    params="${params} --shared_attn=True"
 fi
-if [ -z "$_ppx" ]; then  _ppx=none; fi
-if [ -z "$_rpx" ]; then  _rpx=none; fi
+if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi
+if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi
+if [ -z "$_oppx" ]; then  _oppx="pat"; fi
 
 # prompt tuning common settings
 if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
@@ -400,6 +401,7 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
    params="${params} --load_prompts=$_lp"
    params="${params} --ignore_train_if_exist=True"
    params="${params} --prompts_prefix=$_ppx"
+   params="${params} --output_prompts_prefix=$_oppx"
 fi
 
 if [ -z $_adapter ]; then 
