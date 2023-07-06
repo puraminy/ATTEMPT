@@ -1852,11 +1852,12 @@ def train(**kwargs):
                     mylogs.bp("pic")
                     targets = model.encoder.target_encoders_idx
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
-                    slen = ss1.size()[0]
-                    sim = torch.zeros((slen, slen))
+                    slen = ss1.size()[1] - ss1.size()[0]
+                    tlen = ssq.size()[0]
+                    sim = torch.zeros((tlen, tlen))
                     cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                    for i in range(slen):
-                        for j in range(slen):
+                    for i in range(tlen):
+                        for j in range(tlen):
                             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) 
 
                     ssq = torch.round(ss1*100)/100

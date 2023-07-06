@@ -407,6 +407,13 @@ class AbstractTask(abc.ABC):
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
+        labellist = self.label_list
+        self.option_lens = [len(opt) for opt in labellist]
+        self.option_starts = [0]
+        for i in range(1, len(labellist)):
+            self.option_starts.append(self.option_starts[i - 1] + 1 + self.option_lens[i - 1])
+        self.max_input_len = 511 - sum(self.option_lens) - len(labellist) - self.get_prompt_length()
+
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
                        add_prefix: bool = False,
