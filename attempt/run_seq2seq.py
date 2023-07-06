@@ -1599,7 +1599,7 @@ def train(**kwargs):
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
                         save_router = save_router,
-                        prefix=prompts_prefix, 
+                        prefix= opp +  "_" + prompts_prefix, 
                         router_prefix=router_prefix)
 
         if kwargs.setdefault("save_model", False):
