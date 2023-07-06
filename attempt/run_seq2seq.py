@@ -775,7 +775,7 @@ def train(**kwargs):
     total_samples = 0
     for ti, task_name in enumerate(tasks, start=1):
          t_args = dotdict(task_args.copy())
-         task = AutoTask.get(task_name, None, task_args=t_args, tokenizer=tokenizer)
+         task = AutoTask.get(task_name, None, task_args=t_args, tokenizer= None)
          total_samples += data_args.max_train_samples * task.samples_per_head
 
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
