@@ -1048,10 +1048,11 @@ class T5Stack(T5PreTrainedModel):
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
 
         if self.router is None:
-            self.router = nn.Parameter(data=torch.empty((
-                attend_num,
-                attend_num 
-            ), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+            self.router = nn.Parameter(data=torch.eye(attend_num, device=device))
+            #self.router = nn.Parameter(data=torch.empty((
+            #    attend_num,
+            #    attend_num 
+            #), device=device).uniform_(0, 0)) #-1e-3, 1e-3
 
         target_prompt_ids = []
         task_prompt_ids = []
@@ -1073,7 +1074,6 @@ class T5Stack(T5PreTrainedModel):
             if encoder.is_target:
                 tgt_list.append(i)
                 self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
-                self.router[i, i].data = 1
                 i += 1
         self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)
