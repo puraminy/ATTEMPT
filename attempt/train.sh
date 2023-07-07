@@ -219,9 +219,9 @@ if [ -z "$_lr" ]; then  _lr=0.01; fi
 if [ -z "$_alr" ]; then _alr=0.07; fi
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
-if [ -z "$_spt" ]; then  _spt=False; fi # one source for each task 
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
 if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
+if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
 if [ -z "$_nsp" ]; then  
    _nsp=0; 
 elif [ -z "$_lsp" ]; then
@@ -452,7 +452,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@source_prompts=$_src"
    params="${params} --attend_to_all=True"
    params="${params} --@learn_loaded_prompts=True#False"
-   params="${params} --@use_private_prompts=False"
+   params="${params} --@use_private_prompts=$_upp"
    params="${params} --@learn_attention=True"
    params="${params} --sel_positives=False"
    params="${params} --@learn_source_prompts=$_learn_sp"
