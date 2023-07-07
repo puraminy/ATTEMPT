@@ -288,10 +288,13 @@ fi
 for method in $_met; do
    echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
    if [ -z "$_exp" ]; then 
-      if [ -n "$_eval" ]; then 
-         _exp="${_task}_eval"; 
+      if [ -n "$_cat" ]; then
+         _exp=$_cat
       else
-         _exp=$_task; 
+         _exp=$_task
+      fi
+      if [ -n "$_eval" ]; then 
+         _exp="${_exp}_eval"; 
       fi
    fi
 

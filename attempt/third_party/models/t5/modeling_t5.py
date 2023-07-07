@@ -1074,7 +1074,7 @@ class T5Stack(T5PreTrainedModel):
         i,j = 1,1 
         for encoder in self.prompt_encoders:
             if encoder.is_target:
-                router[i, j] = 1
+                router[i, j] = 3
                 j += 1
             i += 1
 
