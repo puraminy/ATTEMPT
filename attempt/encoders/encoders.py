@@ -338,6 +338,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
     embedding_dim = model.config.hidden_size
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
+    assert False, name
     if "@" in name:
         name, encoder_type = name.split("@") 
 
