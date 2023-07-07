@@ -263,7 +263,7 @@ fi
 if [ -z "$_vn" ]; then  _vn=50; fi
 if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  
-   _ep=20; 
+   _ep=10; 
 else
    main_vars="${main_vars}--num_train_epochs"
 fi

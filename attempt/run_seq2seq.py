@@ -700,7 +700,7 @@ def train(**kwargs):
         if not k in exp_info:
             exp_info[k] = v
     exp_info["attn_learning_rate"] = model_args.attn_learning_rate
-    if len(task_name) > 1:
+    if len(data_args.task_name) > 1:
         exp_info["multi_single"] = "multi"
     else:
         exp_info["multi_single"] = "single"
