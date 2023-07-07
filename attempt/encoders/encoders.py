@@ -391,6 +391,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 is_source = is_source,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)
+    prompt_encoder.enc_type = encoder_type
     return prompt_encoder, encoder_type
 
 
