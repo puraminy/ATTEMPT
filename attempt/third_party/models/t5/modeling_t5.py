@@ -1073,7 +1073,7 @@ class T5Stack(T5PreTrainedModel):
             if encoder.is_target:
                 tgt_list.append(i)
                 self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
-                self.router[i, i] = 1
+                self.router[i, i].data = 1
                 i += 1
         self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)
