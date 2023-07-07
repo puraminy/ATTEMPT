@@ -530,7 +530,7 @@ class PIQA(AbstractTask):
     labels_map = {"0":"Choice1", "1":"Choice2", "0.0":"Choice1", "1.0":"Choice2"}
 
     def load_dataset(self, split):
-        # return datasets.load_dataset('piqa', split=split)
+        return datasets.load_dataset('piqa', split=split)
         path = op.join(mylogs.home, "piqa","final", split + ".csv")
         # return datasets.load_dataset('csv', data_files=path)
         df = pd.read_csv(path)
