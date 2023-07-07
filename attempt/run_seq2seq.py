@@ -404,6 +404,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                output_dir = os.path.join(save_path, _output_dir)
            args["cat"] = experiment.split("/")[-1] 
            args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
+       if repeat:
+          args["expid"] += "_rep"
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
