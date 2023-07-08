@@ -1059,7 +1059,7 @@ def train(**kwargs):
                 enc_name = ""
                 if encoder.is_private:
                     if load_private_prompts: 
-                        enc_name = encoder.name.replace("for","mlp")
+                        enc_name = encoder.name.replace("_for","")
                 if enc_name or not encoder.is_private:
                     is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
