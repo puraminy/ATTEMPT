@@ -1164,11 +1164,15 @@ def train(**kwargs):
     learn_private_prompts = kwargs.setdefault("learn_private_prompts", True) 
     if adapter_args.prompt_tuning:
         for encoder in prompt_encoders: 
-            if encoder.is_source:
+            if encoder.is_private and learn_private_prompts:
+                for n,p in encoder.named_parameters():
+                    p.requires_grad = True
+                continue
+            elif encoder.is_source:
                 if model_args.learn_source_prompts:
-                    if encoder.is_loaded and not learn_loaded_prompts:
-                        continue
                     if encoder.is_private and not learn_private_prompts:
+                        continue
+                    if encoder.is_loaded and not learn_loaded_prompts:
                         continue
                     for n,p in encoder.named_parameters():
                         p.requires_grad = True
