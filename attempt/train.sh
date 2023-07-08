@@ -486,6 +486,9 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    if [ -n "$_tlr" ]; then
       params="${params} --@target_prompt_learning_rate=$_tlr"
    fi
+   if [ -n "$_plr" ]; then
+      params="${params} --@private_prompt_learning_rate=$_plr"
+   fi
    params="${params} --@attn_learning_rate=$_alr"
    params="${params} --@attn_method=rb"
    params="${params} --@temperature=$_tmpr"

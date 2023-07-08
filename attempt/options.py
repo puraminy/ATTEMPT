@@ -412,6 +412,12 @@ class ModelArguments:
             "help": "set prompt learning rate."
         },
     )
+    private_prompt_learning_rate: float = field(
+        default=None,
+        metadata={
+            "help": "set prompt learning rate."
+        },
+    )
     target_prompt_learning_rate: float = field(
         default=None,
         metadata={

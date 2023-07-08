@@ -1407,12 +1407,16 @@ def train(**kwargs):
     prompt_learning_rate = model_args.prompt_learning_rate 
     target_prompt_learning_rate = model_args.target_prompt_learning_rate 
     source_prompt_learning_rate = model_args.source_prompt_learning_rate 
+    private_prompt_learning_rate = model_args.private_prompt_learning_rate 
     if source_prompt_learning_rate is None:
         source_prompt_learning_rate = prompt_learning_rate 
     if target_prompt_learning_rate is None:
         target_prompt_learning_rate = prompt_learning_rate 
+    if private_prompt_learning_rate is None:
+        private_prompt_learning_rate = prompt_learning_rate 
     src_prompt_params = []
     tgt_prompt_params = []
+    pvt_prompt_params = []
     mylogs.bp("opt")
     learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning:
@@ -1423,6 +1427,8 @@ def train(**kwargs):
            if para_list: 
                if encoder.is_source and not encoder.is_private:
                    src_prompt_params.extend(para_list)
+               elif encoder.is_private:
+                   pvt_prompt_params.extend(para_list)
                else:
                    tgt_prompt_params.extend(para_list)
 
@@ -1432,6 +1438,8 @@ def train(**kwargs):
             'lr': source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
             'lr': target_prompt_learning_rate})
+        grouped_params.append({'params': list(pvt_prompt_params), 
+            'lr': private_prompt_learning_rate})
         prompt_params = list(src_prompt_params) + list(tgt_prompt_params)
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
