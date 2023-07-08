@@ -1434,13 +1434,15 @@ def train(**kwargs):
 
         src_prompt_params = set(src_prompt_params)
         tgt_prompt_params = set(tgt_prompt_params)
+        pvt_prompt_params = set(pvt_prompt_params)
         grouped_params.append({'params': list(src_prompt_params), 
             'lr': source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
             'lr': target_prompt_learning_rate})
         grouped_params.append({'params': list(pvt_prompt_params), 
             'lr': private_prompt_learning_rate})
-        prompt_params = list(src_prompt_params) + list(tgt_prompt_params)
+        prompt_params = list(src_prompt_params) \
+                + list(tgt_prompt_params) + list(pvt_prompt_params)
 
     other_params = all_parameters - set(attn_params) - set(prompt_params)
     other_params = list(other_params)
