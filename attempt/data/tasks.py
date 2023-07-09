@@ -19,6 +19,8 @@ from random import shuffle
 
 logger = logging.getLogger(__name__)
 
+super_glue = mylogs.home + "/sg/super_glue.py"
+
 class AbstractTask(abc.ABC):
     name = NotImplemented
     do_shuffle = True # My code
@@ -1125,7 +1127,7 @@ class SuperGLUEBoolQ(AbstractTask):
 
     labels_map = {"0":"Fals", "1":"True"}
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'boolq', split=split)
+        return datasets.load_dataset(super_glue, 'boolq', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["question:", example["question"],
@@ -1145,7 +1147,7 @@ class SuperGLUERTE(AbstractTask):
     labels_map = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'rte', split=split)
+        return datasets.load_dataset(super_glue, 'rte', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example["premise"],
@@ -1165,7 +1167,7 @@ class SuperGLUECB(AbstractTask):
     labels_map = {"0":"en", "2":"neutral", "1": "contradiction"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'cb', split=split)
+        return datasets.load_dataset(super_glue, 'cb', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example["premise"],
@@ -1185,7 +1187,7 @@ class SuperGLUECOPA(AbstractTask):
     labels_map = {"0":"Choice1", "1":"Choice2"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'copa', split=split)
+        return datasets.load_dataset(super_glue, 'copa', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["premise:", example["premise"],
@@ -1207,7 +1209,7 @@ class SuperGLUEMultiRC(AbstractTask):
     labels_map = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'multirc', split=split)
+        return datasets.load_dataset(super_glue, 'multirc', split=split)
 
     def remove_markup(self, text):
         """Removes the HTML markup."""
@@ -1238,7 +1240,7 @@ class SuperGLUEWIC(AbstractTask):
     labels_map = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'wic', split=split)
+        return datasets.load_dataset(super_glue, 'wic', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["sentence1:", example["sentence1"],
@@ -1247,7 +1249,14 @@ class SuperGLUEWIC(AbstractTask):
         tgt_texts = [str(example["label"])]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
+from datasets import load_dataset, DownloadConfig
 
+download_config = DownloadConfig(
+        proxies={
+            "http": "http://fodev.org:8118",
+            "https": "http://fodev.org:8118"
+            }
+        )
 class SuperGLUEWSCFixed(AbstractTask):
     # source: https://github.com/google-research/text-to-text-transfer-transformer/blob/master/t5/data/preprocessors.py
     """Convert WSC examples to text2text format.
@@ -1280,7 +1289,9 @@ class SuperGLUEWSCFixed(AbstractTask):
     labels_map = {"0":"Fals", "1":"True"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'wsc.fixed', split=split)
+        return datasets.load_dataset(super_glue, 
+                'wsc.fixed', split=split)
+        #, download_config=download_config)
 
     def _mark_span(self, text, span_str, span_idx, mark):
         pattern_tmpl = r'^((?:\S+\s){N})(W)'
@@ -1336,7 +1347,7 @@ class SuperGLUERecord(AbstractTask):
     metric_names = ["squad"]
 
     def load_dataset(self, split):
-        return datasets.load_dataset('super_glue', 'record', split=split)
+        return datasets.load_dataset(super_glue, 'record', split=split)
 
     def preprocessor(self, batch, add_prefix=True):
         new_batch = collections.defaultdict(list)
