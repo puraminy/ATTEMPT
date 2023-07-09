@@ -1144,7 +1144,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"Fals", "1":"True"}
+    labels_map = {"0":"en", "1":"not"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)
