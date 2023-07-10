@@ -698,9 +698,6 @@ def train(**kwargs):
        mylogs.plog.info(exp_conf)
     ###### Collect experiment infos
     exp_info = {}
-    for k,v in kwargs.items():
-        if not k in exp_info:
-            exp_info[k] = v
     exp_info["attn_learning_rate"] = model_args.attn_learning_rate
     if len(data_args.task_name) > 1:
         exp_info["multi_single"] = "multi"
@@ -967,6 +964,7 @@ def train(**kwargs):
     prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
     prompts_prefix = str(prompts_prefix)
     load_private_prompts = kwargs.setdefault("load_private_prompts", False)
+    exp_info["load_private_prompts"] = load_private_prompts
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if prompts_prefix is None or prompts_prefix == "1":
         prompts_prefix = str(data_args.max_train_samples)
@@ -1673,6 +1671,9 @@ def train(**kwargs):
                 wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
+    for k,v in kwargs.items():
+        if not k in exp_info:
+            exp_info[k] = v
     if training_args.do_test:
         reval = not training_args.do_train and training_args.do_test 
         if reval: 
