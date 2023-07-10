@@ -222,6 +222,7 @@ if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
 if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
+if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
 if [ -z "$_nsp" ]; then  
    _nsp=0; 
 elif [ -z "$_lsp" ]; then
@@ -456,6 +457,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --attend_to_all=True"
    params="${params} --@learn_loaded_prompts=True#False"
    params="${params} --@use_private_prompts=$_upp"
+   params="${params} --@load_private_prompts=$_lpp"
    params="${params} --@learn_attention=True"
    params="${params} --sel_positives=False"
    params="${params} --@learn_source_prompts=$_learn_sp"
@@ -473,7 +475,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    fi
    params="${params} --attn_tuning=True#!False"
    params="${params} --attend_input=False#True"
-   params="${params} --attend_for=none#inp_target"
+   params="${params} --attend_for=target"
    params="${params} --attend_source=True#!False"
    params="${params} --@add_target=False"
    params="${params} --@target_share=none#0.5#0#-1#1"
