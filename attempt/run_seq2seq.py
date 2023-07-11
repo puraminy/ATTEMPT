@@ -1963,7 +1963,7 @@ def train(**kwargs):
                 del _main_vars["task_name"]
 
             global_scores.append(ss1)
-            global_y_labels.append(y_labels)
+            global_y_labels.extend(y_labels)
             global_x_labels = model.encoder.prompt_names 
             for score in [ss1]: #[ss2]
                 img_buf = WBCallback.save_image(score=score, 
