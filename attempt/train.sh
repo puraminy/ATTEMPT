@@ -476,7 +476,11 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    fi
    params="${params} --attn_tuning=True#!False"
    params="${params} --attend_input=False#True"
-   params="${params} --attend_for=none#target"
+   if [ $_attn = "sub" ]; then
+      params="${params} --attend_for=ptarget#target"
+   else
+      params="${params} --attend_for=none#target"
+   fi
    params="${params} --attend_source=True#!False"
    params="${params} --@add_target=$_addt"
    if [ $_addt = "True" ]; then
@@ -495,7 +499,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
       params="${params} --@private_prompt_learning_rate=$_plr"
    fi
    params="${params} --@attn_learning_rate=$_alr"
-   params="${params} --@attn_method=rb"
+   params="${params} --@attn_method=$_attn"
    params="${params} --@temperature=$_tmpr"
    params="${params} --@anneal_dir=$_adir"
    params="${params} --normalize=True"
