@@ -1004,7 +1004,7 @@ class PAWS(AbstractTask):
     labels_map = {"0":"nod","1":"duplicate"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('paws', split=split)
+        return datasets.load_dataset('paws', 'labeled_final', split=split)
         path = op.join(mylogs.home,"paws", "final", split + ".tsv") 
         df = pd.read_table(path)
         ds = Dataset.from_pandas(df)
