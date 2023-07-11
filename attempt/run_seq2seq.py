@@ -489,7 +489,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            return
 
    if global_scores:
-        score = torch.cat(global_scores, dim=1)
+        score = torch.cat(global_scores, dim=0)
         img_buf = WBCallback.save_image(score=score, 
            y_labels=global_y_labels,
            x_labels=global_x_labels,
@@ -510,6 +510,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 # m3
 @cli.command()
 def train(**kwargs):
+    global global_x_labels
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -1973,7 +1974,7 @@ def train(**kwargs):
                             + model_args.compose_method \
                             + "_" + kwargs.apply_softmax_to \
                             + "_" + model_args.attn_method,
-                    img_h=6.5 if multi_tasking else 1.5,
+                    img_h=6.5 if multi_tasking else 2.5,
                     df=None) 
                 if img_buf:
                     cur_img = Image.open(img_buf)
