@@ -1167,6 +1167,8 @@ class T5Stack(T5PreTrainedModel):
 
         avg_attend_to, _ = torch.max(attend_to, 2)
         avg_attend_for, _ = torch.max(inp_target, 2)
+        #avg_attend_to = attend_to
+        #avg_attend_for = inp_target
         #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
         device=inputs_embeds.device
         attn_scores = None
@@ -1234,7 +1236,7 @@ class T5Stack(T5PreTrainedModel):
             x = self.attn_W_up(x)
             x = self.layer_norm(x)
             #x = x.unsqueeze(-1) ###
-            x = torch.transpose(x, 1,2)
+            x = torch.transpose(x, -2, -1)
             attn_scores = avg_attend_for.bmm(
                 x) / self.temperature
 

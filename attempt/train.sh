@@ -62,6 +62,9 @@ echo "Run Prarams: ${run_params}"
 eval "${bash_params}"
 echo "Tasks: $_tasks"
 
+if [ -n "$_ttasks" ]; then
+   _tasks="${_tasks}#qnli#rte#mrpc#qqp"
+fi
 if [ -n "$_gtasks" ]; then
    _tasks="${_tasks}#cola#mnli#qnli#rte#qqp#mrpc#sst2#stsb"
 fi
@@ -477,7 +480,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --attn_tuning=True#!False"
    params="${params} --attend_input=False#True"
    if [ $_attn = "sub" ]; then
-      params="${params} --attend_for=ptarget#target"
+      params="${params} --attend_for=private#target"
    else
       params="${params} --attend_for=none#target"
    fi
