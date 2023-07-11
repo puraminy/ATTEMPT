@@ -82,6 +82,8 @@ os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
 logger = logging.getLogger(__name__)
 global_scores = []
+global_y_labels = []
+global_x_labels = []
 
 def mbp(bp="all",*arg):
     print("info:",*arg)
@@ -486,29 +488,24 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
 
-   for score in global_scores: #[ss2]
+   if global_scores:
+        score = torch.cat(global_scores, dim=1)
         img_buf = WBCallback.save_image(score=score, 
-           y_labels=y_labels,
-           x_labels=[str(i) for i in range(score.size()[1])], 
-           title = "cat" + args["cat"] 
-            df=None) 
+           y_labels=global_y_labels,
+           x_labels=global_x_labels,
+           title = "cat" + args["cat"], 
+           df=None) 
         if img_buf:
             cur_img = Image.open(img_buf)
-            #tags_img = tag_to_image(da, get_image=True)
-            #cur_img = combine_x([tags_img, cur_img])
             cat = Path(save_path).parent
             sp = op.join(cat, "images") 
             Path(sp).mkdir(exist_ok=True, parents=True)
-            pic = "router_global_" + str(args["expid"])
+            pic = "router_global"
             pp = sp + "/pred_" + pic + ".png"
-            existing_images = glob.glob(op.join(sp, "pred_*.png"))
-            if existing_images:
-                pp = existing_images[0]
             if Path(pp).is_file():
                 _image = Image.open(pp)
                 cur_img = combine_y([cur_img, _image])
             cur_img.save(pp)
-        kk += 1
 
 # m3
 @cli.command()
@@ -1966,6 +1963,8 @@ def train(**kwargs):
                 del _main_vars["task_name"]
 
             global_scores.append(ss1)
+            global_y_labels.append(y_labels)
+            global_x_labels = model.encoder.prompt_names 
             for score in [ss1]: #[ss2]
                 img_buf = WBCallback.save_image(score=score, 
                    y_labels=y_labels,
