@@ -1986,7 +1986,8 @@ def train(**kwargs):
                     pic = "router_" + str(exp_info["expid"])
                     pp = sp + "/pred_" + pic + ".png"
                     existing_images = glob.glob(op.join(sp, "pred_*.png"))
-                    if existing_images:
+                    merge_plots = kwargs.setdefault("merge_plots", False)
+                    if existing_images and merge_plots:
                         pp = existing_images[0]
                     if Path(pp).is_file():
                         _image = Image.open(pp)
