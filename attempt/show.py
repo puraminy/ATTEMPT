@@ -718,7 +718,6 @@ def show_df(df):
             imgs = {}
             #_, start = list_values(["start","pred"])
             start = "pred"
-            breakpoint()
             s_rows = set(s_rows)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
