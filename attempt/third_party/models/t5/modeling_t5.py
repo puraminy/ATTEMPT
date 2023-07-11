@@ -1142,7 +1142,7 @@ class T5Stack(T5PreTrainedModel):
         inp_target = target_prompts
         if self.attend_for == "private": 
             private_prompt = src_prompts[:,-1,:,:]
-            attend_for = private_prompt.unsqueeze(1)
+            inp_target = private_prompt.unsqueeze(1)
             attend_to = src_prompts[:,:-1,:,:]
         elif self.attend_for == "target": 
             inp_target = target_prompts
