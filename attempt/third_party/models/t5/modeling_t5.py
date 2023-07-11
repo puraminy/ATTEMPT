@@ -1140,7 +1140,9 @@ class T5Stack(T5PreTrainedModel):
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
         inp_target = target_prompts
-        if self.attend_for == "target": 
+        if self.attend_for == "ptarget": 
+            attend_for = src_prompts[-1] 
+        elif self.attend_for == "target": 
             inp_target = target_prompts
         elif self.attend_for == "inp_target": 
             #pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
