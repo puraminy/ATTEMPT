@@ -718,7 +718,7 @@ def show_df(df):
             imgs = {}
             #_, start = list_values(["start","pred"])
             start = "pred"
-            #breakpoint()
+            breakpoint()
             s_rows = set(s_rows)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
@@ -750,10 +750,10 @@ def show_df(df):
                         kk = parts.index(key)
                         key = parts[kk]
                     dest = os.path.join(spath, fname + ".png") 
-                    if not fname.startswith("pred_sel"):
-                        selimg = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
-                        os.rename(img, selimg)
-                        img = selimg
+                    # if not fname.startswith("pred_sel"):
+                    #    selimg = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
+                    #    os.rename(img, selimg)
+                    #    img = selimg
                     shutil.copyfile(img, dest)
                     _image = Image.open(dest)
                     if key == "single": key = str(ii)
