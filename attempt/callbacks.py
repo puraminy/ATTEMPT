@@ -92,7 +92,7 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_image(score, x_labels, y_labels, fname="", 
-            annot=True,title="", df=None):
+            annot=True,title="", df=None, img_h=6.5):
         if not title: title = fname
         if df is not None:
             fig, axes = plt.subplot_mosaic("A;B")
@@ -105,7 +105,7 @@ class WBCallback(WandbCallback):
             ax1 = axes["A"]
             ax_t = ax1
         ax1.set_title(title)
-        fig.set_size_inches(12.5, 6.5)
+        fig.set_size_inches(12.5, img_h)
         np_score = score.detach().cpu().numpy()
         if np_score.size != 0:
             sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 

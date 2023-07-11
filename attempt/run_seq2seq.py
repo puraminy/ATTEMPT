@@ -81,6 +81,7 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 
 logger = logging.getLogger(__name__)
+global_scores = []
 
 def mbp(bp="all",*arg):
     print("info:",*arg)
@@ -357,6 +358,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        old_comb = comb.copy()
 
    args["tag"] = ctags 
+   y_labels = []
    for comb in tot_comb:
        _output_dir = []
        prev_name = ""
@@ -468,6 +470,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        else:
            try:
                done = ctx.invoke(train, **args)
+               y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
                    conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
@@ -482,6 +485,30 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
+
+   for score in global_scores: #[ss2]
+        img_buf = WBCallback.save_image(score=score, 
+           y_labels=y_labels,
+           x_labels=[str(i) for i in range(score.size()[1])], 
+           title = "cat" + args["cat"] 
+            df=None) 
+        if img_buf:
+            cur_img = Image.open(img_buf)
+            #tags_img = tag_to_image(da, get_image=True)
+            #cur_img = combine_x([tags_img, cur_img])
+            cat = Path(save_path).parent
+            sp = op.join(cat, "images") 
+            Path(sp).mkdir(exist_ok=True, parents=True)
+            pic = "router_global_" + str(args["expid"])
+            pp = sp + "/pred_" + pic + ".png"
+            existing_images = glob.glob(op.join(sp, "pred_*.png"))
+            if existing_images:
+                pp = existing_images[0]
+            if Path(pp).is_file():
+                _image = Image.open(pp)
+                cur_img = combine_y([cur_img, _image])
+            cur_img.save(pp)
+        kk += 1
 
 # m3
 @cli.command()
@@ -699,8 +726,10 @@ def train(**kwargs):
     ###### Collect experiment infos
     exp_info = {}
     exp_info["attn_learning_rate"] = model_args.attn_learning_rate
+    multi_tasking = False
     if len(data_args.task_name) > 1:
         exp_info["multi_single"] = "multi"
+        multi_tasking = True
     else:
         exp_info["multi_single"] = "single"
 
@@ -1936,7 +1965,8 @@ def train(**kwargs):
             if "task_name" in _main_vars:
                 del _main_vars["task_name"]
 
-            for score in [ss1, ss2]:
+            global_scores.append(ss1)
+            for score in [ss1]: #[ss2]
                 img_buf = WBCallback.save_image(score=score, 
                    y_labels=y_labels,
                    x_labels=model.encoder.prompt_names, 
@@ -1944,6 +1974,7 @@ def train(**kwargs):
                             + model_args.compose_method \
                             + "_" + kwargs.apply_softmax_to \
                             + "_" + model_args.attn_method,
+                    img_h=6.5 if multi_tasking else 1.5,
                     df=None) 
                 if img_buf:
                     cur_img = Image.open(img_buf)
