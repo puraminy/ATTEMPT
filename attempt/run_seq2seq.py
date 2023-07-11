@@ -1949,10 +1949,13 @@ def train(**kwargs):
                     cur_img = Image.open(img_buf)
                     #tags_img = tag_to_image(da, get_image=True)
                     #cur_img = combine_x([tags_img, cur_img])
-                    sp = op.join(kwargs.save_path, "images") 
+                    sp = op.join(kwargs.cat, "images") 
                     Path(sp).mkdir(exist_ok=True, parents=True)
                     pic = "router_" + str(exp_info["expid"])
                     pp = sp + "/pred_" + pic + ".png"
+                    existing_images = glob.glob(op.join(sp, "pred_*.png"))
+                    if existing_images:
+                        pp = existing_images[0]
                     if Path(pp).is_file():
                         _image = Image.open(pp)
                         cur_img = combine_y([cur_img, _image])

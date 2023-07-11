@@ -223,6 +223,7 @@ if [ -z "$_sr" ]; then  _sr=False; fi # save router
 if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
 if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
+if [ -z "$_addt" ]; then  _addt=False; fi # Add Target 
 if [ -z "$_nsp" ]; then  
    _nsp=0; 
 elif [ -z "$_lsp" ]; then
@@ -475,9 +476,9 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    fi
    params="${params} --attn_tuning=True#!False"
    params="${params} --attend_input=False#True"
-   params="${params} --attend_for=target"
+   params="${params} --attend_for=none#target"
    params="${params} --attend_source=True#!False"
-   params="${params} --@add_target=False"
+   params="${params} --@add_target=$_addt"
    params="${params} --@target_share=none#0.5#0#-1#1"
    params="${params} --@attend_target=False#True"
    params="${params} --@target_share_temperature=5."
