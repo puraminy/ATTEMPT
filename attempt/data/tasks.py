@@ -548,7 +548,7 @@ class PIQA(AbstractTask):
 
 
 class CommonsenseQA(AbstractTask):
-    name = "commonsense_qa"
+    name = "commonsense-qa"
     labels_list = ["0", "1", "2", "3", "4"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -567,7 +567,7 @@ class CommonsenseQA(AbstractTask):
 
 
 class SocialIQA(AbstractTask):
-    name = "social_i_qa"
+    name = "social-i-qa"
     labels_list = ["0", "1", "2"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -937,7 +937,7 @@ class oEffect(Atomic):
 
 
 class CommonGen(AbstractTask):
-    name = "common_gen"
+    name = "common-gen"
     metric = [metrics.rouge]
     metric_names = ["rouge"]
     generation = True
@@ -1462,9 +1462,9 @@ TASK_MAPPING = OrderedDict(
         ('triviaqa', Squad),
         ('nq', Squad),
         ('hotpotqa', Squad),
-        ("social_i_qa", SocialIQA),
-        ("commonsense_qa", CommonsenseQA),
-        ("common_gen", CommonGen),
+        ("social-i-qa", SocialIQA),
+        ("commonsense-qa", CommonsenseQA),
+        ("common-gen", CommonGen),
         ("winogrande", WinoGrande),
         ("scitail", SciTail),
         ('yelp_polarity', YelpPolarity),
