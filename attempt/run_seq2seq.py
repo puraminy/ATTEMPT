@@ -57,6 +57,7 @@ import os
 from torch import nn
 
 from data.tasks import TASK_MAPPING
+import metrics.metrics as mets
 from metrics.metrics import TASK_TO_METRICS
 from metrics.metrics import build_compute_metrics_fn
 
@@ -1788,6 +1789,7 @@ def train(**kwargs):
                     info = info.replace("\n", "@")
                 df[key] = info
             rouge_scorer = Rouge()
+            golds, preds = [], []
             for i, row in df.iterrows():
                 mylogs.bp("=testloop") 
                 extra = row["extra_fields"]
@@ -1805,6 +1807,7 @@ def train(**kwargs):
                 label = re.sub(r'<.*?>','', label)
                 label = label.strip()
                 df.at[i, "target_text"] = extra["target_text"] #label 
+                golds.append(extra["target_text"].strip())
                 sel = False
                 if "sel" in extra:
                     sel = extra["sel"] 
@@ -1816,12 +1819,11 @@ def train(**kwargs):
                         skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
                 pred = re.sub(r'<.*?>','',pred)
                 pred = pred.strip()
+                preds.append(pred)
                 df.at[i, "pred_text1"] = pred
             df = df.drop(columns=["input_ids","labels","attention_mask"])
             scores = do_score(df, "rouge@bert", save_to)
-            return df, scores
-
-
+            return df, scores, golds, preds
 
         ##################
         if not training_args.do_train:
@@ -1853,7 +1855,7 @@ def train(**kwargs):
                 save_to = os.path.join(training_args.output_dir, 
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
-                df, scores = evaluate_test(task, test_dataset, save_to, ds_name)
+                df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             for rm, mask in combs.items():
                 img_list = []
@@ -1881,8 +1883,19 @@ def train(**kwargs):
                                         "_" + route_method + "_" + str(kwargs.trial) + \
                                         "_" + mylogs.now + "_" + str(ii)  + ".tsv")
 
-                        df, scores = evaluate_test(task, test_dataset, 
+                        df, scores, preds, golds = evaluate_test(task, test_dataset, 
                                 save_to, ds_name, gen_conf)
+                        task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else ["rouge"]
+                        metrics_list = []
+                        for mstr in task_metric:
+                            metric = getattr(mets, mstr)
+                            met = metric(preds, golds)
+                        mm = 0
+                        for k,v in met.items():
+                            df[k] = v
+                            df["metric"+ str(ii)] = v
+                            mm += 1
+
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")
                         mylogs.bp("test")
