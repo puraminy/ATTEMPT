@@ -553,6 +553,7 @@ class CommonsenseQA(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
+                           "test":"validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
@@ -572,6 +573,7 @@ class SocialIQA(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
+                           "test":"validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
