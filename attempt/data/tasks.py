@@ -298,7 +298,7 @@ class AbstractTask(abc.ABC):
                src = src.replace("(mask)", "")
                target = target.replace("(mask)","")
             if part == "pcom":
-               src = src.replace("(prompt)", "[com_k] (prompt) ",1)
+               src = src.replace("(prompt)", "[com_i] (prompt) ",1)
                pcom += 1
             if part == "ptar":
                src = src.replace("(prompt)", "[tar-task_k] (prompt) ",1)

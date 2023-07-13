@@ -469,7 +469,7 @@ def show_df(df):
             Path(spath).mkdir(parents=True, exist_ok=True)
             images = []
             kk = 1
-            key = "single"
+            key = exp # "single"
             ii = 0
             for img in paths: 
                 fname = Path(img).stem
@@ -1804,18 +1804,19 @@ def show_df(df):
             gdf = df.groupby([col]).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
             caps = {}
-            for exp in all_exps:
+            for exp in gdf["expid"].unique():
                 img_cap = ""
+                cond = (gdf['expid'] == exp)
                 for sel_col in sel_cols:
-                    cond = (gdf['expid'] == exp)
-                    val = gdf.iloc[cond.idxmax()][sel_col]
+                    val = gdf.loc[cond, sel_col].iloc[0]
                     if sel_col.endswith("score"):
                         val = "{:.2f}".format(val)
                     img_cap += sel_col.replace("_","-") + ": $" + str(val) + "$ "
                     table_cont1 = table_cont1.replace("@" + exp + "@" + sel_col, str(val))
                 caps[exp] = img_cap
-            for rel in mdf['prefix'].unique(): 
-                for exp in all_exps:
+            for exp in all_exps:
+                scores = ""
+                for rel in mdf['prefix'].unique(): 
                     model = "t5-base"
                     for met in mdf["template"].unique():
                         cond = ((mdf['prefix'] == rel) &
@@ -1832,11 +1833,13 @@ def show_df(df):
                                    val = str(int(val))
                                 except:
                                    val = "NA"
+                            scores += rel + ":" + "$" + val + "$ "
                             table_cont2 = table_cont2.replace(
                                     "@" + exp + "@" + rel + "@" + sc, val)
+                caps[exp] += scores            
             for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
                 lable = "results:" + rel + "_" + exp
-                caption = f"{rel} for {exp}"
+                caption = f"{exp}"
                 table = """
                     \\begin{{table*}}
                         \centering
@@ -1853,7 +1856,7 @@ def show_df(df):
             image = """
                 \\begin{{figure}}
                     \centering
-                    \includegraphics[width=\\paperwidth]{{{}}}
+                    \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
                     \label{{fig:overal}}
                 \end{{figure}}
@@ -1861,8 +1864,9 @@ def show_df(df):
             dest, imgs = get_images(df, all_exps)
             Path(f"{doc_dir}/pics").mkdir(parents=True, exist_ok=True)
             for key, img_list in imgs.items():
-                for name, new_im in zip(all_exps, img_list):
-                    caption = caps[name]
+                name = key
+                for new_im in img_list:
+                    caption = name + ":" + caps[name]
                     name = key + str(name)
                     pname = "pics/" + name.strip("-") + ".png"
                     dest = os.path.join(doc_dir, pname) 
