@@ -37,8 +37,8 @@ TASK_TO_METRICS = {
                    "xNeed": ["rouge"],
                    "atomic-rels": ["rouge"],
                    "xReact": ["rouge"],
-                   "mrpc": ["accuracy", "f1"],
-                   "cola": ['matthews_correlation'],
+                   "mrpc": ["accuracy"], #, "f1"],
+                   "cola": ["accuracy"], # ['matthews_corrcoef'],
                    "stsb": ['pearson_corrcoef', 'spearman_corrcoef'],
                    'sst2': ['accuracy'],
                    "mnli": ["accuracy"],
@@ -89,7 +89,10 @@ def rouge(predictions, targets) -> dict:
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
     mylogs.bp("compute")
-    return {"accuracy": 100 * ((np.array(predictions) == np.array(targets)).mean())}
+    targets = [t.strip() for t in targets]
+    predictions = [p.strip() for p in predictions]
+    acc = 100 * ((np.array(predictions) == np.array(targets)).mean())
+    return {"accuracy": "{:.2f}".format(acc)}
 
 
 def pearson_corrcoef(predictions, targets) -> dict:
@@ -153,6 +156,8 @@ def f1_score_with_invalid(predictions, targets) -> dict:
 
 def matthews_corrcoef(predictions, targets) -> dict:
     """Computes the Matthews correlation coefficient."""
+    targets = [t.strip() for t in targets]
+    predictions = [p.strip() for p in predictions]
     return {"matthews_correlation": 100 * sklearn.metrics.matthews_corrcoef(targets, predictions)}
 
 

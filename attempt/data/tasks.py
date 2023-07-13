@@ -575,7 +575,7 @@ class SocialIQA(AbstractTask):
                            "validation": "validation"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('social_i_qa', split=split)
+        return datasets.load_dataset(mylogs.home + '/datasets/social_i_qa.py', split=split)
 
     def preprocessor(self, example, add_prefix=True):
         src_texts = ["question:", example['question'], "context:", example["context"], "|| choice0:",
@@ -934,6 +934,22 @@ class xEffect(Atomic):
 
 class oEffect(Atomic):
     name = "oEffect"
+
+
+class CommonGen(AbstractTask):
+    name = "common_gen"
+    metric = [metrics.rouge]
+    metric_names = ["rouge"]
+    generation = True
+
+    def load_dataset(self, split):
+        return load_dataset(mylogs.home + "/datasets/common_gen.py", split=split)
+
+    def preprocessor(self, example, add_prefix=True):
+        src_texts = ["concepts:"] + example["concepts"]
+        tgt_texts = [example['target']]
+        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+
 
 class QQP(AbstractTask):
     name = "qqp"
@@ -1448,6 +1464,7 @@ TASK_MAPPING = OrderedDict(
         ('hotpotqa', Squad),
         ("social_i_qa", SocialIQA),
         ("commonsense_qa", CommonsenseQA),
+        ("common_gen", CommonGen),
         ("winogrande", WinoGrande),
         ("scitail", SciTail),
         ('yelp_polarity', YelpPolarity),

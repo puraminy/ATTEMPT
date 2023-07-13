@@ -1,0 +1,16 @@
+\documentclass[]{article}
+\usepackage{booktabs} % for professional tables
+\usepackage{makecell}
+\usepackage{multirow,multicol}
+\usepackage{graphicx} 
+
+%opening
+\title{}
+\author{}
+
+\begin{document}
+
+mytable
+myimage
+
+\end{document}

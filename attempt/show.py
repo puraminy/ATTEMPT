@@ -446,6 +446,68 @@ def show_df(df):
             df[_col] = df[_col].astype(str)
 
     map_cols =  load_obj("map_cols", "atomic", {})
+
+    def get_images(df, exps):
+        imgs = {}
+        start = "pred"
+        for exp in exps:
+            cond = f"(main_df['expid'] == '{exp}')"
+            tdf = main_df[main_df['expid'] == exp]
+            path=tdf.iloc[0]["path"]
+            path = Path(path)
+            #_selpath = os.path.join(path.parent, "pred_sel" + path.name) 
+            #shutil.copy(path, _selpath)
+            grm = tdf.iloc[0]["gen_route_methods"]
+            runid = tdf.iloc[0]["runid"]
+            run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
+            paths = glob(run)
+            if not paths:
+                paths = glob("**/" + run)
+            spath = "images/" + runid
+            if Path(spath).exists():
+                shutil.rmtree(spath)
+            Path(spath).mkdir(parents=True, exist_ok=True)
+            images = []
+            kk = 1
+            key = "single"
+            ii = 0
+            for img in paths: 
+                fname = Path(img).stem
+                parts = fname.split("_")
+                if kk < 0:
+                    _, key = list_values(parts)
+                    kk = parts.index(key)
+                    key = parts[kk]
+                dest = os.path.join(spath, fname + ".png") 
+                # if not fname.startswith("pred_sel"):
+                #    selimg = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
+                #    os.rename(img, selimg)
+                #    img = selimg
+                shutil.copyfile(img, dest)
+                _image = Image.open(dest)
+                if key == "single": key = str(ii)
+                if key == "all":
+                    imgs[key] = [_image]
+                elif not key in imgs:
+                    imgs[key] = [_image]
+                else:
+                    imgs[key].append(_image)
+                images.append({"image": dest})
+        if imgs:
+            if Path("temp").exists():
+                shutil.rmtree("temp")
+            Path("temp").mkdir(parents=True, exist_ok=True)
+            for key, img_list in imgs.items():
+                if len(img_list) > 1:
+                    new_im = combine_y(img_list)
+                    name = key 
+                    dest = os.path.join("temp", name.strip("-") + ".png")
+                    new_im.save(dest)
+        return dest, imgs
+
+
+
+
     if not map_cols:
         map_cols = {
             "epochs_num":"epn",
@@ -715,64 +777,13 @@ def show_df(df):
                 s_rows = group_rows
                 if not group_rows:
                     s_rows = [sel_row]
-            imgs = {}
             #_, start = list_values(["start","pred"])
-            start = "pred"
             s_rows = set(s_rows)
+            exprs = []
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
-                cond = f"(main_df['expid'] == '{exp}')"
-                tdf = main_df[main_df['expid'] == exp]
-                path=tdf.iloc[0]["path"]
-                path = Path(path)
-                #_selpath = os.path.join(path.parent, "pred_sel" + path.name) 
-                #shutil.copy(path, _selpath)
-                grm = tdf.iloc[0]["gen_route_methods"]
-                runid = tdf.iloc[0]["runid"]
-                run = "wandb/offline*" + runid + f"/files/media/images/{start}*.png"
-                paths = glob(run)
-                if not paths:
-                    paths = glob("**/" + run)
-                spath = "images/" + runid
-                if Path(spath).exists():
-                    shutil.rmtree(spath)
-                Path(spath).mkdir(parents=True, exist_ok=True)
-                images = []
-                kk = 1
-                key = "single"
-                ii = 0
-                for img in paths: 
-                    fname = Path(img).stem
-                    parts = fname.split("_")
-                    if kk < 0:
-                        _, key = list_values(parts)
-                        kk = parts.index(key)
-                        key = parts[kk]
-                    dest = os.path.join(spath, fname + ".png") 
-                    # if not fname.startswith("pred_sel"):
-                    #    selimg = str(Path(img).parent) + "/pred_sel" +  fname + ".png"
-                    #    os.rename(img, selimg)
-                    #    img = selimg
-                    shutil.copyfile(img, dest)
-                    _image = Image.open(dest)
-                    if key == "single": key = str(ii)
-                    if key == "all":
-                        imgs[key] = [_image]
-                    elif not key in imgs:
-                        imgs[key] = [_image]
-                    else:
-                        imgs[key].append(_image)
-                    images.append({"image": dest})
-            if imgs:
-                if Path("temp").exists():
-                    shutil.rmtree("temp")
-                Path("temp").mkdir(parents=True, exist_ok=True)
-                for key, img_list in imgs.items():
-                    if len(img_list) > 1:
-                        new_im = combine_y(img_list)
-                        name = key 
-                        dest = os.path.join("temp", name.strip("-") + ".png")
-                        new_im.save(dest)
+                exprs.append(exp)
+            dest,imgs = get_images(df, exprs)
             subprocess.run(["eog", dest])
         if char in ["o","O"]:
             _agg = {}
@@ -1132,21 +1143,27 @@ def show_df(df):
             df = df.sort_values(by=["rouge_score"], ascending=False)
             sort = "rouge_score"
         elif char == "u":
-            preds = df["pred_text1"].tolist()
-            golds = df["target_text"].tolist()
-            with open(task + "_results.txt", "w") as f:
-                for p,g in zip(preds, golds):
-                    print(p + "\t" + g, file=f)
-            task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
-            metrics_list = []
-            for mstr in task_metric:
-                metric = getattr(mets, mstr)
-                met = metric(preds, golds)
-                metrics_list.append(met)
+            all_exps = df['expid'].unique()
             infos = []
-            for met in metrics_list:
-                for k,v in met.items():
-                    infos.append(str(k) + ":" + str(v))
+            for exp in all_exps:
+                for task in df["prefix"].unique():
+                    cond = ((main_df['expid'] == exp) & (main_df["prefix"] == task))
+                    tdf = main_df[cond]
+                    preds = tdf["pred_text1"].tolist()
+                    golds = tdf["target_text"].tolist()
+                    with open(task + "_" + exp + "_results.txt", "w") as f:
+                        for p,g in zip(preds, golds):
+                            print(p + "\t" + g, file=f)
+                    task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
+                    metrics_list = []
+                    for mstr in task_metric:
+                        metric = getattr(mets, mstr)
+                        met = metric(preds, golds)
+                        metrics_list.append(met)
+                    for met in metrics_list:
+                        for k,v in met.items():
+                            infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
+                            infos.append("---------------------------------------------")
             subwin(infos)
         elif char == "U" and prev_char == "x": 
             if sel_col:
@@ -1727,53 +1744,131 @@ def show_df(df):
             col_widths[col] = int(val)
             adjust = False
         if cmd == "report":
-            doc_dir = os.path.join(home, "Documents/Paper1/icml-kr")
-            with open(f"{doc_dir}/report.tex.temp", "r") as f:
+            _dir = Path(__file__).parent
+            doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            with open(f"{_dir}/report_templates/report.tex.temp", "r") as f:
                 report = f.read()
+            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
+            #    table_cont = f.read()
+            table_cont1=""
+            table_cont1 += "method & "
+            head1 = "|c|"
+            for sel_col in sel_cols:
+                head1 += "c|"
+                header = sel_col if not sel_col in map_cols else map_cols[sel_col] 
+                header = header.replace("_","-")
+                table_cont1 += " \\textbf{" + header + "} &"
+            mdf = main_df
+            table_cont2=""
+            table_cont2 += "method & "
+            head2 = "|c|"
+            for rel in mdf['prefix'].unique(): 
+                table_cont2 += " \\textbf{" + rel + "} &"
+                head2 += "c|"
+            table_cont1 = table_cont1.strip("&")
+            table_cont1 += "\\\\\n"
+            table_cont1 += "\\hline\n"
+            table_cont2 = table_cont2.strip("&")
+            table_cont2 += "\\\\\n"
+            table_cont2 += "\\hline\n"
+            all_exps = mdf['expid'].unique()
+            for exp in all_exps:
+                table_cont1 += exp + "&"
+                for sel_col in sel_cols:
+                    table_cont1 += f" $ @{exp}@{sel_col} $ &"
+                table_cont2 += exp + "&"
+                for rel in mdf['prefix'].unique(): 
+                    table_cont2 += f" $ @{exp}@{rel}@rouge_score $ &"
+                table_cont1 = table_cont1.strip("&")
+                table_cont1 += "\\\\\n"
+                table_cont2 = table_cont2.strip("&")
+                table_cont2 += "\\\\\n"
+            table_cont1 += "\\hline \n"
+            table_cont2 += "\\hline \n"
+
+                
             table_dir = os.path.join(doc_dir, "table")
-            all_steps = df['steps'].unique()
-            for rel in df['prefix'].unique(): 
-                with open(f"{table_dir}/table.txt", "r") as f:
-                    table_cont = f.read()
-                for samp in all_steps:
-                    cont = table_cont
-                    table_name = f"{rel}_{samp}.txt"
-                    table_file = f"{table_dir}/{table_name}"
-                    _input = f"table/{table_name}" 
-                    out = open(table_file, "w")
-                    for met in df["template"].unique():
-                        for mod in ["t5-v1", "t5-lmb", "t5-base"]:
-                            for sc in ["rouge_score", "bert_score", "hscore", "num_preds"]:
-                                cond = ((df['prefix'] == rel) &
-                                        (df["template"] == met) &
-                                        (df["steps"] == samp) &
-                                        (df["model"] == mod))
-                                val = df.loc[cond, sc].mean()
-                                val = round(val,2)
-                                if sc != "num_preds":
-                                    val = "{:.2f}".format(val)
-                                else:
-                                    try:
-                                       val = str(int(val))
-                                    except:
-                                       val = "NA"
-                                cont = cont.replace("@" + met + "@" + mod + "@" + sc, val)
-                    out.write(cont)
-                    out.close()
-                    lable = "results:" + rel + "_" + samp
-                    caption = f"{rel} for {samp}"
-                    table = """
-                        \\begin{{table*}}
-                            \centering
-                            \label{{{}}}
-                            \caption{{{}}}
-                            \\begin{{tabular}}{{|c| c|c|c| c | c |}}
-                            \input{{{}}}
-                            \end{{tabular}}
-                        \end{{table*}}
-                        """
-                    table = table.format(lable, caption, _input)
-                    report = report.replace("mytable", table +"\n\n" + "mytable")
+            Path(table_dir).mkdir(parents=True, exist_ok=True)
+            cat=mdf.iloc[0]["cat"]
+            table_name = f"{cat}.txt"
+            table_file = f"{table_dir}/{table_name}"
+            out = open(table_file, "w")
+            _input = f"table/{table_name}" 
+            col = "expid"
+            _agg = {}
+            for c in sel_cols:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
+            gdf = df.groupby([col]).agg(_agg).reset_index(drop=True)
+            gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
+            caps = {}
+            for exp in all_exps:
+                img_cap = ""
+                for sel_col in sel_cols:
+                    cond = (gdf['expid'] == exp)
+                    val = gdf.iloc[cond.idxmax()][sel_col]
+                    if sel_col.endswith("score"):
+                        val = "{:.2f}".format(val)
+                    img_cap += sel_col.replace("_","-") + ": $" + str(val) + "$ "
+                    table_cont1 = table_cont1.replace("@" + exp + "@" + sel_col, str(val))
+                caps[exp] = img_cap
+            for rel in mdf['prefix'].unique(): 
+                for exp in all_exps:
+                    model = "t5-base"
+                    for met in mdf["template"].unique():
+                        cond = ((mdf['prefix'] == rel) &
+                                (mdf["template"] == met) &
+                                (mdf["expid"] == exp) &
+                                (mdf["model_name_or_path"] == model))
+                        for sc in ["rouge_score"]: # "bert_score", "hscore", "num_preds"]:
+                            val = mdf.loc[cond, sc].mean()
+                            val = round(val,2)
+                            if sc != "num_preds":
+                                val = "{:.2f}".format(val)
+                            else:
+                                try:
+                                   val = str(int(val))
+                                except:
+                                   val = "NA"
+                            table_cont2 = table_cont2.replace(
+                                    "@" + exp + "@" + rel + "@" + sc, val)
+            for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
+                lable = "results:" + rel + "_" + exp
+                caption = f"{rel} for {exp}"
+                table = """
+                    \\begin{{table*}}
+                        \centering
+                        \label{{{}}}
+                        \caption{{{}}}
+                        \\begin{{tabular}}{{{}}}
+                        \hline
+                        {}
+                        \end{{tabular}}
+                    \end{{table*}}
+                    """
+                table = table.format(lable, caption, head, cont)
+                report = report.replace("mytable", table +"\n\n" + "mytable")
+            image = """
+                \\begin{{figure}}
+                    \centering
+                    \includegraphics[width=\\paperwidth]{{{}}}
+                    \caption[image]{{{}}}
+                    \label{{fig:overal}}
+                \end{{figure}}
+            """
+            dest, imgs = get_images(df, all_exps)
+            Path(f"{doc_dir}/pics").mkdir(parents=True, exist_ok=True)
+            for key, img_list in imgs.items():
+                for name, new_im in zip(all_exps, img_list):
+                    caption = caps[name]
+                    name = key + str(name)
+                    pname = "pics/" + name.strip("-") + ".png"
+                    dest = os.path.join(doc_dir, pname) 
+                    new_im.save(dest)
+                    ii = image.format(pname, caption)
+                    report = report.replace("myimage", ii +"\n\n" + "myimage")
             with open(f"{doc_dir}/report.tex", "w") as f:
                 f.write(report)
 
