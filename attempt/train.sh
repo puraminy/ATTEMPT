@@ -278,7 +278,6 @@ if [ -z "$_err" ]; then  _err=break; fi
 onError=$_err
 params=""
 
-_exp="$_exp-$lsp-$_learnsp-$lpp"
 
 if [ -z "$_rels" ]; then  _rels="none"; fi
 if [ -z "$_met" ]; then
@@ -313,6 +312,7 @@ for method in $_met; do
       if [ -n "$_eval" ]; then 
          _exp="${_exp}_eval"; 
       fi
+      _exp="${_exp}-${_lsp}-${_learn_sp}-${_lpp}"
    fi
 
 params="${params} --@method=$method"
