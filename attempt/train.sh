@@ -102,8 +102,10 @@ if [ -n "$_pat" ] || [ -z "$_pt" ]; then
    fi
 
    if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
-      echo "_ppx (prompts prefix) is missinge e.g. _ppx nli "
-      exit
+      if [ -z "$_lsp" ] || [ "$_lsp" = "True" ]; then
+         echo "_ppx (prompts prefix) is missinge e.g. _ppx nli "
+         exit
+      fi
    fi
    if [ -z "$_src" ]; then
       stasks=$_stasks
@@ -276,6 +278,8 @@ if [ -z "$_err" ]; then  _err=break; fi
 onError=$_err
 params=""
 
+_exp="$_exp-$lsp-$_learnsp-$lpp"
+
 if [ -z "$_rels" ]; then  _rels="none"; fi
 if [ -z "$_met" ]; then
    _met="ptat"
@@ -293,7 +297,15 @@ fi
 for method in $_met; do
    echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
    if [ -z "$_exp" ]; then 
-      if [ -n "$_cat" ]; then
+      if [ -n "$_nsp" ]; then
+         _exp="nsp-$_nsp"
+      elif [ -n "$_seqt" ]; then
+         if [ -n "$_upp" ]; then
+            _exp="seqt-upp"
+         else
+            _exp="seqt"
+         fi
+      elif [ -n "$_cat" ]; then
          _exp=$_cat
       else
          _exp=$_task

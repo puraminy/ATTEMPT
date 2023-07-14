@@ -1743,7 +1743,7 @@ def show_df(df):
             col = sel_cols[cur_col]
             col_widths[col] = int(val)
             adjust = False
-        if cmd == "report":
+        if cmd == "report" or char == "R":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             with open(f"{_dir}/report_templates/report.tex.temp", "r") as f:
@@ -1806,7 +1806,7 @@ def show_df(df):
             _input = f"table/{table_name}" 
             caps = {}
             for exp in gdf["expid"].unique():
-                img_cap = ""
+                img_cap = " table: \hyperref[table:1]{Table}"
                 cond = (gdf['expid'] == exp)
                 for sel_col in sel_cols:
                     val = gdf.loc[cond, sel_col].iloc[0]
@@ -1845,11 +1845,12 @@ def show_df(df):
                         table_cont2 = table_cont2.replace(
                                 "@" + exp + "@" + rel + "@" + sc, val)
                 caps[exp] += "\\\\" + scores            
+            ii = 1
             for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
-                lable = "table:" + exp
+                lable = "table:" + str(ii) 
                 caption = f"{exp}"
                 table = """
-                    \\begin{{table*}}
+                    \\begin{{table*}}[h]
                         \centering
                         \label{{{}}}
                         \caption{{{}}}
@@ -1861,8 +1862,9 @@ def show_df(df):
                     """
                 table = table.format(lable, caption, head, cont)
                 report = report.replace("mytable", table +"\n\n" + "mytable")
+                ii += 1
             image = """
-                \\begin{{figure}}
+                \\begin{{figure}}[h]
                     \centering
                     \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
@@ -1877,13 +1879,18 @@ def show_df(df):
                     caption = "\\textcolor{red}{" + name + "}:" + caps[name]
                     name = key + str(name)
                     label = "fig:" + key
-                    pname = "pics/" + name.strip("-") + ".png"
+                    pname = doc_dir + "/pics/" + name.strip("-") + ".png"
                     dest = os.path.join(doc_dir, pname) 
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
                     report = report.replace("myimage", ii +"\n\n" + "myimage")
-            with open(f"{doc_dir}/report.tex", "w") as f:
+            tex = f"{doc_dir}/report.tex"
+            pdf = f"{doc_dir}/report.pdf"
+            with open(tex, "w") as f:
                 f.write(report)
+            if char == "R":
+                subprocess.run(["pdflatex", tex])
+                subprocess.run(["okular", pdf])
 
         if cmd == "fix_types":
             for col in ["target_text", "pred_text1"]: 

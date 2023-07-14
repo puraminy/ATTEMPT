@@ -5,12 +5,14 @@
 \usepackage{graphicx} 
 \usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage{datetime}
 
 %opening
 \title{}
 \author{}
 
 \begin{document}
+The current time is \currenttime.
 
 mytable
 myimage
