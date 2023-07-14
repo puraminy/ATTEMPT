@@ -1889,8 +1889,9 @@ def show_df(df):
             with open(tex, "w") as f:
                 f.write(report)
             if char == "R":
-                subprocess.run(["pdflatex", tex])
-                subprocess.run(["okular", pdf])
+                mbeep()
+                #subprocess.run(["pdflatex", tex])
+                #subprocess.run(["okular", pdf])
 
         if cmd == "fix_types":
             for col in ["target_text", "pred_text1"]: 
@@ -2329,7 +2330,7 @@ def start(stdscr):
 @click.option(
     "--hkey",
     "-h",
-    default="CG",
+    default="CGR",
     type=str,
     help=""
 )
