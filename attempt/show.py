@@ -1751,6 +1751,15 @@ def show_df(df):
             #with open(f"{_dir}/report_templates/table.txt", "r") as f:
             #    table_cont = f.read()
             table_cont1=""
+            _agg = {}
+            for c in sel_cols:
+                if c.endswith("score"):
+                    _agg[c] = "mean"
+                else:
+                    _agg[c] = "first"
+            rdf = df.groupby(["expid", "prefix"]).agg(_agg).reset_index(drop=True)
+            gdf = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
+            gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
             table_cont1 += "method & "
             head1 = "|c|"
             for sel_col in sel_cols:
@@ -1771,9 +1780,9 @@ def show_df(df):
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
-            all_exps = mdf['expid'].unique()
+            all_exps = gdf['expid'].unique()
             for exp in all_exps:
-                table_cont1 += exp + "&"
+                table_cont1 += "\hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for sel_col in sel_cols:
                     table_cont1 += f" $ @{exp}@{sel_col} $ &"
                 table_cont2 += exp + "&"
@@ -1781,6 +1790,7 @@ def show_df(df):
                     table_cont2 += f" $ @{exp}@{rel}@rouge_score $ &"
                 table_cont1 = table_cont1.strip("&")
                 table_cont1 += "\\\\\n"
+                table_cont1 += "\\hline \n"
                 table_cont2 = table_cont2.strip("&")
                 table_cont2 += "\\\\\n"
             table_cont1 += "\\hline \n"
@@ -1794,15 +1804,6 @@ def show_df(df):
             table_file = f"{table_dir}/{table_name}"
             out = open(table_file, "w")
             _input = f"table/{table_name}" 
-            col = "expid"
-            _agg = {}
-            for c in sel_cols:
-                if c.endswith("score"):
-                    _agg[c] = "mean"
-                else:
-                    _agg[c] = "first"
-            gdf = df.groupby([col]).agg(_agg).reset_index(drop=True)
-            gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
             caps = {}
             for exp in gdf["expid"].unique():
                 img_cap = ""
@@ -1811,34 +1812,41 @@ def show_df(df):
                     val = gdf.loc[cond, sel_col].iloc[0]
                     if sel_col.endswith("score"):
                         val = "{:.2f}".format(val)
-                    img_cap += sel_col.replace("_","-") + ": $" + str(val) + "$ "
+                        val = "$\\textcolor{blue}{ " + val + " }$"
+                    else:
+                        val = "\\textbf{" + str(val) + "}"
+                    img_cap += sel_col.replace("_","-") + ": " + str(val) + " | "
                     table_cont1 = table_cont1.replace("@" + exp + "@" + sel_col, str(val))
                 caps[exp] = img_cap
             for exp in all_exps:
+                # breakpoint()
                 scores = ""
                 for rel in mdf['prefix'].unique(): 
                     model = "t5-base"
-                    for met in mdf["template"].unique():
-                        cond = ((mdf['prefix'] == rel) &
-                                (mdf["template"] == met) &
-                                (mdf["expid"] == exp) &
-                                (mdf["model_name_or_path"] == model))
-                        for sc in ["rouge_score"]: # "bert_score", "hscore", "num_preds"]:
-                            val = mdf.loc[cond, sc].mean()
-                            val = round(val,2)
-                            if sc != "num_preds":
-                                val = "{:.2f}".format(val)
-                            else:
-                                try:
-                                   val = str(int(val))
-                                except:
-                                   val = "NA"
-                            scores += rel + ":" + "$" + val + "$ "
-                            table_cont2 = table_cont2.replace(
-                                    "@" + exp + "@" + rel + "@" + sc, val)
-                caps[exp] += scores            
+                    cond = ((mdf['prefix'] == rel) & (mdf["expid"] == exp))
+                    for sc in ["rouge_score"]: # "bert_score", "hscore", "num_preds"]:
+                        val = mdf.loc[cond, sc].mean()
+                        maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
+                        val = round(val,2)
+                        maxval = round(maxval,2)
+                        bold = val == maxval
+                        if sc != "num_preds":
+                            val = "{:.2f}".format(val)
+                        else:
+                            try:
+                               val = str(int(val))
+                            except:
+                               val = "NA"
+                        if bold: 
+                            val = "\\textcolor{teal}{\\textbf{" + val + "}}"
+                        else:
+                            val = "\\textcolor{black}{" + val + "}"
+                        scores += rel + ":" + "$" + val + "$ "
+                        table_cont2 = table_cont2.replace(
+                                "@" + exp + "@" + rel + "@" + sc, val)
+                caps[exp] += "\\\\" + scores            
             for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
-                lable = "results:" + rel + "_" + exp
+                lable = "table:" + exp
                 caption = f"{exp}"
                 table = """
                     \\begin{{table*}}
@@ -1858,7 +1866,7 @@ def show_df(df):
                     \centering
                     \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
-                    \label{{fig:overal}}
+                    \label{{{}}}
                 \end{{figure}}
             """
             dest, imgs = get_images(df, all_exps)
@@ -1866,12 +1874,13 @@ def show_df(df):
             for key, img_list in imgs.items():
                 name = key
                 for new_im in img_list:
-                    caption = name + ":" + caps[name]
+                    caption = "\\textcolor{red}{" + name + "}:" + caps[name]
                     name = key + str(name)
+                    label = "fig:" + key
                     pname = "pics/" + name.strip("-") + ".png"
                     dest = os.path.join(doc_dir, pname) 
                     new_im.save(dest)
-                    ii = image.format(pname, caption)
+                    ii = image.format(pname, caption, label)
                     report = report.replace("myimage", ii +"\n\n" + "myimage")
             with open(f"{doc_dir}/report.tex", "w") as f:
                 f.write(report)

@@ -3,6 +3,8 @@
 \usepackage{makecell}
 \usepackage{multirow,multicol}
 \usepackage{graphicx} 
+\usepackage{xcolor}
+\usepackage{hyperref}
 
 %opening
 \title{}

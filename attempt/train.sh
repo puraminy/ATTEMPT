@@ -453,6 +453,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
       params="${params} --@load_source_prompts=$_lsp"
    fi
    params="${params} --@num_prompt_tokens=$_numt"
+   params="${params} --@prompt_length=$_pl"
    params="${params} --@num_source_prompts=$_nsp"
    params="${params} --@num_target_prompts=-1"
    params="${params} --learn_attention=True"
