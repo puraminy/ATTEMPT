@@ -100,6 +100,8 @@ def pearson_corrcoef(predictions, targets) -> dict:
     from data.postprocessors import string_to_float
     targets = [string_to_float(target) for target in targets]
     predictions = [string_to_float(prediction) for prediction in predictions]
+    if np.isnan(predictions).any():
+        predictions = np.nan_to_num(predictions)
     pearson_corrcoef = 100 * scipy.stats.pearsonr(targets, predictions)[0]
 
     # Note that if all the predictions will be the same, spearman
@@ -107,7 +109,7 @@ def pearson_corrcoef(predictions, targets) -> dict:
     # and return 0 in this case.
     if math.isnan(pearson_corrcoef):
         pearson_corrcoef = 0
-    return {"pearson": pearson_corrcoef}
+    return {"pearson": "{:.2f}".format(pearson_corrcoef)}
 
 
 ROUGE_KEYS = ["rouge1", "rouge2", "rougeL"]

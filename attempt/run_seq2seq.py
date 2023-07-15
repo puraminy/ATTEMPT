@@ -1822,6 +1822,18 @@ def train(**kwargs):
                 preds.append(pred)
                 df.at[i, "pred_text1"] = pred
             df = df.drop(columns=["input_ids","labels","attention_mask"])
+            task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else ["rouge"]
+            metrics_list = []
+            for mstr in task_metric:
+                metric = getattr(mets, mstr)
+                met = metric(preds, golds)
+            mm = 0
+            for k,v in met.items():
+                df[k] = v
+                df["metric_"+ str(ii)] = v
+                if mm == 0:
+                    df["m_score"] = v
+                mm += 1
             scores = do_score(df, "rouge@bert", save_to)
             return df, scores, golds, preds
 
@@ -1885,16 +1897,6 @@ def train(**kwargs):
 
                         df, scores, preds, golds = evaluate_test(task, test_dataset, 
                                 save_to, ds_name, gen_conf)
-                        task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else ["rouge"]
-                        metrics_list = []
-                        for mstr in task_metric:
-                            metric = getattr(mets, mstr)
-                            met = metric(preds, golds)
-                        mm = 0
-                        for k,v in met.items():
-                            df[k] = v
-                            df["metric"+ str(ii)] = v
-                            mm += 1
 
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")

@@ -296,7 +296,7 @@ fi
 for method in $_met; do
    echo "==================method: $method === epochs: $_ep ===== samples: $_train =========="
    if [ -z "$_exp" ]; then 
-      if [ -n "$_nsp" ]; then
+      if [ -n "$_nsp" ] && [ "$_nsp" != "0" ]; then
          _exp="nsp-$_nsp"
       elif [ -n "$_seqt" ]; then
          if [ -n "$_upp" ]; then

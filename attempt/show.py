@@ -17,6 +17,7 @@ import pandas as pd
 from comet.mycur.util import *
 from mylogs import * 
 import json
+from tqdm import tqdm
 from comet.utils.myutils import *
 from attempt.utils.utils import combine_x,combine_y,add_margin
 file_id = "name"
@@ -446,6 +447,32 @@ def show_df(df):
             df[_col] = df[_col].astype(str)
 
     map_cols =  load_obj("map_cols", "atomic", {})
+    def calc_metrics(df):
+        infos = []
+        all_exps = df['expid'].unique()
+        for exp in all_exps:
+            for task in df["prefix"].unique():
+                cond = ((main_df['expid'] == exp) & (main_df["prefix"] == task))
+                tdf = main_df[cond]
+                preds = tdf["pred_text1"]
+                preds = preds.fillna(0)
+                if len(preds) == 0:
+                    continue
+                golds = tdf["target_text"]
+                task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
+                metrics_list = []
+                for mstr in task_metric:
+                    metric = getattr(mets, mstr)
+                    met = metric(preds, golds)
+                    metrics_list.append(met)
+                if met and not "m_score" in main_df:
+                    k,v = met.items()[0]
+                    main_df.loc[cond, "m_score"] = v
+                for met in metrics_list:
+                    for k,v in met.items():
+                        infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
+                        infos.append("---------------------------------------------")
+        return infos
 
     def get_images(df, exps):
         imgs = {}
@@ -1143,27 +1170,7 @@ def show_df(df):
             df = df.sort_values(by=["rouge_score"], ascending=False)
             sort = "rouge_score"
         elif char == "u":
-            all_exps = df['expid'].unique()
-            infos = []
-            for exp in all_exps:
-                for task in df["prefix"].unique():
-                    cond = ((main_df['expid'] == exp) & (main_df["prefix"] == task))
-                    tdf = main_df[cond]
-                    preds = tdf["pred_text1"].tolist()
-                    golds = tdf["target_text"].tolist()
-                    with open(task + "_" + exp + "_results.txt", "w") as f:
-                        for p,g in zip(preds, golds):
-                            print(p + "\t" + g, file=f)
-                    task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
-                    metrics_list = []
-                    for mstr in task_metric:
-                        metric = getattr(mets, mstr)
-                        met = metric(preds, golds)
-                        metrics_list.append(met)
-                    for met in metrics_list:
-                        for k,v in met.items():
-                            infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
-                            infos.append("---------------------------------------------")
+            infos = calc_metrics(df)
             subwin(infos)
         elif char == "U" and prev_char == "x": 
             if sel_col:
@@ -1761,19 +1768,19 @@ def show_df(df):
             gdf = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
             table_cont1 += "method & "
-            head1 = "|c|"
+            head1 = "|r|"
             for sel_col in sel_cols:
-                head1 += "c|"
+                head1 += "r|"
                 header = sel_col if not sel_col in map_cols else map_cols[sel_col] 
                 header = header.replace("_","-")
                 table_cont1 += " \\textbf{" + header + "} &"
             mdf = main_df
             table_cont2=""
             table_cont2 += "method & "
-            head2 = "|c|"
+            head2 = "|r|"
             for rel in mdf['prefix'].unique(): 
                 table_cont2 += " \\textbf{" + rel + "} &"
-                head2 += "c|"
+                head2 += "r|"
             table_cont1 = table_cont1.strip("&")
             table_cont1 += "\\\\\n"
             table_cont1 += "\\hline\n"
@@ -1781,11 +1788,11 @@ def show_df(df):
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
             all_exps = gdf['expid'].unique()
-            for exp in all_exps:
-                table_cont1 += "\hyperref[fig:"+ exp + "]{"+ exp +"} & " 
+            for ii, exp in enumerate(all_exps):
+                table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for sel_col in sel_cols:
                     table_cont1 += f" $ @{exp}@{sel_col} $ &"
-                table_cont2 += exp + "&"
+                table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{exp}@{rel}@rouge_score $ &"
                 table_cont1 = table_cont1.strip("&")
@@ -1851,13 +1858,14 @@ def show_df(df):
                 caption = f"{exp}"
                 table = """
                     \\begin{{table*}}[h]
-                        \centering
                         \label{{{}}}
                         \caption{{{}}}
+                        \\begin{{adjustbox}}{{width=1\\textwidth}}
                         \\begin{{tabular}}{{{}}}
                         \hline
                         {}
                         \end{{tabular}}
+                        \end{{adjustbox}}
                     \end{{table*}}
                     """
                 table = table.format(lable, caption, head, cont)
@@ -1884,6 +1892,8 @@ def show_df(df):
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
                     report = report.replace("myimage", ii +"\n\n" + "myimage")
+            report = report.replace("mytable","")
+            report = report.replace("myimage","")
             tex = f"{doc_dir}/report.tex"
             pdf = f"{doc_dir}/report.pdf"
             with open(tex, "w") as f:
@@ -2249,15 +2259,16 @@ def start(stdscr):
                     cond = all(s.strip() in root_file for s in dfname)
                     if dftype in _file and cond: 
                         files.append(root_file)
-        mlog.info("files: %s",files)
+        # mlog.info("files: %s",files)
         if not files:
             print("No file was selected")
             return
         dfs = []
-        for ii, f in enumerate(files):
-            mlog.info(f)
-            print(f)
-            print("==================")
+        ii = 0
+        for f in tqdm(files):
+            # mlog.info(f)
+            #print(f)
+            #print("==================")
             if f.endswith(".tsv"):
                 df = pd.read_table(f, low_memory=False)
             elif f.endswith(".json"):
@@ -2288,6 +2299,7 @@ def start(stdscr):
                 else:
                     df["exp_name"] =  "_" + df[fid]
             dfs.append(df)
+            ii += 1
         if len(dfs) > 1:
             df = pd.concat(dfs, ignore_index=True)
         if files:

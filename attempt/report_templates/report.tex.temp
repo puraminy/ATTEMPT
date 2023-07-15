@@ -6,15 +6,12 @@
 \usepackage{xcolor}
 \usepackage{hyperref}
 \usepackage{datetime}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage[margin=1in, lmargin=1cm, rmargin=1cm]{geometry}
 
 %opening
-\title{}
-\author{}
-
 \begin{document}
-The current time is \currenttime.
-
 mytable
 myimage
-
 \end{document}
