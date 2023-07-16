@@ -1795,11 +1795,12 @@ def show_df(df):
             table_cont2 += "\\hline\n"
             all_exps = gdf['expid'].unique()
             for ii, exp in enumerate(all_exps):
-                table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
+                _exp = exp.replace("_","-")
+                table_cont1 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ _exp +"} & " 
                 for sel_col in sel_cols:
                     if sel_col in gdf.columns:
                         table_cont1 += f" $ @{exp}@{sel_col} $ &"
-                table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
+                table_cont2 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ _exp +"} & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{exp}@{rel}@m_score $ &"
                 table_cont1 = table_cont1.strip("&")
