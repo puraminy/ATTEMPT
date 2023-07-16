@@ -1584,7 +1584,7 @@ def train(**kwargs):
                         pattern = re.compile(r"com\d+")
                         enc_name = re.sub(pattern, "com", encoder.name)
                 encoder.load(load_path, 
-                        prefix=prompts_prefix,
+                        prefix=method,
                         ignore_if_not_exist=False,
                         length = adapter_args.num_prompt_tokens)
                 encoder.to(device)
