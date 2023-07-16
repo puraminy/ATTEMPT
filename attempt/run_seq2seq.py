@@ -226,7 +226,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         if reval:
-            del exp_args["prompts_prefix"]
+            repeat = True
             exp_args["do_train"] = False
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
