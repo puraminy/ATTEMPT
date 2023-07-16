@@ -1577,7 +1577,7 @@ def train(**kwargs):
         if lsp:
             for encoder in model.prompt_encoders:
                 encoder.load(load_path, 
-                        prefix=method,
+                        prefix="pat" if model_args.attn_tuning else "pt",
                         ignore_if_not_exist=False,
                         length = adapter_args.num_prompt_tokens)
                 encoder.to(device)
