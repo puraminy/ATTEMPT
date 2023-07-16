@@ -1576,13 +1576,6 @@ def train(**kwargs):
                 trainer.model.update_layer_norm_weights(load_path)
         if lsp:
             for encoder in model.prompt_encoders:
-                enc_name = ""
-                if encoder.is_private:
-                    if load_private_prompts: 
-                        enc_name = encoder.name.replace("_for","")
-                if encoder.is_source and "_com" in encoder.name:
-                        pattern = re.compile(r"com\d+")
-                        enc_name = re.sub(pattern, "com", encoder.name)
                 encoder.load(load_path, 
                         prefix=method,
                         ignore_if_not_exist=False,
