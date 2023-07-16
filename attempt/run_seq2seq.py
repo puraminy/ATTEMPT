@@ -186,6 +186,12 @@ def cli():
     help="Repeat an experiment even if the folder already exists",
 )
 @click.option(
+    "--reval",
+    "-e",
+    is_flag=True,
+    help="Evaluation without training"
+)
+@click.option(
     "--download_model",
     "-mod",
     is_flag=True,
@@ -206,7 +212,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, download_model, max_exp, new_exp_folder):
+        debug, version, trial, rem, repeat, reval, download_model, max_exp, new_exp_folder):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -219,6 +225,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
+        if reval:
+            del exp_args["prompts_prefix"]
+            exp_args["do_train"] = False
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
