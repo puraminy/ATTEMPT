@@ -1755,14 +1755,15 @@ def train(**kwargs):
             data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
-        def cosine_similarity(A, B, N):
-            portion_A = A[:N]
-            portion_B = B[:N]
-            dot_product = np.dot(portion_A, portion_B)
-            mag_A = np.linalg.norm(portion_A)
-            mag_B = np.linalg.norm(portion_B)
+        def cosine_similarity_cuda(A, B, N):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            portion_A = torch.tensor(A[:N], device=device)
+            portion_B = torch.tensor(B[:N], device=device)
+            dot_product = torch.dot(portion_A, portion_B)
+            mag_A = torch.norm(portion_A)
+            mag_B = torch.norm(portion_B)
             cos_sim = dot_product / (mag_A * mag_B)
-            return cos_sim
+            return cos_sim.item()
 
         # multi-task evaluations
         def evaluate_test(task, test_dataset, save_to, ds_name, gen_conf = {}):
