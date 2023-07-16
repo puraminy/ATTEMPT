@@ -55,6 +55,7 @@ from pytz import common_timezones
 import torch
 import os
 from torch import nn
+import torch.nn.functional as F
 
 from data.tasks import TASK_MAPPING
 import metrics.metrics as mets
@@ -1774,7 +1775,7 @@ def train(**kwargs):
             normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
 
             # Compute the cosine similarity
-            cos_sim = torch.F.cosine_similarity(normalize_a, normalize_b)
+            cos_sim = F.cosine_similarity(normalize_a, normalize_b)
 
             return cos_sim.item()
 
