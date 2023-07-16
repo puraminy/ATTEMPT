@@ -1086,6 +1086,9 @@ def train(**kwargs):
                 if encoder.is_private:
                     if load_private_prompts: 
                         enc_name = encoder.name.replace("_for","")
+                if encoder.is_source and "_com" in encoder.name:
+                        pattern = re.compile(r"com\d+")
+                        enc_name = re.sub(pattern, "com", encoder.name)
                 if enc_name or not encoder.is_private:
                     is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,

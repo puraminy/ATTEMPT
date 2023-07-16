@@ -480,6 +480,7 @@ def show_df(df):
     map_cols =  load_obj("map_cols", "atomic", {})
     def get_images(df, exps):
         imgs = {}
+        dest = ""
         start = "pred"
         for exp in exps:
             cond = f"(main_df['expid'] == '{exp}')"
@@ -1764,10 +1765,11 @@ def show_df(df):
             table_cont1=""
             _agg = {}
             for c in sel_cols:
-                if c.endswith("score"):
-                    _agg[c] = "mean"
-                else:
-                    _agg[c] = "first"
+                if c in df.columns: 
+                    if c.endswith("score"):
+                        _agg[c] = "mean"
+                    else:
+                        _agg[c] = "first"
             rdf = df.groupby(["expid", "prefix"]).agg(_agg).reset_index(drop=True)
             gdf = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
@@ -1795,7 +1797,8 @@ def show_df(df):
             for ii, exp in enumerate(all_exps):
                 table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for sel_col in sel_cols:
-                    table_cont1 += f" $ @{exp}@{sel_col} $ &"
+                    if sel_col in gdf.columns:
+                        table_cont1 += f" $ @{exp}@{sel_col} $ &"
                 table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{exp}@{rel}@m_score $ &"
@@ -1820,6 +1823,8 @@ def show_df(df):
                 img_cap = " table: \hyperref[table:1]{Table}"
                 cond = (gdf['expid'] == exp)
                 for sel_col in sel_cols:
+                    if not sel_col in gdf.columns:
+                        continue
                     val = gdf.loc[cond, sel_col].iloc[0]
                     if sel_col.endswith("score"):
                         val = "{:.1f}".format(val)
