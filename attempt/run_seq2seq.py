@@ -1781,7 +1781,7 @@ def train(**kwargs):
             normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
 
             # Compute the cosine similarity
-            cos_sim = torch.dot(normalize_a, normalize_b)
+            cos_sim = torch.F.cosine_similarity(normalize_a, normalize_b)
 
             return cos_sim.item()
 
