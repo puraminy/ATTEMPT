@@ -1754,6 +1754,16 @@ def train(**kwargs):
         if has_extra:
             data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
+        
+        def cosine_similarity(A, B, N):
+            portion_A = A[:N]
+            portion_B = B[:N]
+            dot_product = np.dot(portion_A, portion_B)
+            mag_A = np.linalg.norm(portion_A)
+            mag_B = np.linalg.norm(portion_B)
+            cos_sim = dot_product / (mag_A * mag_B)
+            return cos_sim
+
         # multi-task evaluations
         def evaluate_test(task, test_dataset, save_to, ds_name, gen_conf = {}):
             mylogs.bp("ttt")
@@ -1926,7 +1936,7 @@ def train(**kwargs):
                     cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                     for i in range(tlen):
                         for j in range(tlen):
-                            sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) 
+                            sim[i][j] = cosine_similarity(ss1[i], ss1[j], slen) 
 
                     ss1 = torch.round(ss1*100)/100
                     ss2 = model.encoder.router.index_select(0, targets)
