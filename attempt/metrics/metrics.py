@@ -89,8 +89,8 @@ def rouge(predictions, targets) -> dict:
 def accuracy(predictions, targets) -> dict:
     """Computes the average accuracy."""
     mylogs.bp("compute")
-    targets = [t.strip() for t in targets]
-    predictions = [p.strip() for p in predictions]
+    targets = [str(t).strip() for t in targets]
+    predictions = [str(p).strip() for p in predictions]
     acc = 100 * ((np.array(predictions) == np.array(targets)).mean())
     return {"accuracy": "{:.2f}".format(acc)}
 
@@ -128,7 +128,7 @@ def spearman_corrcoef(predictions, targets) -> dict:
     # and return 0 in this case.
     if math.isnan(spearman_corrcoef):
         spearman_corrcoef = 0
-    return {"spearmanr": spearman_corrcoef}
+    return {"spearmanr": "{:.2f}".format(spearman_corrcoef)}
 
 
 def f1_score_with_invalid(predictions, targets) -> dict:

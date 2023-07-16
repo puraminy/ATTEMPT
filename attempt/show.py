@@ -130,6 +130,33 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
        df["sum_fid"] = df["id"].sum()
     return df, exp, dfs
 
+def calc_metrics(main_df):
+    infos = []
+    all_exps = main_df['expid'].unique()
+    for exp in all_exps:
+        for task in main_df["prefix"].unique():
+            cond = ((main_df['expid'] == exp) & (main_df["prefix"] == task))
+            tdf = main_df[cond]
+            preds = tdf["pred_text1"]
+            preds = preds.fillna(0)
+            if len(preds) == 0:
+                continue
+            golds = tdf["target_text"]
+            task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
+            metrics_list = []
+            for mstr in task_metric:
+                metric = getattr(mets, mstr)
+                met = metric(preds, golds)
+                metrics_list.append(met)
+            if met: 
+                v = list(met.values())[0]
+                main_df.loc[cond, "m_score"] = round(float(v),1)
+            for met in metrics_list:
+                for k,v in met.items():
+                    infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
+                    infos.append("---------------------------------------------")
+    return infos
+
 def show_df(df):
     global dfname, hotkey
 
@@ -214,6 +241,10 @@ def show_df(df):
         df['input_text'] = df['input_text'].str.replace('##','')
         df['input_text'] = df['input_text'].str.split('>>').str[0]
         df['input_text'] = df['input_text'].str.strip()
+
+    if not "m_score" in df:
+        calc_metrics(df)
+
     main_df = df
     edit_col = ""
     count_col = ""
@@ -447,33 +478,6 @@ def show_df(df):
             df[_col] = df[_col].astype(str)
 
     map_cols =  load_obj("map_cols", "atomic", {})
-    def calc_metrics(df):
-        infos = []
-        all_exps = df['expid'].unique()
-        for exp in all_exps:
-            for task in df["prefix"].unique():
-                cond = ((main_df['expid'] == exp) & (main_df["prefix"] == task))
-                tdf = main_df[cond]
-                preds = tdf["pred_text1"]
-                preds = preds.fillna(0)
-                if len(preds) == 0:
-                    continue
-                golds = tdf["target_text"]
-                task_metric = mets.TASK_TO_METRICS[task] if task in mets.TASK_TO_METRICS else ["rouge"]
-                metrics_list = []
-                for mstr in task_metric:
-                    metric = getattr(mets, mstr)
-                    met = metric(preds, golds)
-                    metrics_list.append(met)
-                if met and not "m_score" in main_df:
-                    k,v = met.items()[0]
-                    main_df.loc[cond, "m_score"] = v
-                for met in metrics_list:
-                    for k,v in met.items():
-                        infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
-                        infos.append("---------------------------------------------")
-        return infos
-
     def get_images(df, exps):
         imgs = {}
         start = "pred"
@@ -1170,7 +1174,7 @@ def show_df(df):
             df = df.sort_values(by=["rouge_score"], ascending=False)
             sort = "rouge_score"
         elif char == "u":
-            infos = calc_metrics(df)
+            infos = calc_metrics(main_df)
             subwin(infos)
         elif char == "U" and prev_char == "x": 
             if sel_col:
@@ -1766,7 +1770,7 @@ def show_df(df):
                     _agg[c] = "first"
             rdf = df.groupby(["expid", "prefix"]).agg(_agg).reset_index(drop=True)
             gdf = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
-            gdf = gdf.sort_values(by=["rouge_score"], ascending=False)
+            gdf = gdf.sort_values(by=["m_score"], ascending=False)
             table_cont1 += "method & "
             head1 = "|r|"
             for sel_col in sel_cols:
@@ -1794,7 +1798,7 @@ def show_df(df):
                     table_cont1 += f" $ @{exp}@{sel_col} $ &"
                 table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ exp +"} & " 
                 for rel in mdf['prefix'].unique(): 
-                    table_cont2 += f" $ @{exp}@{rel}@rouge_score $ &"
+                    table_cont2 += f" $ @{exp}@{rel}@m_score $ &"
                 table_cont1 = table_cont1.strip("&")
                 table_cont1 += "\\\\\n"
                 table_cont1 += "\\hline \n"
@@ -1818,7 +1822,7 @@ def show_df(df):
                 for sel_col in sel_cols:
                     val = gdf.loc[cond, sel_col].iloc[0]
                     if sel_col.endswith("score"):
-                        val = "{:.2f}".format(val)
+                        val = "{:.1f}".format(val)
                         val = "$\\textcolor{blue}{ " + val + " }$"
                     else:
                         val = "\\textbf{" + str(val) + "}"
@@ -1831,7 +1835,7 @@ def show_df(df):
                 for rel in mdf['prefix'].unique(): 
                     model = "t5-base"
                     cond = ((mdf['prefix'] == rel) & (mdf["expid"] == exp))
-                    for sc in ["rouge_score"]: # "bert_score", "hscore", "num_preds"]:
+                    for sc in ["m_score"]: # "bert_score", "hscore", "num_preds"]:
                         val = mdf.loc[cond, sc].mean()
                         maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
                         val = round(val,2)

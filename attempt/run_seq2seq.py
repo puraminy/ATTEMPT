@@ -1832,7 +1832,7 @@ def train(**kwargs):
                 df[k] = v
                 df["metric_"+ str(ii)] = v
                 if mm == 0:
-                    df["m_score"] = v
+                    df["m_score"] = round(float(v),1) 
                 mm += 1
             scores = do_score(df, "rouge@bert", save_to)
             return df, scores, golds, preds
