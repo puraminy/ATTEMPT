@@ -410,7 +410,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            args["cat"] = experiment.split("/")[-1] 
            args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if repeat:
-          args["expid"] += "_rep"
+          args["expid"] += "-rep"
        if not save_path:
            output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
@@ -1766,10 +1766,14 @@ def train(**kwargs):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             portion_A = torch.tensor(A[:N]).to(device).detach().clone()
             portion_B = torch.tensor(B[:N]).to(device).detach().clone()
-            dot_product = torch.dot(portion_A, portion_B)
-            mag_A = torch.norm(portion_A)
-            mag_B = torch.norm(portion_B)
-            cos_sim = dot_product / (mag_A * mag_B)
+
+            # Normalize vectors a and b
+            normalize_a = torch.nn.functional.normalize(portion_A, dim=0)
+            normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
+
+            # Compute the cosine similarity
+            cos_sim = torch.dot(normalize_a, normalize_b)
+
             return cos_sim.item()
 
         # multi-task evaluations
