@@ -1577,7 +1577,7 @@ def train(**kwargs):
                 encoder.load(load_path, 
                         prefix=prompts_prefix,
                         ignore_if_not_exist=False,
-                        length = adapter_args.num_prompt_tokens, name=enc_name)
+                        length = adapter_args.num_prompt_tokens)
                 encoder.to(device)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
         if model_args.attn_tuning is True:
@@ -1762,10 +1762,10 @@ def train(**kwargs):
             data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
-        def cosine_similarity_cuda(A, B, N):
+        def cosine_similarity(A, B, N):
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            portion_A = torch.tensor(A[:N], device=device)
-            portion_B = torch.tensor(B[:N], device=device)
+            portion_A = torch.tensor(A[:N]).to(device).detach().clone()
+            portion_B = torch.tensor(B[:N]).to(device).detach().clone()
             dot_product = torch.dot(portion_A, portion_B)
             mag_A = torch.norm(portion_A)
             mag_B = torch.norm(portion_B)
