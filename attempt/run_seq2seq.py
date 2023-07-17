@@ -1942,111 +1942,108 @@ def train(**kwargs):
 
                         ii += 1
 
-                    mylogs.bp("pic")
-                    targets = model.encoder.target_encoders_idx
-                    ss1 = model.encoder.attn_scores.index_select(0, targets)
-                    slen = ss1.size()[1] - ss1.size()[0]
-                    tlen = ss1.size()[0]
-                    sim = torch.zeros((tlen, tlen))
-                    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                    for i in range(tlen):
-                        for j in range(tlen):
-                            sim[i][j] = cosine_similarity(ss1[i], ss1[j], slen) 
+    mylogs.bp("pic")
+    targets = model.encoder.target_encoders_idx
+    ss1 = model.encoder.attn_scores.index_select(0, targets)
+    slen = ss1.size()[1] - ss1.size()[0]
+    tlen = ss1.size()[0]
+    sim = torch.zeros((tlen, tlen))
+    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+    for i in range(tlen):
+        for j in range(tlen):
+            sim[i][j] = cosine_similarity(ss1[i], ss1[j], slen) 
 
-                    ss1 = torch.round(ss1*100)/100
-                    ss2 = model.encoder.router.index_select(0, targets)
-                    mask = model.encoder.attn_mask if mask is None else mask
-                    ss3 = mask.index_select(0, targets)
-                    y_labels = [model.encoder.prompt_names[i] for i in targets]
-                    sdf = pd.DataFrame(data=sdf_rows)
-                    _main_vars = main_vars.copy()
-                    if "task_name" in _main_vars:
-                        del _main_vars["task_name"]
-                    if "num_train_epochs" in _main_vars:
-                        del _main_vars["num_train_epochs"]
-                    if "max_train_samples" in _main_vars:
-                        del _main_vars["max_train_samples"]
-                    for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
-                        if ii == 1: # sim
-                            x_labels = y_labels
-                        else:
-                            x_labels = model.encoder.prompt_names 
-                        img_buf = WBCallback.save_image(score=score, 
-                            y_labels=y_labels,
-                            x_labels=x_labels,
-                            title = str(kwargs.expid) + "\n" + str(_main_vars)) 
-                                    #+ "\n" \
-                                    #+ route_method \
-                                    #+ "_" + model_args.compose_method \
-                                    #+ "_" + kwargs.apply_softmax_to \
-                                    #+ "_" + model_args.attn_method) 
-                        if img_buf:
-                            im = Image.open(img_buf)
-                            img_list.append(im)
+    ss1 = torch.round(ss1*100)/100
+    ss2 = model.encoder.router.index_select(0, targets)
+    mask = model.encoder.attn_mask if mask is None else mask
+    ss3 = mask.index_select(0, targets)
+    y_labels = [model.encoder.prompt_names[i] for i in targets]
+    sdf = pd.DataFrame(data=sdf_rows)
+    _main_vars = main_vars.copy()
+    if "task_name" in _main_vars:
+        del _main_vars["task_name"]
+    if "num_train_epochs" in _main_vars:
+        del _main_vars["num_train_epochs"]
+    if "max_train_samples" in _main_vars:
+        del _main_vars["max_train_samples"]
+    for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
+        if ii == 1: # sim
+            x_labels = y_labels
+        else:
+            x_labels = model.encoder.prompt_names 
+        img_buf = WBCallback.save_image(score=score, 
+            y_labels=y_labels,
+            x_labels=x_labels,
+            title = str(kwargs.expid) + "\n" + str(_main_vars)) 
+                    #+ "\n" \
+                    #+ route_method \
+                    #+ "_" + model_args.compose_method \
+                    #+ "_" + kwargs.apply_softmax_to \
+                    #+ "_" + model_args.attn_method) 
+        if img_buf:
+            im = Image.open(img_buf)
+            img_list.append(im)
 
-                if img_list:
-                    new_im = combine_y(img_list)
-                    fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
-                    wandb.log({fname:wandb.Image(new_im)})
+    if img_list:
+        new_im = combine_y(img_list)
+        fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
+        wandb.log({fname:wandb.Image(new_im)})
 
-            mylogs.bp("diff")
-            sdf = pd.DataFrame(data=sdf_rows)
-            da = {}
-            targets = model.encoder.target_encoders_idx
-            ss1 = model.encoder.attn_scores.index_select(0, targets)
-            ss2 = model.encoder.router.index_select(0, targets)
-            _tag = kwargs.setdefault("tag",[])
-            da = mylogs.get_tag(_tag)  
-            #if diff_args:
-            #    for k,v in diff_args["values_changed"].items():
-            #        if not "output_dir" in k and not "expid" in k:
 
-            #           da[k] = v
-            _main_vars = main_vars.copy()
-            if "task_name" in _main_vars:
-                del _main_vars["task_name"]
+    targets = model.encoder.target_encoders_idx
+    ss1 = model.encoder.attn_scores.index_select(0, targets)
+    ss2 = model.encoder.router.index_select(0, targets)
+    _tag = kwargs.setdefault("tag",[])
+    #if diff_args:
+    #    for k,v in diff_args["values_changed"].items():
+    #        if not "output_dir" in k and not "expid" in k:
 
-            global_scores.append(ss1)
-            global_y_labels.extend(y_labels)
-            global_x_labels = model.encoder.prompt_names 
-            for score in [ss1]: #[ss2]
-                img_buf = WBCallback.save_image(score=score, 
-                   y_labels=y_labels,
-                   x_labels=model.encoder.prompt_names, 
-                   title = str(kwargs.expid) + str(_main_vars) \
-                            + model_args.compose_method \
-                            + "_" + kwargs.apply_softmax_to \
-                            + "_" + model_args.attn_method,
-                    img_h=6.5 if multi_tasking else 2.5,
-                    df=None) 
-                if img_buf:
-                    cur_img = Image.open(img_buf)
-                    #tags_img = tag_to_image(da, get_image=True)
-                    #cur_img = combine_x([tags_img, cur_img])
-                    cat = Path(kwargs.save_path).parent
-                    sp = op.join(cat, "images") 
-                    Path(sp).mkdir(exist_ok=True, parents=True)
-                    pic = "router_" + str(exp_info["expid"])
-                    pp = sp + "/pred_" + pic + ".png"
-                    existing_images = glob.glob(op.join(sp, "pred_*.png"))
-                    merge_plots = kwargs.setdefault("merge_plots", False)
-                    if existing_images and merge_plots:
-                        pp = existing_images[0]
-                    if Path(pp).is_file():
-                        _image = Image.open(pp)
-                        cur_img = combine_y([cur_img, _image])
-                    cur_img.save(pp)
-                kk += 1
+    #           da[k] = v
+    _main_vars = main_vars.copy()
+    if "task_name" in _main_vars:
+        del _main_vars["task_name"]
 
-            if kwargs.setdefault("eval_test", False):
-                for task, test_dataset in test_datasets.items():
-                    metrics = trainer.evaluate(eval_dataset=test_dataset,
-                                               max_length=data_args.test_max_target_length, 
-                                               num_beams=data_args.num_beams,
-                                               metric_key_prefix="test"
-                                               )
-                    trainer.log_metrics("test", metrics)
-                    trainer.save_metrics("test", metrics)
+    global_scores.append(ss1)
+    global_y_labels.extend(y_labels)
+    global_x_labels = model.encoder.prompt_names 
+    for score in [ss1]: #[ss2]
+        img_buf = WBCallback.save_image(score=score, 
+           y_labels=y_labels,
+           x_labels=model.encoder.prompt_names, 
+           title = str(kwargs.expid) + str(_main_vars) \
+                    + model_args.compose_method \
+                    + "_" + kwargs.apply_softmax_to \
+                    + "_" + model_args.attn_method,
+            img_h=6.5 if multi_tasking else 2.5,
+            df=None) 
+        if img_buf:
+            cur_img = Image.open(img_buf)
+            #tags_img = tag_to_image(da, get_image=True)
+            #cur_img = combine_x([tags_img, cur_img])
+            cat = Path(kwargs.save_path).parent
+            sp = op.join(cat, "images") 
+            Path(sp).mkdir(exist_ok=True, parents=True)
+            pic = "router_" + str(exp_info["expid"])
+            pp = sp + "/pred_" + pic + ".png"
+            existing_images = glob.glob(op.join(sp, "pred_*.png"))
+            merge_plots = kwargs.setdefault("merge_plots", False)
+            if existing_images and merge_plots:
+                pp = existing_images[0]
+            if Path(pp).is_file():
+                _image = Image.open(pp)
+                cur_img = combine_y([cur_img, _image])
+            cur_img.save(pp)
+        kk += 1
+
+    if kwargs.setdefault("eval_test", False):
+        for task, test_dataset in test_datasets.items():
+            metrics = trainer.evaluate(eval_dataset=test_dataset,
+                                       max_length=data_args.test_max_target_length, 
+                                       num_beams=data_args.num_beams,
+                                       metric_key_prefix="test"
+                                       )
+            trainer.log_metrics("test", metrics)
+            trainer.save_metrics("test", metrics)
 
     if model_args.save_prefix_only:
         checkpoints = glob.glob(os.path.join(

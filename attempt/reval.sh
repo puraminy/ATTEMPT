@@ -65,19 +65,18 @@ else
    tsn=$_tsn
 fi
 if [ -z "$_files" ]; then
-   files=exp.json
-   find "$PWD" -type f -name "exp.json"
+   readarray -t files < <(find "$PWD" -type f -name "exp.json")
 else
    files=$_tsn
 fi
-
-for file in $files; do
+for file in $(find "$PWD" -type f -name "exp.json"); do
+   echo $file
    for data_seed in $seed; do
       for test_num in $tsn; do
          params="${main_params} --data_seed=$data_seed"
          params="${params} --max_test_samples=$test_num"
          if [ -n "$_test" ] || [ -n "$_all_test" ]; then
-            params="${params} --do_train=False"
+            params="${params} --reval"
          fi
          if [ -n "$_pv" ]; then
             echo "runat run ${run_params} -cfg $file ${params} $extra_params" 
