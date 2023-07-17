@@ -1765,19 +1765,6 @@ def train(**kwargs):
             data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
-        def cosine_similarity(A, B, N):
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            portion_A = torch.tensor(A[:N]).to(device).detach().clone()
-            portion_B = torch.tensor(B[:N]).to(device).detach().clone()
-
-            # Normalize vectors a and b
-            normalize_a = torch.nn.functional.normalize(portion_A, dim=0)
-            normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
-
-            # Compute the cosine similarity
-            cos_sim = F.cosine_similarity(normalize_a, normalize_b, dim=0)
-
-            return cos_sim.item()
 
         # multi-task evaluations
         def evaluate_test(task, test_dataset, save_to, ds_name, gen_conf = {}):
@@ -1942,13 +1929,26 @@ def train(**kwargs):
 
                         ii += 1
 
+    def cosine_similarity(A, B, N):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        portion_A = torch.tensor(A[:N]).to(device).detach().clone()
+        portion_B = torch.tensor(B[:N]).to(device).detach().clone()
+
+        # Normalize vectors a and b
+        normalize_a = torch.nn.functional.normalize(portion_A, dim=0)
+        normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
+
+        # Compute the cosine similarity
+        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+        cos_sim = F.cosine_similarity(normalize_a, normalize_b, dim=0)
+
+        return cos_sim.item()
     mylogs.bp("pic")
     targets = model.encoder.target_encoders_idx
     ss1 = model.encoder.attn_scores.index_select(0, targets)
     slen = ss1.size()[1] - ss1.size()[0]
     tlen = ss1.size()[0]
     sim = torch.zeros((tlen, tlen))
-    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
     for i in range(tlen):
         for j in range(tlen):
             sim[i][j] = cosine_similarity(ss1[i], ss1[j], slen) 
