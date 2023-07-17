@@ -219,7 +219,7 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
-if [ -z "$_bs" ]; then  _bs=16; fi
+if [ -z "$_bs" ]; then  _bs=8; fi
 if [ -z "$_lr" ]; then  _lr=0.01; fi
 if [ -z "$_alr" ]; then _alr=0.07; fi
 if [ -z "$_numt" ]; then  _numt=50; fi

@@ -66,9 +66,11 @@ else
 fi
 if [ -z "$_files" ]; then
    files=exp.json
+   find "$PWD" -type f -name "exp.json"
 else
    files=$_tsn
 fi
+
 for file in $files; do
    for data_seed in $seed; do
       for test_num in $tsn; do
