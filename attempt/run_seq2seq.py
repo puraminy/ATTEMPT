@@ -1949,7 +1949,7 @@ def train(**kwargs):
     mylogs.bp("pic")
     targets = model.encoder.target_encoders_idx
     ss1 = model.encoder.attn_scores.index_select(0, targets)
-    slen = ss1.size()[1] - ss1.size()[0]
+    slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     tlen = ss1.size()[0]
     sim = torch.zeros((tlen, tlen))
     for i in range(tlen):

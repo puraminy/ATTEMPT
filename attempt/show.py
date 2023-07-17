@@ -1159,7 +1159,7 @@ def show_df(df):
                 else:
                     _agg[c] = "first"
             df = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
-            df = df.sort_values(by=["rouge_score"], ascending=False)
+            df = df.sort_values(by=["m_score"], ascending=False)
             sort = "rouge_score"
         elif char == "a": 
             consts["options"] = "b: back"
