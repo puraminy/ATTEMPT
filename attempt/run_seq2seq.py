@@ -1955,7 +1955,7 @@ def train(**kwargs):
 
     ss1 = torch.round(ss1*100)/100
     ss2 = model.encoder.router.index_select(0, targets)
-    mask = model.encoder.attn_mask if mask is None else mask
+    mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
     y_labels = [model.encoder.prompt_names[i] for i in targets]
     sdf = pd.DataFrame(data=sdf_rows)
