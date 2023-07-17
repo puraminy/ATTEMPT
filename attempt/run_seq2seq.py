@@ -229,6 +229,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         if reval:
             repeat = True
             exp_args["do_train"] = False
+            exp_args["do_test"] = True 
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
@@ -969,6 +970,7 @@ def train(**kwargs):
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    mylogs.bp("router")
     router_prefix = kwargs.setdefault("router_prefix", None) 
     if router_prefix is None or router_prefix == "1":
         router_prefix = str(data_args.max_train_samples)
@@ -1583,6 +1585,7 @@ def train(**kwargs):
                         length = adapter_args.num_prompt_tokens)
                 encoder.to(device)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
+        mylogs.bp("router")
         if model_args.attn_tuning is True:
               assert Path(dpath).is_file(), dpath + " doesn't exist to load model"
               router_dict = torch.load(dpath, map_location=device)
@@ -1712,13 +1715,13 @@ def train(**kwargs):
                 wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
+    reval = not training_args.do_train 
+    if reval: 
+        load_model(training_args.output_dir, lsp=model_args.attn_tuning)
     for k,v in kwargs.items():
         if not k in exp_info:
             exp_info[k] = v
     if training_args.do_test:
-        reval = not training_args.do_train and training_args.do_test 
-        if reval: 
-            load_model(training_args.output_dir, lsp=model_args.attn_tuning)
         if data_args.test_files is not None:
             test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
                                                         task_args=task_args, tokenizer=tokenizer).get(
@@ -1853,8 +1856,6 @@ def train(**kwargs):
             return df, scores, golds, preds
 
         ##################
-        if not training_args.do_train:
-            load_model(training_args.output_dir, lsp=model_args.attn_tuning)
         results = {}
         gen_conf = {}
         ds_backup = None
@@ -1987,7 +1988,7 @@ def train(**kwargs):
 
     if img_list:
         new_im = combine_y(img_list)
-        fname = "pred_" + str(exp_info["expid"]) + "_" + rm + "_" + route_method 
+        fname = "pred_" + str(exp_info["expid"]) 
         wandb.log({fname:wandb.Image(new_im)})
 
 
@@ -2012,8 +2013,6 @@ def train(**kwargs):
            y_labels=y_labels,
            x_labels=model.encoder.prompt_names, 
            title = str(kwargs.expid) + str(_main_vars) \
-                    + model_args.compose_method \
-                    + "_" + kwargs.apply_softmax_to \
                     + "_" + model_args.attn_method,
             img_h=6.5 if multi_tasking else 2.5,
             df=None) 
@@ -2034,7 +2033,6 @@ def train(**kwargs):
                 _image = Image.open(pp)
                 cur_img = combine_y([cur_img, _image])
             cur_img.save(pp)
-        kk += 1
 
     if kwargs.setdefault("eval_test", False):
         for task, test_dataset in test_datasets.items():
