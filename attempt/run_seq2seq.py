@@ -1928,6 +1928,7 @@ def train(**kwargs):
                         sdf_rows.append(da)
 
                         ii += 1
+        sdf = pd.DataFrame(data=sdf_rows)
 
     def cosine_similarity(A, B, N):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -1958,7 +1959,6 @@ def train(**kwargs):
     mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
     y_labels = [model.encoder.prompt_names[i] for i in targets]
-    sdf = pd.DataFrame(data=sdf_rows)
     _main_vars = main_vars.copy()
     if "task_name" in _main_vars:
         del _main_vars["task_name"]
