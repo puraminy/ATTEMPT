@@ -1885,7 +1885,6 @@ def train(**kwargs):
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             for rm, mask in combs.items():
-                img_list = []
                 for route_method in grm: 
                     attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                     model.encoder.attn_scores = torch.zeros(
@@ -1944,6 +1943,8 @@ def train(**kwargs):
         cos_sim = F.cosine_similarity(normalize_a, normalize_b, dim=0)
 
         return cos_sim.item()
+
+    img_list = []
     mylogs.bp("pic")
     targets = model.encoder.target_encoders_idx
     ss1 = model.encoder.attn_scores.index_select(0, targets)
