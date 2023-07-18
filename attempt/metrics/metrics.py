@@ -91,7 +91,13 @@ def accuracy(predictions, targets) -> dict:
     mylogs.bp("compute")
     targets = [str(t).strip() for t in targets]
     predictions = [str(p).strip() for p in predictions]
-    acc = 100 * ((np.array(predictions) == np.array(targets)).mean())
+    preds = []
+    for t,p in zip(targets, predictions):
+        if len(p.split(" ")) > len(t.split(" ")):
+            preds.append(p.split(" ")[0])
+        else:
+            preds.append(p)
+    acc = 100 * ((np.array(preds) == np.array(targets)).mean())
     return {"accuracy": "{:.2f}".format(acc)}
 
 
