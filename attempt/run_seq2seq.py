@@ -1874,7 +1874,7 @@ def train(**kwargs):
 
         ##################
         results = {}
-        gen_conf = {"rep_penalty":2}
+        gen_conf = {"rep_penalty":2.0}
         ds_backup = None
         grm = kwargs.setdefault("gen_route_methods",["rb"])
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
