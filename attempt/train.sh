@@ -263,14 +263,14 @@ if [ -z "$_train" ]; then  _train=True; fi
 if [ -z "$_doeval" ]; then  _doeval=False; fi
 if [ -z "$_dotest" ]; then  _dotest=True; fi
 if [ -z "$_tn" ]; then  
-   _tn=200; 
+   _tn=500; 
 else
    main_vars="${main_vars}--max_train_samples"
 fi
 if [ -z "$_vn" ]; then  _vn=50; fi
-if [ -z "$_tsn" ]; then _tsn=100; fi
+if [ -z "$_tsn" ]; then _tsn=500; fi
 if [ -z "$_ep" ]; then  
-   _ep=10; 
+   _ep=20; 
 else
    main_vars="${main_vars}--num_train_epochs"
 fi

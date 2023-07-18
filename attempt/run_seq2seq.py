@@ -187,6 +187,12 @@ def cli():
     help="Repeat an experiment even if the folder already exists",
 )
 @click.option(
+    "--merge",
+    "-merge",
+    is_flag=True,
+    help="Merge experiments in one folder"
+)
+@click.option(
     "--reval",
     "-e",
     is_flag=True,
@@ -213,7 +219,8 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, reval, download_model, max_exp, new_exp_folder):
+        debug, version, trial, rem, repeat, merge, 
+        reval, download_model, max_exp, new_exp_folder):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -403,8 +410,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if max_exp > 0 and exps_done > max_exp:
            print(f"Max number of exp reached {max_exp} ")
            return
-
-       args["expid"] = ii if not "expid" in exp_args else str(exp_args["expid"]) + "-" + str(ii)
+       if not "expid" in exp_args: 
+           args["expid"] = ii 
+       elif merge: 
+           args["expid"] = str(exp_args["expid"]) 
+       else:
+           args["expid"] = str(exp_args["expid"]) + "-" + str(ii)
        args["main_vars"] = mvars
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
@@ -1716,6 +1727,8 @@ def train(**kwargs):
 
     # Test
     reval = not training_args.do_train 
+    slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
+    exp_info["slen"] = slen
     if reval: 
         load_model(training_args.output_dir, lsp=model_args.attn_tuning)
     for k,v in kwargs.items():
@@ -1949,12 +1962,12 @@ def train(**kwargs):
     mylogs.bp("pic")
     targets = model.encoder.target_encoders_idx
     ss1 = model.encoder.attn_scores.index_select(0, targets)
-    slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     tlen = ss1.size()[0]
     sim = torch.zeros((tlen, tlen))
+    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
     for i in range(tlen):
         for j in range(tlen):
-            sim[i][j] = cosine_similarity(ss1[i], ss1[j], slen) 
+            sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
     ss1 = torch.round(ss1*100)/100
     ss2 = model.encoder.router.index_select(0, targets)
