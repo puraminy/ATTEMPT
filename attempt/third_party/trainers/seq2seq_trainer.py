@@ -110,7 +110,6 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         metric_key_prefix: str = "eval",
         max_length: Optional[int] = None,
         num_beams: Optional[int] = None,
-        num_beams: Optional[int] = None,
     ) -> Dict[str, float]:
         self._max_length = max_length
         self._num_beams = num_beams,
