@@ -411,7 +411,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            print(f"Max number of exp reached {max_exp} ")
            return
        if not "expid" in exp_args: 
-           args["expid"] = ii 
+           if merge:
+               args["expid"] = experiment.split("/")[-1] 
+           else:
+               args["expid"] = ii 
        elif merge: 
            args["expid"] = str(exp_args["expid"]) 
        else:
@@ -420,6 +423,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        args["cat"] = experiment.split("/")[-1] 
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
+       output_dir = save_path 
        if exp_conf:
            output_dir = exp_args["output_dir"]
        elif not merge:
