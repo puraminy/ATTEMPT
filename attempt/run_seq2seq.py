@@ -417,11 +417,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        else:
            args["expid"] = str(exp_args["expid"]) + "-" + str(ii)
        args["main_vars"] = mvars
+       args["cat"] = experiment.split("/")[-1] 
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
        if exp_conf:
            output_dir = exp_args["output_dir"]
-       else:
+       elif not merge:
            ee = int(args["expid"]) 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
@@ -429,7 +430,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                ee += 1 
                _output_dir = str(ee)
                output_dir = os.path.join(save_path, _output_dir)
-           args["cat"] = experiment.split("/")[-1] 
            args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if repeat:
           args["expid"] += "-rep"
