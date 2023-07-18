@@ -110,6 +110,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         metric_key_prefix: str = "eval",
         max_length: Optional[int] = None,
         num_beams: Optional[int] = None,
+        num_beams: Optional[int] = None,
     ) -> Dict[str, float]:
         self._max_length = max_length
         self._num_beams = num_beams,
@@ -176,6 +177,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
             "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
             "num_beams": self._num_beams if self._num_beams is not None else self.model.config.num_beams,
             "task": inputs["task"] if "task" in inputs else "all"
+            "repetition_penalty": self.gen_conf["rep_penalty"] if "rep_penalty" in self.gen_conf else None
         }
 
         generated_tokens = self.model.generate(
