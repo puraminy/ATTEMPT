@@ -1787,6 +1787,8 @@ def show_df(df):
             for rel in mdf['prefix'].unique(): 
                 table_cont2 += " \\textbf{" + rel + "} &"
                 head2 += "r|"
+            table_cont2 += " avg. " 
+            head2 += "r|"
             table_cont1 = table_cont1.strip("&")
             table_cont1 += "\\\\\n"
             table_cont1 += "\\hline\n"
@@ -1795,14 +1797,22 @@ def show_df(df):
             table_cont2 += "\\hline\n"
             all_exps = gdf['expid'].unique()
             for ii, exp in enumerate(all_exps):
-                _exp = exp.replace("_","-")
-                table_cont1 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ _exp +"} & " 
+                exp = exp.replace("_","-")
+                _exp = exp.split("-")[0]
+                if char == "R":
+                    table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
+                else:
+                    table_cont1 += _exp + " & " 
                 for sel_col in sel_cols:
                     if sel_col in gdf.columns:
                         table_cont1 += f" $ @{exp}@{sel_col} $ &"
-                table_cont2 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ _exp +"} & " 
+                if char == "R":        
+                    table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
+                else:
+                    table_cont2 += _exp + " & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{exp}@{rel}@m_score $ &"
+                table_cont2 += f" $ @{exp}@m_score $ &"
                 table_cont1 = table_cont1.strip("&")
                 table_cont1 += "\\\\\n"
                 table_cont1 += "\\hline \n"
@@ -1834,6 +1844,8 @@ def show_df(df):
                         val = "\\textbf{" + str(val) + "}"
                     img_cap += sel_col.replace("_","-") + ": " + str(val) + " | "
                     table_cont1 = table_cont1.replace("@" + exp + "@" + sel_col, str(val))
+                    if sel_col == "m_score":
+                        table_cont2 = table_cont2.replace("@" + exp + "@m_score" , str(val))
                 caps[exp] = img_cap
             for exp in all_exps:
                 # breakpoint()
