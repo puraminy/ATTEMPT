@@ -82,6 +82,9 @@ fi
 if [ -n "$_atasks" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#oReact#oEffect#oWant#xWant#xEffect#xNeed"
 fi
+if [ -n "$_satasks" ]; then
+   _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
+fi
 if [ -n "$_ltasks2" ]; then
    _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
 fi
