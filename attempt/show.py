@@ -1755,13 +1755,11 @@ def show_df(df):
             col = sel_cols[cur_col]
             col_widths[col] = int(val)
             adjust = False
-        if cmd == "report" or char == "R":
+        if cmd == "gen":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             with open(f"{_dir}/report_templates/report.tex.temp", "r") as f:
                 report = f.read()
-            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
-            #    table_cont = f.read()
             table_cont1=""
             _agg = {}
             for c in sel_cols:
@@ -1770,12 +1768,15 @@ def show_df(df):
                         _agg[c] = "mean"
                     else:
                         _agg[c] = "first"
-            rdf = df.groupby(["expid", "prefix"]).agg(_agg).reset_index(drop=True)
-            gdf = df.groupby(["expid"]).agg(_agg).reset_index(drop=True)
+            rdf = df.groupby(["expid", "prefix"], as_index=False).agg(
+                    _agg).reset_index(drop=True)
+            gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
+            all_exps = gdf['expid'].unique()
             table_cont1 += "method & "
             head1 = "|r|"
-            for sel_col in sel_cols:
+            cols = ["50","100","500"]
+            for sel_col in cols:
                 head1 += "r|"
                 header = sel_col if not sel_col in map_cols else map_cols[sel_col] 
                 header = header.replace("_","-")
@@ -1795,7 +1796,6 @@ def show_df(df):
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
-            all_exps = gdf['expid'].unique()
             for ii, exp in enumerate(all_exps):
                 exp = exp.replace("_","-")
                 _exp = exp.split("-")[0]
@@ -1803,9 +1803,8 @@ def show_df(df):
                     table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
                 else:
                     table_cont1 += _exp + " & " 
-                for sel_col in sel_cols:
-                    if sel_col in gdf.columns:
-                        table_cont1 += f" $ @{exp}@{sel_col} $ &"
+                for sel_col in cols:
+                    table_cont1 += f" $ @{exp}@{sel_col} $ &"
                 if char == "R":        
                     table_cont2 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
                 else:
@@ -1829,23 +1828,71 @@ def show_df(df):
             table_file = f"{table_dir}/{table_name}"
             out = open(table_file, "w")
             _input = f"table/{table_name}" 
+            ii = 1
+            for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
+                lable = "table:" + str(ii) 
+                caption = f"{exp}"
+                table = """
+                    \\begin{{table*}}[h]
+                        \label{{{}}}
+                        \caption{{{}}}
+                        \\begin{{adjustbox}}{{width=1\\textwidth}}
+                        \\begin{{tabular}}{{{}}}
+                        \hline
+                        {}
+                        \end{{tabular}}
+                        \end{{adjustbox}}
+                    \end{{table*}}
+                    """
+                table = table.format(lable, caption, head, cont)
+                report = report.replace("mytable", table +"\n\n" + "mytable")
+                ii += 1
+
+            report = report.replace("mytable","")
+            ####################
+            with open(f"{_dir}/report_templates/report.tex.temp2", "w") as f:
+                f.write(report)
+
+        if cmd == "report" or char == "R":
+            _dir = Path(__file__).parent
+            doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            with open(f"{_dir}/report_templates/report.tex.temp2", "r") as f:
+                report = f.read()
+            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
+            #    table_cont = f.read()
+            ########## Filling Tables
+            mdf = main_df
+            _agg = {}
+            for c in sel_cols:
+                if c in df.columns: 
+                    if c.endswith("score"):
+                        _agg[c] = "mean"
+                    else:
+                        _agg[c] = "first"
+            rdf = df.groupby(["expid", "prefix"], as_index=False).agg(
+                    _agg).reset_index(drop=True)
+            gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
+            gdf = gdf.sort_values(by=["m_score"], ascending=False)
+            all_exps = gdf['expid'].unique()
             caps = {}
-            for exp in gdf["expid"].unique():
-                img_cap = " table: \hyperref[table:1]{Table}"
+            cols = ["50@m_score"]
+            for exp in all_exps: #gdf["expid"].unique():
+                img_cap = " Table: \hyperref[table:1]{Table}"
                 cond = (gdf['expid'] == exp)
-                for sel_col in sel_cols:
-                    if not sel_col in gdf.columns:
-                        continue
-                    val = gdf.loc[cond, sel_col].iloc[0]
-                    if sel_col.endswith("score"):
+                breakpoint()
+                for sel_col in cols:
+                    val_cal = sel_col
+                    if "@" in sel_col:
+                        val_col = sel_col.split("@")[-1]
+                    if val_cal in gdf.columns:
+                        val = gdf.loc[cond, sel_col].iloc[0]
+                    if val_col.endswith("score"):
                         val = "{:.1f}".format(val)
                         val = "$\\textcolor{blue}{ " + val + " }$"
                     else:
                         val = "\\textbf{" + str(val) + "}"
                     img_cap += sel_col.replace("_","-") + ": " + str(val) + " | "
-                    table_cont1 = table_cont1.replace("@" + exp + "@" + sel_col, str(val))
-                    if sel_col == "m_score":
-                        table_cont2 = table_cont2.replace("@" + exp + "@m_score" , str(val))
+                    report = report.replace("@" + exp + "@" + sel_col, str(val))
                 caps[exp] = img_cap
             for exp in all_exps:
                 # breakpoint()
@@ -1871,28 +1918,10 @@ def show_df(df):
                         else:
                             val = "\\textcolor{black}{" + val + "}"
                         scores += rel + ":" + "$" + val + "$ "
-                        table_cont2 = table_cont2.replace(
+                        report = report.replace(
                                 "@" + exp + "@" + rel + "@" + sc, val)
                 caps[exp] += "\\\\" + scores            
-            ii = 1
-            for head, cont in zip([head1, head2],[table_cont1, table_cont2]):
-                lable = "table:" + str(ii) 
-                caption = f"{exp}"
-                table = """
-                    \\begin{{table*}}[h]
-                        \label{{{}}}
-                        \caption{{{}}}
-                        \\begin{{adjustbox}}{{width=1\\textwidth}}
-                        \\begin{{tabular}}{{{}}}
-                        \hline
-                        {}
-                        \end{{tabular}}
-                        \end{{adjustbox}}
-                    \end{{table*}}
-                    """
-                table = table.format(lable, caption, head, cont)
-                report = report.replace("mytable", table +"\n\n" + "mytable")
-                ii += 1
+
             image = """
                 \\begin{{figure}}[h]
                     \centering
@@ -1916,6 +1945,7 @@ def show_df(df):
                     report = report.replace("myimage", ii +"\n\n" + "myimage")
             report = report.replace("mytable","")
             report = report.replace("myimage","")
+            ####################
             tex = f"{doc_dir}/report.tex"
             pdf = f"{doc_dir}/report.pdf"
             with open(tex, "w") as f:
