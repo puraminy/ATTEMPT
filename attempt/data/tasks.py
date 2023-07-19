@@ -773,7 +773,7 @@ class Atomic(AbstractTask):
     samples_per_head = 3
     rels = []
     def __init__(self, config, task_args, task="", tokenizer=None):
-        super().__init__(config, task_args, tokenizer)
+        super().__init__(config, task_args, task, tokenizer)
         self.data_path = task_args.data_path
         if not task_args.rels:
             self.rels = [self.name]
