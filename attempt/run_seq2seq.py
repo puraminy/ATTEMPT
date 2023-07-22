@@ -1105,6 +1105,7 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
 
+            reval = not training_args.do_train 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 if bp == "load":
@@ -1113,7 +1114,7 @@ def train(**kwargs):
                 if encoder.is_private:
                     if load_private_prompts: 
                         enc_name = encoder.name.replace("_for","")
-                if encoder.is_source and "_com" in encoder.name:
+                if encoder.is_source and "_com" in encoder.name and not reval:
                         pattern = re.compile(r"com\d+")
                         enc_name = re.sub(pattern, "com", encoder.name)
                 if enc_name or not encoder.is_private:

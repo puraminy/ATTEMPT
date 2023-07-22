@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from curses import wrapper
 import click
 import numpy as np
+import statistics as stat
 from glob import glob
 import six
 import debugpy
@@ -28,14 +29,14 @@ import sklearn
 import sklearn.metrics
 import attempt.metrics.metrics as mets
 
-def plot_bar(folder):
+def plot_bar(folder, train_num):
     rep = load_obj("repg", "gtasks", {})
-    methods = list(rep["50@m_score"].keys()) 
+    methods = list(rep[train_num + "@m_score"].keys()) 
     bar_width = 0.25
     r = np.arange(9)
     ii = -1
     color = ["red","green","blue"]
-    for key in ["50@m_score","500@m_score"]: 
+    for key in [train_num + "@m_score","500@m_score"]: 
         ii += 1
         column = [float(rep[key][met]) for met in methods]
         r = [x + bar_width for x in r]
@@ -1807,7 +1808,10 @@ def show_df(df):
             all_exps = gdf['expid'].unique()
             table_cont1 += "method & "
             head1 = "|r|"
-            cols = ["50@m_score","100@m_score","500@m_score"]
+            cols = []
+            for n in [50,100,500]:
+                for seed in [123,45,76]:
+                    cols.append(str(n) + "@" + str(seed) + "@m_score")
             for sel_col in cols:
                 head1 += "r|"
                 header = sel_col if not sel_col in map_cols else map_cols[sel_col] 
@@ -1864,18 +1868,14 @@ def show_df(df):
             ####################
             with open(f"{_dir}/report_templates/report.tex.temp2", "w") as f:
                 f.write(report)
+            char = "R"
 
         if cmd == "report" or char == "R":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             m_report = f"{_dir}/report_templates/report.tex.temp2"
-            rep = load_obj("repg", "gtasks", {})
-            with open(m_report, "r") as f:
-                main_report = f.read()
-            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
-            #    table_cont = f.read()
-            ########## Filling Tables
-            report = main_report
+
+
             _agg = {}
             for c in sel_cols:
                 if c in df.columns: 
@@ -1888,8 +1888,84 @@ def show_df(df):
             gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
             all_exps = gdf['expid'].unique()
+
+            ##################
+            rep = load_obj("repg", "gtasks", {})
+            rep2 = {}
+            for k,v in rep.items():
+                kk = k.split("@")
+                tn = kk[0]
+                if len(kk) <= 2:
+                    continue
+                if not tn in rep2:
+                    rep2[tn] = {}
+                for exp, val in v.items():
+                    if not exp in rep2[tn]:
+                        rep2[tn][exp] = []
+                    rep2[tn][exp].append(val)
+
             mdf = main_df
-            train_num = mdf["max_train_samples"].unique()[0]
+            train_num = str(mdf["max_train_samples"].unique()[0])
+            head1 = "|r|"
+            table_avg = " tn  &"
+            if train_num in rep2:
+                methods = list(rep2[train_num].keys())
+            else:
+                train_num = '100'
+                methods = list(rep2['100'].keys())
+            for exp in methods:
+                head1 += "r|"
+                table_avg += " \\textbf{" + exp.replace("_","-") + "} &"
+            table_avg = table_avg.strip("&")
+            table_avg += "\\\\\n"
+            table_avg += "\\hline\n"
+            tab = []
+            train_nums = []
+            for k,v in rep2.items():
+                tn = str(k) + "@m_score" 
+                train_nums.append(str(k))
+                table_avg += " \\textbf{" + str(k) + "} &"
+                tt = []
+                for exp, val in v.items():
+                    val = [float(v) for v in val if v]
+                    avg = stat.mean(val)
+                    sdev = stat.stdev(val)
+                    avg_sd = "{:.2f}_{{{:.2f}}}".format(avg, sdev)
+                    rep[tn][exp] = avg 
+                    tt.append(avg)
+                    table_avg += f" ${avg_sd}$ &"
+                tab.append(tt)
+                table_avg = table_avg.strip("&")
+                table_avg += "\\\\\n"
+                table_avg += "\\hline\n"
+            table_avg = table_avg.strip("&")
+            table_avg += "\\\\\n"
+            table_avg += "\\hline\n"
+
+            tab = np.array(tab)
+            row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
+            normalized_rows = tab / row_norms
+            fig, ax = plt.subplots()
+
+            sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
+                    annot_kws={'rotation': 90}, 
+                    xticklabels=methods,
+                    yticklabels=train_nums,
+                    linewidth=0.5)
+            ax.set_title('Heatmap of a matrix')
+            ax.set_xlabel('X-Axis')
+            ax.set_ylabel('Y-Axis')
+
+            havg = doc_dir + "/pics/" + "havg.png"
+            fig.savefig(havg)
+
+            with open(m_report, "r") as f:
+                main_report = f.read()
+            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
+            #    table_cont = f.read()
+            ########## Filling Tables
+            report = main_report
+            seed = mdf["data_seed"].unique()[0]
             table_cont2=""
             table_cont2 += "method & "
             head2 = "|r|"
@@ -1910,14 +1986,14 @@ def show_df(df):
                     table_cont2 += _exp + " & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{exp}@{rel}@m_score $ &"
-                table_cont2 += f" $ @{exp}@{train_num}@m_score $ &"
+                table_cont2 += f" $ @{exp}@{train_num}@{seed}@m_score $ &"
                 table_cont2 = table_cont2.strip("&")
                 table_cont2 += "\\\\\n"
             table_cont2 += "\\hline \n"
             ii = 1
-            for head, cont in zip([head2],[table_cont2]):
+            for head, cont in zip([head1, head2],[table_avg, table_cont2]):
                 lable = "table:" + str(ii) 
-                caption = f"{exp}"
+                caption = f"{exp} {train_num} {seed}"
                 table = """
                     \\begin{{table*}}[h]
                         \label{{{}}}
@@ -1936,7 +2012,7 @@ def show_df(df):
 
             report = report.replace("mytable","")
             caps = {}
-            cols = [str(train_num) + "@m_score"]
+            cols = [str(train_num) + "@" + str(seed) + "@m_score"]
             ii = 1
             for exp in all_exps: #gdf["expid"].unique():
                 img_cap = " Table: \hyperref[table:1]{Table}"
@@ -2009,8 +2085,10 @@ def show_df(df):
                 \end{{figure}}
             """
             pics_dir = doc_dir + "/pics"
+            ii = image.format(havg, "havg", "fig:havg")
+            report = report.replace("myimage", ii +"\n\n" + "myimage")
             Path(pics_dir).mkdir(parents=True, exist_ok=True)
-            pname = plot_bar(pics_dir)
+            pname = plot_bar(pics_dir, train_num)
             ii = image.format(pname, "bar", "fig:bar")
             report = report.replace("myimage", ii +"\n\n" + "myimage")
             dest, imgs = get_images(df, all_exps)
@@ -2480,7 +2558,7 @@ def start(stdscr):
 @click.option(
     "--hkey",
     "-h",
-    default="CGR",
+    default="CG",
     type=str,
     help=""
 )

@@ -15,29 +15,13 @@
 
                     \begin{table*}[h]
                         \label{table:1}
-                        \caption{SLP}
+                        \caption{SLPI}
                         \begin{adjustbox}{width=1\textwidth}
-                        \begin{tabular}{|r|r|r|r|}
+                        \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|}
                         \hline
-                        method &  \textbf{50@m-score} & \textbf{100@m-score} & \textbf{500@m-score} \\
+                        method &  \textbf{50@123@m-score} & \textbf{50@45@m-score} & \textbf{50@76@m-score} & \textbf{100@123@m-score} & \textbf{100@45@m-score} & \textbf{100@76@m-score} & \textbf{500@123@m-score} & \textbf{500@45@m-score} & \textbf{500@76@m-score} \\
 \hline
-SILPI &  $ $ \textcolor{teal}{1}-\textcolor{blue}{ 77.1 }$ $ & $ $ \textcolor{teal}{1}-\textcolor{blue}{ 79.2 }$ $ & $ $ \textcolor{teal}{3}-\textcolor{blue}{ 82.5 }$ $ \\
-\hline 
-SILP &  $ $ \textcolor{teal}{2}-\textcolor{blue}{ 73.8 }$ $ & $ $ \textcolor{teal}{3}-\textcolor{blue}{ 78.3 }$ $ & $ $ \textcolor{teal}{8}-\textcolor{blue}{ 69.0 }$ $ \\
-\hline 
-SIL &  $ $ \textcolor{teal}{3}-\textcolor{blue}{ 73.8 }$ $ & $ $ \textcolor{teal}{2}-\textcolor{blue}{ 79.0 }$ $ & $ $ \textcolor{teal}{5}-\textcolor{blue}{ 81.6 }$ $ \\
-\hline 
-SLPI &  $ $ \textcolor{teal}{4}-\textcolor{blue}{ 68.5 }$ $ & $ $ \textcolor{teal}{4}-\textcolor{blue}{ 74.9 }$ $ & $ $ \textcolor{teal}{1}-\textcolor{blue}{ 82.9 }$ $ \\
-\hline 
-P2 &  $ $ \textcolor{teal}{5}-\textcolor{blue}{ 67.8 }$ $ & $ $ \textcolor{teal}{6}-\textcolor{blue}{ 70.0 }$ $ & $ $ \textcolor{teal}{4}-\textcolor{blue}{ 82.3 }$ $ \\
-\hline 
-SIP &  $ $ \textcolor{teal}{6}-\textcolor{blue}{ 60.4 }$ $ & $ $ \textcolor{teal}{7}-\textcolor{blue}{ 69.3 }$ $ & $ $ \textcolor{teal}{2}-\textcolor{blue}{ 82.8 }$ $ \\
-\hline 
-P &  $ $ \textcolor{teal}{7}-\textcolor{blue}{ 58.2 }$ $ & $ $ \textcolor{teal}{5}-\textcolor{blue}{ 73.8 }$ $ & $ $ \textcolor{teal}{6}-\textcolor{blue}{ 78.1 }$ $ \\
-\hline 
-SL &  $ $ \textcolor{teal}{8}-\textcolor{blue}{ 53.9 }$ $ & $ $ \textcolor{teal}{9}-\textcolor{blue}{ 44.3 }$ $ & $ $ \textcolor{teal}{7}-\textcolor{blue}{ 74.3 }$ $ \\
-\hline 
-SLP &  $ $ \textcolor{teal}{9}-\textcolor{blue}{ 48.4 }$ $ & $ $ \textcolor{teal}{8}-\textcolor{blue}{ 48.6 }$ $ & $ $ \textcolor{teal}{9}-\textcolor{blue}{ 40.2 }$ $ \\
+SLPI &  $ @SLPI@50@123@m_score $ & $ @SLPI@50@45@m_score $ & $ @SLPI@50@76@m_score $ & $ @SLPI@100@123@m_score $ & $ @SLPI@100@45@m_score $ & $ @SLPI@100@76@m_score $ & $ @SLPI@500@123@m_score $ & $ @SLPI@500@45@m_score $ & $ @SLPI@500@76@m_score $ \\
 \hline 
 \hline 
 
