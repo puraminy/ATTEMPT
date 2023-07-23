@@ -415,7 +415,7 @@ class AbstractTask(abc.ABC):
         labels_list = []
         for label in self.labels_list:
             labels_list.append(self.labels_map[label])
-        return label_list
+        return labels_list
 
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
