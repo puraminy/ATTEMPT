@@ -2009,7 +2009,8 @@ def show_df(df):
                 exp_cats.append(str(k))
                 table_cmp += " \\textbf{" + str(k) + "} &"
                 tt = []
-                for exp, val in v.items():
+                for exp in methods:
+                    val = rep_cmp[k][exp]
                     val = [float(v) for v in val if v]
                     try:
                         avg = stat.mean(val)

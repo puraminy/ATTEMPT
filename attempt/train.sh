@@ -334,7 +334,7 @@ params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
 params="${params} --samples_per_head=$_sph"
 params="${params} --multi_choice=$_mc"
-params="${params} --map_labels=False"
+params="${params} --map_labels=True"
 #params="${params} --data_seed=123"
 params="${params} --overwrite_cache=True"
 if [ -z $_seed ]; then
