@@ -341,6 +341,7 @@ def show_df(df):
     open_dfnames = [dfname]
     dot_cols = {}
     selected_cols = []
+    rep_cmp = load_obj("rep_cmp", "gtasks", {})
     task = ""
     if "prefix" in df:
         task = df["prefix"][0]
@@ -1787,6 +1788,30 @@ def show_df(df):
             col = sel_cols[cur_col]
             col_widths[col] = int(val)
             adjust = False
+        if cmd.startswith("cc"):
+            name = cmd.split("=")[-1]
+            if not name in rep_cmp:
+                rep_cmp[name] = {}
+            exp=df.iloc[sel_row]["expid"]
+            tdf = main_df[main_df['expid'] == exp]
+            _agg = {}
+            for c in sel_cols:
+                if c in df.columns: 
+                    if c.endswith("score"):
+                        _agg[c] = "mean"
+                    else:
+                        _agg[c] = "first"
+            gdf = tdf.groupby(["prefix"], as_index=False).agg(_agg).reset_index(drop=True)
+            all_rels = gdf['prefix'].unique()
+            for rel in all_rels: 
+                cond = (gdf['prefix'] == rel)
+                val = gdf.loc[cond, "m_score"].iloc[0]
+                val = "{:.2f}".format(val)
+                if not rel in rep_cmp[name]:
+                    rep_cmp[name][rel] = []
+                rep_cmp[name][rel].append(val)
+            save_obj(rep_cmp, "rep_cmp", "gtasks")
+            char = "R"
         if cmd == "gen":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
@@ -1928,8 +1953,11 @@ def show_df(df):
                 tt = []
                 for exp, val in v.items():
                     val = [float(v) for v in val if v]
-                    avg = stat.mean(val)
-                    sdev = stat.stdev(val)
+                    try:
+                        avg = stat.mean(val)
+                        sdev = stat.stdev(val)
+                    except:
+                        continue
                     avg_sd = "{:.2f}_{{{:.2f}}}".format(avg, sdev)
                     rep[tn][exp] = avg 
                     tt.append(avg)
@@ -1942,23 +1970,64 @@ def show_df(df):
             table_avg += "\\\\\n"
             table_avg += "\\hline\n"
 
+            #breakpoint()
             tab = np.array(tab)
-            row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
-            normalized_rows = tab / row_norms
-            fig, ax = plt.subplots()
-
-            sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
-                    annot_kws={'rotation': 90}, 
-                    xticklabels=methods,
-                    yticklabels=train_nums,
-                    linewidth=0.5)
-            ax.set_title('Heatmap of a matrix')
-            ax.set_xlabel('X-Axis')
-            ax.set_ylabel('Y-Axis')
-
             havg = doc_dir + "/pics/" + "havg.png"
-            fig.savefig(havg)
+            if tab.any():
+                row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
+                normalized_rows = tab / row_norms
+                fig, ax = plt.subplots()
 
+                sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
+                        annot_kws={'rotation': 90}, 
+                        xticklabels=methods,
+                        yticklabels=train_nums,
+                        linewidth=0.5)
+                ax.set_title('Heatmap of a matrix')
+                ax.set_xlabel('X-Axis')
+                ax.set_ylabel('Y-Axis')
+
+                fig.savefig(havg)
+####################
+            head_cmp = "|r|"
+            table_cmp = " tn  &"
+            key_list = list(rep_cmp.keys())
+            methods = []
+            if key_list:
+                key = key_list[0]
+                methods = list(rep_cmp[key].keys())
+            for exp in methods:
+                head_cmp += "r|"
+                table_cmp += " \\textbf{" + exp.replace("_","-") + "} &"
+            table_cmp = table_cmp.strip("&")
+            table_cmp += "\\\\\n"
+            table_cmp += "\\hline\n"
+            tab = []
+            exp_cats = []
+            for k,v in rep_cmp.items():
+                tn = str(k) + "@m_score" 
+                exp_cats.append(str(k))
+                table_cmp += " \\textbf{" + str(k) + "} &"
+                tt = []
+                for exp, val in v.items():
+                    val = [float(v) for v in val if v]
+                    try:
+                        avg = stat.mean(val)
+                        sdev = stat.stdev(val)
+                    except:
+                        continue
+                    avg_sd = "{:.2f}_{{{:.2f}}}".format(avg, sdev)
+                    tt.append(avg)
+                    table_cmp += f" ${avg_sd}$ &"
+                tab.append(tt)
+                table_cmp = table_cmp.strip("&")
+                table_cmp += "\\\\\n"
+                table_cmp += "\\hline\n"
+            table_cmp = table_cmp.strip("&")
+            table_cmp += "\\\\\n"
+            table_cmp += "\\hline\n"
+
+######################
             with open(m_report, "r") as f:
                 main_report = f.read()
             #with open(f"{_dir}/report_templates/table.txt", "r") as f:
@@ -1991,7 +2060,8 @@ def show_df(df):
                 table_cont2 += "\\\\\n"
             table_cont2 += "\\hline \n"
             ii = 1
-            for head, cont in zip([head1, head2],[table_avg, table_cont2]):
+            for head, cont in zip([head1, head2, head_cmp],
+                    [table_avg, table_cont2, table_cmp]):
                 lable = "table:" + str(ii) 
                 caption = f"{exp} {train_num} {seed}"
                 table = """

@@ -983,7 +983,7 @@ class MNLI(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     #labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
-    labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
+    labels_map = {"0":"entailment", "1":"neutral", "2": "contradicts"}
     rel_nat = "premise {mask} hypothesis."
 
     def load_dataset(self, split):
@@ -1044,7 +1044,7 @@ class SNLI(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"en", "1":"neutral", "2": "contradiction"}
+    labels_map = {"0":"entailment", "1":"neutral", "2": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('snli', split=split)
@@ -1083,7 +1083,7 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"en", "1":"not"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
@@ -1104,7 +1104,7 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"0":"en", "1":"not"} # entailment nont_entailment
+    labels_map = {"0":"entailment", "1":"not_entailment"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -1124,7 +1124,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"not", "1":"en"}
+    labels_map = {"0":"not_entailment", "1":"entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
@@ -1164,7 +1164,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"en", "1":"not"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)
@@ -1184,7 +1184,7 @@ class SuperGLUECB(AbstractTask):
                            "test": "validation"}
     metric = [metrics.mean_multiclass_f1(num_classes=3), metrics.accuracy]
     metric_names = ["f1_multiclass", "accuracy"]
-    labels_map = {"0":"en", "2":"neutral", "1": "contradiction"}
+    labels_map = {"0":"entailment", "2":"neutral", "1": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'cb', split=split)

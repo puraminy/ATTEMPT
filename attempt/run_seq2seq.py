@@ -280,6 +280,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["break_point"] = break_point 
    args["preview"] = preview 
    args["repeat"] = repeat 
+   args["reval"] = reval 
    tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
    if break_point:
@@ -552,6 +553,7 @@ def train(**kwargs):
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
     repeat = kwargs.setdefault("repeat",False)
+    reval = kwargs.setdefault("reval",False)
     log_var = kwargs.setdefault("log_var","")
     main_vars = kwargs.setdefault("main_vars",{})
     mylogs.set_args(kwargs.copy())
@@ -1105,7 +1107,6 @@ def train(**kwargs):
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
 
-            reval = not training_args.do_train 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
                 if bp == "load":

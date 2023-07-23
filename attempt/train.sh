@@ -127,7 +127,7 @@ echo "Tasks: ===================="
 echo $_tasks
 
 model=t5-base
-tname=t5-base
+tokname=t5-base
 home=$HOME
 case "$HOME" in 
    *root*)
@@ -137,24 +137,30 @@ case "$HOME" in
    *ahmad*)
       # Do stuff
       model=t5-base
-      tname=t5-base
+      tokname=t5-base
       ;;
 esac
 if [ -n "$_mt5" ]; then
    model=mt5-base
-   tname=mt5-base
+   tokname=mt5-base
 fi
 if [ -n "$_pars" ]; then
    model=parsT5-base
-   tname=parsT5-base
+   tokname=parsT5-base
+fi
+if [ -n "$_lmb" ]; then
+   # model=google/t5-v1_1-base
+   model=t5-lmb
+   tokname=t5-base
 fi
 if [ -n "$_v1" ]; then
-   model=google/t5-v1_1-base
-   tname=t5-base
+   # model=google/t5-v1_1-base
+   model=t5-v1
+   tokname=t5-base
 fi
 if [ -n "$_large" ]; then
    model=t5-large
-   tname=t5-large
+   tokname=t5-large
 fi
 if [ -n "$_max" ]; then
    _msl=450
@@ -328,6 +334,7 @@ params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
 params="${params} --samples_per_head=$_sph"
 params="${params} --multi_choice=$_mc"
+params="${params} --map_labels=False"
 #params="${params} --data_seed=123"
 params="${params} --overwrite_cache=True"
 if [ -z $_seed ]; then
@@ -364,7 +371,7 @@ params="${params} --do_eval=$_doeval"
 # Saving
 params="${params} --report_to=wandb@"
 params="${params} --model_name_or_path=$model"
-params="${params} --tokenizer_name=$tname"
+params="${params} --tokenizer_name=$tokname"
 params="${params} --use_fast_tokenizer=True"
 params="${params} --save_total_limit=1"
 params="${params} --save_checkpoint=False"
