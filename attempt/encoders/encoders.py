@@ -320,10 +320,10 @@ def add_specials(tokenizer):
     num_tokens += tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
     return num_tokens
 
-def extend_tokenizer(tokenizer, prompt_tokens = []):
+def extend_tokenizer(tokenizer, tokens = []):
     cur_list = tokenizer.additional_special_tokens
     new_tokens = []
-    new_tokens += prompt_tokens
+    new_tokens += tokens
     added_tokens = [ 
             AddedToken(tok,lstrip=True,
                 rstrip=False, single_word=True)

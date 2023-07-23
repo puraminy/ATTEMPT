@@ -31,6 +31,8 @@ import attempt.metrics.metrics as mets
 
 def plot_bar(folder, train_num):
     rep = load_obj("repg", "gtasks", {})
+    if not train_num + "@m_score" in rep:
+        return ""
     methods = list(rep[train_num + "@m_score"].keys()) 
     bar_width = 0.25
     r = np.arange(9)
@@ -310,6 +312,8 @@ def show_df(df):
         tag_cols.remove("expid")
     if "expid" in df:
         df["expid"] = df["expid"].astype(str)
+
+    #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
     orig_tag_cols = tag_cols.copy()
     src_path = ""
@@ -1831,6 +1835,12 @@ def show_df(df):
             gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
             all_exps = gdf['expid'].unique()
+            exp_names = []
+            for exp in all_exps:
+                exp = exp.replace("_","-")
+                exp = exp.split("-")[0]
+                exp_names.append(exp)
+
             table_cont1 += "method & "
             head1 = "|r|"
             cols = []
@@ -1847,9 +1857,7 @@ def show_df(df):
             table_cont1 = table_cont1.strip("&")
             table_cont1 += "\\\\\n"
             table_cont1 += "\\hline\n"
-            for ii, exp in enumerate(all_exps):
-                exp = exp.replace("_","-")
-                exp = _exp = exp.split("-")[0]
+            for ii, exp in enumerate(exp_names):
                 if char == "R":
                     table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
                 else:
@@ -1913,6 +1921,11 @@ def show_df(df):
             gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
             all_exps = gdf['expid'].unique()
+            exp_names = []
+            for exp in all_exps:
+                exp = exp.replace("_","-")
+                exp = exp.split("-")[0]
+                exp_names.append(exp)
 
             ##################
             rep = load_obj("repg", "gtasks", {})
@@ -1922,11 +1935,9 @@ def show_df(df):
                 tn = kk[0]
                 if len(kk) <= 2:
                     continue
-                breakpoint()
                 if not tn in rep2:
                     rep2[tn] = {}
-                for exp in all_exps:
-                    val=rep[v][exp]
+                for exp, val in v.items():
                     if not exp in rep2[tn]:
                         rep2[tn][exp] = []
                     rep2[tn][exp].append(val)
@@ -1935,14 +1946,9 @@ def show_df(df):
             train_num = str(mdf["max_train_samples"].unique()[0])
             head1 = "|r|"
             table_avg = " tn  &"
-            if train_num in rep2:
-                methods = list(rep2[train_num].keys())
-            else:
-                train_num = '100'
-                methods = list(rep2['100'].keys())
-            for exp in methods:
+            for exp in exp_names:
                 head1 += "r|"
-                table_avg += " \\textbf{" + exp.replace("_","-") + "} &"
+                table_avg += " \\textbf{" + exp + "} &"
             table_avg = table_avg.strip("&")
             table_avg += "\\\\\n"
             table_avg += "\\hline\n"
@@ -1953,7 +1959,11 @@ def show_df(df):
                 train_nums.append(str(k))
                 table_avg += " \\textbf{" + str(k) + "} &"
                 tt = []
-                for exp, val in v.items():
+                #for exp, val in v.items():
+                for exp in exp_names:
+                    if not exp in rep2[k]:
+                        continue
+                    val = rep2[k][exp]
                     val = [float(v) for v in val if v]
                     try:
                         avg = stat.mean(val)
@@ -1964,7 +1974,8 @@ def show_df(df):
                     rep[tn][exp] = avg 
                     tt.append(avg)
                     table_avg += f" ${avg_sd}$ &"
-                tab.append(tt)
+                if tt:
+                    tab.append(tt)
                 table_avg = table_avg.strip("&")
                 table_avg += "\\\\\n"
                 table_avg += "\\hline\n"
@@ -1972,7 +1983,6 @@ def show_df(df):
             table_avg += "\\\\\n"
             table_avg += "\\hline\n"
 
-            #breakpoint()
             tab = np.array(tab)
             havg = doc_dir + "/pics/" + "havg.png"
             if tab.any():
@@ -1982,7 +1992,8 @@ def show_df(df):
 
                 sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
                         annot_kws={'rotation': 90}, 
-                        xticklabels=methods,
+                        fmt=".1f",
+                        xticklabels=exp_names,
                         yticklabels=train_nums,
                         linewidth=0.5)
                 ax.set_title('Heatmap of a matrix')
@@ -2049,7 +2060,7 @@ def show_df(df):
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
-            for ii, exp in enumerate(all_exps):
+            for ii, exp in enumerate(all_exps): 
                 exp = exp.replace("_","-")
                 exp = _exp = exp.split("-")[0]
                 if char == "R":        
@@ -2631,7 +2642,7 @@ def start(stdscr):
 @click.option(
     "--hkey",
     "-h",
-    default="CG",
+    default="CGR",
     type=str,
     help=""
 )
