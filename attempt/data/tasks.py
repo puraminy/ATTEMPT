@@ -413,8 +413,12 @@ class AbstractTask(abc.ABC):
 
     def get_label_list(self):
         labels_list = []
-        for label in self.labels_list:
-            labels_list.append(self.labels_map[label])
+        try:
+            if self.map_labels and self.name != "stsb":
+                for label in self.labels_list:
+                    labels_list.append(self.labels_map[label])
+        except:
+            assert False, self.name + "|" + str(self.labels_list)
         return labels_list
 
     def seq2seq_format(self, sources: List[str],
@@ -748,7 +752,7 @@ class Amazon_Polarity(AbstractTask):
 
 
 class STSB(AbstractTask):
-    name = "stsb"
+    map_labels = False
     labels_list = [str(np.round(label, decimals=1))
                    for label in np.arange(0, 5.2, 0.2)]
     metric = [metrics.pearson_corrcoef, metrics.spearman_corrcoef]
@@ -756,6 +760,10 @@ class STSB(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
+
+    #def __init__(self, config, task_args, task="", tokenizer=None):
+    #    super().__init__(config, task_args, task, tokenizer)
+    #    self.map_labels = False
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'stsb',
