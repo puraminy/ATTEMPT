@@ -1922,9 +1922,11 @@ def show_df(df):
                 tn = kk[0]
                 if len(kk) <= 2:
                     continue
+                breakpoint()
                 if not tn in rep2:
                     rep2[tn] = {}
-                for exp, val in v.items():
+                for exp in all_exps:
+                    val=rep[v][exp]
                     if not exp in rep2[tn]:
                         rep2[tn][exp] = []
                     rep2[tn][exp].append(val)
@@ -2636,7 +2638,7 @@ def start(stdscr):
 @click.pass_context
 def main(ctx, fname, path, fid, ftype, dpy, hkey):
     if dpy:
-        port = 1234
+        port = 12345
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
