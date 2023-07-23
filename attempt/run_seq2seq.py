@@ -1064,6 +1064,7 @@ def train(**kwargs):
              rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
              task_source_prompts_set[tid].extend(rel_sh.split())
 
+        # new
         extend_tokenizer(tokenizer, label_tokens)
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
