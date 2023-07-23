@@ -413,8 +413,9 @@ class AbstractTask(abc.ABC):
 
     def get_label_list(self):
         labels_list = []
-        for label in self.labels_list:
-            labels_list.append(self.labels_map[label])
+        if self.name != 'stsb':
+            for label in self.labels_list:
+                labels_list.append(self.labels_map[label])
         return labels_list
 
     def seq2seq_format(self, sources: List[str],
