@@ -415,7 +415,7 @@ class AbstractTask(abc.ABC):
         labels_list = []
         if self.name != 'stsb':
             for label in self.labels_list:
-                labels_list.append(self.labels_map[label])
+                labels_list.append("<" + self.labels_map[label] + ">")
         return labels_list
 
     def seq2seq_format(self, sources: List[str],
@@ -436,7 +436,7 @@ class AbstractTask(abc.ABC):
             for label in targets:
                 assert label in self.labels_map, self.name + ":" + label \
                         + ":" + str(self.labels_map)
-                tt.append(self.labels_map[label])
+                tt.append("<" + self.labels_map[label] + ">")
             targets = tt 
         else:
             labels_list = self.labels_list
