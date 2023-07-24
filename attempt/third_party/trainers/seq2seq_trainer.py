@@ -178,7 +178,6 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
             "task": inputs["task"] if "task" in inputs else "all",
             "repetition_penalty": self.gen_conf["rep_penalty"] if "rep_penalty" in self.gen_conf else None
         }
-
         generated_tokens = self.model.generate(
             inputs["input_ids"],
             attention_mask=inputs["attention_mask"],

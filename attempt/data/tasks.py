@@ -1089,7 +1089,7 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"entailment", "1":"not"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)

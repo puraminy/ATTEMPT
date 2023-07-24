@@ -387,6 +387,10 @@ params="${params} --@num_train_epochs=$_ep"
 params="${params} --adjust_epochs=True"
 params="${params} --warmup_steps=none"
 
+
+# generation
+params="${params} --num_beams=5"
+
 if [ "$method" = "ft" ]; then
    params="${params} --warmup_steps=500"
    params="${params} --learning_rate=0.0003"
