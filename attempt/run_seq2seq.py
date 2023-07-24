@@ -1052,7 +1052,7 @@ def train(**kwargs):
              task_args["id"] = ti
              t_args = dotdict(task_args.copy())
              task = AutoTask.get(task_name, None, task_args=t_args, tokenizer=tokenizer)
-             label_tokens.extend(task.get_label_list())
+             # label_tokens.extend(task.get_label_list())
              p = task.get_prompts()
              prompts = {**prompts, **p}
              tid = task_name #get_id()
