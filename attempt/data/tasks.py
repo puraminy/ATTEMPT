@@ -71,10 +71,14 @@ class AbstractTask(abc.ABC):
         return self.name 
 
     def get_max_target_length(self, tokenizer, default_max_length):
+        ll = []
         if self.labels_list is not None:
-            return max([len(tokenizer.encode(label)) for label in self.labels_list])
+           for label in self.labels_list:
+              if self.labels_map and self.map_labels:
+                  label = self.map_labels[label]
+              ll.append(len(tokenizer.encode(label))) 
+           return max(ll)
         return default_max_length
-
 
     def check_n_obs(self, n_obs, total_size):
         if n_obs < 0 or (n_obs is not None and n_obs > total_size):
