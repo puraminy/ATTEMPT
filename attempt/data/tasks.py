@@ -436,7 +436,7 @@ class AbstractTask(abc.ABC):
             for label in targets:
                 assert label in self.labels_map, self.name + ":" + label \
                         + ":" + str(self.labels_map)
-                tt.append("<" + self.labels_map[label] + ">")
+                tt.append(self.labels_map[label])
             targets = tt 
         else:
             labels_list = self.labels_list
