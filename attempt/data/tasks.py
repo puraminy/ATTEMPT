@@ -427,7 +427,7 @@ class AbstractTask(abc.ABC):
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
-        if self.labels_map and self.map_labels:
+        if self.labels_map and self.map_labels and self.name != "stsb":
             labels_list = []
             for label in self.labels_list:
                 labels_list.append(self.labels_map[label])
