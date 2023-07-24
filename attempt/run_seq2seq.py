@@ -1280,6 +1280,7 @@ def train(**kwargs):
             logger.info("extra: %s", examples["extra_fields"][:5])
             breakpoint()
         # Setup the tokenizer for targets
+        mylogs.bp("encode")
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
                 examples['target'], max_length=max_target_length, padding=padding, truncation=True)
