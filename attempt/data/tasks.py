@@ -411,12 +411,11 @@ class AbstractTask(abc.ABC):
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
-    def get_label_list(self):
+    def get_label_list():
         labels_list = []
-        if self.name != 'stsb':
-            for label in self.labels_list:
-                labels_list.append("<" + self.labels_map[label] + ">")
-        return labels_list
+        for label in self.labels_list:
+            labels_list.append(self.labels_map[label])
+        return label_list
 
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
@@ -427,7 +426,7 @@ class AbstractTask(abc.ABC):
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
-        if self.labels_map and self.map_labels and self.name != "stsb":
+        if self.labels_map and self.map_labels:
             labels_list = []
             for label in self.labels_list:
                 labels_list.append(self.labels_map[label])
@@ -749,7 +748,7 @@ class Amazon_Polarity(AbstractTask):
 
 
 class STSB(AbstractTask):
-    map_labels = False
+    name = "stsb"
     labels_list = [str(np.round(label, decimals=1))
                    for label in np.arange(0, 5.2, 0.2)]
     metric = [metrics.pearson_corrcoef, metrics.spearman_corrcoef]
@@ -757,10 +756,6 @@ class STSB(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-
-    #def __init__(self, config, task_args, task="", tokenizer=None):
-    #    super().__init__(config, task_args, task, tokenizer)
-    #    self.map_labels = False
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'stsb',
@@ -1094,7 +1089,7 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"entailment", "1":"not-entailment"}
+    labels_map = {"0":"entailment", "1":"not"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
@@ -1115,7 +1110,7 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"0":"entailment", "1":"not-entailment"} # entailment nont_entailment
+    labels_map = {"0":"entailment", "1":"not"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -1135,7 +1130,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"not-entailment", "1":"entailment"}
+    labels_map = {"0":"not", "1":"entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
@@ -1175,7 +1170,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"entailment", "1":"not-entailment"}
+    labels_map = {"0":"entailment", "1":"not"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)

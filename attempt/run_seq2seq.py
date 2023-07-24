@@ -1052,8 +1052,8 @@ def train(**kwargs):
              task_args["id"] = ti
              t_args = dotdict(task_args.copy())
              task = AutoTask.get(task_name, None, task_args=t_args, tokenizer=tokenizer)
-             # label_tokens.extend(task.get_label_list())
              p = task.get_prompts()
+             # label_tokens.extend(task.get_label_list())
              prompts = {**prompts, **p}
              tid = task_name #get_id()
              if not tid in task_prompts:
@@ -1063,7 +1063,8 @@ def train(**kwargs):
                  task_prompts[tid].extend(v)
              rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
              task_source_prompts_set[tid].extend(rel_sh.split())
-        # extend_tokenizer(tokenizer, label_tokens)
+
+        #extend_tokenizer(tokenizer, label_tokens)
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
 
