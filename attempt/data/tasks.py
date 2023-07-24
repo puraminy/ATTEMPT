@@ -75,7 +75,7 @@ class AbstractTask(abc.ABC):
         if self.labels_list is not None:
            for label in self.labels_list:
               if self.labels_map and self.map_labels:
-                  label = self.map_labels[label]
+                  label = self.labels_map[label]
               ll.append(len(tokenizer.encode(label))) 
            return max(ll)
         return default_max_length
