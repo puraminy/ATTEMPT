@@ -30,7 +30,7 @@ import sklearn.metrics
 import attempt.metrics.metrics as mets
 
 def plot_bar(folder, train_num):
-    rep = load_obj("repg", "gtasks", {})
+    rep = load_obj(rname, "gtasks", {})
     if not train_num + "@m_score" in rep:
         return ""
     methods = list(rep[train_num + "@m_score"].keys()) 
@@ -189,10 +189,10 @@ def calc_metrics(main_df):
     return infos
 
 def show_df(df):
-    global dfname, hotkey
+    global dfname, hotkey, global_cmd
 
     hk = hotkey
-    cmd = ""
+    cmd = global_cmd 
     sel_row = 0
     cur_col = 0
     ROWS, COLS = std.getmaxyx()
@@ -327,7 +327,7 @@ def show_df(df):
         df['nr_score'] = np.where((df['bert_score'] > 0.3) & (df['nr_score'] < 0.1), df['bert_score'], df['rouge_score'])
 
     #wwwwwwwwww
-    colors = ['blue','orange','green', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
+    colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
     contexts = {"g":"main", "G":"main", "X":"view", "r":"main"}
     ax = None
     context = dfname
@@ -346,6 +346,8 @@ def show_df(df):
     dot_cols = {}
     selected_cols = []
     rep_cmp = load_obj("rep_cmp", "gtasks", {})
+    settings = load_obj("settings", "gtasks", {})
+    rname = settings.setdefault("rname", "rpp")
     task = ""
     if "prefix" in df:
         task = df["prefix"][0]
@@ -368,7 +370,6 @@ def show_df(df):
     back_rows = []
     back_infos = []
     sel_rows = []
-    cmd = ""
     prev_cmd = ""
     do_wrap = True
     sel_group = 0
@@ -663,7 +664,11 @@ def show_df(df):
 
         prev_char = chr(ch)
         prev_cmd = cmd
-        cmd = ""
+        if global_cmd:
+            cmd = global_cmd
+            global_cmd = ""
+        else:
+            cmd = ""
         if hotkey == "":
             ch = std.getch()
         else:
@@ -1816,13 +1821,35 @@ def show_df(df):
                 rep_cmp[name][rel].append(val)
             save_obj(rep_cmp, "rep_cmp", "gtasks")
             char = "R"
-        if cmd == "gen":
+        if cmd.startswith("rem"):
+            if "@" in cmd:
+                exp_names = cmd.split("@")[2:]
+                _from = cmd.split("@")[1]
+            rep = load_obj(_from, "gtasks", {})
+            if rep:
+                for k, cat in rep.items():
+                    for exp in exp_names:
+                        if exp in cat:
+                            del rep[k][exp]
+            save_obj(rep, _from, "gtasks")
+        if cmd.startswith("put") or cmd.startswith("shv") or cmd.startswith("show"):
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
-            with open(f"{_dir}/report_templates/report.tex.temp", "r") as f:
+            # rname = cmd.split("@")[-1]
+            # settings["rname"] = rname
+            # save_obj(settings, "settings", "gtasks")
+            command = "show"
+            if "=" in cmd:
+                command = cmd.split("=")[0]
+                rep_names = cmd.split("=")[1:]
+            elif "@" in cmd:
+                command = cmd.split("@")[0]
+                rep_names = cmd.split("@")[1:]
+            pp = f"{_dir}/report_templates/report.tex.temp"
+            #if Path(f"{_dir}/report_templates/report.tex." + rname).is_file():
+            #    pp = f"{_dir}/report_templates/report.tex." + rname
+            with open(pp, "r") as f:
                 report = f.read()
-            rep = load_obj("repg", "gtasks", {})
-            table_cont1=""
             _agg = {}
             for c in sel_cols:
                 if c in df.columns: 
@@ -1841,35 +1868,122 @@ def show_df(df):
                 exp = exp.split("-")[0]
                 exp_names.append(exp)
 
-            table_cont1 += "method & "
-            head1 = "|r|"
-            cols = []
-            for n in [50,100,500]:
-                for seed in [123,45,76]:
-                    cols.append(str(n) + "@" + str(seed) + "@m_score")
-            for sel_col in cols:
-                head1 += "r|"
-                header = sel_col if not sel_col in map_cols else map_cols[sel_col] 
-                header = header.replace("_","-")
-                table_cont1 += " \\textbf{" + header + "} &"
-                rep[sel_col] = {}
-            mdf = main_df
-            table_cont1 = table_cont1.strip("&")
-            table_cont1 += "\\\\\n"
-            table_cont1 += "\\hline\n"
-            for ii, exp in enumerate(exp_names):
-                if char == "R":
-                    table_cont1 += str(ii) + ") \hyperref[fig:"+ exp + "]{"+ _exp +"} & " 
-                else:
-                    table_cont1 += _exp + " & " 
-                for sel_col in cols:
-                    table_cont1 += f" $ @{exp}@{sel_col} $ &"
-                    rep[sel_col][exp] = ""
+            tables, heads = [], []
+            reps = []
+            for rname in rep_names:
+                rep = load_obj(rname, "gtasks", {})
+                reps.append(rep)
+            for rep, rname in zip(reps, rep_names):
+                table_cont1=""
+                table_cont1 += "method & "
+                head1 = "|r|"
+                cols = []
+                col_avgs = {}
+                sizes = [50, 100, 500]
+                seeds = [123,45,76]
+                for n in sizes: 
+                    for seed in seeds: 
+                        cols.append(str(n) + "@" + str(seed) + "@m_score")
+                        head1 += "r|"
+                        header = str(n) + "-" + str(seed) 
+                        table_cont1 += " \\textbf{" + header + "} &"
+                    if command == "shv":
+                        head1 += "r|"
+                        table_cont1 += " \\textbf{avg} &"
+                mdf = main_df
                 table_cont1 = table_cont1.strip("&")
                 table_cont1 += "\\\\\n"
+                table_cont1 += "\\hline\n"
+                train_num = str(mdf["max_train_samples"].unique()[0])
+                seed = mdf["data_seed"].unique()[0]
+                cc = train_num + "@" + str(seed) + "@m_score"
+                if command == "put":
+                    rep_exps = all_exps
+                else:
+                    rep_exps = list(rep[list(rep.keys())[0]].keys())
+                for ii, _exp in enumerate(rep_exps):
+                    exp = _exp.replace("_","-")
+                    exp = exp.split("-")[0]
+                    table_cont1 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
+                    cond = (gdf['expid'] == _exp)
+                    for sel_col in cols:
+                        if command != "put" and not exp in rep[sel_col]:
+                            continue
+                        val = ""
+                        val_col = sel_col
+                        cat_col = sel_col
+                        if "@" in sel_col:
+                            val_col = sel_col.split("@")[-1]
+                            cat_col = sel_col.split("@")[0]
+                        if command == "put":
+                            if not sel_col in rep:
+                                rep[sel_col] = {}
+                            if not exp in rep[sel_col]:
+                                rep[sel_col][exp] = {"avg":0}
+                            if exp in rep[sel_col] and rep[sel_col][exp]["avg"] != 0:
+                                val = rep[sel_col][exp]["avg"] 
+                            if sel_col == cc and val_col in gdf.columns:
+                                val = gdf.loc[cond, val_col].iloc[0]
+                                if val_col.endswith("score"):
+                                    val = "{:.1f}".format(val)
+                            rep[sel_col][exp]["avg"] = val
+                            table_cont1 += f" $ {val} $ &"
+                            #########
+                            if sel_col == cc and val_col in mdf.columns:
+                                for rel in rdf['prefix'].unique(): 
+                                    cond2=((mdf['prefix'] == rel) & (mdf["expid"] == _exp))
+                                    sc = val_col 
+                                    s_val = mdf.loc[cond2, sc].mean()
+                                    maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
+                                    s_val = round(s_val,2)
+                                    if not rel in rep[sel_col][exp]:
+                                        rep[sel_col][exp][rel] = []
+                                    rep[sel_col][exp][rel].append(s_val)
+                                    maxval = round(maxval,2)
+                                    bold = s_val == maxval
+                                    s_val = "{:.2f}".format(s_val)
+                                    if bold: 
+                                        mval = "\\textcolor{teal}{\\textbf{" + s_val + "}}"
+                                    else:
+                                        mval = "\\textcolor{black}{" + s_val + "}"
+                            ##########
+                        elif command == "show":
+                            table_cont1 += " $ "
+                            for cc, rr in enumerate(reps):
+                                val = ""
+                                if sel_col in rr:
+                                   if exp in rr[sel_col]: 
+                                      val = rr[sel_col][exp]["avg"] 
+                                   else: 
+                                      val ="" 
+                                table_cont1+="\\textcolor{"+colors[cc] + "}{" + val + "}-"
+                                # table_cont1 += f" {val} "
+                            table_cont1 =  table_cont1.strip("-")
+                            table_cont1 += " $ &"
+                        else:
+                            val = rep[sel_col][exp]["avg"] 
+                            table_cont1 += f" $ {val} $ &"
+                            if not exp in col_avgs:
+                                col_avgs[exp] = {}
+                            if not cat_col in col_avgs[exp]:
+                                col_avgs[exp][cat_col] = []
+                            if val:
+                                col_avgs[exp][cat_col].append(float(val))
+                            if len(col_avgs[exp][cat_col]) == len(seeds):
+                                avg = stat.mean(col_avgs[exp][cat_col])
+                                table_cont1 += "\\textcolor{blue}{" + \
+                                        f" $ {avg:.1f}" + "} $ &"
+
+                    table_cont1 = table_cont1.strip("&")
+                    table_cont1 += "\\\\\n"
+                    table_cont1 += "\\hline \n"
+
                 table_cont1 += "\\hline \n"
-            table_cont1 += "\\hline \n"
-            save_obj(rep, "repg", "gtasks")
+                tables.append(table_cont1)
+                heads.append(head1)
+                if command == "show":
+                    break
+                save_obj(rep, rname, "gtasks")
                 
             table_dir = os.path.join(doc_dir, "table")
             Path(table_dir).mkdir(parents=True, exist_ok=True)
@@ -1879,9 +1993,9 @@ def show_df(df):
             out = open(table_file, "w")
             _input = f"table/{table_name}" 
             ii = 1
-            for head, cont in zip([head1],[table_cont1]):
+            for head, cont, capt in zip(heads, tables, rep_names):
                 lable = "table:" + str(ii) 
-                caption = f"{exp}"
+                caption = f"{capt}:{exp}"
                 table = """
                     \\begin{{table*}}[h]
                         \label{{{}}}
@@ -1895,20 +2009,28 @@ def show_df(df):
                     \end{{table*}}
                     """
                 table = table.format(lable, caption, head, cont)
+                # assert report.index("mytable"), "mytable not found"
                 report = report.replace("mytable", table +"\n\n" + "mytable")
                 ii += 1
 
             ####################
+            with open(f"{_dir}/report_templates/report.tex." + rname, "w") as f:
+                f.write(report)
             with open(f"{_dir}/report_templates/report.tex.temp2", "w") as f:
                 f.write(report)
             char = "R"
 
-        if cmd == "report" or char == "R":
+        if cmd.startswith("avg"):
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
-            m_report = f"{_dir}/report_templates/report.tex.temp2"
-
-
+            rname = cmd.split("@")[-1]
+            if Path(f"{_dir}/report_templates/report.tex." + rname).is_file():
+                pp = f"{_dir}/report_templates/report.tex." + rname
+            else:
+                pp = f"{_dir}/report_templates/report.tex.temp"
+            with open(pp, "r") as f:
+                report = f.read()
+            rep = load_obj(rname, "gtasks", {})
             _agg = {}
             for c in sel_cols:
                 if c in df.columns: 
@@ -1921,14 +2043,43 @@ def show_df(df):
             gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=["m_score"], ascending=False)
             all_exps = gdf['expid'].unique()
+
             exp_names = []
             for exp in all_exps:
                 exp = exp.replace("_","-")
                 exp = exp.split("-")[0]
                 exp_names.append(exp)
-
+            #####################
+            train_num = str(mdf["max_train_samples"].unique()[0])
+            seed = mdf["data_seed"].unique()[0]
+            cols = [str(train_num) + "@" + str(seed) + "@m_score"]
+            ii = 1
+            for exp in all_exps: #gdf["expid"].unique():
+                cond = (gdf['expid'] == exp)
+                _exp = exp.replace("_","-")
+                _exp = _exp.split("-")[0]
+                for sel_col in cols:
+                    val_col = sel_col
+                    if "@" in sel_col:
+                        val_col = sel_col.split("@")[-1]
+                    if val_col in gdf.columns:
+                        val = gdf.loc[cond, val_col].iloc[0]
+                    if val_col.endswith("score"):
+                        mval = val = "{:.1f}".format(val)
+                        # val = "$ \\textcolor{teal}{" + str(ii) + \
+                        #      "}-\\textcolor{blue}{ " + val + " }$"
+                        val = "$ \\textcolor{blue}{ " + val + " }$"
+                    else:
+                        mval = val
+                        val = "\\textbf{" + str(val) + "}"
+                    report = report.replace("@" + _exp + "@" + sel_col, str(val))
+                    if not sel_col in rep:
+                        rep[sel_col] = {}
+                    rep[sel_col][_exp] = str(mval) 
+                ii += 1
+            ii = 1
+            save_obj(rep, rname, "gtasks")
             ##################
-            rep = load_obj("repg", "gtasks", {})
             rep2 = {}
             for k,v in rep.items():
                 kk = k.split("@")
@@ -1943,7 +2094,6 @@ def show_df(df):
                     rep2[tn][exp].append(val)
 
             mdf = main_df
-            train_num = str(mdf["max_train_samples"].unique()[0])
             head1 = "|r|"
             table_avg = " tn  &"
             for exp in exp_names:
@@ -1971,6 +2121,8 @@ def show_df(df):
                     except:
                         continue
                     avg_sd = "{:.2f}_{{{:.2f}}}".format(avg, sdev)
+                    if not tn in rep:
+                        rep[tn] = {}
                     rep[tn][exp] = avg 
                     tt.append(avg)
                     table_avg += f" ${avg_sd}$ &"
@@ -1983,25 +2135,29 @@ def show_df(df):
             table_avg += "\\\\\n"
             table_avg += "\\hline\n"
 
-            tab = np.array(tab)
             havg = doc_dir + "/pics/" + "havg.png"
-            if tab.any():
-                row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
-                normalized_rows = tab / row_norms
-                fig, ax = plt.subplots()
+            try:
+                tab = np.array(tab)
+                if tab.any():
+                    row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
+                    normalized_rows = tab / row_norms
+                    fig, ax = plt.subplots()
 
-                sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
-                        annot_kws={'rotation': 90}, 
-                        fmt=".1f",
-                        xticklabels=exp_names,
-                        yticklabels=train_nums,
-                        linewidth=0.5)
-                ax.set_title('Heatmap of a matrix')
-                ax.set_xlabel('X-Axis')
-                ax.set_ylabel('Y-Axis')
+                    sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
+                            annot_kws={'rotation': 90}, 
+                            fmt=".1f",
+                            xticklabels=exp_names,
+                            yticklabels=train_nums,
+                            linewidth=0.5)
+                    ax.set_title('Heatmap of a matrix')
+                    ax.set_xlabel('X-Axis')
+                    ax.set_ylabel('Y-Axis')
 
-                fig.savefig(havg)
-####################
+                    fig.savefig(havg)
+            except:
+                pass
+
+            ##################
             head_cmp = "|r|"
             table_cmp = " tn  &"
             key_list = list(rep_cmp.keys())
@@ -2040,15 +2196,80 @@ def show_df(df):
             table_cmp = table_cmp.strip("&")
             table_cmp += "\\\\\n"
             table_cmp += "\\hline\n"
+            ii = 1
+            for head, cont in zip([head1, head_cmp],
+                    [table_avg, table_cmp]):
+                lable = "table:" + str(ii) 
+                caption = f"{rname} {exp} {train_num} {seed}"
+                table = """
+                    \\begin{{table*}}[h]
+                        \label{{{}}}
+                        \caption{{{}}}
+                        \\begin{{adjustbox}}{{width=1\\textwidth}}
+                        \\begin{{tabular}}{{{}}}
+                        \hline
+                        {}
+                        \end{{tabular}}
+                        \end{{adjustbox}}
+                    \end{{table*}}
+                    """
+                table = table.format(lable, caption, head, cont)
+                # assert report.index("mytable"), "mytable not found"
+                report = report.replace("mytable", table +"\n\n" + "mytable")
+                ii += 1
 
-######################
+            image = """
+                \\begin{{figure}}[h]
+                    \centering
+                    \includegraphics[width=\\textwidth]{{{}}}
+                    \caption[image]{{{}}}
+                    \label{{{}}}
+                \end{{figure}}
+            """
+            pics_dir = doc_dir + "/pics"
+            ii = image.format(havg, "havg", "fig:havg")
+            report = report.replace("myimage", ii +"\n\n" + "myimage")
+            _dir = Path(__file__).parent
+            doc_dir = os.path.join(home, 
+                    "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            m_report = f"{_dir}/report_templates/report.tex.temp2"
+            with open(m_report,"w") as f:
+                f.write(report)
+            char = "R"
+
+        if cmd == "report" or char == "R":
+            _dir = Path(__file__).parent
+            doc_dir = os.path.join(home, 
+                    "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            m_report = f"{_dir}/report_templates/report.tex.temp2"
+            _agg = {}
+            for c in sel_cols:
+                if c in df.columns: 
+                    if c.endswith("score"):
+                        _agg[c] = "mean"
+                    else:
+                        _agg[c] = "first"
+            rdf = df.groupby(["expid", "prefix"], as_index=False).agg(
+                    _agg).reset_index(drop=True)
+            gdf = df.groupby(["expid"], as_index=False).agg(_agg).reset_index(drop=True)
+            gdf = gdf.sort_values(by=["m_score"], ascending=False)
+            mdf = main_df
+            train_num = str(mdf["max_train_samples"].unique()[0])
+            seed = mdf["data_seed"].unique()[0]
+            all_exps = gdf['expid'].unique()
+            exp_names = []
+            for exp in all_exps:
+                exp = exp.replace("_","-")
+                exp = exp.split("-")[0]
+                exp_names.append(exp)
+
             with open(m_report, "r") as f:
                 main_report = f.read()
             #with open(f"{_dir}/report_templates/table.txt", "r") as f:
             #    table_cont = f.read()
             ########## Filling Tables
             report = main_report
-            seed = mdf["data_seed"].unique()[0]
+            rep = load_obj(rname, "gtasks", {})
             table_cont2=""
             table_cont2 += "method & "
             head2 = "|r|"
@@ -2074,10 +2295,10 @@ def show_df(df):
                 table_cont2 += "\\\\\n"
             table_cont2 += "\\hline \n"
             ii = 1
-            for head, cont in zip([head1, head2, head_cmp],
-                    [table_avg, table_cont2, table_cmp]):
+            for head, cont in zip([head2],
+                    [table_cont2]):
                 lable = "table:" + str(ii) 
-                caption = f"{exp} {train_num} {seed}"
+                caption = f" :::::::::: {rname} {exp} {train_num} {seed}"
                 table = """
                     \\begin{{table*}}[h]
                         \label{{{}}}
@@ -2091,10 +2312,10 @@ def show_df(df):
                     \end{{table*}}
                     """
                 table = table.format(lable, caption, head, cont)
+                # assert report.index("mytable"), "mytable not found"
                 report = report.replace("mytable", table +"\n\n" + "mytable")
                 ii += 1
 
-            report = report.replace("mytable","")
             caps = {}
             cols = [str(train_num) + "@" + str(seed) + "@m_score"]
             ii = 1
@@ -2118,15 +2339,14 @@ def show_df(df):
                         mval = val
                         val = "\\textbf{" + str(val) + "}"
                     img_cap += sel_col.replace("_","-") + ": " + str(val) + " | "
+                    #if not sel_col in rep:
+                    #    rep[sel_col] = {}
+                    #rep[sel_col][_exp] = str(mval) 
                     report = report.replace("@" + _exp + "@" + sel_col, str(val))
-                    if not sel_col in rep:
-                        rep[sel_col] = {}
-                    rep[sel_col][_exp] = str(mval) 
-                    main_report = main_report.replace("@" + _exp + "@" + sel_col, str(val))
                 caps[exp] = img_cap
                 ii += 1
+            save_obj(rep, rname, "gtasks")
             ii = 1
-            save_obj(rep, "repg", "gtasks")
             for exp in all_exps:
                 # breakpoint()
                 scores = ""
@@ -2155,8 +2375,6 @@ def show_df(df):
                         _exp = _exp.split("-")[0]
                         report = report.replace(
                                 "@" + _exp + "@" + rel + "@" + sc, val)
-                        main_report = main_report.replace(
-                                "@" + _exp + "@" + rel + "@" + sc, val)
                 caps[exp] += "\\\\" + scores            
                 ii += 1
 
@@ -2169,12 +2387,12 @@ def show_df(df):
                 \end{{figure}}
             """
             pics_dir = doc_dir + "/pics"
-            ii = image.format(havg, "havg", "fig:havg")
-            report = report.replace("myimage", ii +"\n\n" + "myimage")
+            #ii = image.format(havg, "havg", "fig:havg")
+            #report = report.replace("myimage", ii +"\n\n" + "myimage")
             Path(pics_dir).mkdir(parents=True, exist_ok=True)
-            pname = plot_bar(pics_dir, train_num)
-            ii = image.format(pname, "bar", "fig:bar")
-            report = report.replace("myimage", ii +"\n\n" + "myimage")
+            #pname = plot_bar(pics_dir, train_num)
+            #ii = image.format(pname, "bar", "fig:bar")
+            #report = report.replace("myimage", ii +"\n\n" + "myimage")
             dest, imgs = get_images(df, all_exps)
             for key, img_list in imgs.items():
                 name = key
@@ -2512,6 +2730,7 @@ dfname = ""
 dfpath = ""
 dftype = "tsv"
 hotkey = ""
+global_cmd = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
 def start(stdscr):
     global info_bar, text_win, cmd_win, std, main_win, colors, dfname
@@ -2646,16 +2865,24 @@ def start(stdscr):
     type=str,
     help=""
 )
+@click.option(
+    "--cmd",
+    "-c",
+    default="",
+    type=str,
+    help=""
+)
 @click.pass_context
-def main(ctx, fname, path, fid, ftype, dpy, hkey):
+def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd):
     if dpy:
-        port = 12345
+        port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname,dfpath,file_id,dftype,hotkey
+    global dfname,dfpath,file_id,dftype,hotkey, global_cmd
     file_id = fid
     hotkey = hkey 
+    global_cmd = cmd
     if not fname:
         fname = [dftype]
     if fname != "last":
