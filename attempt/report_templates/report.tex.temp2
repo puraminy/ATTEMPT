@@ -19,17 +19,10 @@
                 \begin{adjustbox}{width=1\textwidth}
                 \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|}
                 \hline
-                method & \textbf{cola} &\textbf{stsb} &\textbf{qnli} &\textbf{mnli} &\textbf{sst2} &\textbf{rte} &\textbf{qqp} &\textbf{mrpc} & avg. \\
+                method & \textbf{mnli} &\textbf{qqp} &\textbf{sst2} &\textbf{rte} &\textbf{qnli} &\textbf{stsb} &\textbf{cola} &\textbf{mrpc} & avg. \\
 \hline
- \hyperref[fig:ff2-glue-123-100SILP]{SILP} & $ 67.0 $ & $ 87.2 $ & $ 91.8 $ & $ 67.6 $ & $ 92.8 $ & $ 66.2 $ & $ 87.8 $ & $ 73.5 $ & $ \textcolor{blue}{81.2} $ \\
- \hyperref[fig:ff2-glue-123-100SLPI]{SLPI} & $ 67.0 $ & $ 88.7 $ & $ 92.0 $ & $ 70.4 $ & $ 89.6 $ & $ 58.3 $ & $ 89.0 $ & $ 77.0 $ & $ \textcolor{blue}{81.4} $ \\
- \hyperref[fig:ff2-glue-123-100SIL]{SIL} & $ 67.0 $ & $ 88.3 $ & $ 90.8 $ & $ 58.2 $ & $ 93.2 $ & $ 67.6 $ & $ 88.8 $ & $ 75.0 $ & $ \textcolor{blue}{80.1} $ \\
- \hyperref[fig:ff2-glue-123-100PI]{PI} & $ 67.0 $ & $ 88.4 $ & $ 91.4 $ & $ 61.2 $ & $ 93.2 $ & $ 59.0 $ & $ 88.4 $ & $ 79.4 $ & $ \textcolor{blue}{80.5} $ \\
- \hyperref[fig:ff2-glue-123-100SILPI]{SILPI} & $ 41.4 $ & $ 88.6 $ & $ 89.2 $ & $ 67.6 $ & $ 92.0 $ & $ 66.2 $ & $ 88.8 $ & $ 80.4 $ & $ \textcolor{blue}{77.6} $ \\
- \hyperref[fig:ff2-glue-123-100P]{P} & $ 67.0 $ & $ 87.7 $ & $ 90.4 $ & $ 65.0 $ & $ 92.2 $ & $ 54.0 $ & $ 88.4 $ & $ 67.7 $ & $ \textcolor{blue}{79.8} $ \\
- \hyperref[fig:ff2-glue-123-100SIP]{SIP} & $ 67.0 $ & $ 88.0 $ & $ 89.2 $ & $ 43.6 $ & $ 88.0 $ & $ 51.8 $ & $ 69.4 $ & $ 69.1 $ & $ \textcolor{blue}{73.0} $ \\
- \hyperref[fig:ff2-glue-123-100SLP]{SLP} & $ 67.0 $ & $ 35.2 $ & $ 75.0 $ & $ 32.6 $ & $ 82.0 $ & $ 50.4 $ & $ 66.2 $ & $ 67.2 $ & $ \textcolor{blue}{59.7} $ \\
- \hyperref[fig:ff2-glue-123-100SL]{SL} & $ 67.0 $ & $ 60.6 $ & $ 72.8 $ & $ 34.8 $ & $ 51.6 $ & $ 49.6 $ & $ 61.6 $ & $ 32.8 $ & $ \textcolor{blue}{56.2} $ \\
+ \hyperref[fig:ss-glue-123-100P]{P} & $ 65.0 $ & $ 88.4 $ & $ 92.2 $ & $ 54.0 $ & $ 90.4 $ & $ 87.7 $ & $ 67.0 $ & $ 67.7 $ & $ \textcolor{blue}{76.5} $ \\
+ \hyperref[fig:ss-glue-123-100SILPI]{SILPI} & $ 67.6 $ & $ 88.8 $ & $ 92.0 $ & $ 66.2 $ & $ 89.2 $ & $ 88.6 $ & $ 41.4 $ & $ 80.4 $ & $ \textcolor{blue}{76.8} $ \\
 \hline 
 
                 \end{tabular}
