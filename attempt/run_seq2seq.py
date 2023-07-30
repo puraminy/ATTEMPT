@@ -1863,7 +1863,10 @@ def train(**kwargs):
                 mylogs.bp("decode")
                 pred = tokenizer.decode(predictions[i], 
                         skip_special_tokens=skip_specials) 
-                pred = re.sub(r'<.*?>','',pred)
+                if skip_specials:
+                    pred = re.sub(r'<.*?>','',pred)
+                else:
+                    pred = pred.replace("<pad>","").replace("</s>","")
                 pred = pred.strip()
                 preds.append(pred)
                 df.at[i, "pred_text1"] = pred
