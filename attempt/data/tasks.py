@@ -415,11 +415,12 @@ class AbstractTask(abc.ABC):
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
-    def get_label_list():
+    def get_label_list(self):
         labels_list = []
-        for label in self.labels_list:
-            labels_list.append("<" + self.labels_map[label] + ">")
-        return label_list
+        if self.labels_map:
+            for label in self.labels_list:
+                labels_list.append("<" + self.labels_map[label] + ">")
+        return labels_list
 
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
