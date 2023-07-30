@@ -1850,7 +1850,8 @@ def train(**kwargs):
                 df.at[i, "input_text"] = inp #extra["event"] 
                 label = extra["tail"] if "tail" in extra else "na"
                 #label = tokenizer.decode(row["labels"], 
-                label = re.sub(r'<.*?>','', label)
+                if skip_specials:
+                    label = re.sub(r'<.*?>','', label)
                 label = label.strip()
                 df.at[i, "target_text"] = extra["target_text"] #label 
                 golds.append(extra["target_text"].strip())
