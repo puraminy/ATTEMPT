@@ -382,7 +382,7 @@ params="${params} --load_best_model_at_end=True" # We handle it by loading best 
 params="${params} --per_device_train_batch_size=$_bs"
 params="${params} --per_device_eval_batch_size=$_bs"
 params="${params} --trainer_shuffle=True"
-params="${params} --skip_specials=True"
+params="${params} --skip_specials=False"
 params="${params} --@num_train_epochs=$_ep"
 params="${params} --adjust_epochs=True"
 params="${params} --warmup_steps=none"
