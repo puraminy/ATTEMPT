@@ -230,7 +230,7 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=8; fi
 if [ -z "$_lr" ]; then  _lr=0.01; fi
-if [ -z "$_alr" ]; then _alr=0.07; fi
+if [ -z "$_alr" ]; then _alr=0.03; fi
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router

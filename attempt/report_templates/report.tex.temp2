@@ -13,37 +13,31 @@
 %opening
 \begin{document}
 
-                    \begin{table*}[h]
-                        \label{table:1}
-                        \caption{mm:SIP}
-                        \begin{adjustbox}{width=1\textwidth}
-                        \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|}
-                        \hline
-                        method &  \textbf{50-123} & \textbf{50-45} & \textbf{50-76} & \textbf{100-123} & \textbf{100-45} & \textbf{100-76} & \textbf{500-123} & \textbf{500-45} & \textbf{500-76} \\
+            \begin{table*}[h]
+                \label{table:ff100@123@m-score}
+                \caption{ \hyperref[table:show]{ Main Table } | table:ff100@123@m-score}
+                \begin{adjustbox}{width=1\textwidth}
+                \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|}
+                \hline
+                method & \textbf{cola} &\textbf{stsb} &\textbf{qnli} &\textbf{mnli} &\textbf{sst2} &\textbf{rte} &\textbf{qqp} &\textbf{mrpc} & avg. \\
 \hline
-0) \hyperref[fig:SILP-1]{SILP} &  $  $ & $  $ & $  $ & $ 79.2 $ & $ 79.5 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-1) \hyperref[fig:SLPI-1]{SLPI} &  $  $ & $  $ & $  $ & $ 79.0 $ & $ 79.1 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-2) \hyperref[fig:SIL-1]{SIL} &  $  $ & $  $ & $  $ & $ 78.6 $ & $ 78.7 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-3) \hyperref[fig:SLP-1]{SLP} &  $  $ & $  $ & $  $ & $ 59.5 $ & $ 76.3 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-4) \hyperref[fig:P]{P} &  $  $ & $  $ & $  $ & $ 76.5 $ & $ 76.1 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-5) \hyperref[fig:SL-1]{SL} &  $  $ & $  $ & $  $ & $ 53.9 $ & $ 75.0 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-6) \hyperref[fig:PI-1]{PI} &  $  $ & $  $ & $  $ & $ 78.5 $ & $ 66.6 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
-7) \hyperref[fig:SIP-1]{SIP} &  $  $ & $  $ & $  $ & $ 70.8 $ & $ 58.4 $ & $  $ & $  $ & $  $ & $  $ \\
-\hline 
+ \hyperref[fig:ff2-glue-123-100SILP]{SILP} & $ 67.0 $ & $ 87.2 $ & $ 91.8 $ & $ 67.6 $ & $ 92.8 $ & $ 66.2 $ & $ 87.8 $ & $ 73.5 $ & $ \textcolor{blue}{81.2} $ \\
+ \hyperref[fig:ff2-glue-123-100SLPI]{SLPI} & $ 67.0 $ & $ 88.7 $ & $ 92.0 $ & $ 70.4 $ & $ 89.6 $ & $ 58.3 $ & $ 89.0 $ & $ 77.0 $ & $ \textcolor{blue}{81.4} $ \\
+ \hyperref[fig:ff2-glue-123-100SIL]{SIL} & $ 67.0 $ & $ 88.3 $ & $ 90.8 $ & $ 58.2 $ & $ 93.2 $ & $ 67.6 $ & $ 88.8 $ & $ 75.0 $ & $ \textcolor{blue}{80.1} $ \\
+ \hyperref[fig:ff2-glue-123-100PI]{PI} & $ 67.0 $ & $ 88.4 $ & $ 91.4 $ & $ 61.2 $ & $ 93.2 $ & $ 59.0 $ & $ 88.4 $ & $ 79.4 $ & $ \textcolor{blue}{80.5} $ \\
+ \hyperref[fig:ff2-glue-123-100SILPI]{SILPI} & $ 41.4 $ & $ 88.6 $ & $ 89.2 $ & $ 67.6 $ & $ 92.0 $ & $ 66.2 $ & $ 88.8 $ & $ 80.4 $ & $ \textcolor{blue}{77.6} $ \\
+ \hyperref[fig:ff2-glue-123-100P]{P} & $ 67.0 $ & $ 87.7 $ & $ 90.4 $ & $ 65.0 $ & $ 92.2 $ & $ 54.0 $ & $ 88.4 $ & $ 67.7 $ & $ \textcolor{blue}{79.8} $ \\
+ \hyperref[fig:ff2-glue-123-100SIP]{SIP} & $ 67.0 $ & $ 88.0 $ & $ 89.2 $ & $ 43.6 $ & $ 88.0 $ & $ 51.8 $ & $ 69.4 $ & $ 69.1 $ & $ \textcolor{blue}{73.0} $ \\
+ \hyperref[fig:ff2-glue-123-100SLP]{SLP} & $ 67.0 $ & $ 35.2 $ & $ 75.0 $ & $ 32.6 $ & $ 82.0 $ & $ 50.4 $ & $ 66.2 $ & $ 67.2 $ & $ \textcolor{blue}{59.7} $ \\
+ \hyperref[fig:ff2-glue-123-100SL]{SL} & $ 67.0 $ & $ 60.6 $ & $ 72.8 $ & $ 34.8 $ & $ 51.6 $ & $ 49.6 $ & $ 61.6 $ & $ 32.8 $ & $ \textcolor{blue}{56.2} $ \\
 \hline 
 
-                        \end{tabular}
-                        \end{adjustbox}
-                    \end{table*}
-                    
+                \end{tabular}
+                \end{adjustbox}
+            \end{table*}
+            
 
 mytable
 myimage
+
 \end{document}

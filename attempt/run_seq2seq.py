@@ -1053,7 +1053,7 @@ def train(**kwargs):
              t_args = dotdict(task_args.copy())
              task = AutoTask.get(task_name, None, task_args=t_args, tokenizer=tokenizer)
              p = task.get_prompts()
-             # label_tokens.extend(task.get_label_list())
+             label_tokens.extend(task.get_label_list())
              prompts = {**prompts, **p}
              tid = task_name #get_id()
              if not tid in task_prompts:
@@ -1064,7 +1064,7 @@ def train(**kwargs):
              rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
              task_source_prompts_set[tid].extend(rel_sh.split())
 
-        #extend_tokenizer(tokenizer, label_tokens)
+        extend_tokenizer(tokenizer, label_tokens)
         for name, prompt_tokens in prompts.items():
             extend_tokenizer(tokenizer, prompt_tokens)
 
@@ -1843,13 +1843,13 @@ def train(**kwargs):
                     inp = extra["event"]
                 else:
                     inp = tokenizer.decode(row["input_ids"], 
-                        skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                        skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
                 inp = re.sub(r'<.*?>','', inp)
                 inp = inp.strip()
                 df.at[i, "input_text"] = inp #extra["event"] 
                 label = extra["tail"] if "tail" in extra else "na"
                 #label = tokenizer.decode(row["labels"], 
-                #skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
                 label = re.sub(r'<.*?>','', label)
                 label = label.strip()
                 df.at[i, "target_text"] = extra["target_text"] #label 
@@ -1862,7 +1862,7 @@ def train(**kwargs):
                 df.at[i, "resp"] = label # extra["resp"]  
                 mylogs.bp("decode")
                 pred = tokenizer.decode(predictions[i], 
-                        skip_special_tokens=kwargs.setdefault("skip_spcials", True)) 
+                        skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
                 pred = re.sub(r'<.*?>','',pred)
                 pred = pred.strip()
                 preds.append(pred)
