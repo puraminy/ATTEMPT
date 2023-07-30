@@ -1809,6 +1809,7 @@ def train(**kwargs):
             mylogs.bp("gen")
             trainer.log_metrics("test", metrics)
             trainer.save_metrics("test", metrics)
+            skip_specials=kwargs.setdefault("skip_specials", False) 
 
             # sssssssssss
             #predictions = np.argmax(predictions, axis=1)
@@ -1843,13 +1844,12 @@ def train(**kwargs):
                     inp = extra["event"]
                 else:
                     inp = tokenizer.decode(row["input_ids"], 
-                        skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
+                        skip_special_tokens=skip_specials) 
                 inp = re.sub(r'<.*?>','', inp)
                 inp = inp.strip()
                 df.at[i, "input_text"] = inp #extra["event"] 
                 label = extra["tail"] if "tail" in extra else "na"
                 #label = tokenizer.decode(row["labels"], 
-                skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
                 label = re.sub(r'<.*?>','', label)
                 label = label.strip()
                 df.at[i, "target_text"] = extra["target_text"] #label 
@@ -1862,7 +1862,7 @@ def train(**kwargs):
                 df.at[i, "resp"] = label # extra["resp"]  
                 mylogs.bp("decode")
                 pred = tokenizer.decode(predictions[i], 
-                        skip_special_tokens=kwargs.setdefault("skip_spcials", False)) 
+                        skip_special_tokens=skip_specials) 
                 pred = re.sub(r'<.*?>','',pred)
                 pred = pred.strip()
                 preds.append(pred)
