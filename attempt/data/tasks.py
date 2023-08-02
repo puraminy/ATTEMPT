@@ -434,7 +434,7 @@ class AbstractTask(abc.ABC):
         if self.labels_map and self.map_labels:
             labels_list = []
             for label in self.labels_list:
-                labels_list.append(self.labels_map[label])
+                labels_list.append("<" + self.labels_map[label] + ">")
 
             tt = []
             for label in targets:

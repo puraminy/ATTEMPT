@@ -230,7 +230,7 @@ echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=8; fi
 if [ -z "$_lr" ]; then  _lr=0.01; fi
-if [ -z "$_alr" ]; then _alr=0.03; fi
+if [ -z "$_alr" ]; then _alr=0.07; fi
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -249,7 +249,7 @@ if [ -z "$_attn" ]; then  _attn=rb; fi
 if [ -z "$_cmm" ]; then  _cmm="wavg#cat"; fi
 if [ -z "$_at" ]; then  _at=True; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
-if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
+if [ -z "$_tmpr" ]; then  _tmpr=8.; fi
 if [ -z "$_sp" ]; then  _sp=True; fi # save prompts
 if [ -z "$_ai" ]; then  _ai=False; fi
 if [ -z "$_lp" ]; then  _lp=True; fi
@@ -533,7 +533,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@temperature=$_tmpr"
    params="${params} --@anneal_dir=$_adir"
    params="${params} --normalize=True"
-   params="${params} --anneal_min=1e-2"
+   params="${params} --anneal_min=0.005"
    params="${params} --anneal_rate=none"
    params="${params} --@apply_softmax_to=after#!nothing"
    if [ -n "$_grm" ]; then
