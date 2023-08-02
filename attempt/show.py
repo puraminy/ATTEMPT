@@ -70,7 +70,7 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category):
     for head, cont in zip([head2],
             [table_cont2]):
         label = "table:" + rname + sel_col.replace("_","-") 
-        caption = " \hyperref[table:show]{ Main Table } | " + label
+        caption = category + " \hyperref[table:show]{ Main Table } | " + label
         table = """
             \\begin{{table*}}[h]
                 \label{{{}}}
@@ -2152,12 +2152,12 @@ def show_df(df):
                 \caption{{{}}}
                 \\begin{{adjustbox}}{{width=0.7\\linewidth}}
                 \pgfplotstabletypeset[
-                color cells={{min=30,max=100}},
-                col sep=comma,
-                /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,188,50)}},
-                ]{{
-                {}
-                }}
+                color cells={{min={},max={}}},
+                col sep=&,	% specify the column separation character
+                row sep=\\\\,	% specify the row separation character
+                columns/N/.style={{reset styles,string type}},
+                /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,88,50)}},
+                ]{{{}}}
                 \end{{adjustbox}}
                 \end{{table*}}
             """
@@ -2166,39 +2166,42 @@ def show_df(df):
                 tab = []
                 exp_names = []
                 train_nums = []
-                table_avg = "train size & "
+                table_avg = " N & "
                 head_avg = "|r|"
                 exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
-                for exp in exp_names:
-                    if exp == "P2":
-                        continue
+                train_nums = list(rep_avg.keys())
+                for tn in train_nums:
                     head_avg += "r|"
-                    table_avg += f"\\textbf{{{exp}}} &"
+                    table_avg += f" {exp} &"
                 table_avg = table_avg.strip("&")
                 table_avg += "\\\\\n"
-                table_avg += "\\hline \n"
-                for tn, ee in rep_avg.items():
+                _min, _max = 100, 0
+                _mins, _maxs = 100, 0
+                for exp in exp_names: 
+                    if exp == "P2":
+                        continue
                     tt = []
-                    train_nums.append(tn)
-                    table_avg += f" \\textbf{{{tn}}} &"
-                    for exp, avg_list in ee.items():
-                        if exp == "P2":
-                            continue
+                    table_avg += f" \\textbf{{{exp}}} &"
+                    for tn in train_nums: 
+                        avg_list = rep_avg[tn][exp]
                         avg=0
                         if avg_list:
                             avg = stat.mean(avg_list)
                             sdev = stat.stdev(avg_list)
                             avg = round(avg,1)
-                            table_avg += f"{avg:.1f},"
+                            if avg > _max: _max = avg
+                            if avg < _min: _min = avg
+                            if sdev > _maxs: _maxs = sdev 
+                            if sdev < _mins: _mins = sdev
+                            table_avg += f"{sdev:.1f} &"
                            # table_avg += "\\textcolor{black}{" + \
                            #         f" $ {avg:.1f}_{{{sdev:.1f}}} $ " + "}  &"
                         tt.append(avg)
                     tab.append(tt)
-                    table_avg = table_avg.strip(",")
+                    table_avg = table_avg.strip("&")
                     table_avg += "\\\\\n"
-                    table_avg += "\\hline \n"
 
-                table = table_hm_template.format("label","caption", table_avg)
+                table = table_hm_template.format("label","caption", _mins, _maxs, table_avg)
                 with open(f"{doc_dir}/table_hm.tex", "w") as f:
                     f.write(table)
 
