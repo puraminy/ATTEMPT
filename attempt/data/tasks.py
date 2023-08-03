@@ -626,7 +626,7 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"different","1":"duplicate"}
+    labels_map = {"0":"unique","1":"duplicate"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
