@@ -626,7 +626,8 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"unique","1":"duplicate"}
+    #labels_map = {"0":"unique","1":"duplicate"}
+    labels_map = {"0":"no","1":"yes"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
@@ -646,7 +647,8 @@ class COLA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0": "inadmissible", "1":"acceptable"}
+    # labels_map = {"0": "inadmissible", "1":"acceptable"}
+    labels_map = {"0": "no", "1":"yes"}
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
@@ -706,7 +708,8 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"negative", "1":"positive"}
+    # labels_map = {"0":"negative", "1":"positive"}
+    labels_map = {"0":"no", "1":"yes"}
     rel_nat = "The sentiment is {mask}"
 
     def load_dataset(self, split):
@@ -970,7 +973,8 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"0":"unique","1":"duplicate"}
+    #labels_map = {"0":"unique","1":"duplicate"}
+    labels_map = {"0":"no","1":"yes"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
@@ -994,8 +998,9 @@ class MNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    #labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
-    labels_map = {"0":"entailment", "1":"neutral", "2": "contradicts"}
+    # labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
+    # labels_map = {"0":"entailment", "1":"neutral", "2": "contradicts"}
+    labels_map = {"0":"yes", "1":"no", "2": "opposite"}
     rel_nat = "premise {mask} hypothesis."
 
     def load_dataset(self, split):
@@ -1095,7 +1100,8 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"entailment", "1":"independent"}
+    # labels_map = {"0":"entailment", "1":"independent"}
+    labels_map = {"0":"yes", "1":"no"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
@@ -1116,7 +1122,8 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"0":"entailment", "1":"independent"} # entailment nont_entailment
+    # labels_map = {"0":"entailment", "1":"independent"} # entailment nont_entailment
+    labels_map = {"0":"yes", "1":"no"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
