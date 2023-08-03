@@ -1095,7 +1095,7 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"entailment", "1":"independet"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
@@ -1116,7 +1116,7 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"0":"entailment", "1":"independent"} # entailment nont_entailment
+    labels_map = {"0":"entailment", "1":"not_entailment"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -1136,7 +1136,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"independent", "1":"entailment"}
+    labels_map = {"0":"not_entailment", "1":"entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
@@ -1176,7 +1176,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"entailment", "1":"independent"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)

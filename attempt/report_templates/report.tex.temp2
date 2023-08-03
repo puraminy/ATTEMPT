@@ -81,14 +81,13 @@
 \begin{document}
 
             \begin{table*}[h]
-                \label{table:ww50@123@m-score}
-                \caption{ \hyperref[table:show]{ Main Table } | table:ww50@123@m-score}
+                \label{table:gg100@123@m-score}
+                \caption{gg3-glue-123-100 \hyperref[table:show]{ Main Table } | table:gg100@123@m-score}
                 \begin{adjustbox}{width=1\textwidth}
                 \begin{tabular}{|r|r|r|r|r|r|r|r|r|r|}
                 \hline
-                method & \textbf{mnli} &\textbf{cola} &\textbf{rte} &\textbf{stsb} &\textbf{qqp} &\textbf{sst2} &\textbf{qnli} &\textbf{mrpc} & avg. \\
+                method & \textbf{mrpc} &\textbf{sst2} &\textbf{qnli} &\textbf{rte} &\textbf{cola} &\textbf{mnli} &\textbf{stsb} &\textbf{qqp} & avg. \\
 \hline
- \hyperref[fig:ww2-glue-123-50P]{P} & $ 38.0 $ & $ 70.5 $ & $ 62.6 $ & $ 88.0 $ & $ 84.0 $ & $ 85.0 $ & $ 78.0 $ & $ 67.5 $ & $ \textcolor{blue}{71.7} $ \\
 \hline 
 
                 \end{tabular}
@@ -97,23 +96,7 @@
             
 
 mytable
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
-
-\input{ww2-glue-123-50_images.tex}
+\input{gg3-glue-123-100_images.tex}
 
 myimage
 

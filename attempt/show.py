@@ -30,6 +30,23 @@ import sklearn.metrics
 import attempt.metrics.metrics as mets
 
 def latex_table(rep, rname, mdf, all_exps, sel_col, category):
+    maxval = {}
+    for ii, exp in enumerate(all_exps): 
+        exp = exp.replace("_","-")
+        exp = _exp = exp.split("-")[0]
+        if not sel_col in rep:
+            continue
+        if not exp in rep[sel_col]:
+            continue
+        for rel in mdf['prefix'].unique(): 
+            if not rel in rep[sel_col][exp]:
+                continue
+            val = rep[sel_col][exp][rel]
+            if type(val) == list:
+                val = stat.mean(val)
+            if not rel in maxval or val > maxval[rel]:
+                maxval[rel] = val
+
     table_cont2=""
     table_cont2 += "method & "
     head2 = "|r|"
@@ -56,7 +73,10 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category):
             val = rep[sel_col][exp][rel]
             if type(val) == list:
                 val = stat.mean(val)
-            table_cont2 += f" $ {val:.1f} $ &"
+            if val == maxval[rel]:
+                table_cont2 += "\\textcolor{teal}{" +  f" $ {val:.1f} $ " + "} &"
+            else:
+                table_cont2 += f" $ {val:.1f} $ &"
         if "avg" in rep[sel_col][exp]:
             avg = rep[sel_col][exp]["avg"]
             if type(avg) == list and avg:
@@ -1900,12 +1920,13 @@ def show_df(df):
                 report = f.read()
             mdf = main_df
             rep = load_obj(rname, "gtasks", {})
-            cats = rep["cats"]
+            cats = set(rep["cats"])
             sel_cats = []
             size, seed, _ = sel_col.split("@")
             for cat in cats:
                 cat_parts = cat.split("-")
-                if cat_parts[-1] == size and cat_parts[-2] == seed:
+                if (cat_parts[0].startswith(rname) and cat_parts[-1] == size 
+                        and cat_parts[-2] == seed):
                     sel_cats.append(cat)
             all_exps = gdf['expid'].unique()
             table = latex_table(rep, rname, mdf, all_exps, sel_col, sel_cats[0])
@@ -1916,7 +1937,10 @@ def show_df(df):
             with open(f"{_dir}/report_templates/report.tex.temp2", "w") as f:
                 f.write(report)
             cmd = "comp_rep"
-        if cmd.startswith("put") or cmd.startswith("shv") or cmd.startswith("show"):
+        if (cmd.startswith("put") or 
+                cmd.startswith("shv") or 
+                cmd.startswith("shav") or 
+                cmd.startswith("show")):
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             # rname = cmd.split("@")[-1]
@@ -1967,13 +1991,13 @@ def show_df(df):
                 table_cont1 += "method & "
                 head1 = "|r|"
                 cols = []
-                sizes = [50,100, 500]
+                sizes = [50] #,100, 500]
                 seeds = [123,45,76]
                 for n in sizes: 
                     for seed in seeds: 
                         col = str(n) + "@" + str(seed) + "@m_score"
                         cols.append(col)
-                        if command != "shv": 
+                        if command != "shav": 
                             head1 += "r|"
                             header = str(n) + "--" + str(seed) 
                             scol = col.replace("_","-")
@@ -1987,7 +2011,8 @@ def show_df(df):
                 category = category.split("/")[0]
                 if not "cats" in rep:
                     rep["cats"] = []
-                rep["cats"].append(category)
+                if not category in rep["cats"]:
+                    rep["cats"].append(category)
 
                 table_cont1 = table_cont1.strip("&")
                 table_cont1 += "\\\\\n"
@@ -2006,7 +2031,7 @@ def show_df(df):
                     table_cont1 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
                     cond = (gdf['expid'] == _exp)
                     for jj, sel_col in enumerate(cols):
-                        if not sel_col in rep:
+                        if command != "put" and not sel_col in rep:
                             continue
                         if command != "put" and not exp in rep[sel_col]:
                             continue
@@ -2037,6 +2062,9 @@ def show_df(df):
                                     cond2=((mdf['prefix'] == rel) & (mdf["expid"] == _exp))
                                     sc = val_col 
                                     s_val = mdf.loc[cond2, sc].mean()
+                                    n_preds = mdf.loc[cond, "pred_text1"].unique()
+                                    n_preds = len(n_preds)
+                                    one_pred = int(n_preds) == 1
                                     maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
                                     s_val = round(s_val,2)
                                     if not rel in rep[sel_col][exp]:
@@ -2075,7 +2103,8 @@ def show_df(df):
                             val = rep[sel_col][exp]["avg"]
                             if val:
                                val = "{:.1f}".format(float(val))
-                            # table_cont1 += f" $ {val} $ &"
+                            if command != "shav":
+                                table_cont1 += f" $ {val} $ &"
                             if not cat_col in rep_avg:
                                 rep_avg[cat_col] = {}
                             if not exp in rep_avg[cat_col]:
@@ -2167,14 +2196,18 @@ def show_df(df):
                 exp_names = []
                 train_nums = []
                 table_avg = " N & "
+                table_sdev = " N & "
                 head_avg = "|r|"
                 exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
                 train_nums = list(rep_avg.keys())
                 for tn in train_nums:
                     head_avg += "r|"
-                    table_avg += f" {exp} &"
+                    table_avg += f" {tn} &"
+                    table_sdev += f" {tn} &"
                 table_avg = table_avg.strip("&")
                 table_avg += "\\\\\n"
+                table_sdev = table_sdev.strip("&")
+                table_sdev += "\\\\\n"
                 _min, _max = 100, 0
                 _mins, _maxs = 100, 0
                 for exp in exp_names: 
@@ -2182,6 +2215,7 @@ def show_df(df):
                         continue
                     tt = []
                     table_avg += f" \\textbf{{{exp}}} &"
+                    table_sdev += f" \\textbf{{{exp}}} &"
                     for tn in train_nums: 
                         avg_list = rep_avg[tn][exp]
                         avg=0
@@ -2193,19 +2227,26 @@ def show_df(df):
                             if avg < _min: _min = avg
                             if sdev > _maxs: _maxs = sdev 
                             if sdev < _mins: _mins = sdev
-                            table_avg += f"{sdev:.1f} &"
+                            table_avg += f"{avg:.1f} &"
+                            table_sdev += f"{sdev:.1f} &"
                            # table_avg += "\\textcolor{black}{" + \
                            #         f" $ {avg:.1f}_{{{sdev:.1f}}} $ " + "}  &"
                         tt.append(avg)
                     tab.append(tt)
                     table_avg = table_avg.strip("&")
                     table_avg += "\\\\\n"
+                    table_sdev = table_sdev.strip("&")
+                    table_sdev += "\\\\\n"
 
-                table = table_hm_template.format("label","caption", _mins, _maxs, table_avg)
+                table = table_hm_template.format("label","caption", _min, _max, table_avg)
                 with open(f"{doc_dir}/table_hm.tex", "w") as f:
+                    f.write(table)
+                table = table_hm_template.format("label","caption", _mins,_maxs,table_sdev)
+                with open(f"{doc_dir}/table_hm_sdev.tex", "w") as f:
                     f.write(table)
 
                 report = report.replace("mytable", "\input{table_hm.tex} \n\n mytable")
+                report = report.replace("mytable", "\input{table_hm_sdev.tex} \n\n mytable")
                 #heads.append(head_avg)
                 #tables.append(table_avg)
                 #rep_names.append("avg")
@@ -2220,11 +2261,10 @@ def show_df(df):
                     fig.set_size_inches(len(exp_names)*1, len(train_nums) + 1)
 
                     sns.heatmap(tab, ax=ax, cmap="crest", annot=True, 
-                            annot_kws={'rotation': 90}, 
                             fmt=".1f",
                             vmin=60.,
-                            xticklabels=exp_names,
-                            yticklabels=train_nums,
+                            yticklabels=exp_names,
+                            xticklabels=train_nums,
                             linewidth=0.5)
                     ax.set_title('Results of different methods')
                     ax.set_xlabel('methods')
@@ -2639,6 +2679,9 @@ def show_df(df):
                     for sc in ["m_score"]: # "bert_score", "hscore", "num_preds"]:
                         val = mdf.loc[cond, sc].mean()
                         maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
+                        n_preds = mdf.loc[cond, "pred_text1"].unique()
+                        n_preds = len(n_preds)
+                        one_pred = int(n_preds) == 1
                         val = round(val,2)
                         maxval = round(maxval,2)
                         bold = val == maxval
@@ -2649,7 +2692,9 @@ def show_df(df):
                                val = str(int(val))
                             except:
                                val = "NA"
-                        if bold: 
+                        if one_pred:
+                            val = "\\textcolor{orange}{" + val + "}"
+                        elif bold: 
                             val = "\\textcolor{teal}{\\textbf{" + val + "}}"
                         else:
                             val = "\\textcolor{black}{" + val + "}"
