@@ -627,7 +627,7 @@ class MRPC(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     #labels_map = {"0":"unique","1":"duplicate"}
-    labels_map = {"0":"no","1":"yes"}
+    labels_map = {"0":"dif","1":"dup"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
@@ -648,7 +648,7 @@ class COLA(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     # labels_map = {"0": "inadmissible", "1":"acceptable"}
-    labels_map = {"0": "no", "1":"yes"}
+    labels_map = {"0": "wrong", "1":"okay"}
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
@@ -709,7 +709,7 @@ class SST2(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     # labels_map = {"0":"negative", "1":"positive"}
-    labels_map = {"0":"no", "1":"yes"}
+    labels_map = {"0":"neg", "1":"pos"}
     rel_nat = "The sentiment is {mask}"
 
     def load_dataset(self, split):
@@ -974,7 +974,7 @@ class QQP(AbstractTask):
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
     #labels_map = {"0":"unique","1":"duplicate"}
-    labels_map = {"0":"no","1":"yes"}
+    labels_map = {"0":"dif","1":"dup"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
