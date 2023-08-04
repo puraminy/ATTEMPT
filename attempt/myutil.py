@@ -6,7 +6,17 @@ import seaborn as sns
 import matplotlib.colors as clr
 import attempt.mylogs as mylogs
 import json
-from PIL import Image
+from PIL import Image, ImageChops
+
+
+def trim_image(im):
+    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
+    diff = ImageChops.difference(im, bg)
+    diff = ImageChops.add(diff, diff, 2.0, -100)
+    bbox = diff.getbbox()
+    if bbox:
+        return im.crop(bbox)
+
 
 def text_to_image(s, *, dpi, xpos=10, ypos=0, **kwargs):
     # To convert a text string to an image, we can:

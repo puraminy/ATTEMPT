@@ -92,7 +92,7 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_image(score, x_labels, y_labels, fname="", 
-            annot=True,title="", df=None, img_h=6.5):
+            annot=True,title="", df=None, img_h=6.5, cbar=True):
         if not title: title = fname
         if df is not None:
             fig, axes = plt.subplot_mosaic("A;B")
@@ -109,6 +109,7 @@ class WBCallback(WandbCallback):
         np_score = score.detach().cpu().numpy()
         if np_score.size != 0:
             sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
+                    cbar=cbar, 
                     annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,
                     yticklabels=y_labels,
@@ -119,6 +120,7 @@ class WBCallback(WandbCallback):
         mylogs.bp("wand")
         if fname:
             wandb.log({fname:wandb.Image(fig)})
+            plt.savefig(fname, format='png')
         img_buf = io.BytesIO()
         plt.savefig(img_buf, format='png')
         plt.close("all")

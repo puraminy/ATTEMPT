@@ -71,7 +71,7 @@ import pandas as pd
 import glob
 import mylogs 
 import itertools, collections
-from attempt.myutil import tag_to_image
+from attempt.myutil import tag_to_image, trim_image
 from metrics.metrics import do_score
 from encoders.encoders import *
 from optim import *
@@ -86,6 +86,7 @@ logger = logging.getLogger(__name__)
 global_scores = []
 global_y_labels = []
 global_x_labels = []
+
 
 def mbp(bp="all",*arg):
     print("info:",*arg)
@@ -2013,9 +2014,15 @@ def train(**kwargs):
     for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
         if ii == 1: # sim
             x_labels = y_labels
+            fname = "sim.png"
         else:
             x_labels = p_labels 
-        img_buf = WBCallback.save_image(score=score, 
+            fname = "scores.png"
+        fname = "pred_" + str(exp_info["expid"]) + "_" + fname 
+        img_buf = WBCallback.save_image(
+            # fname = fname,
+            score=score, 
+            cbar=False,
             y_labels=y_labels,
             x_labels=x_labels,
             title = str(kwargs.expid) + "\n" + str(_main_vars)) 
@@ -2026,6 +2033,7 @@ def train(**kwargs):
                     #+ "_" + model_args.attn_method) 
         if img_buf:
             im = Image.open(img_buf)
+            im = trim_image(im) 
             img_list.append(im)
 
     if img_list:
