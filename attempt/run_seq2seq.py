@@ -2033,8 +2033,9 @@ def train(**kwargs):
                     #+ "_" + model_args.attn_method) 
         if img_buf:
             im = Image.open(img_buf)
-            im = trim_image(im) 
-            img_list.append(im)
+            new_im = trim_image(im) 
+            wandb.log({fname:wandb.Image(new_im)})
+            # img_list.append(im)
 
     if img_list:
         new_im = combine_y(img_list)
