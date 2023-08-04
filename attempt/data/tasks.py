@@ -708,7 +708,7 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"adverse", "1":"fond"}
+    labels_map = {"0":"negative", "1":"positive"}
     # labels_map = {"0":"L", "1":"M"}
     rel_nat = "The sentiment is {mask}"
 
