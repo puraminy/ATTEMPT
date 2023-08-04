@@ -1989,10 +1989,19 @@ def train(**kwargs):
             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
     ss1 = torch.round(ss1*100)/100
+    ss1 = ss1[:,:2*tlen]
     ss2 = model.encoder.router.index_select(0, targets)
     mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
     y_labels = [model.encoder.prompt_names[i] for i in targets]
+    y_labels = [y.replace("tar-","") for y in y_labels]
+    p_labels = []
+    for pl in model.encoder.prompt_names:
+        if not "tar" in pl:
+            pl = pl.replace("source_for_","") 
+            pl = pl.replace("source_","") 
+            p_labels.append(pl)
+
     _main_vars = main_vars.copy()
     if "task_name" in _main_vars:
         del _main_vars["task_name"]
@@ -2004,7 +2013,7 @@ def train(**kwargs):
         if ii == 1: # sim
             x_labels = y_labels
         else:
-            x_labels = model.encoder.prompt_names 
+            x_labels = p_labels 
         img_buf = WBCallback.save_image(score=score, 
             y_labels=y_labels,
             x_labels=x_labels,
