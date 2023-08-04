@@ -10,6 +10,7 @@ from PIL import Image, ImageChops
 
 
 def trim_image(im):
+    im = im.convert("RGB")
     bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
     diff = ImageChops.difference(im, bg)
     diff = ImageChops.add(diff, diff, 2.0, -100)
