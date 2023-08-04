@@ -503,7 +503,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
       params="${params} --@template=$_temp"
    fi
    params="${params} --attn_tuning=True#!False"
-   params="${params} --attend_input=False#True"
+   params="${params} --attend_input=True#!False"
    if [ $_attn = "sub" ]; then
       params="${params} --attend_for=private#target"
    else

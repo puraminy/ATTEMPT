@@ -2000,6 +2000,7 @@ def train(**kwargs):
         if not "tar" in pl:
             pl = pl.replace("source_for_","") 
             pl = pl.replace("source_","") 
+            pl = pl.replace("com","src") 
             p_labels.append(pl)
 
     _main_vars = main_vars.copy()
