@@ -1989,7 +1989,7 @@ def train(**kwargs):
             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
     ss1 = torch.round(ss1*100)/100
-    ss1 = ss1[:,:2*tlen]
+    ss1 = ss1[:,:2*tlen+1]
     ss2 = model.encoder.router.index_select(0, targets)
     mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
