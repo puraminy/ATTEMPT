@@ -2723,7 +2723,9 @@ def show_df(df):
             for key, img_list in imgs.items():
                 name = key
                 for new_im in img_list:
-                    caption = "\\textcolor{red}{" + name + "}:" + caps[name]
+                    caption = "na"
+                    if name in caps:
+                        caption = "\\textcolor{red}{" + name + "}:" + caps[name]
                     name = key + str(name)
                     _exp = key.replace("_","-")
                     _exp = _exp.split("-")[0]
