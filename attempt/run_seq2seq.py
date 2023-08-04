@@ -2033,6 +2033,7 @@ def train(**kwargs):
                     #+ "_" + model_args.attn_method) 
         if img_buf:
             im = Image.open(img_buf)
+            mylogs.bp("img")
             new_im = trim_image(im) 
             wandb.log({fname:wandb.Image(new_im)})
             # img_list.append(im)
