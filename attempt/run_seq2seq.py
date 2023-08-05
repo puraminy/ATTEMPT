@@ -2025,7 +2025,8 @@ def train(**kwargs):
             cbar=False,
             y_labels=y_labels,
             x_labels=x_labels,
-            title = str(kwargs.expid.split("-")[0]) # + "\n" + str(_main_vars)) 
+            title = str(kwargs.expid.split("-")[0]))
+                    # + "\n" + str(_main_vars)) 
                     #+ "\n" \
                     #+ route_method \
                     #+ "_" + model_args.compose_method \
