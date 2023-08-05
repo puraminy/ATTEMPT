@@ -973,7 +973,8 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"0":"unequal","1":"duplicate"}
+    #labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"different","1":"identical"}
     #labels_map = {"0":"F","1":"G"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",

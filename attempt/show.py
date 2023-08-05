@@ -2030,7 +2030,7 @@ def show_df(df):
                 for ii, _exp in enumerate(rep_exps):
                     exp = _exp.replace("_","-")
                     exp = exp.split("-")[0]
-                    table_cont1 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
+                    table_cont1 += "\hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
                     cond = (gdf['expid'] == _exp)
                     for jj, sel_col in enumerate(cols):
                         if command != "put" and not sel_col in rep:
@@ -2616,7 +2616,7 @@ def show_df(df):
             for ii, _exp in enumerate(all_exps): 
                 exp = _exp.replace("_","-")
                 exp = exp.split("-")[0]
-                table_cont2 += str(ii) + ") \hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
+                table_cont2 += "\hyperref[fig:"+ _exp + "]{"+ exp +"} & " 
                 for rel in mdf['prefix'].unique(): 
                     table_cont2 += f" $ @{_exp}@{rel}@m_score $ &"
                 table_cont2 += f" $ @{_exp}@{train_num}@{seed}@m_score $ &"
