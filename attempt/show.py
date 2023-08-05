@@ -591,6 +591,7 @@ def show_df(df):
         imgs = {}
         dest = ""
         start = "pred"
+        fnames = []
         for exp in exps:
             cond = f"(main_df['expid'] == '{exp}')"
             tdf = main_df[main_df['expid'] == exp]
@@ -614,6 +615,7 @@ def show_df(df):
             ii = 0
             for img in paths: 
                 fname = Path(img).stem
+                fnames.append(fname.split(".png")[0])
                 parts = fname.split("_")
                 if kk < 0:
                     _, key = list_values(parts)
@@ -644,7 +646,7 @@ def show_df(df):
                     name = key 
                     dest = os.path.join("temp", name.strip("-") + ".png")
                     new_im.save(dest)
-        return dest, imgs
+        return dest, imgs, fnames
 
 
 
@@ -928,7 +930,7 @@ def show_df(df):
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
                 exprs.append(exp)
-            dest,imgs = get_images(df, exprs)
+            dest, imgs, fnames = get_images(df, exprs)
             subprocess.run(["eog", dest])
         if char in ["o","O"]:
             _agg = {}
@@ -2316,7 +2318,7 @@ def show_df(df):
                 seed = mdf["data_seed"].unique()[0]
                 pics_dir = doc_dir + "/pics"
                 Path(pics_dir).mkdir(parents=True, exist_ok=True)
-                dest, imgs = get_images(df, all_exps)
+                dest, imgs, fnames = get_images(df, all_exps)
                 images_rep = "myimage"
                 for key, img_list in imgs.items():
                     name = key
@@ -2712,6 +2714,16 @@ def show_df(df):
                     \label{{{}}}
                 \end{{figure}}
             """
+            multi_image = """
+                \\begin{figure}[h]
+                    \centering
+                    mypicture 
+                    \caption[image]{all}
+                    \label{fig:all}
+                \end{figure}
+            """
+            multi_image2 = multi_image
+            graphic = "\includegraphics[width=0.48\\textwidth]{{{}}}"
             pics_dir = doc_dir + "/pics"
             #ii = image.format(havg, "havg", "fig:havg")
             #report = report.replace("myimage", ii +"\n\n" + "myimage")
@@ -2719,7 +2731,10 @@ def show_df(df):
             #pname = plot_bar(pics_dir, train_num)
             #ii = image.format(pname, "bar", "fig:bar")
             #report = report.replace("myimage", ii +"\n\n" + "myimage")
-            dest, imgs = get_images(df, all_exps)
+            dest, imgs, fnames = get_images(df, all_exps)
+            sims = {}
+            scores = {}
+            kk = 0
             for key, img_list in imgs.items():
                 name = key
                 for new_im in img_list:
@@ -2734,10 +2749,29 @@ def show_df(df):
                     dest = os.path.join(doc_dir, pname) 
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
-                    report = report.replace("myimage", ii +"\n\n" + "myimage")
+                    fname = fnames[kk]
+                    # report = report.replace("myimage", ii +"\n\n" + "myimage")
+                    if fname.endswith("_scores"):
+                        sims[_exp] = pname
+                    else:
+                        scores[_exp] = pname
+                    kk += 1
+
+            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SL"]: 
+                pname = scores[exp]
+                multi_image = multi_image.replace("mypicture", 
+                    graphic.format(pname) + "\n mypicture")
+                pname = sims[exp]
+                multi_image2 = multi_image2.replace("mypicture", 
+                    graphic.format(pname) + "\n mypicture")
+
+            multi_image = multi_image.replace("mypicture","")
+            multi_image2 = multi_image2.replace("mypicture","")
+            report = report.replace("myimage", multi_image + "\n\n myimage") 
+            report = report.replace("myimage", multi_image2) 
+            ####################
             report = report.replace("mytable","")
             report = report.replace("myimage","")
-            ####################
             tex = f"{doc_dir}/report.tex"
             pdf = f"{doc_dir}/report.pdf"
             with open(tex, "w") as f:

@@ -1990,7 +1990,7 @@ def train(**kwargs):
             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
     ss1 = torch.round(ss1*100)/100
-    ss1 = ss1[:,:2*tlen+1]
+    ss1 = ss1[:,1:2*tlen+1]
     ss2 = model.encoder.router.index_select(0, targets)
     mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
@@ -2025,7 +2025,7 @@ def train(**kwargs):
             cbar=False,
             y_labels=y_labels,
             x_labels=x_labels,
-            title = str(kwargs.expid) + "\n" + str(_main_vars)) 
+            title = str(kwargs.expid.split("-")[0]) # + "\n" + str(_main_vars)) 
                     #+ "\n" \
                     #+ route_method \
                     #+ "_" + model_args.compose_method \

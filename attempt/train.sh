@@ -233,6 +233,7 @@ if [ -z "$_lr" ]; then  _lr=0.01; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
+if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -503,7 +504,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
       params="${params} --@template=$_temp"
    fi
    params="${params} --attn_tuning=True#!False"
-   params="${params} --attend_input=True#!False"
+   params="${params} --attend_input=$_inp"
    if [ $_attn = "sub" ]; then
       params="${params} --attend_for=private#target"
    else
