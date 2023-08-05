@@ -2758,6 +2758,8 @@ def show_df(df):
                     kk += 1
 
             for exp in ["SIL","SILPI","SILP","SLPI","SIP","SL"]: 
+                if not exp in scores:
+                    continue
                 pname = scores[exp]
                 multi_image = multi_image.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")

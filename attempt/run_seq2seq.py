@@ -1998,7 +1998,7 @@ def train(**kwargs):
     y_labels = [y.replace("tar-","") for y in y_labels]
     p_labels = []
     for pl in model.encoder.prompt_names:
-        if not "tar" in pl:
+        if not "tar" in pl and not "input" in pl:
             pl = pl.replace("source_for_","") 
             pl = pl.replace("source_","") 
             pl = pl.replace("com","src") 
