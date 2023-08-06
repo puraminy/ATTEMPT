@@ -1993,7 +1993,7 @@ def show_df(df):
                 table_cont1 += "method & "
                 head1 = "|r|"
                 cols = []
-                sizes = [50] #,100, 500]
+                sizes = [10] #,100, 500]
                 seeds = [123,45,76]
                 for n in sizes: 
                     for seed in seeds: 
@@ -2064,9 +2064,9 @@ def show_df(df):
                                     cond2=((mdf['prefix'] == rel) & (mdf["expid"] == _exp))
                                     sc = val_col 
                                     s_val = mdf.loc[cond2, sc].mean()
-                                    n_preds = mdf.loc[cond, "pred_text1"].unique()
-                                    n_preds = len(n_preds)
-                                    one_pred = int(n_preds) == 1
+                                    #n_preds = mdf.loc[cond, "pred_text1"].unique()
+                                    #n_preds = len(n_preds)
+                                    one_pred = False #int(n_preds) == 1
                                     maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
                                     s_val = round(s_val,2)
                                     if not rel in rep[sel_col][exp]:
@@ -2181,7 +2181,6 @@ def show_df(df):
                 \centering
                 \label{{{}}}
                 \caption{{{}}}
-                \\begin{{adjustbox}}{{width=0.7\\linewidth}}
                 \pgfplotstabletypeset[
                 color cells={{min={},max={}}},
                 col sep=&,	% specify the column separation character
@@ -2189,7 +2188,6 @@ def show_df(df):
                 columns/N/.style={{reset styles,string type}},
                 /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,88,50)}},
                 ]{{{}}}
-                \end{{adjustbox}}
                 \end{{table*}}
             """
             if com3 == "avg":
@@ -2281,9 +2279,12 @@ def show_df(df):
                         all_tables += latex_table(rep, rname, mdf, rep_exps, sel_col,
                                 category) + "\\newpage"
                     if str(cat_col) in rep: 
-                        all_tables += latex_table(rep, rname, mdf, rep_exps, 
+                        cat_table = latex_table(rep, rname, mdf, rep_exps, 
                                         str(cat_col),
-                                        category) + "\\newpage"
+                                        category) 
+                        with open(f"{doc_dir}/{rname}_{cat_col}_avg.tex", "w") as f:
+                            f.write(cat_table)
+                        all_tables += cat_table + "\n \\newpage"
     
                 #################
                 ii = image.format(havg, "havg", "fig:havg")
@@ -2751,10 +2752,10 @@ def show_df(df):
                     ii = image.format(pname, caption, label)
                     fname = fnames[kk]
                     report = report.replace("myimage", ii +"\n\n" + "myimage")
-                    if kk % 2 == 1: #fname.endswith("_scores"):
-                        sims[_exp] = pname
-                    else:
+                    if fname.endswith("_scores"):
                         scores[_exp] = pname
+                    else:
+                        sims[_exp] = pname
                     kk += 1
 
             for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP"]: 
@@ -2769,8 +2770,14 @@ def show_df(df):
 
             multi_image = multi_image.replace("mypicture","")
             multi_image2 = multi_image2.replace("mypicture","")
-            report = report.replace("myimage", multi_image + "\n\n myimage") 
-            report = report.replace("myimage", multi_image2) 
+            tex = f"{doc_dir}/scores_img.tex"
+            with open(tex, "w") as f:
+                f.write(multi_image)
+            tex = f"{doc_dir}/sim_img.tex"
+            with open(tex, "w") as f:
+                f.write(multi_image2)
+            report = report.replace("myimage", multi_image + "\n\n \input{scores_img.tex} \n\n") 
+            report = report.replace("myimage", multi_image2 + "\n\n \input{sim_img.tex} \n\n") 
             ####################
             report = report.replace("mytable","")
             report = report.replace("myimage","")

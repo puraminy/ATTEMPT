@@ -218,10 +218,17 @@ def cli():
     is_flag=True,
     help="Whether create a new directory for experiment when loadign an existing config file"
 )
+@click.option(
+    "--log_path",
+    "-lp",
+    default="",
+    type=str,
+    help="The directory to save all experiments"
+)
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
         debug, version, trial, rem, repeat, merge, 
-        reval, download_model, max_exp, new_exp_folder):
+        reval, download_model, max_exp, new_exp_folder, log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -231,6 +238,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    exclude_list = []
    exp_args = {}
    save_path = ""
+   if not log_path:
+       log_path = mylogs.logPath
+   if not log_path.startswith("/"):
+       log_path = os.path.join(mylogs.home, log_path)
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
@@ -247,7 +258,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if new_exp_folder and save_path:
           save_path = os.path.join(str(Path(save_path).parent), experiment)
        else:
-          save_path = os.path.join(mylogs.logPath, experiment)
+          save_path = os.path.join(log_path, experiment)
        if Path(save_path).exists():
           if not rem:
                while Path(save_path).exists():
@@ -259,7 +270,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                       break
                   else:
                       experiment = ans
-                      save_path = os.path.join(mylogs.logPath, experiment)
+                      save_path = os.path.join(log_path, experiment)
           if rem:
                save_path = save_path.rstrip("/")
                dirs = glob.glob(save_path + '/*/')
