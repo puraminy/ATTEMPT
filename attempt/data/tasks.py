@@ -1124,7 +1124,7 @@ class RTE(AbstractTask):
                            "test": "validation"}
 
     labels_map = {"0":"entailment", "1":"not_entailment"} # entailment nont_entailment
-    # labels_map = {"0":"C", "1":"D"} # entailment nont_entailment
+    ## labels_map = {"0":"C", "1":"D"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
