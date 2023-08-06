@@ -1992,8 +1992,6 @@ def train(**kwargs):
     ss1 = torch.round(ss1*100)/100
     if multi_tasking:
         ss1 = ss1[:,1:2*tlen+1]
-    else:
-        ss1 = ss1[:,1:nsp]
 
     ss2 = model.encoder.router.index_select(0, targets)
     mask = model.encoder.attn_mask 
