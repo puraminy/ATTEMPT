@@ -2750,15 +2750,15 @@ def show_df(df):
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
                     fname = fnames[kk]
-                    # report = report.replace("myimage", ii +"\n\n" + "myimage")
-                    if fname.endswith("_scores"):
+                    report = report.replace("myimage", ii +"\n\n" + "myimage")
+                    if kk % 2 == 1: #fname.endswith("_scores"):
                         sims[_exp] = pname
                     else:
                         scores[_exp] = pname
                     kk += 1
 
-            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SL"]: 
-                if not exp in scores:
+            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP"]: 
+                if not exp in scores or not exp in sims:
                     continue
                 pname = scores[exp]
                 multi_image = multi_image.replace("mypicture", 

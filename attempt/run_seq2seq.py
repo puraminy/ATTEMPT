@@ -1990,7 +1990,11 @@ def train(**kwargs):
             sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
     ss1 = torch.round(ss1*100)/100
-    ss1 = ss1[:,1:2*tlen+1]
+    if multi_tasking:
+        ss1 = ss1[:,1:2*tlen+1]
+    else:
+        ss1 = ss1[:,1:nsp]
+
     ss2 = model.encoder.router.index_select(0, targets)
     mask = model.encoder.attn_mask 
     ss3 = mask.index_select(0, targets)
