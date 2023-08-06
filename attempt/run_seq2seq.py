@@ -2013,6 +2013,7 @@ def train(**kwargs):
         del _main_vars["num_train_epochs"]
     if "max_train_samples" in _main_vars:
         del _main_vars["max_train_samples"]
+    tasks = data_args.task_name
     for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
         if ii == 1: # sim
             x_labels = y_labels
@@ -2020,7 +2021,7 @@ def train(**kwargs):
         else:
             x_labels = p_labels 
             fname = "scores.png"
-        fname = "pred_" + str(exp_info["expid"]) + "_" + fname 
+        fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
         img_buf = WBCallback.save_image(
             # fname = fname,
             score=score, 
