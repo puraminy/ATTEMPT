@@ -1046,6 +1046,7 @@ def train(**kwargs):
     if not router_prefix:
         router_prefix = prompts_prefix
 
+    shared_mat = None
     if adapter_args.prompt_tuning:
         added = add_specials(tokenizer)
         logger.info("%s tokens was addded", added)
@@ -1100,7 +1101,6 @@ def train(**kwargs):
 
         kwargs["num_source_prompts"] = len(source_prompts)
         mylogs.main_args["num_source_prompts"] = len(source_prompts)
-        shared_mat = None
         intrinsic_dim = 300
         mylogs.bp("mat")
         if adapter_args.prompt_encoder_type == "mat":

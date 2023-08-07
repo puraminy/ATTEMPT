@@ -95,7 +95,10 @@ fi
 if [ -n "$_spt" ]; then
  _nsp=${#_tasks[@]}
 fi
-if [ -n "$_pat" ] || [ -z "$_pt" ]; then
+if [ -z "$_pat" ] && [ -z "$_ft" ] && [ -z "$_pt" ]; then
+ _pat=True
+fi
+if [ -n "$_pat" ]; then
    if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
       _stasks=$_tasks
    fi
@@ -140,6 +143,10 @@ case "$HOME" in
       tokname=t5-base
       ;;
 esac
+if [ -n "$_base" ]; then
+   model=t5-base
+   tokname=t5-base
+fi
 if [ -n "$_mt5" ]; then
    model=mt5-base
    tokname=mt5-base

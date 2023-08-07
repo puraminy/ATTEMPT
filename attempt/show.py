@@ -2751,14 +2751,14 @@ def show_df(df):
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
                     fname = fnames[kk]
-                    report = report.replace("myimage", ii +"\n\n" + "myimage")
-                    if fname.endswith("_scores"):
+                    # report = report.replace("myimage", ii +"\n\n" + "myimage")
+                    if fname.endswith("scores"):
                         scores[_exp] = pname
                     else:
                         sims[_exp] = pname
                     kk += 1
 
-            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP"]: 
+            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP", "SL","PI"]: 
                 if not exp in scores or not exp in sims:
                     continue
                 pname = scores[exp]
