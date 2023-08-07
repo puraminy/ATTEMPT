@@ -1326,7 +1326,6 @@ def show_df(df):
             #.assign(pred_max_num=temp.max(1), pred_max = temp.idxmax(1))
             #)
 
-            sel_cols.append("num_preds")
             extra["filter"].append("group predictions")
         elif char == " ":
             if sel_row in sel_rows:
@@ -1368,6 +1367,7 @@ def show_df(df):
             left = 0
             col = [col, "prefix"]
             sel_cols =  load_obj("sel_cols", context, [])
+            sel_cols = list(set(sel_cols))
             info_cols = load_obj("info_cols", context, [])
             if reset:
                 info_cols = ["bert_score", "num_preds"]
@@ -1407,6 +1407,8 @@ def show_df(df):
                 elif c.endswith("_first"):
                     ren[c] = c.replace("_first","")
             df = df.rename(columns=ren)
+            if not "num_preds" in sel_cols:
+                sel_cols.append("num_preds")
             df["avg_len"] = avg_len
             df = df.sort_values(by = ["rouge_score"], ascending=False)
             sort = "rouge_score"
@@ -2808,7 +2810,7 @@ def show_df(df):
         
         if cmd == "ren":
             sel_col = sel_cols[cur_col]
-            new_name = rowinput("Rename to:", default="")
+            new_name = rowinput("Rename " + sel_col + " to:", default="")
             map_cols[sel_col] = new_name
             save_obj(map_cols, "map_cols", "atomic")
             cur_col += 1
