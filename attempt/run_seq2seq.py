@@ -1989,117 +1989,118 @@ def train(**kwargs):
 
         return cos_sim.item()
 
-    img_list = []
     mylogs.bp("pic")
-    targets = model.encoder.target_encoders_idx
-    ss1 = model.encoder.attn_scores.index_select(0, targets)
-    tlen = ss1.size()[0]
-    sim = torch.zeros((tlen, tlen))
-    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-    for i in range(tlen):
-        for j in range(tlen):
-            sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
+    if adapter_args.prompt_tuning:
+        img_list = []
+        targets = model.encoder.target_encoders_idx
+        ss1 = model.encoder.attn_scores.index_select(0, targets)
+        tlen = ss1.size()[0]
+        sim = torch.zeros((tlen, tlen))
+        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+        for i in range(tlen):
+            for j in range(tlen):
+                sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
-    ss1 = torch.round(ss1*100)/100
-    if multi_tasking:
-        ss1 = ss1[:,1:2*tlen+1]
+        ss1 = torch.round(ss1*100)/100
+        if multi_tasking:
+            ss1 = ss1[:,1:2*tlen+1]
 
-    ss2 = model.encoder.router.index_select(0, targets)
-    mask = model.encoder.attn_mask 
-    ss3 = mask.index_select(0, targets)
-    y_labels = [model.encoder.prompt_names[i] for i in targets]
-    y_labels = [y.replace("tar-","") for y in y_labels]
-    p_labels = []
-    for pl in model.encoder.prompt_names:
-        if not "tar" in pl and not "input" in pl:
-            pl = pl.replace("source_for_","") 
-            pl = pl.replace("source_","") 
-            pl = pl.replace("com","src") 
-            p_labels.append(pl)
+        ss2 = model.encoder.router.index_select(0, targets)
+        mask = model.encoder.attn_mask 
+        ss3 = mask.index_select(0, targets)
+        y_labels = [model.encoder.prompt_names[i] for i in targets]
+        y_labels = [y.replace("tar-","") for y in y_labels]
+        p_labels = []
+        for pl in model.encoder.prompt_names:
+            if not "tar" in pl and not "input" in pl:
+                pl = pl.replace("source_for_","") 
+                pl = pl.replace("source_","") 
+                pl = pl.replace("com","src") 
+                p_labels.append(pl)
 
-    _main_vars = main_vars.copy()
-    if "task_name" in _main_vars:
-        del _main_vars["task_name"]
-    if "num_train_epochs" in _main_vars:
-        del _main_vars["num_train_epochs"]
-    if "max_train_samples" in _main_vars:
-        del _main_vars["max_train_samples"]
-    tasks = data_args.task_name
-    for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
-        if ii == 1: # sim
-            x_labels = y_labels
-            fname = "sim.png"
-        else:
-            x_labels = p_labels 
-            fname = "scores.png"
-        fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
-        img_buf = WBCallback.save_image(
-            # fname = fname,
-            score=score, 
-            cbar=False,
-            y_labels=y_labels,
-            x_labels=x_labels,
-            title = str(kwargs.expid.split("-")[0]))
-                    # + "\n" + str(_main_vars)) 
-                    #+ "\n" \
-                    #+ route_method \
-                    #+ "_" + model_args.compose_method \
-                    #+ "_" + kwargs.apply_softmax_to \
-                    #+ "_" + model_args.attn_method) 
-        if img_buf:
-            im = Image.open(img_buf)
-            mylogs.bp("img")
-            new_im = trim_image(im) 
+        _main_vars = main_vars.copy()
+        if "task_name" in _main_vars:
+            del _main_vars["task_name"]
+        if "num_train_epochs" in _main_vars:
+            del _main_vars["num_train_epochs"]
+        if "max_train_samples" in _main_vars:
+            del _main_vars["max_train_samples"]
+        tasks = data_args.task_name
+        for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
+            if ii == 1: # sim
+                x_labels = y_labels
+                fname = "sim.png"
+            else:
+                x_labels = p_labels 
+                fname = "scores.png"
+            fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
+            img_buf = WBCallback.save_image(
+                # fname = fname,
+                score=score, 
+                cbar=False,
+                y_labels=y_labels,
+                x_labels=x_labels,
+                title = str(kwargs.expid.split("-")[0]))
+                        # + "\n" + str(_main_vars)) 
+                        #+ "\n" \
+                        #+ route_method \
+                        #+ "_" + model_args.compose_method \
+                        #+ "_" + kwargs.apply_softmax_to \
+                        #+ "_" + model_args.attn_method) 
+            if img_buf:
+                im = Image.open(img_buf)
+                mylogs.bp("img")
+                new_im = trim_image(im) 
+                wandb.log({fname:wandb.Image(new_im)})
+                # img_list.append(im)
+
+        if img_list:
+            new_im = combine_y(img_list)
+            fname = "pred_" + str(exp_info["expid"]) 
             wandb.log({fname:wandb.Image(new_im)})
-            # img_list.append(im)
-
-    if img_list:
-        new_im = combine_y(img_list)
-        fname = "pred_" + str(exp_info["expid"]) 
-        wandb.log({fname:wandb.Image(new_im)})
 
 
-    targets = model.encoder.target_encoders_idx
-    ss1 = model.encoder.attn_scores.index_select(0, targets)
-    ss2 = model.encoder.router.index_select(0, targets)
-    _tag = kwargs.setdefault("tag",[])
-    #if diff_args:
-    #    for k,v in diff_args["values_changed"].items():
-    #        if not "output_dir" in k and not "expid" in k:
+        targets = model.encoder.target_encoders_idx
+        ss1 = model.encoder.attn_scores.index_select(0, targets)
+        ss2 = model.encoder.router.index_select(0, targets)
+        _tag = kwargs.setdefault("tag",[])
+        #if diff_args:
+        #    for k,v in diff_args["values_changed"].items():
+        #        if not "output_dir" in k and not "expid" in k:
 
-    #           da[k] = v
-    _main_vars = main_vars.copy()
-    if "task_name" in _main_vars:
-        del _main_vars["task_name"]
+        #           da[k] = v
+        _main_vars = main_vars.copy()
+        if "task_name" in _main_vars:
+            del _main_vars["task_name"]
 
-    global_scores.append(ss1)
-    global_y_labels.extend(y_labels)
-    global_x_labels = model.encoder.prompt_names 
-    for score in [ss1]: #[ss2]
-        img_buf = WBCallback.save_image(score=score, 
-           y_labels=y_labels,
-           x_labels=model.encoder.prompt_names, 
-           title = str(kwargs.expid) + str(_main_vars) \
-                    + "_" + model_args.attn_method,
-            img_h=6.5 if multi_tasking else 2.5,
-            df=None) 
-        if img_buf:
-            cur_img = Image.open(img_buf)
-            #tags_img = tag_to_image(da, get_image=True)
-            #cur_img = combine_x([tags_img, cur_img])
-            cat = Path(kwargs.save_path).parent
-            sp = op.join(cat, "images") 
-            Path(sp).mkdir(exist_ok=True, parents=True)
-            pic = "router_" + str(exp_info["expid"])
-            pp = sp + "/pred_" + pic + ".png"
-            existing_images = glob.glob(op.join(sp, "pred_*.png"))
-            merge_plots = kwargs.setdefault("merge_plots", False)
-            if existing_images and merge_plots:
-                pp = existing_images[0]
-            if Path(pp).is_file():
-                _image = Image.open(pp)
-                cur_img = combine_y([cur_img, _image])
-            cur_img.save(pp)
+        global_scores.append(ss1)
+        global_y_labels.extend(y_labels)
+        global_x_labels = model.encoder.prompt_names 
+        for score in [ss1]: #[ss2]
+            img_buf = WBCallback.save_image(score=score, 
+               y_labels=y_labels,
+               x_labels=model.encoder.prompt_names, 
+               title = str(kwargs.expid) + str(_main_vars) \
+                        + "_" + model_args.attn_method,
+                img_h=6.5 if multi_tasking else 2.5,
+                df=None) 
+            if img_buf:
+                cur_img = Image.open(img_buf)
+                #tags_img = tag_to_image(da, get_image=True)
+                #cur_img = combine_x([tags_img, cur_img])
+                cat = Path(kwargs.save_path).parent
+                sp = op.join(cat, "images") 
+                Path(sp).mkdir(exist_ok=True, parents=True)
+                pic = "router_" + str(exp_info["expid"])
+                pp = sp + "/pred_" + pic + ".png"
+                existing_images = glob.glob(op.join(sp, "pred_*.png"))
+                merge_plots = kwargs.setdefault("merge_plots", False)
+                if existing_images and merge_plots:
+                    pp = existing_images[0]
+                if Path(pp).is_file():
+                    _image = Image.open(pp)
+                    cur_img = combine_y([cur_img, _image])
+                cur_img.save(pp)
 
     if kwargs.setdefault("eval_test", False):
         for task, test_dataset in test_datasets.items():
