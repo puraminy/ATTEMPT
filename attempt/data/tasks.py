@@ -77,7 +77,7 @@ class AbstractTask(abc.ABC):
               if self.labels_map and self.map_labels:
                   label = self.labels_map[label]
               ll.append(len(tokenizer.encode(label))) 
-           return max(ll)
+           return max(ll) + 5
         return default_max_length
 
     def check_n_obs(self, n_obs, total_size):
