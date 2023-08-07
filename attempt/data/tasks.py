@@ -710,7 +710,7 @@ class SST2(AbstractTask):
                            "test": "validation"}
     labels_map = {"0":"negative", "1":"positive"}
     # labels_map = {"0":"L", "1":"M"}
-    rel_nat = "The sentiment is {mask}"
+    rel_nat = "The sentence sentiment is"
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'sst2',
