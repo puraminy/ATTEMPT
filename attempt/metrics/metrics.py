@@ -50,7 +50,7 @@ TASK_TO_METRICS = {
                    "qqp": ["accuracy"],
                    "superglue-boolq": ["accuracy"],
                    "superglue-rte": ["accuracy"],
-                   "superglue-cb": ["mean_multiclass_f1", "accuracy"],
+                   "superglue-cb": ["accuracy"],
                    "superglue-copa": ["accuracy"],
                    "superglue-multirc": ["f1_score_with_invalid", "exact_match"],
                    "superglue-wic": ["accuracy"],

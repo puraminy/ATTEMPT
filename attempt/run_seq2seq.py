@@ -1888,7 +1888,10 @@ def train(**kwargs):
             metrics_list = []
             for mstr in task_metric:
                 metric = getattr(mets, mstr)
-                met = metric(preds, golds)
+                try:
+                    met = metric(preds, golds)
+                except:
+                    met = {mstr:0}
             mm = 0
             for k,v in met.items():
                 df[k] = v

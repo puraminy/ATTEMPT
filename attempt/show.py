@@ -1967,6 +1967,8 @@ def show_df(df):
             with open(pp, "r") as f:
                 report = f.read()
             _agg = {}
+            if not "m_score" in sel_cols:
+                sel_cols.append("m_score")
             for c in sel_cols:
                 if c in df.columns: 
                     if c.endswith("score"):
@@ -1995,7 +1997,7 @@ def show_df(df):
                 table_cont1 += "method & "
                 head1 = "|r|"
                 cols = []
-                sizes = [10] #,100, 500]
+                sizes = [20, 50, 100, 200]
                 seeds = [123,45,76]
                 for n in sizes: 
                     for seed in seeds: 
@@ -2188,11 +2190,11 @@ def show_df(df):
                 col sep=&,	% specify the column separation character
                 row sep=\\\\,	% specify the row separation character
                 columns/N/.style={{reset styles,string type}},
-                /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,88,50)}},
+                /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,188,150)}},
                 ]{{{}}}
                 \end{{table*}}
             """
-            if com3 == "avg":
+            if com3 == "avg" and rep_avg:
                 havg = doc_dir + "/pics/" + "havg.png"
                 tab = []
                 exp_names = []
@@ -2223,7 +2225,9 @@ def show_df(df):
                         avg=0
                         if avg_list:
                             avg = stat.mean(avg_list)
-                            sdev = stat.stdev(avg_list)
+                            sdev = 0
+                            if len(avg_list) > 1:
+                                sdev = stat.stdev(avg_list)
                             avg = round(avg,1)
                             if avg > _max: _max = avg
                             if avg < _min: _min = avg
@@ -2578,6 +2582,8 @@ def show_df(df):
             else:
                 m_report = f"{_dir}/report_templates/report.tex.temp"
             _agg = {}
+            if not "m_score" in sel_cols:
+                sel_cols.append("m_score")
             for c in sel_cols:
                 if c in df.columns: 
                     if c.endswith("score"):
