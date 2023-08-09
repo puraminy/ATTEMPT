@@ -1998,16 +1998,19 @@ def train(**kwargs):
         targets = model.encoder.target_encoders_idx
         ss1 = model.encoder.attn_scores.index_select(0, targets)
         tlen = ss1.size()[0]
-        sim = torch.zeros((tlen, tlen))
+        sim = torch.eye(tlen)
         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
         for i in range(tlen):
             for j in range(tlen):
-                sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
+                if i != j:
+                    sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
             ss1 = ss1[:,1:2*tlen+1]
 
+        if len(torch.nonzero(ss1)) < 1:
+            ss1 = torch.eye(tlen)
         ss2 = model.encoder.router.index_select(0, targets)
         mask = model.encoder.attn_mask 
         ss3 = mask.index_select(0, targets)
@@ -2029,12 +2032,13 @@ def train(**kwargs):
         if "max_train_samples" in _main_vars:
             del _main_vars["max_train_samples"]
         tasks = data_args.task_name
+        mylogs.bp("pic")
         for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
+            x_labels = y_labels
             if ii == 1: # sim
-                x_labels = y_labels
                 fname = "sim.png"
             else:
-                x_labels = p_labels 
+                if p_labels: x_labels = p_labels 
                 fname = "scores.png"
             fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
             img_buf = WBCallback.save_image(

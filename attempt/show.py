@@ -2180,11 +2180,9 @@ def show_df(df):
                     \end{{adjustbox}}
                 \end{{table*}}
                 """
-            table_hm_template = """
-                \\begin{{table*}}[h]
+            table_hm_template = """\\begin{{minipage}}{{.4\\linewidth}}
                 \centering
                 \label{{{}}}
-                \caption{{{}}}
                 \pgfplotstabletypeset[
                 color cells={{min={},max={}}},
                 col sep=&,	% specify the column separation character
@@ -2192,8 +2190,7 @@ def show_df(df):
                 columns/N/.style={{reset styles,string type}},
                 /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,188,150)}},
                 ]{{{}}}
-                \end{{table*}}
-            """
+                \end{{minipage}}"""
             if com3 == "avg" and rep_avg:
                 havg = doc_dir + "/pics/" + "havg.png"
                 tab = []
@@ -2244,10 +2241,12 @@ def show_df(df):
                     table_sdev = table_sdev.strip("&")
                     table_sdev += "\\\\\n"
 
-                table = table_hm_template.format("label","caption", _min, _max, table_avg)
+                table_avg = table_avg.strip("\n")
+                table_sdev = table_sdev.strip("\n")
+                table = table_hm_template.format("label", _min, _max, table_avg)
                 with open(f"{doc_dir}/table_hm.tex", "w") as f:
                     f.write(table)
-                table = table_hm_template.format("label","caption", _mins,_maxs,table_sdev)
+                table = table_hm_template.format("label", _mins,_maxs,table_sdev)
                 with open(f"{doc_dir}/table_hm_sdev.tex", "w") as f:
                     f.write(table)
 
@@ -2723,11 +2722,12 @@ def show_df(df):
                     \label{{{}}}
                 \end{{figure}}
             """
+            cat = mdf["experiment"].unique()[0]
             multi_image = """
                 \\begin{figure}[h]
                     \centering
                     mypicture 
-                    \caption[image]{all}
+                    \caption[image]{""" + cat +str(train_num)+" | "+ str(seed) +  """}
                     \label{fig:all}
                 \end{figure}
             """
@@ -2754,11 +2754,12 @@ def show_df(df):
                     _exp = key.replace("_","-")
                     _exp = _exp.split("-")[0]
                     label = "fig:" + key 
-                    pname = doc_dir + "/pics/" + name.strip("-") + ".png"
+                    fname = fnames[kk]
+                    ss = "_score" if fname.endswith("scores") else "_sim"
+                    pname = doc_dir + "/pics/" + name.strip("-") + ss + ".png" 
                     dest = os.path.join(doc_dir, pname) 
                     new_im.save(dest)
                     ii = image.format(pname, caption, label)
-                    fname = fnames[kk]
                     # report = report.replace("myimage", ii +"\n\n" + "myimage")
                     if fname.endswith("scores"):
                         scores[_exp] = pname
@@ -2769,10 +2770,16 @@ def show_df(df):
             for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP", "SL","PI"]: 
                 if not exp in scores or not exp in sims:
                     continue
-                pname = scores[exp]
+                if exp == "PI":
+                    pname = f"{doc_dir}/pics/pi_scores.png" 
+                else:
+                    pname = scores[exp]
                 multi_image = multi_image.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")
-                pname = sims[exp]
+                if exp == "PI":
+                    pname = f"{doc_dir}/pics/pi_sim.png" 
+                else:
+                    pname = sims[exp]
                 multi_image2 = multi_image2.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")
 
@@ -2784,8 +2791,8 @@ def show_df(df):
             tex = f"{doc_dir}/sim_img.tex"
             with open(tex, "w") as f:
                 f.write(multi_image2)
-            report = report.replace("myimage", multi_image + "\n\n \input{scores_img.tex} \n\n") 
-            report = report.replace("myimage", multi_image2 + "\n\n \input{sim_img.tex} \n\n") 
+            report = report.replace("myimage", "\n\n \input{scores_img.tex} \n\n myimage") 
+            report = report.replace("myimage", "\n\n \input{sim_img.tex} \n\n") 
             ####################
             report = report.replace("mytable","")
             report = report.replace("myimage","")
