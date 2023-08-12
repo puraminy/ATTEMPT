@@ -188,6 +188,12 @@ def cli():
     help="Repeat an experiment even if the folder already exists",
 )
 @click.option(
+    "--deep_check",
+    "-dc",
+    is_flag=True,
+    help="Check complete json confiturations for checking existing exps"
+)
+@click.option(
     "--merge",
     "-merge",
     is_flag=True,
@@ -227,7 +233,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, merge, 
+        debug, version, trial, rem, repeat, deep_check, merge, 
         reval, download_model, max_exp, new_exp_folder, log_path):
    if debug:
        port = "1234"
@@ -473,6 +479,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
+                   output_dir = jj["output_dir"].strip("%")
+                   if glob.glob(op.join(output_dir, "*.tsv")):
+                       trial = int(jj["trial"]) + 1 if "trial" in jj else 2
+                       exp_exists = True
                    are_equal = True
                    for k,v in args.items():
                        if not k in not_conf: 
@@ -483,10 +493,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                                break
                if are_equal:
                   print(ii, " is equal to ", ee)
-                  output_dir = jj["output_dir"].strip("%")
-                  if glob.glob(op.join(output_dir, "*.tsv")):
-                      trial = int(jj["trial"]) + 1 if "trial" in jj else 2
-                      exp_exists = True
+               if deep_check:
+                  exp_exists = exp_exists and are_equal
                   break
        args["trial"] = trial
        if preview == "tag":

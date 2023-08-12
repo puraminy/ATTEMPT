@@ -43,6 +43,7 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category):
                 continue
             val = rep[sel_col][exp][rel]
             if type(val) == list:
+                assert val, rel + "|"+ sel_col + "|"+ exp
                 val = stat.mean(val)
             if not rel in maxval or val > maxval[rel]:
                 maxval[rel] = val
@@ -389,6 +390,9 @@ def show_df(df):
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
+    if "m_score" in df:
+        df["m_score"] = np.where((df['m_score']<=0), 50.0, df['m_score'])
+
     orig_tag_cols = tag_cols.copy()
     src_path = ""
     if "src_path" in df:
@@ -2051,8 +2055,8 @@ def show_df(df):
                             if not sel_col in rep:
                                 rep[sel_col] = {}
                             if not exp in rep[sel_col]:
-                                rep[sel_col][exp] = {"avg":0}
-                            if exp in rep[sel_col] and rep[sel_col][exp]["avg"] != 0:
+                                rep[sel_col][exp] = {"avg":1000}
+                            if exp in rep[sel_col] and rep[sel_col][exp]["avg"] != 1000:
                                 val = rep[sel_col][exp]["avg"] 
                             if sel_col == cc and val_col in gdf.columns:
                                 val = gdf.loc[cond, val_col].iloc[0]
@@ -2072,7 +2076,6 @@ def show_df(df):
                                     #n_preds = len(n_preds)
                                     one_pred = False #int(n_preds) == 1
                                     maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
-                                    s_val = round(s_val,2)
                                     if not rel in rep[sel_col][exp]:
                                         rep[sel_col][exp][rel] = []
                                     if not cat_col in rep:
@@ -2081,15 +2084,19 @@ def show_df(df):
                                         rep[cat_col][exp] = {}
                                     if not rel in rep[cat_col][exp]:
                                         rep[cat_col][exp][rel] = []
-                                    rep[cat_col][exp][rel].append(s_val)
-                                    rep[sel_col][exp][rel].append(s_val)
-                                    maxval = round(maxval,2)
-                                    bold = s_val == maxval
-                                    s_val = "{:.2f}".format(s_val)
-                                    if bold: 
-                                        mval = "\\textcolor{teal}{\\textbf{" + s_val + "}}"
-                                    else:
-                                        mval = "\\textcolor{black}{" + s_val + "}"
+                                    if s_val or s_val == 0:
+                                        if rel == "stsb" and s_val == 0:
+                                            s_val = 50
+                                        s_val = round(s_val,2)
+                                        rep[cat_col][exp][rel].append(s_val)
+                                        rep[sel_col][exp][rel].append(s_val)
+                                        maxval = round(maxval,2)
+                                        bold = s_val == maxval
+                                        s_val = "{:.2f}".format(s_val)
+                                        if bold: 
+                                            mval = "\\textcolor{teal}{\\textbf{" + s_val + "}}"
+                                        else:
+                                            mval = "\\textcolor{black}{" + s_val + "}"
                             ##########
                             # all_tables+=latex_table(rep, rname, mdf, rep_exps,cur_sel_col)
                         elif command == "show":
@@ -2191,7 +2198,7 @@ def show_df(df):
                 /pgfplots/colormap={{whiteblue}}{{rgb255(0cm)=(255,255,255); rgb255(1cm)=(0,188,150)}},
                 ]{{{}}}
                 \end{{minipage}}"""
-            if com3 == "avg" and rep_avg:
+            if (com3 == "avg" or com3 == "img") and rep_avg:
                 havg = doc_dir + "/pics/" + "havg.png"
                 tab = []
                 exp_names = []
@@ -2199,7 +2206,8 @@ def show_df(df):
                 table_avg = " N & "
                 table_sdev = " N & "
                 head_avg = "|r|"
-                exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
+                #exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
+                exp_names = ["SILPI","SILP","SIL","SLPI","P","PI", "SIP","SL", "SLP"] 
                 train_nums = list(rep_avg.keys())
                 for tn in train_nums:
                     head_avg += "r|"
@@ -2343,10 +2351,10 @@ def show_df(df):
 
                 ####################
                 images_rep = images_rep.replace("myimage","")
-                report = report.replace("myimage", "\input{images.tex}")
+                report = report.replace("myimage", "\input{" + rname + "_images.tex}")
                 with open(f"{doc_dir}/{category}_images.tex", "a") as f:
                     f.write(images_rep)
-                with open(f"{doc_dir}/images.tex", "a") as f:
+                with open(f"{doc_dir}/{rname}_images.tex", "a") as f:
                     f.write(images_rep)
             #with open(f"{_dir}/report_templates/report.tex." + rname, "w") as f:
             #    f.write(report)
@@ -2400,7 +2408,7 @@ def show_df(df):
                     if val_col in gdf.columns:
                         val = gdf.loc[cond, val_col].iloc[0]
                     if val_col.endswith("score"):
-                        mval = val = "{:.1f}".format(val)
+                        mval = val = "{:.2f}".format(val)
                         # val = "$ \\textcolor{teal}{" + str(ii) + \
                         #      "}-\\textcolor{blue}{ " + val + " }$"
                         val = "$ \\textcolor{blue}{ " + val + " }$"
@@ -2670,7 +2678,7 @@ def show_df(df):
                     if val_col in gdf.columns:
                         val = gdf.loc[cond, val_col].iloc[0]
                     if val_col.endswith("score"):
-                        mval = val = "{:.1f}".format(val)
+                        mval = val = "{:.2f}".format(val)
                         val = "$ \\textcolor{blue}{ " + val + " }$"
                     else:
                         mval = val
@@ -2785,6 +2793,12 @@ def show_df(df):
 
             multi_image = multi_image.replace("mypicture","")
             multi_image2 = multi_image2.replace("mypicture","")
+            tex = f"{doc_dir}/scores_img_{seed}_{train_num}.tex"
+            with open(tex, "w") as f:
+                f.write(multi_image)
+            tex = f"{doc_dir}/sim_img_{seed}_{train_num}.tex"
+            with open(tex, "w") as f:
+                f.write(multi_image2)
             tex = f"{doc_dir}/scores_img.tex"
             with open(tex, "w") as f:
                 f.write(multi_image)
@@ -3154,6 +3168,7 @@ dfpath = ""
 dftype = "tsv"
 hotkey = ""
 global_cmd = ""
+global_search = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
 def start(stdscr):
     global info_bar, text_win, cmd_win, std, main_win, colors, dfname
@@ -3218,6 +3233,17 @@ def start(stdscr):
             force_fid = False
             sfid = file_id.split("@")
             fid = sfid[0]
+            if global_search: 
+                col = "pred_text1"
+                val = global_search
+                if "@" in global_search:
+                    val, col = global_search.split("@")
+                values = df[col].unique()
+                if val in values:
+                    print("path:", f)
+                    print("values:", values)
+                    assert False, "found!" + f
+                continue
             if len(sfid) > 1:
                 force_fid = sfid[1] == "force"
             if True: #force_fid:
@@ -3295,15 +3321,23 @@ def start(stdscr):
     type=str,
     help=""
 )
+@click.option(
+    "--search",
+    "-s",
+    default="",
+    type=str,
+    help=""
+)
 @click.pass_context
-def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd):
+def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search):
     if dpy:
         port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname,dfpath,file_id,dftype,hotkey, global_cmd
+    global dfname,dfpath,file_id,dftype,hotkey, global_cmd, global_search
     file_id = fid
+    global_search = search
     hotkey = hkey 
     global_cmd = cmd
     if not fname:

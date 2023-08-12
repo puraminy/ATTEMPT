@@ -77,7 +77,7 @@ if [ -n "$_otasks" ]; then
 fi
 
 if [ -n "$_sgtasks" ]; then
-   _tasks="${_tasks}#superglue-wsc.fixed#superglue-cb#superglue-boolq#superglue-rte#superglue-copa#superglue-wic"
+   _tasks="${_tasks}#superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
 fi
 if [ -n "$_atasks" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#oReact#oEffect#oWant#xWant#xEffect#xNeed"
