@@ -479,10 +479,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
-                   output_dir = jj["output_dir"].strip("%")
-                   if glob.glob(op.join(output_dir, "*.tsv")):
-                       trial = int(jj["trial"]) + 1 if "trial" in jj else 2
-                       exp_exists = True
+                   if "output_dir" in jj:
+                       output_dir = jj["output_dir"].strip("%")
+                       if glob.glob(op.join(output_dir, "*.tsv")):
+                           trial = int(jj["trial"]) + 1 if "trial" in jj else 2
+                           exp_exists = True
                    are_equal = True
                    for k,v in args.items():
                        if not k in not_conf: 
