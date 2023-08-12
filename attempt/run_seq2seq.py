@@ -508,8 +508,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            continue
        if exp_exists:
            args["output_dir"] = "%" + output_dir 
+           print("Skipping experiment ", ii, ": The experiment already exists!")
            if not preview and not repeat:
-              print("Skipping experiment ", ii, ": The experiment already exists!")
               continue 
        # preview existing experiments 
        if preview == "ex" or preview == "ex-why" or preview == "exists": #
