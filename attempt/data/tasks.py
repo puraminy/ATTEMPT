@@ -1101,8 +1101,9 @@ class QNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    rel_nat = "the logical relation between question and sentence is "
-    labels_map = {"0":"entailment", "1":"not_entailment"}
+    rel_nat = "Can the question be answered by the passage?"
+    #labels_map = {"0":"entailment", "1":"not_entailment"}
+    labels_map = {"0":"yes", "1":"no"}
     #labels_map = {"0":"C", "1":"D"}
 
     def load_dataset(self, split):

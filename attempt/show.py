@@ -2289,15 +2289,17 @@ def show_df(df):
                 for cat_col in sizes: 
                     for seed in seeds: 
                         sel_col = str(cat_col) + "@" + str(seed) + "@m_score"
-                        all_tables += latex_table(rep, rname, mdf, rep_exps, sel_col,
-                                category) + "\\newpage"
+                        #all_tables += latex_table(rep, rname, mdf, rep_exps, sel_col,
+                        #        category) + "\\newpage"
                     if str(cat_col) in rep: 
                         cat_table = latex_table(rep, rname, mdf, rep_exps, 
                                         str(cat_col),
                                         category) 
-                        with open(f"{doc_dir}/{rname}_{cat_col}_avg.tex", "w") as f:
+                        fname_avg = f"{doc_dir}/{rname}_{cat_col}_avg.tex"
+                        with open(fname_avg, "w") as f:
                             f.write(cat_table)
-                        all_tables += cat_table + "\n \\newpage"
+                        all_tables += f"\input{{{fname_avg}}} \n\n \\newpage"
+                        #all_tables += cat_table + "\n \\newpage"
     
                 #################
                 ii = image.format(havg, "havg", "fig:havg")
@@ -2775,19 +2777,23 @@ def show_df(df):
                         sims[_exp] = pname
                     kk += 1
 
-            for exp in ["SIL","SILPI","SILP","SLPI","SIP","SLP", "SL","PI"]: 
+            for exp in ["SIL","SILP","SIP","SLP"]: 
                 if not exp in scores or not exp in sims:
                     continue
-                if exp == "PI":
-                    pname = f"{doc_dir}/pics/pi_scores.png" 
-                else:
-                    pname = scores[exp]
+                pname = scores[exp]
                 multi_image = multi_image.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")
-                if exp == "PI":
-                    pname = f"{doc_dir}/pics/pi_sim.png" 
-                else:
-                    pname = sims[exp]
+                pname = sims[exp]
+                multi_image = multi_image.replace("mypicture", 
+                    graphic.format(pname) + "\n mypicture")
+
+            for exp in ["SILPI","SLPI","SL"]: 
+                if not exp in scores or not exp in sims:
+                    continue
+                pname = scores[exp]
+                multi_image2 = multi_image2.replace("mypicture", 
+                    graphic.format(pname) + "\n mypicture")
+                pname = sims[exp]
                 multi_image2 = multi_image2.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")
 
