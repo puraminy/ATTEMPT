@@ -944,6 +944,10 @@ class AtLocation(Atomic):
     name = "AtLocation"
     rel_nat = "is located at"
 
+class ObjectUse(Atomic):
+    name = "ObjectUse"
+    rel_nat = "is used for"
+
 class xWant(Atomic):
     name = "xWant"
 
@@ -1456,6 +1460,7 @@ TASK_MAPPING = OrderedDict(
         ('xReact', xReact),
         ('oReact', oReact),
         ('AtLocation', AtLocation),
+        ('ObjectUse', ObjectUse),
         ('xWant', xWant),
         ('oWant', oWant),
         ('xEffect', xEffect),
