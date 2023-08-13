@@ -29,7 +29,7 @@ import sklearn
 import sklearn.metrics
 import attempt.metrics.metrics as mets
 
-def latex_table(rep, rname, mdf, all_exps, sel_col, category):
+def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
     maxval = {}
     for ii, exp in enumerate(all_exps): 
         exp = exp.replace("_","-")
@@ -91,20 +91,21 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category):
     for head, cont in zip([head2],
             [table_cont2]):
         label = "table:" + rname + sel_col.replace("_","-") 
-        caption = category + " \hyperref[table:show]{ Main Table } | " + label
+        capt = caption
+        if not capt:
+           capt = category + " \hyperref[table:show]{ Main Table } | " + label
         table = """
-            \\begin{{table*}}[h]
-                \label{{{}}}
+            \\begin{{table*}}[h!]
+                \centering
                 \caption{{{}}}
-                \\begin{{adjustbox}}{{width=1\\textwidth}}
+                \label{{{}}}
                 \\begin{{tabular}}{{{}}}
                 \hline
                 {}
                 \end{{tabular}}
-                \end{{adjustbox}}
             \end{{table*}}
             """
-        table = table.format(label, caption, head, cont)
+        table = table.format(capt, label, head, cont)
     return table
 
 def plot_bar(rep, folder, sel_col):
@@ -2155,7 +2156,7 @@ def show_df(df):
 
             image = """
                 \\newpage
-                \\begin{{figure}}[h]
+                \\begin{{figure}}[h!]
                     \centering
                     \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
@@ -2163,20 +2164,18 @@ def show_df(df):
                 \end{{figure}}
             """
             table_mid_template = """
-                \\begin{{table*}}[h]
+                \\begin{{table*}}[h!]
                     \centering
                     \label{{{}}}
                     \caption{{{}}}
-                    \\begin{{adjustbox}}{{width=0.7\\linewidth}}
                     \\begin{{tabular}}{{{}}}
                     \hline
                     {}
                     \end{{tabular}}
-                    \end{{adjustbox}}
                 \end{{table*}}
                 """
             table_fp_template = """
-                \\begin{{table*}}[h]
+                \\begin{{table*}}[h!]
                     \label{{{}}}
                     \caption{{{}}}
                     \\begin{{adjustbox}}{{width=1\\textwidth}}
@@ -2284,7 +2283,7 @@ def show_df(df):
                     ax.set_ylabel('train nums')
 
                     fig.savefig(havg)
-                ###############
+                ############### AAAAAAAAAAVVVVVVVVVVVVVV
                 all_tables = "\\newpage"
                 for cat_col in sizes: 
                     for seed in seeds: 
@@ -2294,7 +2293,8 @@ def show_df(df):
                     if str(cat_col) in rep: 
                         cat_table = latex_table(rep, rname, mdf, rep_exps, 
                                         str(cat_col),
-                                        category) 
+                                        category,
+                                        caption="The performance of GLUE tasks for training size " + str(cat_col)) 
                         fname_avg = f"{doc_dir}/{rname}_{cat_col}_avg.tex"
                         with open(fname_avg, "w") as f:
                             f.write(cat_table)
@@ -2547,15 +2547,13 @@ def show_df(df):
                 lable = "table:" + str(ii) 
                 caption = f"{rname} {exp} {train_num} {seed}"
                 table = """
-                    \\begin{{table*}}[h]
+                    \\begin{{table*}}[h!]
                         \label{{{}}}
                         \caption{{{}}}
-                        \\begin{{adjustbox}}{{width=1\\textwidth}}
                         \\begin{{tabular}}{{{}}}
                         \hline
                         {}
                         \end{{tabular}}
-                        \end{{adjustbox}}
                     \end{{table*}}
                     """
                 table = table.format(lable, caption, head, cont)
@@ -2564,7 +2562,7 @@ def show_df(df):
                 ii += 1
 
             image = """
-                \\begin{{figure}}[h]
+                \\begin{{figure}}[h!]
                     \centering
                     \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
@@ -2649,15 +2647,13 @@ def show_df(df):
                 lable = "table:" + str(ii) 
                 caption = f" {category} {exp} {train_num} {seed}"
                 table = """
-                    \\begin{{table*}}[h]
+                    \\begin{{table*}}[h!]
                         \label{{{}}}
                         \caption{{{}}}
-                        \\begin{{adjustbox}}{{width=1\\textwidth}}
                         \\begin{{tabular}}{{{}}}
                         \hline
                         {}
                         \end{{tabular}}
-                        \end{{adjustbox}}
                     \end{{table*}}
                     """
                 table = table.format(lable, caption, head, cont)
@@ -2725,7 +2721,7 @@ def show_df(df):
                 ii += 1
 
             image = """
-                \\begin{{figure}}[h]
+                \\begin{{figure}}[h!]
                     \centering
                     \includegraphics[width=\\textwidth]{{{}}}
                     \caption[image]{{{}}}
@@ -2734,7 +2730,7 @@ def show_df(df):
             """
             cat = mdf["experiment"].unique()[0]
             multi_image = """
-                \\begin{figure}[h]
+                \\begin{figure}[h!]
                     \centering
                     mypicture 
                     \caption[image]{""" + cat +str(train_num)+" | "+ str(seed) +  """}
@@ -2777,7 +2773,7 @@ def show_df(df):
                         sims[_exp] = pname
                     kk += 1
 
-            for exp in ["SIL","SILP","SIP","SLP"]: 
+            for exp in ["SIL","SILP","SIP"]: 
                 if not exp in scores or not exp in sims:
                     continue
                 pname = scores[exp]
@@ -2787,7 +2783,7 @@ def show_df(df):
                 multi_image = multi_image.replace("mypicture", 
                     graphic.format(pname) + "\n mypicture")
 
-            for exp in ["SILPI","SLPI","SL"]: 
+            for exp in ["SILPI","SLPI","SLP", "SL"]: 
                 if not exp in scores or not exp in sims:
                     continue
                 pname = scores[exp]
@@ -2799,13 +2795,14 @@ def show_df(df):
 
             multi_image = multi_image.replace("mypicture","")
             multi_image2 = multi_image2.replace("mypicture","")
-            tex = f"{doc_dir}/scores_img_{seed}_{train_num}.tex"
-            with open(tex, "w") as f:
-                f.write(multi_image)
-            tex = f"{doc_dir}/sim_img_{seed}_{train_num}.tex"
-            with open(tex, "w") as f:
-                f.write(multi_image2)
-            tex = f"{doc_dir}/scores_img.tex"
+            if False:
+                tex = f"{doc_dir}/group_si.tex"
+                with open(tex, "w") as f:
+                    f.write(multi_image)
+                tex = f"{doc_dir}/group_slp.tex"
+                with open(tex, "w") as f:
+                    f.write(multi_image2)
+                tex = f"{doc_dir}/scores_img.tex"
             with open(tex, "w") as f:
                 f.write(multi_image)
             tex = f"{doc_dir}/sim_img.tex"

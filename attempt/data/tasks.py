@@ -329,9 +329,9 @@ class AbstractTask(abc.ABC):
             if part == "pshr":
                src = src.replace("(prompt)", "{prompt_shr} (prompt) ",1)
             if part == "nat_inp" or part == "nat": 
-               src = src.replace("(nat)", ", {rel_nat}")
+               src = src.replace("(nat)", "{rel_nat}")
             if part == "nat_tgt": 
-               target = target.replace("(nat)", ", {rel_nat}")
+               target = target.replace("(nat)", "{rel_nat}")
 
         return src, target, pcom
 
