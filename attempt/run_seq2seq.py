@@ -2007,6 +2007,7 @@ def train(**kwargs):
         targets = model.encoder.target_encoders_idx
         ss1 = model.encoder.attn_scores.index_select(0, targets)
         tlen = ss1.size()[0]
+        slen = len(model.encoder.prompt_names) - 1
         sim = torch.eye(tlen)
         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
         for i in range(tlen):
@@ -2016,7 +2017,7 @@ def train(**kwargs):
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
-            ss1 = ss1[:,1:2*tlen+1]
+            ss1 = ss1[:,1:2*slen+1]
 
         if len(torch.nonzero(ss1)) < 1:
             ss1 = torch.eye(tlen)
@@ -2030,6 +2031,7 @@ def train(**kwargs):
             if not "tar" in pl and not "input" in pl:
                 pl = pl.replace("source_for_","") 
                 pl = pl.replace("source_","") 
+                pl = pl.replace("superglue-","") 
                 pl = pl.replace("com","src") 
                 p_labels.append(pl)
 

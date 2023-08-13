@@ -90,7 +90,7 @@ if [ -n "$_ltasks2" ]; then
 fi
 
 if [ -n "$_sstasks" ]; then
-   _stasks="mnli#${sgtasks}#piqa"
+   _stasks="mnli#${sgtasks}"
 fi
 if [ -n "$_spt" ]; then
  _nsp=${#_tasks[@]}
