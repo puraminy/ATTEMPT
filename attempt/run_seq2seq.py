@@ -247,7 +247,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if not log_path:
        log_path = mylogs.logPath
    if not log_path.startswith("/"):
-       log_path = os.path.join(mylogs.home, log_path)
+       log_path = os.path.join(mylogs.logPath, log_path)
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
