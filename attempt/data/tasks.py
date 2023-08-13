@@ -1166,7 +1166,7 @@ class SuperGLUEBoolQ(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"0":"Fals", "1":"True"}
+    labels_map = {"0":"False", "1":"True"}
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'boolq', split=split)
 
@@ -1247,7 +1247,7 @@ class SuperGLUEMultiRC(AbstractTask):
     metric = [metrics.multirc_f1_over_all_answers,
               metrics.mean_group_metric(metrics.exact_match)]
     metric_names = ["f1", "em"]
-    labels_map = {"0":"Fals", "1":"True"}
+    labels_map = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'multirc', split=split)
@@ -1278,7 +1278,7 @@ class SuperGLUEWIC(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"Fals", "1":"True"}
+    labels_map = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'wic', split=split)
@@ -1327,7 +1327,7 @@ class SuperGLUEWSCFixed(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"Fals", "1":"True"}
+    labels_map = {"0":"False", "1":"True"}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 

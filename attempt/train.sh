@@ -75,9 +75,9 @@ fi
 if [ -n "$_otasks" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
-
+sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
 if [ -n "$_sgtasks" ]; then
-   _tasks="${_tasks}#superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
+   _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_atasks" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#oReact#oEffect#oWant#xWant#xEffect#xNeed"
@@ -90,7 +90,7 @@ if [ -n "$_ltasks2" ]; then
 fi
 
 if [ -n "$_sstasks" ]; then
-   _stasks="mnli#qnli#qqp#sst2#squad#superglue-record"
+   _stasks="mnli#${sgtasks}#piqa"
 fi
 if [ -n "$_spt" ]; then
  _nsp=${#_tasks[@]}
