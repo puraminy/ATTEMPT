@@ -940,6 +940,10 @@ class xReact(Atomic):
 class oReact(Atomic):
     name = "oReact"
 
+class AtLocation(Atomic):
+    name = "AtLocation"
+    rel_nat = "is located at"
+
 class xWant(Atomic):
     name = "xWant"
 
@@ -1451,6 +1455,7 @@ TASK_MAPPING = OrderedDict(
         ('xNeed', xNeed),
         ('xReact', xReact),
         ('oReact', oReact),
+        ('AtLocation', AtLocation),
         ('xWant', xWant),
         ('oWant', oWant),
         ('xEffect', xEffect),
