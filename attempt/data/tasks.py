@@ -960,8 +960,8 @@ class HasProperty(Atomic):
     name = "HasProperty"
     rel_nat = " has the property of "
 
-class IsFilledBy(Atomic):
-    name = "IsFilledBy"
+class isFilledBy(Atomic):
+    name = "isFilledBy"
     rel_nat = "is filled by"
 
 class xWant(Atomic):
@@ -1480,7 +1480,7 @@ TASK_MAPPING = OrderedDict(
         ('Desires', Desires),
         ('CapableOf', CapableOf),
         ('HasProperty', HasProperty),
-        ('IsFilledBy', IsFilledBy),
+        ('isFilledBy', isFilledBy),
         ('xWant', xWant),
         ('oWant', oWant),
         ('xEffect', xEffect),
