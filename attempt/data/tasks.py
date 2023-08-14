@@ -948,6 +948,22 @@ class ObjectUse(Atomic):
     name = "ObjectUse"
     rel_nat = "is used for"
 
+class Desires(Atomic):
+    name = "Desires"
+    rel_nat = "desire"
+
+class CapableOf(Atomic):
+    name = "CapableOf"
+    rel_nat = "is capable of"
+
+class HasProperty(Atomic):
+    name = "HasProperty"
+    rel_nat = " has the property of "
+
+class IsFilledBy(Atomic):
+    name = "IsFilledBy"
+    rel_nat = "is filled by"
+
 class xWant(Atomic):
     name = "xWant"
 
@@ -1461,6 +1477,10 @@ TASK_MAPPING = OrderedDict(
         ('oReact', oReact),
         ('AtLocation', AtLocation),
         ('ObjectUse', ObjectUse),
+        ('Desires', Desires),
+        ('CapableOf', CapableOf),
+        ('HasProperty', HasProperty),
+        ('IsFilledBy', IsFilledBy),
         ('xWant', xWant),
         ('oWant', oWant),
         ('xEffect', xEffect),
