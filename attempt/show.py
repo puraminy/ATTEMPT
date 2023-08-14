@@ -425,6 +425,7 @@ def show_df(df):
     on_col_list = []
     keep_cols = []
     rep_cols = load_obj("rep_cols", "gtasks", [])
+    score_cols = load_obj("score_cols", "gtasks", ["rouge_score"])
     unique_cols = []
     group_sel_cols = []
     sel_fid = "" 
@@ -608,6 +609,8 @@ def show_df(df):
         for exp in exps:
             cond = f"(main_df['expid'] == '{exp}')"
             tdf = main_df[main_df['expid'] == exp]
+            if tdf.empty:
+                return dest, imgs, fnames
             path=tdf.iloc[0]["path"]
             path = Path(path)
             #_selpath = os.path.join(path.parent, "pred_sel" + path.name) 
@@ -1059,7 +1062,7 @@ def show_df(df):
             info_cols.append(col)
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
-        elif char == "N":
+        elif char == "N" and prev_char == "x":
             backit(df,sel_cols)
             sel_cols=["pred_max_num","pred_max", "tag","prefix","rouge_score", "num_preds","bert_score"]
         elif (char == "i" and not prev_char == "x" and hk=="G"):
@@ -1079,13 +1082,21 @@ def show_df(df):
                     rep_cols.remove(col)
             save_obj(rep_cols, "rep_cols", "gtasks")
             cmd = "report"
-        elif char == "Q":
-            canceled, col, val = list_df_values(main_df, get_val=False)
+        elif char == "N":
+            canceled, col, val = list_df_values(df, get_val=False)
             if not canceled:
                 if col in rep_cols: 
                     rep_cols.remove(col)
                 rep_cols.insert(0, col)
             save_obj(rep_cols, "rep_cols", "gtasks")
+            char = "R"
+        elif char == "Q":
+            canceled, col = list_values(["word_score","preds_num","rouge_score","bert_score"])
+            if not canceled:
+                if col in score_cols: 
+                    score_cols.remove(col)
+                score_cols = [col]
+            save_obj(score_cols, "score_cols", "gtasks")
             char = "Z"
         elif char == "I" or ch == cur.KEY_IC:
             canceled, col, val = list_df_values(main_df, get_val=False)
@@ -1542,9 +1553,9 @@ def show_df(df):
                 path = Path(path)
                 #_selpath = os.path.join(path.parent, "sel_" + path.name) 
                 #shutil.copyfile(path, _selpath)
-                exp=df.iloc[sel_row]["expid"]
+                exp=df.iloc[sel_row]["exp_id"]
                 sel_exp = exp
-                FID="expid"
+                #FID="expid"
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
@@ -2618,11 +2629,9 @@ def show_df(df):
             if not rep_cols:
                 rep_cols = ["expid", "template"]
             main_score = "rouge_score"
-            df = main_df
+            # df = main_df
             gcol = rep_cols
             df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
-            score_cols = ["rouge_score", "preds_num", "bert_score"] #, "bert_score"]
-            score_cols = ["preds_num"] #, "bert_score"]
             cols = set(rep_cols + sel_cols + score_cols + ["preds_num"])
             for c in cols:
                 if c in df.columns: 
@@ -2825,7 +2834,7 @@ def show_df(df):
                                 "@" + cc + "@" + rel + "@" + sc, val)
                 caps[exp] += "\\\\" + scores            
                 ii += 1
-            if False: #char == "R": 
+            if char == "R": 
                 image = """
                     \\begin{{figure}}[h!]
                         \centering
@@ -2856,6 +2865,7 @@ def show_df(df):
                 sims = {}
                 scores = {}
                 kk = 0
+                id = "other"
                 for key, img_list in imgs.items():
                     name = key
                     for new_im in img_list:
@@ -2868,7 +2878,7 @@ def show_df(df):
                         label = "fig:" + key 
                         fname = fnames[kk]
                         ss = "_score" if fname.endswith("scores") else "_sim"
-                        pname = doc_dir + "/pics/" + name.strip("-") + ss + ".png" 
+                        pname = doc_dir + "/pics/" + id + name.strip("-") + ss + ".png" 
                         dest = os.path.join(doc_dir, pname) 
                         new_im.save(dest)
                         ii = image.format(pname, caption, label)

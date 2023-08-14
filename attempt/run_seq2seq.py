@@ -2007,13 +2007,14 @@ def train(**kwargs):
         targets = model.encoder.target_encoders_idx
         ss1 = model.encoder.attn_scores.index_select(0, targets)
         tlen = ss1.size()[0]
+        all_len = ss1.size()[1]
         slen = len(model.encoder.prompt_names) - 1
         sim = torch.eye(tlen)
         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
         for i in range(tlen):
             for j in range(tlen):
                 if i != j:
-                    sim[i][j] = cos(ss1[i][:slen], ss1[j][:slen]) #, slen) 
+                    sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
