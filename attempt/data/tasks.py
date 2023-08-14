@@ -31,6 +31,7 @@ class AbstractTask(abc.ABC):
     metric_names = NotImplemented
     generation = False
     split_map = None
+    do_split = False
     labels_list = None
     pcounter = 0
     rel_nat = None
@@ -812,13 +813,21 @@ class Atomic(AbstractTask):
         return path
 
     def load_dataset(self, split):
-        if split != "train":
+        if split != "train" or self.do_split:
             self.do_shuffle = False
         path = self.get_data_path(split)
         df = pd.read_table(path)
+        if self.do_split or (split == "test" and len(df) < 300):
+            path = self.get_data_path("train")
+            df = pd.read_table(path)
+            if split == "test":
+                df = df.tail(300)
+            else:
+                df = df.head(len(df) - 300)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
         assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
+        
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
@@ -926,6 +935,7 @@ class xReason(Atomic):
     name = "xReason"
 
 class Desires(Atomic):
+    do_split = True
     name = "Desires"
 
 class xAttr(Atomic):
