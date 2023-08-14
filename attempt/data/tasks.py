@@ -800,7 +800,7 @@ class Atomic(AbstractTask):
         self.split = split
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
-        if False: #split == "test" and self.config != "split":
+        if split == "test" and self.config != "split":
             mylogs.bp("=testdata")
             if self.config == "full-test":
                 path = op.join(path, self.config, self.name  + '.tsv')
@@ -951,6 +951,9 @@ class ObjectUse(Atomic):
 class Desires(Atomic):
     name = "Desires"
     rel_nat = "desire"
+    split_to_data_split = {"train": "train",
+                           "validation": "train",
+                           "test": "train"}
 
 class CapableOf(Atomic):
     name = "CapableOf"

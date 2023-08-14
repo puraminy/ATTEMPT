@@ -1542,8 +1542,9 @@ def show_df(df):
                 path = Path(path)
                 #_selpath = os.path.join(path.parent, "sel_" + path.name) 
                 #shutil.copyfile(path, _selpath)
-                exp=df.iloc[sel_row]["exp_id"]
+                exp=df.iloc[sel_row]["expid"]
                 sel_exp = exp
+                FID="expid"
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
@@ -2096,9 +2097,9 @@ def show_df(df):
                                     cond2=((mdf['prefix'] == rel) & (mdf["expid"] == _exp))
                                     sc = val_col 
                                     s_val = mdf.loc[cond2, sc].mean()
-                                    #n_preds = mdf.loc[cond, "pred_text1"].unique()
-                                    #n_preds = len(n_preds)
-                                    one_pred = False #int(n_preds) == 1
+                                    #preds_num = mdf.loc[cond, "pred_text1"].unique()
+                                    #preds_num = len(preds_num)
+                                    one_pred = False #int(preds_num) == 1
                                     maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
                                     if not rel in rep[sel_col][exp]:
                                         rep[sel_col][exp][rel] = []
@@ -2617,19 +2618,25 @@ def show_df(df):
             if not rep_cols:
                 rep_cols = ["expid", "template"]
             main_score = "rouge_score"
-            score_cols = [main_score] #, "bert_score"]
-            cols = set(rep_cols + sel_cols + score_cols)
+            df = main_df
+            gcol = rep_cols
+            df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
+            score_cols = ["rouge_score", "preds_num", "bert_score"] #, "bert_score"]
+            score_cols = ["preds_num"] #, "bert_score"]
+            cols = set(rep_cols + sel_cols + score_cols + ["preds_num"])
             for c in cols:
                 if c in df.columns: 
-                    if c.endswith("score"):
+                    if c == "preds_num":
+                        _agg[c] = "mean"
+                    elif c.endswith("score"):
                         _agg[c] = "mean"
                     else:
                         _agg[c] = "first"
-            gcol = rep_cols
             rdf = df.groupby(gcol + ["prefix"], as_index=False).agg(
                     _agg).reset_index(drop=True)
             gdf = df.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
             gdf = gdf.sort_values(by=[main_score], ascending=False)
+            gdf.columns = gdf.columns.to_flat_index()
             mdf = main_df
             train_num = str(mdf["max_train_samples"].unique()[0])
             seed = mdf["data_seed"].unique()[0]
@@ -2648,7 +2655,7 @@ def show_df(df):
             report = main_report
             rep = load_obj(rname, "gtasks", {})
             table_cont2=""
-            all_rels = mdf['prefix'].unique() 
+            all_rels = mdf['prefix'].unique()
             head2 = "|"
             for col in rep_cols: 
                 if col in map_cols:
@@ -2667,7 +2674,7 @@ def show_df(df):
             show_score_headings = False
             rlen = "1" if show_score_headings else "2"
             for rel in all_rels: 
-                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textbf{"+rel+"}}} &"
+                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textbf{"+rel[:3]+"}}} &"
             for sc in score_cols:
                 sc = sc.replace("_score","")
                 table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 
@@ -2751,6 +2758,7 @@ def show_df(df):
                 cond = True
                 for e, elem in enumerate(comb):
                     cond = cond & (gdf[gcol[e]] == elem)
+                cond2 = (gdf[gcol[0]] == comb[0])
                 for sel_col in cols:
                     val_col = sel_col
                     val = ""
@@ -2761,9 +2769,19 @@ def show_df(df):
                         if not rows.empty:
                             val = rows.iloc[0]
                     if val:
-                        if val_col.endswith("score"):
-                            mval = val = "{:.2f}".format(val)
-                            val = "$ \\textcolor{blue}{ " + val + " }$"
+                        if val_col.endswith("score") or val_col.endswith("num"):
+                            maxval = gdf.loc[cond2, val_col].max()
+                            val = round(val,2)
+                            maxval = round(maxval,2)
+                            bold = val == maxval
+                            if val_col.endswith("num"):
+                                mval = val = "{:.1f}".format(val)
+                            else:
+                                mval = val = "{:.2f}".format(val)
+                            if bold:
+                                val = "$ \\textcolor{blue}{ " + val + " }$"
+                            else:
+                                val = "$ \\textcolor{black}{ " + val + " }$"
                         else:
                             mval = val
                             val = "\\textbf{" + str(val) + "}"
@@ -2782,14 +2800,14 @@ def show_df(df):
                     cond = (mdf['prefix'] == rel) & main_cond 
                     for sc in score_cols: 
                         val = mdf.loc[cond, sc].mean()
+                        preds_num = mdf.loc[cond, "pred_text1"].unique()
+                        preds_num = len(preds_num)
+                        one_pred = int(preds_num) == 1
                         maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
-                        n_preds = mdf.loc[cond, "pred_text1"].unique()
-                        n_preds = len(n_preds)
-                        one_pred = int(n_preds) == 1
                         val = round(val,2)
                         maxval = round(maxval,2)
                         bold = val == maxval
-                        if sc != "num_preds":
+                        if sc != "preds_num":
                             val = "{:.2f}".format(val)
                         else:
                             try:
