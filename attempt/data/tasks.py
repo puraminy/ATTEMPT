@@ -808,7 +808,7 @@ class Atomic(AbstractTask):
                 path = op.join(path, self.config, split  + '.tsv')
             print("TEST PATH:", path)
         else:
-            path = op.join(path, split + '.tsv')
+            path = op.join(path, self.name, split + '.tsv')
         return path
 
     def load_dataset(self, split):
