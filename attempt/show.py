@@ -2616,7 +2616,8 @@ def show_df(df):
                 sel_cols.append("m_score")
             if not rep_cols:
                 rep_cols = ["expid", "template"]
-            score_cols = ["m_score", "bert_score"]
+            main_score = "rouge_score"
+            score_cols = [main_score] #, "bert_score"]
             cols = set(rep_cols + sel_cols + score_cols)
             for c in cols:
                 if c in df.columns: 
@@ -2628,7 +2629,7 @@ def show_df(df):
             rdf = df.groupby(gcol + ["prefix"], as_index=False).agg(
                     _agg).reset_index(drop=True)
             gdf = df.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
-            gdf = gdf.sort_values(by=["m_score"], ascending=False)
+            gdf = gdf.sort_values(by=[main_score], ascending=False)
             mdf = main_df
             train_num = str(mdf["max_train_samples"].unique()[0])
             seed = mdf["data_seed"].unique()[0]
@@ -2647,6 +2648,7 @@ def show_df(df):
             report = main_report
             rep = load_obj(rname, "gtasks", {})
             table_cont2=""
+            all_rels = mdf['prefix'].unique() 
             head2 = "|"
             for col in rep_cols: 
                 if col in map_cols:
@@ -2655,30 +2657,36 @@ def show_df(df):
                 table_cont2 += " \multirow{2}{*}{\\textbf{" + col + "}} &"
                 head2 += "l|"
             old_rel = ""
-            for rel in mdf['prefix'].unique(): 
+            for rel in all_rels: 
                 for idx, sc in enumerate(score_cols):
-                    head2 += "l"
+                    head2 += "c"
                 head2 +="|"
             for sc in score_cols:
-                    head2 += "l|"
-            all_rels = mdf['prefix'].unique() 
+                head2 += "l|"
             slen = str(len(score_cols))
+            show_score_headings = False
+            rlen = "1" if show_score_headings else "2"
             for rel in all_rels: 
-                table_cont2 += "\multicolumn{" + slen + "}{l}{\\textbf{"+rel+"}} &"
+                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textbf{"+rel+"}}} &"
             for sc in score_cols:
                 sc = sc.replace("_score","")
-                table_cont2 += " \multirow{2}{*}{avg. " + sc + "} &" 
+                table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             start = str(len(rep_cols) + 1)
-            end = str(len(rep_cols) + 2*len(all_rels))
-            table_cont2 += "\cline{" + start + "-" + end+ "}\n"
+            end = str(len(rep_cols) + len(score_cols)*len(all_rels))
+            if len(score_cols) > 1:
+               table_cont2 += "\cline{" + start + "-" + end+ "}\n"
+
             for c in rep_cols:
                 table_cont2 += "& "
-            for rel in mdf['prefix'].unique(): 
+            for rel in all_rels: 
                 for sc in score_cols:
-                    sc = sc.replace("_score","")
-                    table_cont2 += "\\textbf{"+sc+"} &"
+                    sc = sc.replace("_score","") if show_score_headings else ""
+                    table_cont2 += sc + " &"
+            for sc in score_cols:
+                sc = sc.replace("_score","") if show_score_headings else ""
+                table_cont2 += sc + " &" # for average
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
@@ -2692,11 +2700,15 @@ def show_df(df):
                 cc = "@".join(comb)
                 first = comb[0]
                 if first != _first:
+                    if _first != "": table_cont2 += "\\hline \n"
                     _first = first
-                    table_cont2 += "\\hline \n"
-                for col in gcol: 
+                    col = gcol[0]
+                    table_cont2 += f" \multirow{{1}}{{*}}{{$ @{cc}@{col} $}} &"
+                else:
+                    table_cont2 += " &"
+                for col in gcol[1:]: 
                     table_cont2 += f" $ @{cc}@{col} $ &"
-                for rel in mdf['prefix'].unique(): 
+                for rel in all_rels:
                     for score_col in score_cols:
                         table_cont2 += f" $ @{cc}@{rel}@{score_col} $ &"
                 for score_col in score_cols:
@@ -2766,8 +2778,7 @@ def show_df(df):
                 for e, elem in enumerate(comb):
                     main_cond = main_cond & (mdf[gcol[e]] == elem)
                 scores = ""
-                for rel in mdf['prefix'].unique(): 
-                    model = "t5-base"
+                for rel in all_rels: 
                     cond = (mdf['prefix'] == rel) & main_cond 
                     for sc in score_cols: 
                         val = mdf.loc[cond, sc].mean()
