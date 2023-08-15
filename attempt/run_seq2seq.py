@@ -2008,7 +2008,6 @@ def train(**kwargs):
         ss1 = model.encoder.attn_scores.index_select(0, targets)
         tlen = ss1.size()[0]
         all_len = ss1.size()[1]
-        slen = len(model.encoder.prompt_names) - 1
         sim = torch.eye(tlen)
         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
         for i in range(tlen):

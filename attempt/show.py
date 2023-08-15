@@ -1091,7 +1091,7 @@ def show_df(df):
             save_obj(rep_cols, "rep_cols", "gtasks")
             char = "R"
         elif char == "Q":
-            canceled, col = list_values(["word_score","preds_num","rouge_score","bert_score"])
+            canceled, col = list_values(["m_score","word_score","preds_num","rouge_score","bert_score"])
             if not canceled:
                 if col in score_cols: 
                     score_cols.remove(col)
