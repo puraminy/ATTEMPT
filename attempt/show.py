@@ -2683,7 +2683,7 @@ def show_df(df):
             show_score_headings = False
             rlen = "1" if show_score_headings else "2"
             for rel in all_rels: 
-                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textbf{"+rel[:3]+"}}} &"
+                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textbf{"+rel+"}}} &"
             for sc in score_cols:
                 sc = sc.replace("_score","")
                 table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 

@@ -627,7 +627,8 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"unequal","1":"duplicate"}
+    #labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"not_equivalent","1":"equivalent"}
     #labels_map = {"0":"F","1":"G"}
 
     def load_dataset(self, split):
@@ -1010,7 +1011,8 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"not_duplicate","1":"duplicate"}
+    #labels_map = {"0":"unequal","1":"duplicate"}
     #labels_map = {"0":"different","1":"identical"}
     #labels_map = {"0":"F","1":"G"}
     split_to_data_split = {"train": "train",
@@ -1139,8 +1141,8 @@ class QNLI(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     rel_nat = "Can the question be answered by the passage?"
-    #labels_map = {"0":"entailment", "1":"not_entailment"}
-    labels_map = {"0":"yes", "1":"no"}
+    labels_map = {"0":"entailment", "1":"not_entailment"}
+    #labels_map = {"0":"yes", "1":"no"}
     #labels_map = {"0":"C", "1":"D"}
 
     def load_dataset(self, split):
