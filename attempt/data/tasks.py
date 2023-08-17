@@ -60,6 +60,10 @@ class AbstractTask(abc.ABC):
         self.prompt_set = {} 
         prompt_config = {}
         self.map_labels = task_args.map_labels
+        self.map_style = task_args.map_style
+        if self.map_labels and self.map_style == "distinct":
+           for i, label in enumerate(self.labels_list):
+               self.labels_map[label] = self.name + str(i)
         prompt_config["length"] = task_args.prompt_length
         prompt_config["target_length"] = task_args.target_prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
@@ -711,7 +715,7 @@ class SST2(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     #labels_map = {"0":"negative", "1":"positive"}
-    labels_map = {"0":"no", "1":"yes"}
+    labels_map = {"0":"bad", "1":"good"}
     # labels_map = {"0":"L", "1":"M"}
     rel_nat = "The sentence sentiment is"
 

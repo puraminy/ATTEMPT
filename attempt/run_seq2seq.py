@@ -698,6 +698,7 @@ def train(**kwargs):
     task_args = {}
     task_args["data_seed"] = data_args.data_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
+    task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
     task_args["train_samples"] = data_args.max_train_samples
     task_args["val_samples"] = data_args.max_val_samples
