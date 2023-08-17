@@ -672,7 +672,7 @@ def show_df(df):
             ii = 0
             for img in paths: 
                 fname = Path(img).stem
-                fnames.append(fname.split(".png")[0])
+                fnames.append(fname) #.split("_")[0])
                 parts = fname.split("_")
                 if kk < 0:
                     _, key = list_values(parts)
@@ -2260,7 +2260,7 @@ def show_df(df):
                 head_avg = "|r|"
                 #exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
                 exp_names = ["SILPI","SILP","SIL","SLPI","P","PI", "SIP","SL", "SLP"] 
-                exp_names = ["SILPI","SILP","SIL","SLPI","P","SIP"] 
+                #exp_names = ["SILPI","SILP","SIL","SLPI","P","SIP"] 
                 #exp_names = ["SIL","P","SIP"]
                 train_nums = list(rep_avg.keys())
                 for tn in train_nums:
@@ -2919,13 +2919,13 @@ def show_df(df):
                         _exp = _exp.split("-")[0]
                         label = "fig:" + key 
                         fname = fnames[kk]
-                        ss = "_score" if fname.endswith("scores") else "_sim"
+                        ss = "_scores" if "score" in fname else "_sim"
                         pname = doc_dir + "/pics/" + id + name.strip("-") + ss + ".png" 
                         dest = os.path.join(doc_dir, pname) 
                         new_im.save(dest)
                         ii = image.format(pname, caption, label)
                         # report = report.replace("myimage", ii +"\n\n" + "myimage")
-                        if fname.endswith("scores"):
+                        if ss.endswith("scores"):
                             scores[_exp] = pname
                         else:
                             sims[_exp] = pname

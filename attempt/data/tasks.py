@@ -627,8 +627,8 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    #labels_map = {"0":"unequal","1":"duplicate"}
-    labels_map = {"0":"not_equivalent","1":"equivalent"}
+    labels_map = {"0":"unequal","1":"duplicate"}
+    # labels_map = {"0":"not_equivalent","1":"equivalent"}
     #labels_map = {"0":"F","1":"G"}
 
     def load_dataset(self, split):
@@ -710,7 +710,8 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"negative", "1":"positive"}
+    #labels_map = {"0":"negative", "1":"positive"}
+    labels_map = {"0":"no", "1":"yes"}
     # labels_map = {"0":"L", "1":"M"}
     rel_nat = "The sentence sentiment is"
 
@@ -1008,8 +1009,8 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"0":"not_duplicate","1":"duplicate"}
-    #labels_map = {"0":"unequal","1":"duplicate"}
+    #labels_map = {"0":"not_duplicate","1":"duplicate"}
+    labels_map = {"0":"unequal","1":"duplicate"}
     #labels_map = {"0":"different","1":"identical"}
     #labels_map = {"0":"F","1":"G"}
     split_to_data_split = {"train": "train",
