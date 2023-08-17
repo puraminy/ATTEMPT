@@ -2058,13 +2058,12 @@ def train(**kwargs):
             del _main_vars["max_train_samples"]
         tasks = data_args.task_name
         mylogs.bp("pic")
+        names = ["score","cos","cor"]
         for ii, score in enumerate([ss1, sim, sim2]): #, # ss2, ss3]:
             x_labels = y_labels
-            if ii >= 1: # sim
-                fname = str(ii) + "_sim.png"
-            else:
+            fname = names[ii]
+            if ii == 0:
                 if p_labels: x_labels = p_labels 
-                fname = "scores.png"
             fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
             img_buf = WBCallback.save_image(
                 # fname = fname,
@@ -2072,7 +2071,7 @@ def train(**kwargs):
                 cbar=False,
                 y_labels=y_labels,
                 x_labels=x_labels,
-                title = str(kwargs.expid.split("-")[0]))
+                title = names[ii] + " " + str(kwargs.expid.split("-")[0]))
                         # + "\n" + str(_main_vars)) 
                         #+ "\n" \
                         #+ route_method \
