@@ -61,7 +61,7 @@ class AbstractTask(abc.ABC):
         prompt_config = {}
         self.map_labels = task_args.map_labels
         self.map_style = task_args.map_style
-        if self.map_labels and self.map_style == "distinct":
+        if self.labels_map and self.map_labels and self.map_style == "distinct":
            for i, label in enumerate(self.labels_list):
                self.labels_map[label] = self.name + str(i)
         prompt_config["length"] = task_args.prompt_length
