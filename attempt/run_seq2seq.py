@@ -87,6 +87,14 @@ global_scores = []
 global_y_labels = []
 global_x_labels = []
 
+def pearson_correlation(x, y):
+    mean_x = torch.mean(x)
+    mean_y = torch.mean(y)
+    numerator = torch.sum((x - mean_x) * (y - mean_y))
+    denominator_x = torch.sqrt(torch.sum((x - mean_x)**2))
+    denominator_y = torch.sqrt(torch.sum((y - mean_y)**2))
+    pearson_correlation = numerator / (denominator_x * denominator_y)
+    return pearson_correlation
 
 def mbp(bp="all",*arg):
     print("info:",*arg)
@@ -2015,6 +2023,12 @@ def train(**kwargs):
                 if i != j:
                     sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
 
+        sim2 = torch.eye(tlen)
+        for i in range(tlen):
+            for j in range(tlen):
+                if i != j:
+                    sim2[i][j] = pearson_correlation(ss1[i][:], ss1[j][:]) #, slen) 
+
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
             ss1 = ss1[:,1:2*slen+1]
@@ -2044,10 +2058,10 @@ def train(**kwargs):
             del _main_vars["max_train_samples"]
         tasks = data_args.task_name
         mylogs.bp("pic")
-        for ii, score in enumerate([ss1, sim]): #, # ss2, ss3]:
+        for ii, score in enumerate([ss1, sim, sim2]): #, # ss2, ss3]:
             x_labels = y_labels
-            if ii == 1: # sim
-                fname = "sim.png"
+            if ii >= 1: # sim
+                fname = str(ii) + "_sim.png"
             else:
                 if p_labels: x_labels = p_labels 
                 fname = "scores.png"
