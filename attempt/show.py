@@ -2250,6 +2250,7 @@ def show_df(df):
                     \label{{{}}}
                 \end{{figure}}
             """
+            havg = ""
             if (com3 == "avg" or com3 == "img") and rep_avg:
                 havg = doc_dir + "/pics/" + rname + "_havg.png"
                 tab = []
@@ -2259,8 +2260,8 @@ def show_df(df):
                 table_sdev = " N & "
                 head_avg = "|r|"
                 #exp_names = list(rep_avg[list(rep_avg.keys())[0]].keys())
-                exp_names = ["SILPI","SILP","SIL","SLPI","P","PI", "SIP","SL", "SLP"] 
-                #exp_names = ["SILPI","SILP","SIL","SLPI","P","SIP"] 
+                #exp_names = ["SILPI","SILP","SIL","SLPI","P","PI", "SIP","SL", "SLP"] 
+                exp_names = ["SILPI","SILP","SIL","SLPI","P","SIP"] 
                 #exp_names = ["SIL","P","SIP"]
                 train_nums = list(rep_avg.keys())
                 for tn in train_nums:
@@ -2326,8 +2327,8 @@ def show_df(df):
                 #rep_names.append("avg")
                 if "P2" in exp_names:
                     exp_names.remove("P2")
-                tab = np.array(tab)
-                if tab.any():
+                # tab = np.array(tab)
+                if False: #tab.any():
                     # row_norms = np.linalg.norm(tab, axis=1, keepdims=True)
                     # tab = tab / row_norms
                     fig, ax = plt.subplots()

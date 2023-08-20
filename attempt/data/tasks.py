@@ -673,7 +673,7 @@ class IMDB(AbstractTask):
                            "validation": "train",
                            "test": "test"}
     labels_map = {"0":"negative", "1":"positive"}
-    rel_nat = "The sentiment is {mask}"
+    rel_nat = "As result, my view is "
 
     def load_dataset(self, split):
         return datasets.load_dataset('imdb', split=split)
@@ -693,7 +693,7 @@ class TweetEval(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     labels_map = {"0":"negative", "1":"neutral", "2":"positive"}
-    rel_nat = "The sentiment is {mask}"
+    rel_nat = "The sentiment is"
 
     def load_dataset(self, split):
         return datasets.load_dataset('tweet_eval', 'sentiment',
@@ -717,7 +717,7 @@ class SST2(AbstractTask):
     #labels_map = {"0":"negative", "1":"positive"}
     labels_map = {"0":"bad", "1":"good"}
     # labels_map = {"0":"L", "1":"M"}
-    rel_nat = "The sentence sentiment is"
+    rel_nat = "As a result, they feel"
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'sst2',
