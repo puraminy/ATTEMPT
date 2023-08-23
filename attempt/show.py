@@ -2660,7 +2660,155 @@ def show_df(df):
                 score_cols = ["m_score"]
                 rep_cols = ["expid"]
             elif char == "Z":
-                score_cols = ["bert_score"]
+                score_cols = ["rouge_score"]
+                rep_cols = ["template"]
+            pivot_cols = ["prefix"]
+            index_cols = rep_cols
+
+            if not "m_score" in sel_cols:
+                sel_cols.append("m_score")
+            if not rep_cols:
+                rep_cols = ["expid", "template","prefix"]
+            main_score = "rouge_score"
+            # df = main_df
+            gcol = rep_cols
+            cols = set(rep_cols + score_cols)
+            for c in cols:
+                if c in main_df.columns: 
+                    if c == "preds_num":
+                        _agg[c] = "mean"
+                    elif c.endswith("score"):
+                        _agg[c] = "mean"
+                    else:
+                        _agg[c] = "first"
+            with open(m_report, "r") as f:
+                main_report = f.read()
+            report = main_report
+
+            #Define the category mapping
+            category_mapping = {'AtLocation': 1, 'CapableOf': 1, 'HasProperty': 1, 
+                    'ObjectUse': 1, 'isFilledBy':1, 'xAttr':1,
+                    'xIntent':2, 'xNeed':2,  'qnli':3, 'sst2':3}
+            if not "category" in main_df:
+                main_df['category'] = main_df['prefix'].map(category_mapping)
+
+            main_df["preds_num"] = main_df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("nunique")
+
+            tvalues=["pt-sup","pt-unsup","0-pt-unsup","0-pt-sup","0-pt-unsup-nat"]
+            mdf = main_df[main_df['template'].isin(tvalues)]
+            for model in ["t5-base","t5-lmb","t5-v1"]:
+                for cat in [1,2,3]:
+                    tdf = mdf[(mdf.model_name_or_path == model) & (mdf.category == cat)]
+                    #tdf = mdf[(mdf.category == cat)]
+                    gdf = tdf.groupby(gcol + ["prefix"], as_index=False).agg(_agg)#.reset_index(drop=True)
+                    #gdf.set_index(gcol, inplace=True)
+                    #gdf[score_cols] = gdf[score_cols].round(2)
+                    #gdf = gdf.sort_values(by=gcol[0], ascending=False)
+
+                    pivot_df = gdf.pivot(index=index_cols, columns=pivot_cols)
+                    prod = 1
+                    for l in pivot_df.columns.levels:
+                        prod = prod*len(l)
+                    num_subcategories = prod
+                    last = len(pivot_df.columns.levels[-1])
+                    f = '|c'
+                    for i in range(1, prod):
+                        if i % last == 0:
+                            f += '|'
+                        f += 'c'
+
+                    # Generate LaTeX table representation with centered columns for subcategories
+                    column_format = 'l' + f + 'c'
+                    #pivot_df = pivot_df.rename(columns={'sup': 's','unsup-nat':'un',
+                    #    'sup-nat':'sn','unsup':'u', 
+                    #    'pt-sup':'ps','0-pt-unsup':'0pu', 
+                    #    'pt-unsup':'pu','0-pt-sup':'0ps', 
+                    #    'model_name_or_path':'model'})
+
+                    # Flatten the resulting MultiIndex columns
+                    #pivot_df.columns = [f'{col[0]}_{col[1]}' for col in pivot_df.columns]
+                    # Format the labels of index level 1 using LaTeX formatting
+                    # pivot_df.reset_index(inplace=True)
+
+                    # Now 'pivot_df' has 'prefix' values as columns and non-repeated index
+
+                    # Generate LaTeX table representation
+                    #table = pivot_df.to_latex(index=True, escape=True)
+                    ######
+                    styler = pivot_df.style
+                    formatted_styler = styler.format(escape=True, 
+                            precision=2)  # Format to 2 decimal places
+
+                    float_format = "%.2f"  # Format for 2 decimal places
+                    #table = formatted_styler.to_latex()
+
+                    # Calculate the average for each column
+                    average_row = pivot_df.mean()
+                    average_row.name = 'Average'
+                    # Find the maximum value in each row
+                    # max_values = pivot_df.max(axis=1)
+                    # max_values = pivot_df.max(axis=0, level=1)
+                    max_values = pivot_df.groupby(level=0, axis=1).max()
+                    # Create a function to format the cell value
+                    def format_cell(value, max_value, is_avg=False):
+                        if isinstance(value, (int, float)):
+                            if value == max_value:
+                                return '\\textcolor{teal}{\\textbf{' + "{:.2f}".format(value) + '}}'
+                            if is_avg:
+                                return '\\textcolor{blue}{' + "{:.2f}".format(value) + '}'
+                            else:
+                                return "{:.2f}".format(value) 
+                        return str(value)
+
+                    # Apply the formatting function to each row
+                    pivot_df.loc['Average'] = [value for col, value in average_row.items()]
+                    formatted_rows = []
+                    for index, row in pivot_df.iterrows():
+                        max_value = row.max()
+                        avg = row.mean()
+                        is_avg = index == 'Average'
+                        formatted_row = [format_cell(value, max_value, is_avg) for value in row]
+                        #pivot_df.loc[index] = formatted_row
+                        pivot_df.at[index, 'avg'] = avg
+
+
+                    # Create a new DataFrame with the formatted rows
+                    #formatted_df = pd.DataFrame(formatted_rows, pivot_df.columns)
+                    table = pivot_df.to_latex(escape=False, 
+                            multirow=True,
+                            multicolumn_format='c',
+                            column_format=column_format,
+                            multicolumn=True,
+                            float_format=float_format)
+                    table = table.replace(
+                            "model_name_or_path","model"
+                    )
+                    table = table.replace("_","-")
+
+                    report = report.replace("mytable", table +"\n\n" + "mytable")
+            report = report.replace("mytable","")
+            report = report.replace("myimage","")
+            tex = f"{doc_dir}/report.tex"
+            pdf = f"{doc_dir}/report.pdf"
+            with open(tex, "w") as f:
+                f.write(report)
+            with open(m_report, "w") as f:
+                f.write(main_report)
+            mbeep()
+        if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
+            _dir = Path(__file__).parent
+            doc_dir = os.path.join(home, 
+                    "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            if cmd == "comp_rep":
+                m_report = f"{_dir}/report_templates/report.tex.temp2"
+            else:
+                m_report = f"{_dir}/report_templates/report.tex.temp"
+            _agg = {}
+            if char == "R":
+                score_cols = ["m_score"]
+                rep_cols = ["expid"]
+            elif char == "Z":
+                score_cols = ["rouge_score"]
                 rep_cols = ["model_name_or_path","template"]
 
             if not "m_score" in sel_cols:
@@ -2696,54 +2844,58 @@ def show_df(df):
                 exp = exp.split("-")[0]
                 exp_names.append(exp)
 
-            with open(m_report, "r") as f:
-                main_report = f.read()
-            #with open(f"{_dir}/report_templates/table.txt", "r") as f:
-            #    table_cont = f.read()
-            ########## Filling Tables
-            report = main_report
+            rep_style="vert"
             rep = load_obj(rname, "gtasks", {})
             table_cont2=""
             ### aaaaaaaaaaaaaaa
-            all_rels = mdf['prefix'].unique()
             head2 = "|"
-            for col in rep_cols: 
-                if col in map_cols:
-                    col = map_cols[col]
-                col = col.replace("_","-")
-                table_cont2 += " \multirow{2}{*}{\\textbf{" + col + "}} &"
-                head2 += "l|"
+            top_cat = "prefix"
+            if rep_style == "vert":
+                top_cat = rep_cols[1]
+                all_rels = mdf[top_cat].unique()
+            else:
+                all_rels = mdf[top_cat].unique()
+                for col in rep_cols: 
+                    if col in map_cols:
+                        col = map_cols[col]
+                    col = col.replace("_","-")
+                    table_cont2 += " \multirow{2}{*}{\\textbf{" + col + "}} &"
+                    head2 += "l|"
             old_rel = ""
             for rel in all_rels: 
                 for idx, sc in enumerate(score_cols):
                     head2 += "c"
                 head2 +="|"
-            for sc in score_cols:
-                head2 += "l|"
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    head2 += "l|"
             slen = str(len(score_cols))
             show_score_headings = False
             rlen = "1" if show_score_headings else "2"
             for rel in all_rels: 
                 table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textit{"+rel+"}}} &"
-            for sc in score_cols:
-                sc = sc.replace("_score","")
-                table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    sc = sc.replace("_score","")
+                    table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             start = str(len(rep_cols) + 1)
             end = str(len(rep_cols) + len(score_cols)*len(all_rels))
-            if len(score_cols) > 1:
-               table_cont2 += "\cline{" + start + "-" + end+ "}\n"
+            if rep_style == "horiz":
+                if len(score_cols) > 1:
+                   table_cont2 += "\cline{" + start + "-" + end+ "}\n"
 
-            for c in rep_cols:
-                table_cont2 += "& "
+                for c in rep_cols:
+                    table_cont2 += "& "
             for rel in all_rels: 
                 for sc in score_cols:
                     sc = sc.replace("_score","") if show_score_headings else ""
                     table_cont2 += sc + " &"
-            for sc in score_cols:
-                sc = sc.replace("_score","") if show_score_headings else ""
-                table_cont2 += sc + " &" # for average
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    sc = sc.replace("_score","") if show_score_headings else ""
+                    table_cont2 += sc + " &" # for average
             table_cont2 = table_cont2.strip("&")
             table_cont2 += "\\\\\n"
             table_cont2 += "\\hline\n"
@@ -2757,23 +2909,34 @@ def show_df(df):
             for ii, comb in enumerate(combs): 
                 cc = "@".join([str(c) for c in comb])
                 first = comb[0]
-                if first != _first:
-                    if _first != "": table_cont2 += "\\hline \n"
-                    _first = first
-                    col = gcol[0]
-                    table_cont2 += f" \multirow{{1}}{{*}}{{$ @{cc}@{col} $}} &"
-                else:
+                if rep_style == "vert":
                     table_cont2 += " &"
+                else:
+                    if first != _first:
+                        if _first != "": table_cont2 += "\\hline \n"
+                        _first = first
+                        col = gcol[0]
+                        table_cont2 += f" \multirow{{1}}{{*}}{{$ @{cc}@{col} $}} &"
+                    else:
+                        table_cont2 += " &"
                 for col in gcol[1:]: 
                     table_cont2 += f" $ @{cc}@{col} $ &"
-                for rel in all_rels:
+                if rep_style == "horiz":
+                    for rel in all_rels:
+                        for score_col in score_cols:
+                            table_cont2 += f" $ @{cc}@{rel}@{score_col} $ &"
                     for score_col in score_cols:
-                        table_cont2 += f" $ @{cc}@{rel}@{score_col} $ &"
-                for score_col in score_cols:
-                    table_cont2 += f" $ @{cc}@{score_col} $ &"
+                        table_cont2 += f" $ @{cc}@{score_col} $ &"
                 table_cont2 = table_cont2.strip("&")
                 table_cont2 += "\\\\\n"
             table_cont2 += "\\hline \n"
+            if rep_style == "vert":
+                for rel in all_rels:
+                    for score_col in score_cols:
+                        table_cont2 += f" $ @{cc}@{score_col} $ &"
+                table_cont2 = table_cont2.strip("&")
+                table_cont2 += "\\\\\n"
+                table_cont2 += "\\hline \n"
             ii = 1
             category = mdf["experiment"].unique()[0]
             category = category.split("/")[0]
@@ -2796,6 +2959,8 @@ def show_df(df):
                 report = report.replace("mytable", table +"\n\n" + "mytable")
                 ii += 1
 
+            table = gdf.to_latex(index=True, escape=True)
+            report = report.replace("mytable", table +"\n\n" + "mytable")
             caps = {}
             cols = []
             rep_cells = rep_cols + score_cols 
@@ -2848,13 +3013,13 @@ def show_df(df):
                     main_cond = main_cond & (mdf[gcol[e]] == elem)
                 scores = ""
                 for rel in all_rels: 
-                    cond = (mdf['prefix'] == rel) & main_cond 
+                    cond = (mdf[top_cat] == rel) & main_cond 
                     for sc in score_cols: 
                         val = mdf.loc[cond, sc].mean()
                         preds_num = mdf.loc[cond, "pred_text1"].unique()
                         preds_num = len(preds_num)
                         one_pred = int(preds_num) == 1
-                        maxval = rdf.loc[(rdf["prefix"] == rel), sc].max()
+                        maxval = rdf.loc[(rdf[top_cat] == rel), sc].max()
                         val = round(val,2)
                         maxval = round(maxval,2)
                         bold = val == maxval

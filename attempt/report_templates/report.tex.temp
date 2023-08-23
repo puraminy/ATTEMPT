@@ -14,6 +14,17 @@
 \usepackage{pgfplots}
 \usepackage{pgfplotstable}
 
+\usepackage{array}
+
+\newcolumntype{R}[2]{%
+	>{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
+	l%
+	<{\egroup}%
+}
+\newcommand*\rot{\multicolumn{1}{R{90}{1em}}}% no optional argument here, please!
+
+
+
 \pgfplotstableset{
 	/color cells/min/.initial=0,
 	/color cells/max/.initial=1000,
