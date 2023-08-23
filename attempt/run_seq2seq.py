@@ -1314,8 +1314,8 @@ def train(**kwargs):
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(
                 examples['target'], max_length=max_target_length, padding=padding, truncation=True)
-        if preview == "data":
-            logger.info("target encoded: %s", labels)
+        #if preview == "data":
+        #    logger.info("target encoded: %s", labels)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
         if padding == "max_length" and data_args.ignore_pad_token_for_loss:
@@ -1323,8 +1323,8 @@ def train(**kwargs):
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
             ]
         model_inputs["labels"] = labels["input_ids"]
-        if preview == "data":
-            logger.info("target encoded input ids: %s", labels["input_ids"])
+        #if preview == "data":
+        #    logger.info("target encoded input ids: %s", labels["input_ids"])
         if "task_ids" in examples["extra_fields"]:
             model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
         mylogs.bp("train_test_data")

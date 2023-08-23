@@ -2661,9 +2661,9 @@ def show_df(df):
                 rep_cols = ["expid"]
             elif char == "Z":
                 score_cols = ["rouge_score"]
-                rep_cols = ["template"]
-            pivot_cols = ["prefix"]
-            index_cols = rep_cols
+                rep_cols = ["model_name_or_path","template"]
+            pivot_cols = ["model_name_or_path","prefix"]
+            index_cols = ["template"]
 
             if not "m_score" in sel_cols:
                 sel_cols.append("m_score")
@@ -2688,37 +2688,29 @@ def show_df(df):
             #Define the category mapping
             category_mapping = {'AtLocation': 1, 'CapableOf': 1, 'HasProperty': 1, 
                     'ObjectUse': 1, 'isFilledBy':1, 'xAttr':1,
-                    'xIntent':2, 'xNeed':2,  'qnli':3, 'sst2':3}
+                    'xIntent':2, 'xNeed':2,  'qnli':3,'mnli':3, 'sst2':3}
             if not "category" in main_df:
                 main_df['category'] = main_df['prefix'].map(category_mapping)
 
             main_df["preds_num"] = main_df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("nunique")
 
             tvalues=["pt-sup","pt-unsup","0-pt-unsup","0-pt-sup","0-pt-unsup-nat"]
-            mdf = main_df[main_df['template'].isin(tvalues)]
-            for model in ["t5-base","t5-lmb","t5-v1"]:
-                for cat in [1,2,3]:
-                    tdf = mdf[(mdf.model_name_or_path == model) & (mdf.category == cat)]
-                    #tdf = mdf[(mdf.category == cat)]
+            mdf = main_df[(main_df['template'].isin(tvalues))]
+            for model in ["t5-base"]: #,"t5-lmb","t5-v1"]:
+                for cat in [2,3]:
+                    #tdf = mdf[(mdf.model_name_or_path == model) & (mdf.category == cat)]
+                    tdf = mdf[(mdf.category == cat)]
                     gdf = tdf.groupby(gcol + ["prefix"], as_index=False).agg(_agg)#.reset_index(drop=True)
                     #gdf.set_index(gcol, inplace=True)
                     #gdf[score_cols] = gdf[score_cols].round(2)
                     #gdf = gdf.sort_values(by=gcol[0], ascending=False)
 
-                    pivot_df = gdf.pivot(index=index_cols, columns=pivot_cols)
-                    prod = 1
-                    for l in pivot_df.columns.levels:
-                        prod = prod*len(l)
-                    num_subcategories = prod
-                    last = len(pivot_df.columns.levels[-1])
-                    f = '|c'
-                    for i in range(1, prod):
-                        if i % last == 0:
-                            f += '|'
-                        f += 'c'
-
-                    # Generate LaTeX table representation with centered columns for subcategories
-                    column_format = 'l' + f + 'c'
+                    pivot_df = gdf.pivot_table(
+                                index=index_cols, 
+                                columns=pivot_cols,
+                                #aggfunc='mean',
+                                #margins=True
+                            )
                     #pivot_df = pivot_df.rename(columns={'sup': 's','unsup-nat':'un',
                     #    'sup-nat':'sn','unsup':'u', 
                     #    'pt-sup':'ps','0-pt-unsup':'0pu', 
@@ -2748,12 +2740,15 @@ def show_df(df):
                     # Find the maximum value in each row
                     # max_values = pivot_df.max(axis=1)
                     # max_values = pivot_df.max(axis=0, level=1)
-                    max_values = pivot_df.groupby(level=0, axis=1).max()
+                    max_in_rows = pivot_df.groupby(level=0, axis=1).max()
                     # Create a function to format the cell value
                     def format_cell(value, max_value, is_avg=False):
                         if isinstance(value, (int, float)):
                             if value == max_value:
-                                return '\\textcolor{teal}{\\textbf{' + "{:.2f}".format(value) + '}}'
+                                if is_avg:
+                                    return '\\textcolor{brown}{\\textbf{' + "{:.2f}".format(value) + '}}'
+                                else:
+                                    return '\\textcolor{teal}{\\textbf{' + "{:.2f}".format(value) + '}}'
                             if is_avg:
                                 return '\\textcolor{blue}{' + "{:.2f}".format(value) + '}'
                             else:
@@ -2761,17 +2756,56 @@ def show_df(df):
                         return str(value)
 
                     # Apply the formatting function to each row
-                    pivot_df.loc['Average'] = [value for col, value in average_row.items()]
+                    #pivot_df.loc['Average'] = [value for col, value in average_row.items()]
+                    grouped = pivot_df.groupby(level=1, axis=1).mean()
                     formatted_rows = []
+                    for index, row in grouped.iterrows():
+                        for model in row.index:
+                            pivot_df.loc[index,('rouge_score',model,'avg.')] = row[model]
+
+                        # Rearrange the columns to move the average columns 
+                    pivot_df = pivot_df.reorder_levels([0, 1, 2], axis=1)
+                    pivot_df = pivot_df.sort_index(axis=1, level=[0, 1], 
+                            sort_remaining=False)
+
+
+                    max_in_cols = pivot_df.max(axis=0)
                     for index, row in pivot_df.iterrows():
                         max_value = row.max()
                         avg = row.mean()
                         is_avg = index == 'Average'
-                        formatted_row = [format_cell(value, max_value, is_avg) for value in row]
-                        #pivot_df.loc[index] = formatted_row
-                        pivot_df.at[index, 'avg'] = avg
+                        # Compare row values against the maximum values in each column
+                        formatted_row = []
+                        for col_idx, value in enumerate(row):
+                            is_avg = pivot_df.columns[col_idx][-1] == 'avg.'
+                            formatted_row.append(format_cell(value, 
+                                max_in_cols[col_idx], is_avg)) 
+
+                        pivot_df.loc[index] = formatted_row 
 
 
+                    prod = 1
+                    for l in pivot_df.columns.levels:
+                        prod = prod*len(l)
+                    num_subcategories = prod
+                    last = len(pivot_df.columns.levels[-1])
+                    f = '|c'
+                    for i in range(1, prod):
+                        if i % last == 0:
+                            f += '|'
+                        f += 'c'
+
+                    # Generate LaTeX table representation with centered columns for subcategories
+                    column_format = 'l' + f 
+
+
+                    # Define the \rot command
+                    def rot(text):
+                        return f"\\rot{{{text}}}"
+
+                    # Apply the \rot command to the column names in level 3
+                    pivot_df.columns = pivot_df.columns.set_levels(pivot_df.columns.levels[2].map(rot), level=2)
+                    
                     # Create a new DataFrame with the formatted rows
                     #formatted_df = pd.DataFrame(formatted_rows, pivot_df.columns)
                     table = pivot_df.to_latex(escape=False, 

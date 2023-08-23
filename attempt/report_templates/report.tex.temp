@@ -16,12 +16,14 @@
 
 \usepackage{array}
 
+\newcommand{\rot}[1]{\rotatebox[origin=c]{90}{#1}}
+
 \newcolumntype{R}[2]{%
 	>{\adjustbox{angle=#1,lap=\width-(#2)}\bgroup}%
 	l%
 	<{\egroup}%
 }
-\newcommand*\rot{\multicolumn{1}{R{90}{1em}}}% no optional argument here, please!
+\newcommand*\mrot{\multicolumn{1}{R{90}{1em}}}% no optional argument here, please!
 
 
 
