@@ -2694,7 +2694,7 @@ def show_df(df):
 
             main_df["preds_num"] = main_df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("nunique")
 
-            tvalues=["pt-sup","pt-unsup","0-pt-unsup","0-pt-sup","0-pt-unsup-nat"]
+            tvalues=["sup-nat","unsup-nat","sup","unsup","pt-sup","pt-unsup","0-pt-unsup","0-pt-sup","0-pt-unsup-nat"]
             mdf = main_df[(main_df['template'].isin(tvalues))]
             for model in ["t5-base"]: #,"t5-lmb","t5-v1"]:
                 for cat in [2,3]:

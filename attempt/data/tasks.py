@@ -673,7 +673,7 @@ class IMDB(AbstractTask):
                            "validation": "train",
                            "test": "test"}
     labels_map = {"0":"negative", "1":"positive"}
-    rel_nat = "As result, my view is "
+    rel_nat = "The sentiment is "
 
     def load_dataset(self, split):
         return datasets.load_dataset('imdb', split=split)
@@ -714,8 +714,8 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    #labels_map = {"0":"negative", "1":"positive"}
-    labels_map = {"0":"bad", "1":"good"}
+    labels_map = {"0":"negative", "1":"positive"}
+    #labels_map = {"0":"bad", "1":"good"}
     # labels_map = {"0":"L", "1":"M"}
     #rel_nat = "As a result, they feel"
     rel_nat = "The sentiment is"
@@ -1044,7 +1044,7 @@ class MNLI(AbstractTask):
     # labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
     labels_map = {"0":"entailment", "1":"neutral", "2": "contradicts"}
     # labels_map = {"0":"C", "1":"D", "2": "E"}
-    rel_nat = "premise {mask} hypothesis."
+    rel_nat = "The logical relation between premise and hypothesis is " 
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
@@ -1144,9 +1144,9 @@ class QNLI(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     #rel_nat = "Can the question be answered by the passage?"
-    rel_nat = "the passage --- the question is filled by "
-    #labels_map = {"0":"entailment", "1":"not_entailment"}
-    labels_map = {"0":"entails", "1":"irrelated"}
+    rel_nat = "The logical relation between sentence and question is "
+    labels_map = {"0":"entailment", "1":"not_entailment"}
+    #labels_map = {"0":"entails", "1":"irrelated"}
     #labels_map = {"0":"yes", "1":"no"}
     #labels_map = {"0":"C", "1":"D"}
 
