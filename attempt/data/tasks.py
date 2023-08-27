@@ -290,7 +290,7 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target} {end}"
+        target = "(mask) (nat) {target}" # {end}"
         return src, target
 
     def get_template(self):
