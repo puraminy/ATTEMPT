@@ -211,6 +211,7 @@ _task=$_tasks
 if [ -z "$_single" ] && [ -z "$_multi" ]; then
    if [ -z "$_pt" ]; then
       _multi=True
+      _prefix=True
    fi
 fi
 
@@ -248,6 +249,7 @@ if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
 if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
 if [ -z "$_addt" ]; then  _addt=False; fi # Add Target 
+if [ -z "$_prefix" ]; then  _prefix=$_multi; fi # Add Prefix to input examples per task 
 if [ -z "$_nsp" ]; then  
    _nsp=0; 
 elif [ -z "$_lsp" ]; then
@@ -355,7 +357,7 @@ fi
 # task
 
 params="${params} --@task_name=$_task"
-params="${params} --add_prefix=False"
+params="${params} --add_prefix=$_prefix"
 params="${params} --ds_config=en@"
 params="${params} --max_source_length=$_msl"
 params="${params} --max_target_length=$_mtl"

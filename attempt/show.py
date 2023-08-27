@@ -2660,7 +2660,7 @@ def show_df(df):
                 score_cols = ["m_score"]
                 rep_cols = ["expid"]
             elif char == "Z":
-                score_cols = ["rouge_score"]
+                # score_cols = ["preds_num"]
                 rep_cols = ["model_name_or_path","template"]
             pivot_cols = ["model_name_or_path","prefix"]
             index_cols = ["template"]
@@ -2669,9 +2669,10 @@ def show_df(df):
                 sel_cols.append("m_score")
             if not rep_cols:
                 rep_cols = ["expid", "template","prefix"]
-            main_score = "rouge_score"
+            main_score = score_cols[0] 
             # df = main_df
             gcol = rep_cols
+            main_df["preds_num"] = main_df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("nunique")
             cols = set(rep_cols + score_cols)
             for c in cols:
                 if c in main_df.columns: 
@@ -2688,18 +2689,22 @@ def show_df(df):
             #Define the category mapping
             category_mapping = {'AtLocation': 1, 'CapableOf': 1, 'HasProperty': 1, 
                     'ObjectUse': 1, 'isFilledBy':1, 'xAttr':1,
-                    'xIntent':2, 'xNeed':2,  'qnli':3,'mnli':3, 'sst2':3}
+                    'xIntent':2, 'xNeed':2,
+                    'qnli':3,'mnli':3, 'sst2':3}
             if not "category" in main_df:
                 main_df['category'] = main_df['prefix'].map(category_mapping)
 
-            main_df["preds_num"] = main_df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("nunique")
 
-            tvalues=["sup-nat","unsup-nat","sup","unsup","pt-sup","pt-unsup","0-pt-unsup","0-pt-sup","0-pt-unsup-nat"]
+            tvalues=["sup-nat","unsup-nat","sup","unsup","pt-sup","pt-unsup","0-pt-unsup","0-pt-sup"] #,"0-pt-unsup-nat"]
             mdf = main_df[(main_df['template'].isin(tvalues))]
-            for model in ["t5-base"]: #,"t5-lmb","t5-v1"]:
-                for cat in [2,3]:
-                    #tdf = mdf[(mdf.model_name_or_path == model) & (mdf.category == cat)]
-                    tdf = mdf[(mdf.category == cat)]
+            for cat in [1, 2,3]:
+                for model in ["t5-base","t5-lmb","t5-v1"]:
+                    if True:# cat == 1:
+                       tdf = mdf[(mdf.model_name_or_path == model) & (mdf.category == cat)]
+                    else:
+                        tdf = mdf[(mdf.category == cat)]
+                        if model != "t5-base":
+                            continue
                     gdf = tdf.groupby(gcol + ["prefix"], as_index=False).agg(_agg)#.reset_index(drop=True)
                     #gdf.set_index(gcol, inplace=True)
                     #gdf[score_cols] = gdf[score_cols].round(2)
@@ -2761,7 +2766,7 @@ def show_df(df):
                     formatted_rows = []
                     for index, row in grouped.iterrows():
                         for model in row.index:
-                            pivot_df.loc[index,('rouge_score',model,'avg.')] = row[model]
+                            pivot_df.loc[index,(main_score,model,'avg.')] = row[model]
 
                         # Rearrange the columns to move the average columns 
                     pivot_df = pivot_df.reorder_levels([0, 1, 2], axis=1)
@@ -2810,6 +2815,7 @@ def show_df(df):
                     #formatted_df = pd.DataFrame(formatted_rows, pivot_df.columns)
                     table = pivot_df.to_latex(escape=False, 
                             multirow=True,
+                            header=True,
                             multicolumn_format='c',
                             column_format=column_format,
                             multicolumn=True,

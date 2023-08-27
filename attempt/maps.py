@@ -7,7 +7,7 @@ REL_TO_PHRASE = {
     "xIntent":"because they intended",
     "xNeed":"before that he requires",
     "xReact":"his reaction was",
-    "xWant":"after they want",
+    "xWant":"after it they want",
 }
 REL_TO_SHARED_TOKENS = {
     "mnli":"mnli qnli rte",

@@ -290,7 +290,7 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target}"
+        target = "(mask) (nat) {target} {end}"
         return src, target
 
     def get_template(self):
@@ -411,6 +411,7 @@ class AbstractTask(abc.ABC):
         mask = "<extra_id_0>"
         data = self.extend_data(data, pcom=pcom)
         data["mask"] = mask
+        data["end"] = "</s>" 
         data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
