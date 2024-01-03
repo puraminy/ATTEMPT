@@ -2647,7 +2647,7 @@ def show_df(df):
                 f.write(report)
             char = "R"
         # rrrrrrrrrrrrrrrr
-        if cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
+        if False: # cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, 
                     "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
@@ -2835,7 +2835,8 @@ def show_df(df):
             with open(m_report, "w") as f:
                 f.write(main_report)
             mbeep()
-        if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
+        # if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
+        if cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, 
                     "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
@@ -2856,6 +2857,7 @@ def show_df(df):
             if not rep_cols:
                 rep_cols = ["expid", "template"]
             main_score = "rouge_score"
+            report = m_report
             # df = main_df
             gcol = rep_cols
             df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
@@ -2884,7 +2886,7 @@ def show_df(df):
                 exp = exp.split("-")[0]
                 exp_names.append(exp)
 
-            rep_style="vert"
+            rep_style="horiz"
             rep = load_obj(rname, "gtasks", {})
             table_cont2=""
             ### aaaaaaaaaaaaaaa
@@ -3181,8 +3183,8 @@ def show_df(df):
             pdf = f"{doc_dir}/report.pdf"
             with open(tex, "w") as f:
                 f.write(report)
-            with open(m_report, "w") as f:
-                f.write(main_report)
+            #with open(m_report, "w") as f:
+            #    f.write(main_report)
             mbeep()
             #subprocess.run(["pdflatex", tex])
             #subprocess.run(["okular", pdf])

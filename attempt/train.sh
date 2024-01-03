@@ -402,7 +402,7 @@ params="${params} --num_beams=1"
 
 if [ "$method" = "ft" ]; then
    params="${params} --warmup_steps=500"
-   params="${params} --learning_rate=0.0003"
+   params="${params} --learning_rate=$_lr"
    params="${params} --opt_type=regular"
    params="${params} --per_device_train_batch_size=4"
    if [ -z $_temp ]; then
