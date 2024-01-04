@@ -338,6 +338,7 @@ params="${params} --@method=$method"
 
 # data  ddddd
 params="${params} --data_path=atomic2020"
+params="${params} --load_best_model_at_end=false"
 params="${params} --use_all_data=False"
 params="${params} --@max_train_samples=$_tn"
 params="${params} --max_val_samples=$_vn"
@@ -346,12 +347,12 @@ params="${params} --samples_per_head=$_sph"
 params="${params} --multi_choice=$_mc"
 params="${params} --map_labels=True"
 params="${params} --map_style=map"
-#params="${params} --data_seed=123"
+#params="${params} --d_seed=123"
 params="${params} --overwrite_cache=True"
 if [ -z $_seed ]; then
-   params="${params} --@data_seed=123"
+   params="${params} --@d_seed=123"
 else
-   params="${params} --@data_seed=$_seed"
+   params="${params} --@d_seed=$_seed"
 fi
 
 # task

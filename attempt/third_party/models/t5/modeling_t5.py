@@ -2675,7 +2675,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         )
 
     def _prepare_encoder_decoder_kwargs_for_generation(
-        self, input_ids: torch.LongTensor, model_kwargs
+        self, input_ids: torch.LongTensor, model_kwargs, model_name
     ) -> Dict[str, Any]:
 
         if "encoder_outputs" not in model_kwargs:

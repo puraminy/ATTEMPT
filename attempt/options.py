@@ -173,6 +173,11 @@ class ModelArguments:
         metadata={
             "help": "Where to store the pretrained models downloaded from huggingface.co"},
     )
+    use_optimizer: bool = field(
+        default=True,
+        metadata={
+            "help": "Use optimizer or not"},
+    )
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
@@ -558,7 +563,7 @@ class DataTrainingArguments:
         metadata={
             "help": "Defines a dictionary from tasks to the tasks embeddings."}
     )
-    data_seed: Optional[int] = field(
+    d_seed: Optional[int] = field(
         default=123, metadata={"help": "seed used to shuffle the data."})
 
     train_file: Optional[str] = field(
@@ -569,6 +574,12 @@ class DataTrainingArguments:
     )
     test_file: Optional[str] = field(
         default=None, metadata={"help": "A csv or a json file containing the test data."}
+    )
+    use_all_data: bool = field(
+        default=False,
+        metadata={
+            "help": "use all data or not"
+        },
     )
     ########### my options
     add_prefix: bool = field(

@@ -17,6 +17,10 @@
 Fine-tuning the library models for sequence to sequence.
 """
 # You can also adapt this script on your own sequence to sequence task. Pointers for this are left as comments.
+import sys
+
+#sys.path.append('/home/ahmad/ATTEMPT')
+
 from utils import * 
 import shutil
 from pathlib import Path
@@ -47,7 +51,6 @@ import transformers
 from datasets import concatenate_datasets
 from typing import Optional, List
 import subprocess
-import sys
 import functools
 import logging
 import numpy as np
@@ -696,7 +699,7 @@ def train(**kwargs):
     kwargs["source_prompt_length"] = source_prompt_length 
     kwargs["target_prompt_length"] = target_prompt_length 
     task_args = {}
-    task_args["data_seed"] = data_args.data_seed
+    task_args["data_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
     task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)

@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+
 from torch.utils.data.dataset import Dataset
 from transformers import Seq2SeqTrainer
 from .trainer import BaseTrainer
@@ -25,6 +26,9 @@ if version.parse(torch.__version__) >= version.parse("1.6"):
 
 class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
     def __init__(self, train_dataset_sizes=None, shared=False, multiple_metrics=None, adapter_config=None, shuffle=False, save_checkpoint=False, *args, **kwargs):
+        #kwargs.pop("data_info")
+        #kwargs.pop("multi_task_compute_metrics")
+        #kwargs.pop("evaluation_metrics")
         super().__init__(*args, **kwargs)
         self.adapter_config = adapter_config
         self.multiple_metrics = multiple_metrics
@@ -190,7 +194,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                 generated_tokens, gen_kwargs["max_length"])
 
         with torch.no_grad():
-            if self.use_amp:
+            if False: # self.use_amp:
                 with autocast():
                     outputs = model(**inputs)
             else:

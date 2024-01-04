@@ -12,6 +12,7 @@ attempt/train.sh
 glue_data/*
 out/*
 venv/*
+env/*
 output*/*
 wandb/*
 **/**/wandb/*
