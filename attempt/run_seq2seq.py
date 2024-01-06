@@ -1144,7 +1144,7 @@ def train(**kwargs):
                 encoder.init_embs_from_words(model.get_input_embeddings())
 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
-                ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
+                ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
                 if bp == "load":
                     breakpoint()
                 enc_name = ""
@@ -1157,7 +1157,7 @@ def train(**kwargs):
                 if enc_name or not encoder.is_private:
                     is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
-                        ignore_if_not_exist=ignore_if_not_exist,
+                        ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
                         length = adapter_args.num_prompt_tokens,
                         name=enc_name)
                     if is_loaded:
@@ -1188,6 +1188,17 @@ def train(**kwargs):
                     prompt_tokens, 
                     encoder_type=adapter_args.prompt_encoder_type, 
                     shared_mat= shared_mat) 
+
+            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
+            skip_if_prompt_exists = kwargs.setdefault("skip_if_prompt_exists", True) 
+            prompt_exists, prompt_fname = encoder.exists(prompts_dir, 
+                prefix=opp,
+                as_saved=True,
+                length = target_prompt_length)
+            if prompt_exists and skip_if_prompt_exists:
+                print("prompt exists: ", prompt_fname)
+                return
+
             if name in task_source_prompts_set:
                 encoder.attend_to.extend(
                         ["source_" + x for x in task_source_prompts_set[name]])
@@ -1212,12 +1223,12 @@ def train(**kwargs):
                     encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
-            if not model_args.attn_tuning and  load_prompts: 
-                ignore_if_not_exist = kwargs.setdefault("ignore_if_not_exist", False)
+            if not model_args.attn_tuning and load_prompts: 
+                ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
                 # if not model_args.attn_tuning or encoder.is_source:
                 is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
-                        ignore_if_not_exist=ignore_if_not_exist,
+                        ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
                         as_saved=True,
                         length = target_prompt_length)
                 ignore_train_if_exist = kwargs.setdefault("ignore_train_if_exist", False)
@@ -1639,7 +1650,7 @@ def train(**kwargs):
             for encoder in model.prompt_encoders:
                 encoder.load(load_path, 
                         prefix="pat" if model_args.attn_tuning else "pt",
-                        ignore_if_not_exist=False,
+                        ignore_if_prompt_not_exists=False,
                         length = adapter_args.num_prompt_tokens)
                 encoder.to(device)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")

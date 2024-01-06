@@ -109,7 +109,7 @@ if [ -n "$_pat" ]; then
 
    if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
       if [ -z "$_lsp" ] || [ "$_lsp" = "True" ]; then
-         echo "_ppx (prompts prefix) is missinge e.g. _ppx nli "
+         echo "_ppx (prompts prefix) is missinge e.g. _ppx pat "
          exit
       fi
    fi
@@ -435,6 +435,7 @@ fi
 if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi
 if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi
 if [ -z "$_opx" ]; then  _opx="pat"; fi
+if [ -z "$_skip" ]; then  _skip=True; fi
 
 # prompt tuning common settings
 if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
@@ -443,7 +444,8 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
    params="${params} --opt_type=regular"
    params="${params} --prompt_encoders_dir=$_pdir"
    params="${params} --load_prompts=$_lp"
-   params="${params} --ignore_train_if_exist=True"
+   params="${params} --ignore_train_if_prompt_exists=True"
+   params="${params} --skip_if_prompt_exists=$_skip"
    params="${params} --prompts_prefix=$_ppx"
    params="${params} --output_prompts_prefix=$_opx"
 fi
@@ -475,7 +477,7 @@ if [ "$method" = "pt" ]; then
    params="${params} --init_from_words=False"
    params="${params} --load_source_prompts=False"
    params="${params} --load_prompts=$_lp"
-   params="${params} --ignore_if_not_exist=True"
+   params="${params} --ignore_if_prompt_not_exists=True"
    params="${params} --@learn_loaded_prompts=False"
    params="${params} --save_all_prompts=$_sp"
    params="${params} --rels=$_rels"
@@ -504,7 +506,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@learn_source_prompts=$_learn_sp"
    params="${params} --load_prompts=$_lp"
    params="${params} --@learn_loaded_prompts=True#!False"
-   params="${params} --ignore_if_not_exist=False"
+   params="${params} --ignore_if_prompt_not_exists=False"
    params="${params} --rels=$_rels"
    params="${params} --@source_prompts_order=desc#rand"
    params="${params} --@num_random_masks=0"
