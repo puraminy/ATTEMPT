@@ -16,11 +16,11 @@ import re
 import seaborn as sns
 from pathlib import Path
 import pandas as pd
-from comet.mycur.util import *
+from attempt.win import *
 from mylogs import * 
 import json
 from tqdm import tqdm
-from comet.utils.myutils import *
+# from comet.utils.myutils import *
 from attempt.utils.utils import combine_x,combine_y,add_margin
 file_id = "name"
 from PIL import Image
@@ -2117,7 +2117,7 @@ def show_df(df):
                 table_cont1 += "\\\\\n"
                 table_cont1 += "\\hline\n"
                 train_num = str(mdf["max_train_samples"].unique()[0])
-                seed = mdf["data_seed"].unique()[0]
+                seed = mdf["d_seed"].unique()[0]
                 cur_sel_col = cc = train_num + "@" + str(seed) + "@m_score"
                 if command == "put":
                     rep_exps = all_exps
@@ -2398,7 +2398,7 @@ def show_df(df):
             ############ images
             if com3 == "img":
                 train_num = str(mdf["max_train_samples"].unique()[0])
-                seed = mdf["data_seed"].unique()[0]
+                seed = mdf["d_seed"].unique()[0]
                 pics_dir = doc_dir + "/pics"
                 Path(pics_dir).mkdir(parents=True, exist_ok=True)
                 dest, imgs, fnames = get_images(df, all_exps)
@@ -2463,7 +2463,7 @@ def show_df(df):
                 exp_names.append(exp)
             #####################
             train_num = str(mdf["max_train_samples"].unique()[0])
-            seed = mdf["data_seed"].unique()[0]
+            seed = mdf["d_seed"].unique()[0]
             cols = [str(train_num) + "@" + str(seed) + "@m_score"]
             ii = 1
             for exp in all_exps: #gdf["expid"].unique():
@@ -2877,7 +2877,7 @@ def show_df(df):
             gdf.columns = gdf.columns.to_flat_index()
             mdf = main_df
             train_num = str(mdf["max_train_samples"].unique()[0])
-            seed = mdf["data_seed"].unique()[0]
+            seed = mdf["d_seed"].unique()[0]
             all_exps = gdf[gcol[0]].unique()
             exp_names = []
             for exp in all_exps:
