@@ -2838,8 +2838,9 @@ def show_df(df):
         # if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
         if cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
             _dir = Path(__file__).parent
-            doc_dir = os.path.join(home, 
-                    "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            doc_dir =os.getcwd() 
+            # doc_dir = os.path.join(home, 
+            #        "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             if cmd == "comp_rep":
                 m_report = f"{_dir}/report_templates/report.tex.temp2"
             else:
@@ -2847,7 +2848,7 @@ def show_df(df):
             _agg = {}
             if char == "R" or cmd == "report":
                 score_cols = ["m_score"]
-                rep_cols = ["expid"]
+                rep_cols = ["cat"]
             elif char == "Z":
                 score_cols = ["rouge_score"]
                 rep_cols = ["model_name_or_path","template"]
@@ -2857,7 +2858,8 @@ def show_df(df):
             if not rep_cols:
                 rep_cols = ["expid", "template"]
             main_score = "rouge_score"
-            report = m_report
+            with open(m_report, "r") as f:
+                report = f.read()
             # df = main_df
             gcol = rep_cols
             df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
@@ -2873,7 +2875,7 @@ def show_df(df):
             rdf = df.groupby(gcol + ["prefix"], as_index=False).agg(
                     _agg).reset_index(drop=True)
             gdf = df.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
-            gdf = gdf.sort_values(by=gcol[0], ascending=False)
+            gdf = gdf.sort_values(by=score_cols[0], ascending=False)
             gdf.columns = gdf.columns.to_flat_index()
             mdf = main_df
             train_num = str(mdf["max_train_samples"].unique()[0])
@@ -3111,6 +3113,7 @@ def show_df(df):
                 #pname = plot_bar(pics_dir, train_num)
                 #ii = image.format(pname, "bar", "fig:bar")
                 #report = report.replace("myimage", ii +"\n\n" + "myimage")
+                all_exps = gdf["expid"].unique()
                 dest, imgs, fnames = get_images(df, all_exps)
                 sims = {}
                 scores = {}
