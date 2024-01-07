@@ -1370,8 +1370,8 @@ def show_df(df):
                 else:
                     _agg[c] = "first"
             df = df.groupby([col]).agg(_agg).reset_index(drop=True)
-            df = df.sort_values(by=["rouge_score"], ascending=False)
-            sort = "rouge_score"
+            df = df.sort_values(by=["m_score"], ascending=False)
+            sort = "m_score"
         elif char == "u":
             infos = calc_metrics(main_df)
             subwin(infos)
@@ -2845,7 +2845,7 @@ def show_df(df):
             else:
                 m_report = f"{_dir}/report_templates/report.tex.temp"
             _agg = {}
-            if char == "R":
+            if char == "R" or cmd == "report":
                 score_cols = ["m_score"]
                 rep_cols = ["expid"]
             elif char == "Z":

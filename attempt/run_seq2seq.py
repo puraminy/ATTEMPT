@@ -553,7 +553,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         img_buf = WBCallback.save_image(score=score, 
            y_labels=global_y_labels,
            x_labels=global_x_labels,
-           title = "cat" + args["cat"], 
+           title = "cat-" + args["cat"], 
            df=None) 
         if img_buf:
             cur_img = Image.open(img_buf)
@@ -1192,10 +1192,10 @@ def train(**kwargs):
             opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
             skip_if_prompt_exists = kwargs.setdefault("skip_if_prompt_exists", True) 
             prompt_exists, prompt_fname = encoder.exists(prompts_dir, 
-                prefix=opp,
+                prefix=str(opp),
                 as_saved=True,
                 length = target_prompt_length)
-            if prompt_exists and skip_if_prompt_exists:
+            if not model_args.attn_tuning and prompt_exists and skip_if_prompt_exists: 
                 print("prompt exists: ", prompt_fname)
                 return
 
@@ -1719,7 +1719,7 @@ def train(**kwargs):
                                  save_source_prompts = ssp, 
                                  prompts_to_save = prompts_to_save, 
                                  save_router=True,
-                                 prefix= opp,
+                                 prefix=str(opp),
                                  router_prefix=router_prefix)
 
             save_router = kwargs.setdefault("save_router", False) 
@@ -1730,7 +1730,7 @@ def train(**kwargs):
                         prompts_to_save = prompts_to_save, 
                         save_source_prompts = ssp,
                         save_router = save_router,
-                        prefix= opp,
+                        prefix=str(opp),
                         router_prefix=router_prefix)
 
         if kwargs.setdefault("save_model", False):

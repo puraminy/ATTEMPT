@@ -236,7 +236,7 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
-if [ -z "$_bs" ]; then  _bs=8; fi
+if [ -z "$_bs" ]; then  _bs=16; fi
 if [ -z "$_lr" ]; then  _lr=0.05; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
@@ -306,6 +306,9 @@ if [ "$_model" = "path" ]; then
    params="${params} --model_name_or_path=~${PWD}/trial=1"
 fi
 
+if [ -z "$_cat" ]; then
+   _cat="$(date +'%m-%d-%H')"
+fi
 if [ "$_train" = "False" ]; then
    _tn=0
 fi
@@ -434,8 +437,8 @@ if [ "$method" = "at" ]; then
 fi
 if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi
 if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi
-if [ -z "$_opx" ]; then  _opx="pat"; fi
-if [ -z "$_skip" ]; then  _skip=True; fi
+if [ -z "$_opx" ]; then  _opx="${_ppx}"; fi
+if [ -z "$_skip" ]; then  _skip=False; fi
 
 # prompt tuning common settings
 if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
