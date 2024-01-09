@@ -90,6 +90,15 @@ global_scores = []
 global_y_labels = []
 global_x_labels = []
 
+from scipy.stats import entropy
+
+def jensen_shannon_divergence(p, q):
+    m = 0.5 * (p + q)
+    return 0.5 * (entropy(p, m) + entropy(q, m))
+
+def earth_movers_distance(p, q):
+    return np.sum(np.abs(np.cumsum(p) - np.cumsum(q)))
+
 def pearson_correlation(x, y):
     mean_x = torch.mean(x)
     mean_y = torch.mean(y)
@@ -212,7 +221,7 @@ def cli():
 )
 @click.option(
     "--reval",
-    "-e",
+    "-reval",
     is_flag=True,
     help="Evaluation without training"
 )
@@ -263,7 +272,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         if reval:
-            repeat = True
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
    experiment = experiment.replace("#","-").replace("@","-")
@@ -388,7 +396,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
-   ii = len(existing_exps) 
+   ii = len(existing_exps) if not reval else 0 
    exps_done = 0
    orig_args = args.copy()
    total = len(tot_comb)
@@ -460,10 +468,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            ee = int(args["expid"]) 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
-           while Path(output_dir).exists():
-               ee += 1 
-               _output_dir = str(ee)
-               output_dir = os.path.join(save_path, _output_dir)
+           if not reval:
+               while Path(output_dir).exists():
+                   ee += 1 
+                   _output_dir = str(ee)
+                   output_dir = os.path.join(save_path, _output_dir)
            args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if repeat:
           args["expid"] += "-rep"
@@ -484,12 +493,19 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        #title = "@".join(list(tags_dict.values()))
        title =  mylogs.get_tag(tags, args, as_str=True)
        exp_exists = False
+       conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
        if existing_exps:
            for ee in existing_exps:
                if preview == "ex-why":
                    print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
+                   if reval and ee == conf_fname: 
+                       args = jj
+                       args["do_train"] = False
+                       args["do_test"] = True 
+                       break
+
                    if "output_dir" in jj:
                        output_dir = jj["output_dir"].strip("%")
                        if glob.glob(op.join(output_dir, "*.tsv")):
@@ -534,7 +550,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                done = ctx.invoke(train, **args)
                y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
-                   conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
                        print(_conf, file=f)
                    exps_done += 1
@@ -2044,6 +2059,23 @@ def train(**kwargs):
                 if i != j:
                     sim2[i][j] = pearson_correlation(ss1[i][:], ss1[j][:]) #, slen) 
 
+
+        jsd = torch.zeros((tlen, tlen))
+        for i in range(tlen):
+            for j in range(tlen):
+                if i != j:
+                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
+                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
+                    jsd[i, j] = jensen_shannon_divergence(p, q)
+
+        emd = torch.zeros((tlen, tlen))
+        for i in range(tlen):
+            for j in range(tlen):
+                if i != j:
+                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
+                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
+                    emd[i, j] = earth_movers_distance(p, q)
+
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
             ss1 = ss1[:,1:2*slen+1]
@@ -2074,7 +2106,7 @@ def train(**kwargs):
         tasks = data_args.task_name
         mylogs.bp("pic")
         names = ["score","cos","cor"]
-        for ii, score in enumerate([ss1, sim, sim2]): #, # ss2, ss3]:
+        for ii, score in enumerate([ss1, jsd, sim2]): #, # ss2, ss3]:
             x_labels = y_labels
             fname = names[ii]
             if ii == 0:

@@ -2027,7 +2027,7 @@ def show_df(df):
                 cmd.startswith("shav") or 
                 cmd.startswith("show")):
             _dir = Path(__file__).parent
-            doc_dir = os.path.join(home, "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
+            doc_dir = "/home/ahmad/logs/" #os.getcwd()
             # rname = cmd.split("@")[-1]
             # settings["rname"] = rname
             # save_obj(settings, "settings", "gtasks")
@@ -2836,9 +2836,19 @@ def show_df(df):
                 f.write(main_report)
             mbeep()
         # if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
-        if cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
+        if cmd.startswith("report") or char == "Z" or char == "R" or cmd == "comp_rep":
+            rep_cols = []
+            if "=" in cmd:
+                parts = cmd.split("=")
+                cmd = parts[0]
+                rep_cols = parts[1:]
+            if "@" in cmd:
+                parts = cmd.split("@")
+                cmd = parts[0]
+                score_cols = parts[1:]
+
             _dir = Path(__file__).parent
-            doc_dir =os.getcwd() 
+            doc_dir = "/home/ahmad/logs" #os.getcwd() 
             # doc_dir = os.path.join(home, 
             #        "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
             if cmd == "comp_rep":
@@ -2847,8 +2857,10 @@ def show_df(df):
                 m_report = f"{_dir}/report_templates/report.tex.temp"
             _agg = {}
             if char == "R" or cmd == "report":
-                score_cols = ["m_score"]
-                rep_cols = ["cat"]
+                if not score_cols:
+                    score_cols = ["m_score"]
+                if not rep_cols:
+                    rep_cols = ["cat"]
             elif char == "Z":
                 score_cols = ["rouge_score"]
                 rep_cols = ["model_name_or_path","template"]
@@ -3003,8 +3015,8 @@ def show_df(df):
                 report = report.replace("mytable", table +"\n\n" + "mytable")
                 ii += 1
 
-            table = gdf.to_latex(index=True, escape=True)
-            report = report.replace("mytable", table +"\n\n" + "mytable")
+            #table = gdf.to_latex(index=True, escape=True)
+            #report = report.replace("mytable", table +"\n\n" + "mytable")
             caps = {}
             cols = []
             rep_cells = rep_cols + score_cols 
