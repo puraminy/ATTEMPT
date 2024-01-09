@@ -501,7 +501,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                with open(ee) as f:
                    jj = json.load(f)
                    if reval and ee == conf_fname: 
-                       args = jj
+                       args = jj.copy()
                        args["do_train"] = False
                        args["do_test"] = True 
                        break
@@ -1651,7 +1651,9 @@ def train(**kwargs):
         save_training_config(config_file, training_args.output_dir)
 
 
-    def load_model(load_path, lsp=False):
+    def load_model(load_path, 
+            lsp=False, 
+            prompts_prefix="pat"):
         #model.load_encoders(load_path, load_source_prompts=lsp)
         dpath = os.path.join(load_path, "attn_W_down.pt")
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -1663,10 +1665,11 @@ def train(**kwargs):
                 trainer.model.update_layer_norm_weights(load_path)
         if lsp:
             for encoder in model.prompt_encoders:
+                plen = encoder.length
                 encoder.load(load_path, 
-                        prefix="pat" if model_args.attn_tuning else "pt",
+                        prefix=prompts_prefix,
                         ignore_if_prompt_not_exists=False,
-                        length = adapter_args.num_prompt_tokens)
+                        length = plen) 
                 encoder.to(device)
         dpath = os.path.join(load_path, router_prefix + "_router.pt")
         mylogs.bp("router")
@@ -1714,7 +1717,7 @@ def train(**kwargs):
         if trainer.best_prompt_checkpoint is not None:
             best_chk_path = trainer.best_prompt_checkpoint
             lsp = kwargs.setdefault("load_source_prompts", False)
-            load_model(best_chk_path, lsp=lsp)
+            load_model(best_chk_path, lsp, prompts_prefix)
 
         # Save prompts
         if adapter_args.prompt_tuning:
@@ -1782,7 +1785,9 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            load_model(training_args.output_dir, lsp=True)
+            load_model(training_args.output_dir, 
+                    lsp=True, 
+                    prompts_prefix=prompts_prefix)
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
@@ -1803,7 +1808,9 @@ def train(**kwargs):
     slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     exp_info["slen"] = slen
     if reval: 
-        load_model(training_args.output_dir, lsp=model_args.attn_tuning)
+        load_model(training_args.output_dir, 
+                lsp=model_args.attn_tuning,
+                prompts_prefix=prompts_prefix)
     for k,v in kwargs.items():
         if not k in exp_info:
             exp_info[k] = v
@@ -2060,21 +2067,23 @@ def train(**kwargs):
                     sim2[i][j] = pearson_correlation(ss1[i][:], ss1[j][:]) #, slen) 
 
 
-        jsd = torch.zeros((tlen, tlen))
+        jsd = torch.eye(tlen)
         for i in range(tlen):
             for j in range(tlen):
                 if i != j:
                     p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
                     q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                    jsd[i, j] = jensen_shannon_divergence(p, q)
+                    jsd[i, j] = torch.tensor(jensen_shannon_divergence(p, q),
+                            dtype=torch.float32)
 
-        emd = torch.zeros((tlen, tlen))
+        emd = torch.eye(tlen)
         for i in range(tlen):
             for j in range(tlen):
                 if i != j:
                     p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
                     q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                    emd[i, j] = earth_movers_distance(p, q)
+                    emd[i, j] = torch.tensor(earth_movers_distance(p, q), 
+                            dtype=torch.float32)
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
