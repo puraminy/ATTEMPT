@@ -2646,7 +2646,6 @@ def show_df(df):
             with open(m_report,"w") as f:
                 f.write(report)
             char = "R"
-        # rrrrrrrrrrrrrrrr
         if False: # cmd == "report" or char == "Z" or char == "R" or cmd == "comp_rep":
             _dir = Path(__file__).parent
             doc_dir = os.path.join(home, 
@@ -2836,6 +2835,7 @@ def show_df(df):
                 f.write(main_report)
             mbeep()
         # if cmd == "report2" or char == "Z2" or char == "R2" or cmd == "comp_rep2":
+        # rrrrrrrrr
         if cmd.startswith("report") or char == "Z" or char == "R" or cmd == "comp_rep":
             rep_cols = []
             if "=" in cmd:
@@ -3116,7 +3116,6 @@ def show_df(df):
                         \label{fig:all}
                     \end{figure}
                 """
-                multi_image2 = multi_image
                 graphic = "\includegraphics[width=0.48\\textwidth]{{{}}}"
                 pics_dir = doc_dir + "/pics"
                 #ii = image.format(havg, "havg", "fig:havg")
@@ -3129,6 +3128,7 @@ def show_df(df):
                 dest, imgs, fnames = get_images(df, all_exps)
                 sims = {}
                 scores = {}
+                all_images = {}
                 kk = 0
                 id = "other"
                 for key, img_list in imgs.items():
@@ -3143,27 +3143,34 @@ def show_df(df):
                         label = "fig:" + key 
                         fname = fnames[kk]
                         ss = "_scores" if "score" in fname else "_sim"
+                        if "@" in fname:
+                            ss = "_" + fname.split("@")[1]
                         pname = doc_dir + "/pics/" + id + name.strip("-") + ss + ".png" 
                         dest = os.path.join(doc_dir, pname) 
                         new_im.save(dest)
                         ii = image.format(pname, caption, label)
                         # report = report.replace("myimage", ii +"\n\n" + "myimage")
+                        if not _exp in all_images:
+                            all_images[_exp] = {}
+                        all_images[_exp][ss] = pname
                         if ss.endswith("scores"):
                             scores[_exp] = pname
                         else:
                             sims[_exp] = pname
                         kk += 1
 
+                multi_image1 = multi_image
                 for exp in ["SIL","SILP","SIP"]: 
                     if not exp in scores or not exp in sims:
                         continue
                     pname = scores[exp]
-                    multi_image = multi_image.replace("mypicture", 
+                    multi_image1 = multi_image1.replace("mypicture", 
                         graphic.format(pname) + "\n mypicture")
                     pname = sims[exp]
-                    multi_image = multi_image.replace("mypicture", 
+                    multi_image1 = multi_image1.replace("mypicture", 
                         graphic.format(pname) + "\n mypicture")
 
+                multi_image2 = multi_image
                 for exp in ["SILPI","SLPI","SLP", "SL"]: 
                     if not exp in scores or not exp in sims:
                         continue
@@ -3174,8 +3181,16 @@ def show_df(df):
                     multi_image2 = multi_image2.replace("mypicture", 
                         graphic.format(pname) + "\n mypicture")
 
-                multi_image = multi_image.replace("mypicture","")
+                multi_image3 = ""
+                for k,v in all_images.items():
+                    multi_image3 += f" \\newpage \n \\subsection{{{k}}}"
+                    for p,q in v.items():
+                        multi_image3 += multi_image.replace("mypicture", 
+                                graphic.format(q) + "\n")
+
+                multi_image1 = multi_image1.replace("mypicture","")
                 multi_image2 = multi_image2.replace("mypicture","")
+                multi_image3 = multi_image3.replace("mypicture","")
                 if False:
                     tex = f"{doc_dir}/group_si.tex"
                     with open(tex, "w") as f:
@@ -3185,12 +3200,17 @@ def show_df(df):
                         f.write(multi_image2)
                 tex = f"{doc_dir}/scores_img.tex"
                 with open(tex, "w") as f:
-                    f.write(multi_image)
+                    f.write(multi_image1)
                 tex = f"{doc_dir}/sim_img.tex"
                 with open(tex, "w") as f:
                     f.write(multi_image2)
-                report = report.replace("myimage", "\n\n \input{scores_img.tex} \n\n myimage") 
-                report = report.replace("myimage", "\n\n \input{sim_img.tex} \n\n") 
+                tex = f"{doc_dir}/other_img.tex"
+                with open(tex, "w") as f:
+                    f.write(multi_image3)
+                report = report.replace("myimage", 
+                        "\n\n \input{scores_img.tex} \n\n myimage") 
+                report = report.replace("myimage", "\n\n \input{sim_img.tex} \n\n myimage") 
+                report = report.replace("myimage", "\n\n \input{other_img.tex} \n\n") 
                 ####################
             report = report.replace("mytable","")
             report = report.replace("myimage","")

@@ -2067,7 +2067,8 @@ def train(**kwargs):
                     sim2[i][j] = pearson_correlation(ss1[i][:], ss1[j][:]) #, slen) 
 
 
-        jsd = torch.eye(tlen)
+        #jsd = torch.eye(tlen)
+        jsd = torch.zeros((tlen,tlen))
         for i in range(tlen):
             for j in range(tlen):
                 if i != j:
@@ -2076,7 +2077,7 @@ def train(**kwargs):
                     jsd[i, j] = torch.tensor(jensen_shannon_divergence(p, q),
                             dtype=torch.float32)
 
-        emd = torch.eye(tlen)
+        emd = torch.zeros((tlen,tlen))
         for i in range(tlen):
             for j in range(tlen):
                 if i != j:
@@ -2114,13 +2115,13 @@ def train(**kwargs):
             del _main_vars["max_train_samples"]
         tasks = data_args.task_name
         mylogs.bp("pic")
-        names = ["score","cos","cor"]
-        for ii, score in enumerate([ss1, jsd, sim2]): #, # ss2, ss3]:
+        names = ["score","cos"] #,"emd", "jsd", "cor"]
+        for ii, score in enumerate([ss1, sim]): #, emd, sim, sim2]): #, # ss2, ss3]:
             x_labels = y_labels
             fname = names[ii]
             if ii == 0:
                 if p_labels: x_labels = p_labels 
-            fname = "pred_" + str(exp_info["expid"]) + "_" + "-".join(tasks) + fname 
+            fname = "pred@" + fname + "@_" + str(exp_info["expid"]) + "_" + "-".join(tasks) 
             img_buf = WBCallback.save_image(
                 # fname = fname,
                 score=score, 

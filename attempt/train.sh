@@ -242,6 +242,7 @@ if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
+if [ -z "$_ntp" ]; then  _ntp=-1; fi # number of target prompts
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -496,7 +497,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@num_prompt_tokens=$_numt"
    params="${params} --@prompt_length=$_pl"
    params="${params} --@num_source_prompts=$_nsp"
-   params="${params} --@num_target_prompts=-1"
+   params="${params} --@num_target_prompts=$_ntp"
    params="${params} --learn_attention=True"
    params="${params} --use_source_set=False"
    params="${params} --@source_prompts=$_src"
