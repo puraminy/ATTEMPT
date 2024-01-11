@@ -80,7 +80,7 @@ if [ -n "$_sgtasks" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_atasks" ]; then
-   _tasks="${_tasks}#xAttr#xIntent#xReact#oReact#oEffect#oWant#xWant#xEffect#xNeed"
+   _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
 fi
 if [ -n "$_satasks" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
@@ -242,7 +242,7 @@ if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
-if [ -z "$_ntp" ]; then  _ntp=-1; fi # number of target prompts
+if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router

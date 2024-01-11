@@ -436,8 +436,8 @@ def show_df(df):
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
-    if "m_score" in df:
-        df["m_score"] = np.where((df['m_score']<=0), 50.0, df['m_score'])
+    #if "m_score" in df:
+    #    df["m_score"] = np.where((df['m_score']<=0), 0.50, df['m_score'])
 
     orig_tag_cols = tag_cols.copy()
     src_path = ""
@@ -466,7 +466,7 @@ def show_df(df):
     on_col_list = []
     keep_cols = []
     rep_cols = load_obj("rep_cols", "gtasks", [])
-    score_cols = load_obj("score_cols", "gtasks", ["rouge_score"])
+    score_cols = [] #load_obj("score_cols", "gtasks", ["m_score"])
     unique_cols = []
     group_sel_cols = []
     sel_fid = "" 
@@ -2385,6 +2385,7 @@ def show_df(df):
             for head, cont, capt in zip(heads, tables, rep_names):
                 lable = "table:show"
                 caption = f"{capt}:{exp}"
+                caption = caption.replace("_","-")
                 if command == "shv":
                     table = table_mid_template.format(head, cont, caption, lable)
                 else:
@@ -2409,6 +2410,7 @@ def show_df(df):
                         _exp = key.replace("_","-")
                         _exp = _exp.split("-")[0]
                         caption = "\hyperref[table:show]{ \\textcolor{red}{"+category+"}}:"+_exp 
+                        caption = caption.replace("_","-")
                         name = category + "-" + key + \
                                 "-" + str(train_num) + "-" + str(seed)
                         label = "fig:" + category + _exp 
@@ -2613,6 +2615,7 @@ def show_df(df):
                     [table_avg, table_cmp]):
                 lable = "table:" + str(ii) 
                 caption = f"{rname} {exp} {train_num} {seed}"
+                caption = caption.replace("_","-")
                 table = """
                     \\begin{{table*}}[h!]
                         \label{{{}}}
@@ -2863,7 +2866,9 @@ def show_df(df):
                     rep_cols = ["cat"]
             elif char == "Z":
                 score_cols = ["rouge_score"]
-                rep_cols = ["model_name_or_path","template"]
+                if not rep_cols:
+                    rep_cols = ["cat"]
+                #rep_cols = ["model_name_or_path","template"]
 
             if not "m_score" in sel_cols:
                 sel_cols.append("m_score")
@@ -2872,6 +2877,8 @@ def show_df(df):
             main_score = "rouge_score"
             with open(m_report, "r") as f:
                 report = f.read()
+            with open(os.path.join(doc_dir, "report.tex"), "w") as f:
+                f.write("")
             # df = main_df
             gcol = rep_cols
             df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
@@ -3000,6 +3007,7 @@ def show_df(df):
                     [table_cont2]):
                 lable = "table:" + str(ii) 
                 caption = f" {category} {exp} {train_num} {seed}"
+                caption = caption.replace("_","-")
                 table = """
                     \\begin{{table*}}[h!]
                         \label{{{}}}
@@ -3098,7 +3106,7 @@ def show_df(df):
                 caps[exp] += "\\\\" + scores            
                 ii += 1
                 
-            if char == "R": 
+            if True: #char == "R": 
                 image = """
                     \\begin{{figure}}[h!]
                         \centering
@@ -3112,7 +3120,7 @@ def show_df(df):
                     \\begin{figure}[h!]
                         \centering
                         mypicture 
-                        \caption[image]{""" + cat +str(train_num)+" | "+ str(seed) +  """}
+                        \caption[image]{""" + cat.replace("_","-") + str(train_num)+" | "+ str(seed) +  """}
                         \label{fig:all}
                     \end{figure}
                 """

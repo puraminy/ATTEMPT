@@ -672,30 +672,31 @@ def train(**kwargs):
         task_source_prompts_set[tid].extend(rel_sh.split())
 
     nsp = 0
+    inp_nsp = kwargs.setdefault("num_source_prompts", nsp) 
     source_per_task = kwargs.setdefault("source_per_task", False) 
-    if source_per_task:
+    if source_per_task or inp_nsp == 0:
         nsp = len(tasks)
     if use_source_set:
         nsp = max([len(s) for s in task_source_prompts_set.values()])
     if data_args.source_prompts is not None:
         nsp = len(data_args.source_prompts) 
-    nsp += kwargs.setdefault("num_source_prompts", nsp) 
+    nsp += inp_nsp 
     num_source_prompts = nsp 
     num_target_prompts = 1
     if model_args.attn_tuning is True:
         num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
         ntp = num_target_prompts
-        if ntp < 0: 
+        if ntp == 0: 
             num_target_prompts = num_source_prompts
         if num_source_prompts > 0:
             num_target_prompts = min(num_target_prompts, num_source_prompts)
         else:
             num_target_prompts = 1
-        if model_args.attend_target and ntp < 0:
+        if model_args.attend_target and ntp == 0:
             num_target_prompts += 1
-        if model_args.attend_input and ntp < 0:
+        if model_args.attend_input and ntp == 0:
             num_target_prompts += 1
-        if use_private_prompts and ntp < 0:
+        if use_private_prompts and ntp == 0:
             num_target_prompts += 1
         num_target_prompts = max(num_target_prompts, 1)
         if model_args.compose_method == "cat":
@@ -2088,7 +2089,7 @@ def train(**kwargs):
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
-            ss1 = ss1[:,1:2*slen+1]
+            ss1 = ss1[:,1:slen+tlen]
 
         if len(torch.nonzero(ss1)) < 1:
             ss1 = torch.eye(tlen)

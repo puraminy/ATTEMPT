@@ -400,6 +400,16 @@ class AbstractTask(abc.ABC):
 
         return data
 
+    def replace_mask(self, text):
+        # Replace {mask} with <extra_id_i>
+        mask_placeholder = "{mask}"
+        mask_counter = 0
+        while mask_placeholder in text:
+            replacement = f"<extra_id_{mask_counter}>"
+            text = text.replace(mask_placeholder, replacement, 1)
+            mask_counter += 1
+        return text
+
     def fill_template(self, data):
         mylogs.bp("fill")
         src,tgt,pcom = self.get_template()
@@ -410,13 +420,16 @@ class AbstractTask(abc.ABC):
 
         mask = "<extra_id_0>"
         data = self.extend_data(data, pcom=pcom)
-        data["mask"] = mask
+        # data["mask"] = mask
         data["end"] = "</s>" 
         data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
-        src_texts = src.format_map(data)
-        tgt_texts = tgt.format_map(data)
+
+        # Replace masks in src and tgt
+        src_texts = self.replace_mask(src).format_map(data)
+        tgt_texts = self.replace_mask(tgt).format_map(data)
+
         src_texts = src_texts.replace("{mask}", mask)
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
