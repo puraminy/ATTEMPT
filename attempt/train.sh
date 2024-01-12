@@ -211,7 +211,9 @@ _task=$_tasks
 if [ -z "$_single" ] && [ -z "$_multi" ]; then
    if [ -z "$_pt" ]; then
       _multi=True
-      _prefix=True
+      if [ -z "$_prefix" ]; then
+         _prefix=True
+      fi
    fi
 fi
 
