@@ -2089,7 +2089,7 @@ def train(**kwargs):
 
         ss1 = torch.round(ss1*100)/100
         if multi_tasking:
-            ss1 = ss1[:,1:slen+tlen]
+            ss1 = ss1[:,1:slen+tlen + 1]
 
         if len(torch.nonzero(ss1)) < 1:
             ss1 = torch.eye(tlen)

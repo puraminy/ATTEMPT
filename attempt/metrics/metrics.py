@@ -335,7 +335,7 @@ def bert_score(bert_scorer, hyps, refs, device):
 rel_target_omits = {
     "xIntent":"to",
 }
-def do_score(df, scorers, save_path, reval=False):
+def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
     #try:
     #    nltk_path = str(nltk.data.find("tokenizers/punkt"))
     #    mlog.info(f"using nltk from: {nltk_path}")
@@ -609,8 +609,9 @@ def do_score(df, scorers, save_path, reval=False):
     tdf = {"rouge_score":0, "bert_score":1}
     gdf = pd.concat([gdf, pd.DataFrame([tdf])], ignore_index=True)
     gdf = pd.concat([gdf, scores])
-    fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
-    wandb.run.log({prefix: wandb.Image(fig)})
+    if scores_to_image:
+        fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
+        wandb.run.log({prefix: wandb.Image(fig)})
     wandb.run.summary["test_rouge"] = test_rouge 
     wandb.run.summary["test_bert"] = test_bert
     wandb.run.summary["num_preds"] = num_preds 

@@ -643,7 +643,7 @@ def show_df(df):
             df[_col] = df[_col].astype(str)
 
     map_cols =  load_obj("map_cols", "atomic", {})
-    def get_images(exps, fid='expid'):
+    def get_images(df, exps, fid='expid'):
         imgs = {}
         dest = ""
         start = "pred"
@@ -994,7 +994,7 @@ def show_df(df):
             for s_row in s_rows:
                 exp=df.iloc[s_row]["expid"]
                 exprs.append(exp)
-            dest, imgs, fnames = get_images(exprs)
+            dest, imgs, fnames = get_images(df, exprs)
             subprocess.run(["eog", dest])
         if char in ["o","O"]:
             _agg = {}
@@ -2409,7 +2409,7 @@ def show_df(df):
                 seed = mdf["d_seed"].unique()[0]
                 pics_dir = doc_dir + "/pics"
                 Path(pics_dir).mkdir(parents=True, exist_ok=True)
-                dest, imgs, fnames = get_images(all_exps)
+                dest, imgs, fnames = get_images(df, all_exps)
                 images_rep = "myimage"
                 for key, img_list in imgs.items():
                     name = key
@@ -2889,10 +2889,9 @@ def show_df(df):
                 f.write("")
             # df = main_df
             rep_cols = exp_cols
-            gcol = rep_cols 
-            cols = ["prefix", "fid"]
-            mdf = main_df
-            # mdf["preds_num"] = mdf.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
+            gcol = rep_cols
+            cols = ["prefix"]
+            df["preds_num"] = df.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
             cols = set(cols + exp_cols + rep_cols + score_cols) # + ["preds_num"])
             for c in cols:
                 if c in df.columns: 
@@ -2902,21 +2901,233 @@ def show_df(df):
                         _agg[c] = "mean"
                     else:
                         _agg[c] = "first"
+            mdf = main_df
+            rdf = df.groupby(gcol + ["prefix"], as_index=False).agg(
+                    _agg).reset_index(drop=True)
+            gdf = main_df.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
+            gdf = gdf.sort_values(by=score_cols[0], ascending=False)
+            gdf.columns = gdf.columns.to_flat_index()
+
             pdf = mdf.pivot_table(index=gcol, columns='prefix', 
                     values=score_cols, aggfunc='mean')
             pdf['avg'] = pdf.mean(axis=1, skipna=True)
-            pdf['fid'] = mdf.groupby(gcol)['fid'].first()
             pdf.reset_index(inplace=True)
             pdf.columns = [col[1] if col[0] == "m_score" else col[0] for col in pdf.columns]
-            pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
-                          for col in pdf.columns]
             pdf.columns = pdf.columns.to_flat_index()
-            pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0])
             pdf = pdf.sort_values(by='avg', ascending=False)
 
             latex_table=tabulate(pdf, #[exp_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
-            report = report.replace("mytable", latex_table + "\n \\newpage mytable")
+            report = report.replace("mytable", latex_table + "\n mytable")
+            train_num = str(mdf["max_train_samples"].unique()[0])
+            seed = mdf["d_seed"].unique()[0]
+            all_exps = gdf[gcol[0]].unique()
+            exp_names = []
+            for exp in all_exps:
+                exp = str(exp)
+                exp = exp.replace("_","-")
+                exp = exp.split("-")[0]
+                exp_names.append(exp)
+
+            rep_style="horiz"
+            rep = load_obj(rname, "gtasks", {})
+            table_cont2=""
+            ### aaaaaaaaaaaaaaa
+            head2 = "|"
+            top_cat = "prefix"
+            if rep_style == "vert":
+                top_cat = rep_cols[1]
+                all_rels = mdf[top_cat].unique()
+            else:
+                all_rels = mdf[top_cat].unique()
+                for col in rep_cols: 
+                    if col in map_cols:
+                        col = map_cols[col]
+                    col = col.replace("_","-")
+                    table_cont2 += " \multirow{2}{*}{\\textbf{" + col + "}} &"
+                    head2 += "l|"
+            old_rel = ""
+            for rel in all_rels: 
+                for idx, sc in enumerate(score_cols):
+                    head2 += "c"
+                head2 +="|"
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    head2 += "l|"
+            slen = str(len(score_cols))
+            show_score_headings = False
+            rlen = "1" if show_score_headings else "2"
+            for rel in all_rels: 
+                table_cont2 += "\multicolumn{" + slen + "}{l|}{ \multirow{" + rlen + "}{*}{\\textit{"+rel+"}}} &"
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    sc = sc.replace("_score","")
+                    table_cont2 += " \multirow{" + rlen + "}{*}{avg.} &" 
+            table_cont2 = table_cont2.strip("&")
+            table_cont2 += "\\\\\n"
+            start = str(len(rep_cols) + 1)
+            end = str(len(rep_cols) + len(score_cols)*len(all_rels))
+            if rep_style == "horiz":
+                if len(score_cols) > 1:
+                   table_cont2 += "\cline{" + start + "-" + end+ "}\n"
+
+                for c in rep_cols:
+                    table_cont2 += "& "
+            for rel in all_rels: 
+                for sc in score_cols:
+                    sc = sc.replace("_score","") if show_score_headings else ""
+                    table_cont2 += sc + " &"
+            if rep_style == "horiz":
+                for sc in score_cols:
+                    sc = sc.replace("_score","") if show_score_headings else ""
+                    table_cont2 += sc + " &" # for average
+            table_cont2 = table_cont2.strip("&")
+            table_cont2 += "\\\\\n"
+            table_cont2 += "\\hline\n"
+
+            values = []
+            for col in gcol:
+                ll = [l for l in gdf[col].unique()]
+                values.append(ll)
+            combs = [c for c in itertools.product(*values)]
+            _first = ""
+            for ii, comb in enumerate(combs): 
+                cc = "@".join([str(c) for c in comb])
+                first = comb[0]
+                if rep_style == "vert":
+                    table_cont2 += " &"
+                else:
+                    if first != _first:
+                        if _first != "": table_cont2 += "\\hline \n"
+                        _first = first
+                        col = gcol[0]
+                        table_cont2 += f" \multirow{{1}}{{*}}{{$ @{cc}@{col} $}} &"
+                    else:
+                        table_cont2 += " &"
+                for col in gcol[1:]: 
+                    table_cont2 += f" $ @{cc}@{col} $ &"
+                if rep_style == "horiz":
+                    for rel in all_rels:
+                        for score_col in score_cols:
+                            table_cont2 += f" $ @{cc}@{rel}@{score_col} $ &"
+                    for score_col in score_cols:
+                        table_cont2 += f" $ @{cc}@{score_col} $ &"
+                table_cont2 = table_cont2.strip("&")
+                table_cont2 += "\\\\\n"
+            table_cont2 += "\\hline \n"
+            if rep_style == "vert":
+                for rel in all_rels:
+                    for score_col in score_cols:
+                        table_cont2 += f" $ @{cc}@{score_col} $ &"
+                table_cont2 = table_cont2.strip("&")
+                table_cont2 += "\\\\\n"
+                table_cont2 += "\\hline \n"
+            ii = 1
+            category = mdf["experiment"].unique()[0]
+            category = category.split("/")[0]
+            for head, cont in zip([head2],
+                    [table_cont2]):
+                lable = "table:" + str(ii) 
+                caption = f" {category} {exp} {train_num} {seed}"
+                caption = caption.replace("_","-")
+                table = """
+                    \\begin{{table*}}[h!]
+                        \label{{{}}}
+                        \caption{{{}}}
+                        \\begin{{tabular}}{{{}}}
+                        \hline
+                        {}
+                        \end{{tabular}}
+                    \end{{table*}}
+                    """
+                table = table.format(lable, caption, head, cont)
+                # assert report.index("mytable"), "mytable not found"
+                report = report.replace("mytable", table +"\n\n" + "mytable")
+                ii += 1
+
+            #table = gdf.to_latex(index=True, escape=True)
+            #report = report.replace("mytable", table +"\n\n" + "mytable")
+            caps = {}
+            cols = []
+            rep_cells = rep_cols + score_cols 
+            for cell in rep_cells:
+               cols.append(cell)
+
+            ii = 1
+            for comb in combs: #gdf["expid"].unique():
+                img_cap = " Table: \hyperref[table:1]{Table}"
+                cc = "@".join([str(c) for c in comb])
+                cond = True
+                for e, elem in enumerate(comb):
+                    cond = cond & (gdf[gcol[e]] == elem)
+                cond2 = (gdf[gcol[0]] == comb[0])
+                for sel_col in cols:
+                    val_col = sel_col
+                    val = ""
+                    if "@" in sel_col:
+                        val_col = sel_col.split("@")[-1]
+                    if val_col in gdf.columns:
+                        rows = gdf.loc[cond, val_col]
+                        if not rows.empty:
+                            val = rows.iloc[0]
+                    if val:
+                        if val_col.endswith("score") or val_col.endswith("num"):
+                            maxval = gdf.loc[cond2, val_col].max()
+                            val = round(val,2)
+                            maxval = round(maxval,2)
+                            bold = val == maxval
+                            if val_col.endswith("num"):
+                                mval = val = "{:.1f}".format(val)
+                            else:
+                                mval = val = "{:.2f}".format(val)
+                            if bold:
+                                val = "$ \\textcolor{blue}{ " + val + " }$"
+                            else:
+                                val = "$ \\textcolor{black}{ " + val + " }$"
+                        else:
+                            mval = val
+                            val = "\\textbf{" + str(val) + "}"
+                    img_cap += sel_col.replace("_","-") + ": " + str(val) + " | "
+                    report = report.replace("@" + cc + "@" + sel_col, str(val))
+                caps[exp] = img_cap
+                ii += 1
+            for comb in combs: #gdf["expid"].unique():
+                img_cap = " Table: \hyperref[table:1]{Table}"
+                cc = "@".join([str(c) for c in comb])
+                main_cond = True
+                for e, elem in enumerate(comb):
+                    main_cond = main_cond & (mdf[gcol[e]] == elem)
+                scores = ""
+                for rel in all_rels: 
+                    cond = (mdf[top_cat] == rel) & main_cond 
+                    for sc in score_cols: 
+                        val = mdf.loc[cond, sc].mean()
+                        preds_num = mdf.loc[cond, "pred_text1"].unique()
+                        preds_num = len(preds_num)
+                        one_pred = int(preds_num) == 1
+                        maxval = rdf.loc[(rdf[top_cat] == rel), sc].max()
+                        val = round(val,2)
+                        maxval = round(maxval,2)
+                        bold = val == maxval
+                        if sc != "preds_num":
+                            val = "{:.2f}".format(val)
+                        else:
+                            try:
+                               val = str(int(val))
+                            except:
+                               val = "NA"
+                        if one_pred:
+                            val = "\\textcolor{orange}{" + val + "}"
+                        elif bold: 
+                            val = "\\textcolor{teal}{\\textbf{" + val + "}}"
+                        else:
+                            val = "\\textcolor{black}{" + val + "}"
+                        scores += rel + ":" + "$" + val + "$ "
+                        report = report.replace(
+                                "@" + cc + "@" + rel + "@" + sc, val)
+                caps[exp] += "\\\\" + scores            
+                ii += 1
+                
             if True: #char == "R": 
                 image = """
                     \\begin{{figure}}[h!]
@@ -2943,8 +3154,11 @@ def show_df(df):
                 #pname = plot_bar(pics_dir, train_num)
                 #ii = image.format(pname, "bar", "fig:bar")
                 #report = report.replace("myimage", ii +"\n\n" + "myimage")
-                all_exps = pdf["fid"].unique()
-                dest, imgs, fnames = get_images(all_exps, 'fid')
+                tdf = mdf.sort_values(by=["cat"])
+                all_exps = tdf["fid"].unique()
+                dest, imgs, fnames = get_images(df, all_exps, 'fid')
+                sims = {}
+                scores = {}
                 all_images = {}
                 kk = 0
                 id = "other"
@@ -2969,15 +3183,9 @@ def show_df(df):
                         fname = fnames[kk]
                         caption = ""
                         if not edf.loc[edf['fid'] == mkey].empty:
-                            edf_sels = edf.loc[edf['fid'] == mkey, cols].iloc[0].to_dict()
-                            cat = json.dumps(edf_sels).replace("_","-")
-                            for k,v in edf_sels.items():
-                                if k in map_cols:
-                                    k = map_cols[k]
-                                if type(v) == float:
-                                    v = f"{v:.2f}"
-                                if k == "cat":
-                                    v = v.split("-")[0]
+                            sels = edf.loc[edf['fid'] == mkey, cols].iloc[0].to_dict()
+                            cat = json.dumps(sels).replace("_","-")
+                            for k,v in sels.items():
                                 caption += " \\textcolor{gray}{" + str(k).replace("_","-") \
                                     + "}: \\textcolor{blue}{" + str(v).replace("_","-")+ "}" 
                         else:
@@ -2993,12 +3201,36 @@ def show_df(df):
                         if not _exp in all_images:
                             all_images[_exp] = {}
                         all_images[_exp][ss] = pname
+                        if ss.endswith("scores"):
+                            scores[_exp] = pname
+                        else:
+                            sims[_exp] = pname
                         kk += 1
 
-                g1 = ["SIL","SILP","SIP"] 
-                g2 = ["SILPI","SLPI","SLP", "SL"] 
+                multi_image1 = multi_image
+                for exp in ["SIL","SILP","SIP"]: 
+                    if not exp in scores or not exp in sims:
+                        continue
+                    pname = scores[exp]
+                    multi_image1 = multi_image1.replace("mypicture", 
+                        graphic.format(pname) + "\n mypicture")
+                    pname = sims[exp]
+                    multi_image1 = multi_image1.replace("mypicture", 
+                        graphic.format(pname) + "\n mypicture")
+
+                multi_image2 = multi_image
+                for exp in ["SILPI","SLPI","SLP", "SL"]: 
+                    if not exp in scores or not exp in sims:
+                        continue
+                    pname = scores[exp]
+                    multi_image2 = multi_image2.replace("mypicture", 
+                        graphic.format(pname) + "\n mypicture")
+                    pname = sims[exp]
+                    multi_image2 = multi_image2.replace("mypicture", 
+                        graphic.format(pname) + "\n mypicture")
+
+                multi_image3 = ""
                 ii = 0
-                multi_image3 = multi_image
                 for k,v in all_images.items():
                     if ii % 2 == 0:
                         multi_image3 += f" \\newpage \n \\subsection{{{k}}}"
@@ -3008,8 +3240,23 @@ def show_df(df):
                                 graphic.format(q) + "\n").replace("mycaption",
                                         str(p) + ":" + str(q))
 
+                multi_image1 = multi_image1.replace("mypicture","")
+                multi_image2 = multi_image2.replace("mypicture","")
                 multi_image3 = multi_image3.replace("mypicture","")
+                if False:
+                    tex = f"{doc_dir}/group_si.tex"
+                    with open(tex, "w") as f:
+                        f.write(multi_image)
+                    tex = f"{doc_dir}/group_slp.tex"
+                    with open(tex, "w") as f:
+                        f.write(multi_image2)
                 tex = f"{doc_dir}/scores_img.tex"
+                with open(tex, "w") as f:
+                    f.write(multi_image1)
+                tex = f"{doc_dir}/sim_img.tex"
+                with open(tex, "w") as f:
+                    f.write(multi_image2)
+                tex = f"{doc_dir}/other_img.tex"
                 with open(tex, "w") as f:
                     f.write(multi_image3)
                 #report = report.replace("myimage", 
