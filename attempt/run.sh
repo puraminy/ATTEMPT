@@ -59,7 +59,7 @@ if [ $nsp -eq 0 ]; then
 else
    src=""
 fi
-for tasks in "_tasks qnli stsb mnli imdb sst2"; do 
+for tasks in "_tasks qnli stsb mnli qqp"; do 
 #for tasks in _gtasks _atasks; do 
    catname="${1}$tasks-$cmm-$numt-$nsp-seed-$seed"
    common="${params} $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"

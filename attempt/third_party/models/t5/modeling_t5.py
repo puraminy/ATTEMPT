@@ -1131,7 +1131,7 @@ class T5Stack(T5PreTrainedModel):
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, 
-            target_idx =None, task=""):
+            target_idx =None, task_ids=None, task=""):
         #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
         #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
         mylogs.bp("att")
@@ -1208,10 +1208,10 @@ class T5Stack(T5PreTrainedModel):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
 
-            attn_distribution = torch.zeros_like(router)
-            for i in range(attn_distribution.size(1)):
-                attn_distribution[:, i, i] = 0.5  # 50% attention to the corresponding prompt
-                attn_distribution[:, i, :] += 0.5 / (attn_distribution.size(2) - 1) 
+            attn_dist = torch.zeros_like(router)
+            for i in range(batch_size):
+                task_id = task_ids[i].item()
+                attn_dist[i, :,  task_id] = 0.5 
 
             if self.training and self.learn_attention:
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
@@ -1219,7 +1219,7 @@ class T5Stack(T5PreTrainedModel):
                 if route_method == "sigmoid":
                     attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
                 # Apply the fixed distribution to the generated attention scores
-                attn_scores = attn_scores * attn_distribution
+                attn_scores = attn_scores + attn_dist
             else:
                 mylogs.bp("route")
                 attn_scores = router
@@ -1520,6 +1520,7 @@ class T5Stack(T5PreTrainedModel):
                                 add_target = self.add_target, 
                                 source_idx=source_idx, 
                                 target_idx=target_idx, 
+                                task_ids = tids,
                                 task=task)
                         self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
                         inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)

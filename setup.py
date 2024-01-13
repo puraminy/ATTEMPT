@@ -20,7 +20,7 @@ def setup_package():
             'scikit-learn', 
             'matplotlib==3.4.2',
             'torch',
-            'tqdm==4.62.1', 
+            'tqdm==4.65.0', 
             'deepdiff',
             'rouge_score'
         ],
