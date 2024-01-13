@@ -399,7 +399,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
         mylogs.bp("score")
         oldinp = df.iloc[0]["input_text"]
         rel =  df.iloc[0]["prefix"]
-        gold_set = df["target_text"].unique()
+        gold_set = [w.strip() for w in df["target_text"].unique()]
         for step, row in df.iterrows():
             oldrel = rel
             rel = row["prefix"]

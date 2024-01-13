@@ -1207,11 +1207,19 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
+
+            attn_distribution = torch.zeros_like(router)
+            for i in range(attn_distribution.size(1)):
+                attn_distribution[:, i, i] = 0.5  # 50% attention to the corresponding prompt
+                attn_distribution[:, i, :] += 0.5 / (attn_distribution.size(2) - 1) 
+
             if self.training and self.learn_attention:
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
                 if route_method == "sigmoid":
                     attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+                # Apply the fixed distribution to the generated attention scores
+                attn_scores = attn_scores * attn_distribution
             else:
                 mylogs.bp("route")
                 attn_scores = router

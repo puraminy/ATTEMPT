@@ -1564,7 +1564,8 @@ def show_df(df):
             on_col_list = ["pred_text1"]
             other_col = "target_text"
             if char =="i": 
-                group_col = "input_text"
+                pass
+            #    group_col = "input_text"
             #    on_col_list = ["input_text"] 
             #    other_col = "pred_text1"
             if char =="t": 
@@ -1585,7 +1586,7 @@ def show_df(df):
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
             elif len(s_rows) > 1:
-                sel_cols=orig_tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["bert_score", "out_score","pred_text1","target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 unique_cols = info_cols.copy()
                 _cols = tag_cols
@@ -1609,9 +1610,10 @@ def show_df(df):
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
                     task = df.iloc[0]["prefix"]
-                sel_cols=orig_tag_cols + ["bert_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
-                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
-                unique_cols = info_cols.copy()
+                sel_cols=orig_tag_cols + ["bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
+                #sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                #unique_cols = info_cols.copy()
+                sel_cols = list(set(sel_cols))
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 sort = "input_text"
@@ -2869,7 +2871,7 @@ def show_df(df):
             _agg = {}
             if char == "R" or cmd == "report":
                 if not score_cols:
-                    score_cols = ["m_score", "out_score"]
+                    score_cols = ["m_score"] #, "out_score"]
                 if not rep_cols:
                     rep_cols = ["cat"]
             elif char == "Z":
@@ -2877,7 +2879,7 @@ def show_df(df):
                 if not rep_cols:
                     rep_cols = ["cat"]
                 #rep_cols = ["model_name_or_path","template"]
-            exp_cols = ["cat","num_prompt_tokens","compose_method"] 
+            exp_cols = ["cat","num_source_prompts","prompt_length","compose_method"] 
 
             if not "m_score" in sel_cols:
                 sel_cols.append("m_score")
@@ -2899,29 +2901,32 @@ def show_df(df):
                 if c in df.columns: 
                     if c == "preds_num":
                         _agg[c] = "mean"
-                    elif c.endswith("score"):
+                    elif c.endswith("score") or c in score_cols:
                         _agg[c] = "mean"
                     else:
                         _agg[c] = "first"
             mdf[gcol] = mdf[gcol].fillna('none')
-            pdf = mdf.pivot_table(index=gcol, columns='prefix', 
-                    values=score_cols, aggfunc='mean')
-            pdf['avg'] = pdf.mean(axis=1, skipna=True)
-            pdf['fid'] = mdf.groupby(gcol)['fid'].first()
-            pdf.reset_index(inplace=True)
-            pdf.columns = [col[1] if col[0] == "m_score" else col[0] for col in pdf.columns]
-            pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
-                          for col in pdf.columns]
-            pdf.columns = pdf.columns.to_flat_index()
-            pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
-            pdf['ref'] = pdf.apply(
-                    lambda row: f" \\ref{{{'fig:' + str(row['fid'])}}}", axis=1)
-            pdf = pdf.sort_values(by='avg', ascending=False)
-            pdf = pdf.round(2)
 
-            latex_table=tabulate(pdf, #[exp_cols+score_cols], 
-                    headers='keys', tablefmt='latex_raw', showindex=False)
-            report = report.replace("mytable", latex_table + "\n \\newpage mytable")
+            for score_col in score_cols:
+                pdf = mdf.pivot_table(index=gcol, columns='prefix', 
+                        values=[score_col], aggfunc='mean')
+                pdf['avg'] = pdf.mean(axis=1, skipna=True)
+                pdf['fid'] = mdf.groupby(gcol)['fid'].first()
+                pdf.reset_index(inplace=True)
+                pdf.columns = [col[1] if col[0] == score_col else col[0] 
+                        for col in pdf.columns]
+                pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
+                              for col in pdf.columns]
+                pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+                pdf['ref'] = pdf.apply(
+                        lambda row: f" \\ref{{{'fig:' + str(row['fid'])}}}", axis=1)
+                pdf = pdf.sort_values(by='avg', ascending=False)
+                pdf = pdf.round(2)
+
+                latex_table=tabulate(pdf, #[exp_cols+score_cols], 
+                        headers='keys', tablefmt='latex_raw', showindex=False)
+                report = report.replace("mytable", latex_table + "\n\n mytable")
+            report = report.replace("mytable", "\n \\newpage mytable")
             if True: #char == "R": 
                 image = """
                     \\begin{{figure}}[h!]
@@ -2959,7 +2964,7 @@ def show_df(df):
                 if "num_preds" in _agg:
                     del _agg["num_preds"]
                 _agg["fid"] = "first"
-                edf = mdf.groupby(exp_cols, as_index=False).agg(_agg).reset_index(drop=True)
+                edf = mdf.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
                 edf = edf.sort_values(by=score_cols[0], ascending=False)
                 cols = exp_cols + score_cols
                 for key, img_list in imgs.items():
