@@ -378,6 +378,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
     mean_rouge = {}
     sum_bleu = {"all":0}
     mean_bleu = {}
+    sum_out = {"all":0}
+    mean_out = {}
     new_results = {}
     #smoothie = SmoothingFunction().method4 # a function for smooth
     hyp_counter = [0]*5
@@ -397,6 +399,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
         mylogs.bp("score")
         oldinp = df.iloc[0]["input_text"]
         rel =  df.iloc[0]["prefix"]
+        gold_set = df["target_text"].unique()
         for step, row in df.iterrows():
             oldrel = rel
             rel = row["prefix"]
@@ -408,8 +411,10 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
                 sum_bleu[scope] = 0
                 sum_match[scope] = 0
                 counter[scope] = 0
+                sum_out[scope] = 0
             #Compute embeddings
             cur_hyp = str(row["pred_text1"])
+
             inp = row["input_text"]
             tail = re.sub(r'<extra_.*?>','',str(row["target_text"]))
             tail = tail.strip()
@@ -428,6 +433,16 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
             best_hyp = preds[hi]
             best_ref = tails[ri]
             #hyp_counter[hi] += 1
+            data["match_score"] = 0
+            if best_hyp.strip() == best_ref:
+                data["match_score"] = 1
+                sum_match[scope] += 1
+                sum_match["all"] += 1
+            data["out_score"] = 0
+            if best_hyp.strip() not in gold_set:
+                data["out_score"] = 1
+                sum_out[scope] += 1
+                sum_out["all"] += 1
             if nli_model:
                 pair = (best_hyp, best_ref)
                 nli_scores = nli_model.predict(pair)  
@@ -445,6 +460,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
             counter["all"] += 1
             mean_bert[scope] = "{:.4f}".format(sum_bert[scope] / counter[scope])
             mean_bert["all"] = "{:.4f}".format(sum_bert["all"] / counter["all"])
+            mean_out[scope] = "{:.4f}".format(sum_out[scope] / counter[scope])
+            mean_out["all"] = "{:.4f}".format(sum_out["all"] / counter["all"])
             #### BLUE score
             #tokenized_rs = []
             #for r in tails:
@@ -476,7 +493,6 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
                     rouge_score = max(_scores)
                 except:
                     rouge_score = 0
-            match_score = 0
             inp_key = inp + rel
             mean_match[scope] = "{:.4f}".format(sum_match[scope] / counter[scope])
             data["rouge_score"] = rouge_score
@@ -504,7 +520,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
     print("Saving results %s", save_path)
     merged_df.to_csv(save_path, index=False, sep="\t")
 #################
-    for metric in [mean_rouge, mean_bert, mean_match, mean_bleu]:
+    for metric in [mean_rouge, mean_bert, mean_match, mean_out]:
         s =0 
         ii = 0
         jj = 0
@@ -516,6 +532,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
         metric["AVG"] = "{:.2f}--{}".format(s/ii, jj)
 
     mean_bert_str = json.dumps(mean_bert, indent=2)
+    mean_out_str = json.dumps(mean_out, indent=2)
     mean_rouge_str = json.dumps(mean_rouge, indent=2)
     mean_bleu_str = json.dumps(mean_bleu, indent=2)
     mean_match_str = json.dumps(mean_match, indent=2)

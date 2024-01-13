@@ -232,7 +232,7 @@ def list_dfs(df, main_df, s_rows, FID):
         mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        tdf = tdf[["pred_text1", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
+        tdf = tdf[["pred_text1", "exp_name", "id","hscore", "out_score", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
         sort = "rouge_score"
         dfs.append(tdf)
@@ -250,7 +250,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        tdf = tdf[tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
+        tdf = tdf[tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
         sort = "rouge_score"
         if len(tdf) > 1:
@@ -349,7 +349,7 @@ def show_df(df):
 
 
     if not col_widths:
-        col_widths = {"query":50, "model":30, "pred_text1":30, "epochs":30, "date":30, "rouge_score":7, "bert_score":7, "input_text":50}
+        col_widths = {"query":50, "model":30, "pred_text1":30, "epochs":30, "date":30, "rouge_score":7, "bert_score":7, "out_score":7, "input_text":50}
 
     df['id']=df.index
     df = df.reset_index(drop=True)
@@ -730,6 +730,7 @@ def show_df(df):
             "attend_input":"att_inp",
             "add_target":"add_tg",
             "rouge_score":"rg",
+            "out_score":"out",
             "bert_score":"bt",
             }
     wraps = {
@@ -1118,7 +1119,7 @@ def show_df(df):
             exp=df.iloc[sel_row]["exp_id"]
             cond = f"(main_df['{FID}'] == '{exp}')"
             df = main_df[main_df[FID] == exp]
-            sel_cols=tag_cols + ["bert_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+            sel_cols=tag_cols + ["bert_score", "out_score", "pred_text1","target_text","input_text","rouge_score","prefix"]
             sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
             unique_cols = info_cols.copy()
             df = df[sel_cols]
@@ -1459,7 +1460,7 @@ def show_df(df):
             if reset:
                 info_cols = ["bert_score", "num_preds"]
             if reset: #col == "fid":
-                sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+                sel_cols = ["expid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
             reset = False
 
             _agg = {}
@@ -2868,7 +2869,7 @@ def show_df(df):
             _agg = {}
             if char == "R" or cmd == "report":
                 if not score_cols:
-                    score_cols = ["m_score"]
+                    score_cols = ["m_score", "out_score"]
                 if not rep_cols:
                     rep_cols = ["cat"]
             elif char == "Z":
@@ -2876,7 +2877,7 @@ def show_df(df):
                 if not rep_cols:
                     rep_cols = ["cat"]
                 #rep_cols = ["model_name_or_path","template"]
-            exp_cols = ["cat","num_source_prompts","compose_method"] 
+            exp_cols = ["cat","num_prompt_tokens","compose_method"] 
 
             if not "m_score" in sel_cols:
                 sel_cols.append("m_score")
@@ -2902,6 +2903,7 @@ def show_df(df):
                         _agg[c] = "mean"
                     else:
                         _agg[c] = "first"
+            mdf[gcol] = mdf[gcol].fillna('none')
             pdf = mdf.pivot_table(index=gcol, columns='prefix', 
                     values=score_cols, aggfunc='mean')
             pdf['avg'] = pdf.mean(axis=1, skipna=True)
@@ -2911,8 +2913,11 @@ def show_df(df):
             pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
                           for col in pdf.columns]
             pdf.columns = pdf.columns.to_flat_index()
-            pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0])
+            pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+            pdf['ref'] = pdf.apply(
+                    lambda row: f" \\ref{{{'fig:' + str(row['fid'])}}}", axis=1)
             pdf = pdf.sort_values(by='avg', ascending=False)
+            pdf = pdf.round(2)
 
             latex_table=tabulate(pdf, #[exp_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
