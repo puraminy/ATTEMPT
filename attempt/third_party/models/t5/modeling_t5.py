@@ -1199,7 +1199,6 @@ class T5Stack(T5PreTrainedModel):
             router = router.repeat(batch_size, 1, 1)
             attn_scores = router
         elif self.attn_method == "rb":
-            mylogs.bp("att")
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 
@@ -1210,13 +1209,20 @@ class T5Stack(T5PreTrainedModel):
                                     route_idx[i]]
 
             if self.training and self.learn_attention:
+                mylogs.bp("att")
+                target_router = self.target_router.unsqueeze(0)
+                target_router = batched_index_select(target_router, 1, target_idx)
+                tst = self.target_share_temperature
+                # tst = self.temperature
+                target_shares = RelaxedBernoulli(temperature=tst, 
+                    logits=target_router).rsample()            
                 attn_dist = torch.zeros_like(router)
                 end = attn_dist.size(2)
                 max_task_num = torch.max(task_ids).item()
                 if max_task_num < end:
                     for i in range(batch_size):
                         task_id = task_ids[i].item()
-                        attn_dist[i, :, end - task_id - 1] = 1 
+                        attn_dist[i, :, task_id] = 1 
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
                 if route_method == "sigmoid":
