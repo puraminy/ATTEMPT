@@ -28,15 +28,17 @@ echo "Global: $global_run_params"
 
 ep=20
 tn=20
+bs=12
 ppx="${ep}${tn}"
 # ppx=20200
-nums="_ep $ep _tsn 100 _bs 12"
+nums="_ep $ep _tsn 100"
 
 logs=$HOME/logs/$1
 if [ $1 = "test" ]; then
    rm -rf $logs
    ep=5
    tn=10
+   bs=4
 else
    if [ $ep -lt 10 ]; then
       echo "epochs are too low!"
@@ -64,7 +66,7 @@ fi
 #for tasks in _gtasks _atasks; do 
 for tasks in _gtasks; do 
    catname="${1}$tasks-$cmm-$numt-$nsp-seed-$seed"
-   common="${params} _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   common="${params} _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
    mets="$common $nums _cmm $cmm "
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
@@ -78,7 +80,7 @@ for tasks in _gtasks; do
    PI_args="$common _pt $tasks _upp _lpp _lsp False $nums"
    P_args="$common _pt $tasks $nums _skip"
 
-   for met in P SLPI SLP SL SIP SIL SILP SILPI PI; do
+   for met in SILP SLPI SLP SL SIP SIL SILP SILPI PI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
    # for met in SL SLP; do
        echo $met

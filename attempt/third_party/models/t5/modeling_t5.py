@@ -1199,6 +1199,7 @@ class T5Stack(T5PreTrainedModel):
             router = router.repeat(batch_size, 1, 1)
             attn_scores = router
         elif self.attn_method == "rb":
+            mylogs.bp("att")
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 
@@ -1526,7 +1527,7 @@ class T5Stack(T5PreTrainedModel):
                                 task=task)
                         self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
                         inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                        if (not self.training or mylogs.is_debug()): 
+                        if False: #(not self.training or mylogs.is_debug()): 
                             mylogs.bp("pred")
                             num_targets = target_idx.size()[-1]
                             source_idx = source_idx.view(batch_size, num_targets, -1)
