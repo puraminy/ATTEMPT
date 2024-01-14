@@ -30,7 +30,7 @@ ep=20
 tn=20
 ppx="${ep}${tn}"
 # ppx=20200
-nums="_ep $ep _tn $tn _tsn 100 _bs 12"
+nums="_ep $ep _tsn 100 _bs 12"
 
 logs=$HOME/logs/$1
 if [ $1 = "test" ]; then
@@ -44,6 +44,7 @@ else
    fi
 fi
 
+for tn in 20 50; do
 for seed in 123; do
 for cmm in cat wavg; do
    if [ $cmm = "cat" ]; then
@@ -52,17 +53,18 @@ for cmm in cat wavg; do
       numt=50
    fi
 ntp=0
-for numt in 1; do
+for numt in 10; do
 for nsp in 0 2; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
    src=""
 fi
-for tasks in "_tasks qnli stsb mnli qqp"; do 
+#for tasks in "_tasks qnli stsb mnli qqp"; do 
 #for tasks in _gtasks _atasks; do 
+for tasks in _gtasks; do 
    catname="${1}$tasks-$cmm-$numt-$nsp-seed-$seed"
-   common="${params} $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   common="${params} _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
    mets="$common $nums _cmm $cmm "
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
@@ -76,9 +78,9 @@ for tasks in "_tasks qnli stsb mnli qqp"; do
    PI_args="$common _pt $tasks _upp _lpp _lsp False $nums"
    P_args="$common _pt $tasks $nums _skip"
 
-   # for met in SLPI SLP SL SIP SIL SILP SILPI PI; do
+   for met in P SLPI SLP SL SIP SIL SILP SILPI PI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
-   for met in SL SLP; do
+   # for met in SL SLP; do
        echo $met
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue
@@ -95,6 +97,7 @@ for tasks in "_tasks qnli stsb mnli qqp"; do
            echo "Variable ${args_variable} not defined for method ${met}."
        fi
    done
+done
 done
 done
 done

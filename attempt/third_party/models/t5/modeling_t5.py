@@ -1208,12 +1208,14 @@ class T5Stack(T5PreTrainedModel):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
 
-            attn_dist = torch.zeros_like(router)
-            for i in range(batch_size):
-                task_id = task_ids[i].item()
-                attn_dist[i, :,  task_id] = 0.5 
-
             if self.training and self.learn_attention:
+                attn_dist = torch.zeros_like(router)
+                end = attn_dist.size(2)
+                max_task_num = torch.max(task_ids).item()
+                if max_task_num < end:
+                    for i in range(batch_size):
+                        task_id = task_ids[i].item()
+                        attn_dist[i, :, end - task_id - 1] = 1 
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
                 if route_method == "sigmoid":
