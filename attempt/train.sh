@@ -535,7 +535,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
 	params="${params} --@target_share=-1#0.5#0#none#1"
    fi
    params="${params} --@attend_target=False#True"
-   params="${params} --@target_share_temperature=5."
+   params="${params} --@target_share_temperature=.5"
    params="${params} --prompt_learning_rate=$_lr"
    if [ -n "$_slr" ]; then
       params="${params} --@source_prompt_learning_rate=$_slr"

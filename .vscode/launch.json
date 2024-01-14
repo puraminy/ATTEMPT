@@ -9,7 +9,7 @@
             "type": "python",
             "request": "attach",
             "connect": {
-                "host": "localhost",
+                "host": "10.42.0.2",
                 "port": 1234
             },
             "justMyCode": true

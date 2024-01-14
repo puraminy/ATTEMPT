@@ -80,9 +80,9 @@ for tasks in _gtasks; do
    PI_args="$common _pt $tasks _upp _lpp _lsp False $nums"
    P_args="$common _pt $tasks $nums _skip"
 
-   for met in SILP SL SLPI SLP SIP SIL SILPI PI; do
+   # for met in SILP SL SLPI SLP SIP SIL SILPI PI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
-   # for met in SL SLP; do
+   for met in SILP SL SLP; do
        echo $met
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue

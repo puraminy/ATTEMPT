@@ -248,6 +248,31 @@ DEPARALLELIZE_DOCSTRING = r"""
         model.deparallelize() # Put the model back on cpu and cleans memory by calling torch.cuda.empty_cache()
 """
 
+class Anneal:
+    def __init__(self, temperature, anneal_dir, anneal_rate, anneal_min, anneal_type="exp"):
+        self.anneal_min = anneal_min
+        self.cur_step = 0
+        self.temperature = temperature
+        self.anneal_dir = anneal_dir
+        self.anneal_rate = anneal_rate
+        self.anneal_type = anneal_type
+
+    def __iter__(self):
+        return self
+
+    def anneal(self, i_step):
+         exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
+         t = max(self.anneal_min, self.temperature * exp_rate)
+         self.temperature = t
+         return t
+
+    def __next__(self):
+        if self.temperature < self.anneal_min:
+            return self.anneal_min
+        else:
+            self.cur_step += 1 
+            value = self.anneal(self.cur_step)
+            return value
 
 class T5LayerNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6, adapter_config=None):
@@ -976,6 +1001,9 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
+
+        self.anneal_ts = Anneal(self.target_share_temperature, 
+                self.anneal_dir, self.anneal_rate, self.anneal_min)
         self.apply_softmax_to = config.apply_softmax_to
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
@@ -1210,19 +1238,14 @@ class T5Stack(T5PreTrainedModel):
 
             if self.training and self.learn_attention:
                 mylogs.bp("att")
-                target_router = self.target_router.unsqueeze(0)
-                target_router = batched_index_select(target_router, 1, target_idx)
-                tst = self.target_share_temperature
-                # tst = self.temperature
-                target_shares = RelaxedBernoulli(temperature=tst, 
-                    logits=target_router).rsample()            
                 attn_dist = torch.zeros_like(router)
                 end = attn_dist.size(2)
                 max_task_num = torch.max(task_ids).item()
+                b = next(self.anneal_ts)
                 if max_task_num < end:
                     for i in range(batch_size):
                         task_id = task_ids[i].item()
-                        attn_dist[i, :, task_id] = 1 
+                        attn_dist[i, :, task_id] = b 
                 attn_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=router).rsample()            
                 if route_method == "sigmoid":
