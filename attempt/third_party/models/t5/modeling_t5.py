@@ -1556,7 +1556,7 @@ class T5Stack(T5PreTrainedModel):
                                 task=task)
                         self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
                         inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                        if False: #(not self.training or mylogs.is_debug()): 
+                        if (not self.training or mylogs.is_debug()): 
                             mylogs.bp("pred")
                             num_targets = target_idx.size()[-1]
                             source_idx = source_idx.view(batch_size, num_targets, -1)
@@ -1568,17 +1568,17 @@ class T5Stack(T5PreTrainedModel):
                             tscore[:, src_idx] = ascore 
                             self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
                             targets = self.target_encoders_idx
-                            ss1 = self.attn_scores  
+                            #ss1 = self.attn_scores  
                             # self.attn_scores.index_select(0, targets)
-                            ss2 = self.router.index_select(0, targets)
-                            ss3 = self.attn_mask.index_select(0, targets)
-                            y_labels = [self.prompt_names[i] for i in targets]
-                            img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
-                                y_labels=y_labels,
-                                x_labels=self.prompt_names,
-                                title= "at5:" + self.route_method + ":" \
-                                        + self.compose_method + ":" + self.attn_method, 
-                                add_tags=False) 
+                            #ss2 = self.router.index_select(0, targets)
+                            #ss3 = self.attn_mask.index_select(0, targets)
+                            #y_labels = [self.prompt_names[i] for i in targets]
+                            #img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                            #    y_labels=y_labels,
+                            #    x_labels=self.prompt_names,
+                            #    title= "at5:" + self.route_method + ":" \
+                            #            + self.compose_method + ":" + self.attn_method, 
+                            #    add_tags=False) 
                     else:
                         self.adapter_config.soft_prompts=target_prompts.view(-1, 
                                 self.model_dim)

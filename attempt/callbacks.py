@@ -30,11 +30,16 @@ class PTLearningRateCallback(TrainerCallback):
             #logs["tlr"] = lr._last_lr[1]
             #logs["step"] = state.global_step 
             last_lrs = lr.get_last_lr()
-            for i, llr in enumerate(last_lrs):
-                logs["lr" + str(i)] = '{:3}'.format('{}'.format(llr)) 
+            #for i, llr in enumerate(last_lrs):
+            #    logs["lr" + str(i)] = '{:3}'.format('{}'.format(llr)) 
         logger.info(logs)
 
 class AnnealCallback(TrainerCallback):
+    def on_log(self, args, state, control, logs = None, **kwargs):
+        model = kwargs.pop("model", None)
+        e = model.encoder
+        logs["anneal:"] = '{:3}'.format('{}'.format(e.anneal_ts.temperature)) 
+
     def on_step_begin(self, args, state, control, **kwargs):
         mylogs.bp("anneal")
         model = kwargs.pop("model", None)
