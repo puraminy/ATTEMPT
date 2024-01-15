@@ -242,7 +242,7 @@ if [ -z "$_bs" ]; then  _bs=16; fi
 if [ -z "$_lr" ]; then  _lr=0.05; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
-if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
+if [ -z "$_tmpr" ]; then  _tmpr=1.; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_numt" ]; then  _numt=50; fi
@@ -252,6 +252,8 @@ if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
 if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
 if [ -z "$_addt" ]; then  _addt=False; fi # Add Target 
+if [ -z "$_rm" ]; then  _rm=direct; fi # route_method 
+if [ -z "$_tst" ]; then  _tst=4.; fi # Target share temperature 
 if [ -z "$_prefix" ]; then  _prefix=$_multi; fi # Add Prefix to input examples per task 
 if [ -z "$_nsp" ]; then  
    _nsp=0; 
@@ -514,7 +516,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@learn_loaded_prompts=True#!False"
    params="${params} --ignore_if_prompt_not_exists=False"
    params="${params} --rels=$_rels"
-   params="${params} --@source_prompts_order=desc#rand"
+   params="${params} --@source_prompts_order=unsorted#rand"
    params="${params} --@num_random_masks=0"
    params="${params} --@compose_method=$_cmm"
    if [ -z "$_temp" ]; then
@@ -535,7 +537,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
 	params="${params} --@target_share=-1#0.5#0#none#1"
    fi
    params="${params} --@attend_target=False#True"
-   params="${params} --@target_share_temperature=.5"
+   params="${params} --@target_share_temperature=$_tst"
    params="${params} --prompt_learning_rate=$_lr"
    if [ -n "$_slr" ]; then
       params="${params} --@source_prompt_learning_rate=$_slr"
@@ -554,12 +556,12 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --anneal_min=0.0001"
    params="${params} --anneal_rate=none"
    params="${params} --@apply_softmax_to=after#!nothing"
-   if [ -n "$_grm" ]; then
-      params="${params} --@gen_route_methods=rb@direct@sigmoid"
-   else
+   if [ -z "$_grm" ]; then
       params="${params} --@gen_route_methods=direct@"
+   else
+      params="${params} --@gen_route_methods=$_grm"
    fi
-   params="${params} --route_method=direct"
+   params="${params} --route_method=$_rm"
    params="${params} --use_saved_router=$_usr"
    params="${params} --init_from_words=False"
    params="${params} --prompts_to_save=none"

@@ -253,6 +253,7 @@ class Anneal:
         self.anneal_min = anneal_min
         self.cur_step = 0
         self.temperature = temperature
+        self.cur_val = temperature
         self.anneal_dir = anneal_dir
         self.anneal_rate = anneal_rate
         self.anneal_type = anneal_type
@@ -261,18 +262,21 @@ class Anneal:
         return self
 
     def anneal(self, i_step):
-         exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
-         t = max(self.anneal_min, self.temperature * exp_rate)
-         self.temperature = t
-         return t
+        if self.cur_val < self.anneal_min:
+            return self.anneal_min
+        delta = self.anneal_dir * self.anneal_rate * i_step
+        if self.anneal_type == "exp":
+           exp_rate = np.exp(delta)
+           t = max(self.anneal_min, self.temperature * exp_rate)
+        else:
+           t = self.temperature + delta 
+        self.cur_val = t
+        return self.cur_val 
 
     def __next__(self):
-        if self.temperature < self.anneal_min:
-            return self.anneal_min
-        else:
-            self.cur_step += 1 
-            value = self.anneal(self.cur_step)
-            return value
+        self.cur_step += 1 
+        value = self.anneal(self.cur_step)
+        return value
 
 class T5LayerNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6, adapter_config=None):
@@ -1003,7 +1007,7 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_rate = config.anneal_rate
 
         self.anneal_ts = Anneal(self.target_share_temperature, 
-                self.anneal_dir, self.anneal_rate, self.anneal_min)
+                anneal_dir = -1, anneal_rate = 0.05, anneal_min = 0, anneal_type="linear")
         self.apply_softmax_to = config.apply_softmax_to
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
@@ -1022,6 +1026,7 @@ class T5Stack(T5PreTrainedModel):
         self.shared_attn = shared_attn
         self.learned_temperature = learned_temperature
         self.target_task_id = None
+        self.task_names = None
         self.sel_positives = config.sel_positives
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
@@ -1060,7 +1065,9 @@ class T5Stack(T5PreTrainedModel):
         self.model_parallel = False
         self.device_map = None
 
-    def set_encoders(self, prompt_encoders, source_prompts, src_prompt_dim, prompt_dim):
+    def set_encoders(self, prompt_encoders, source_prompts, 
+            src_prompt_dim, prompt_dim, tasks = None):
+        self.task_names = tasks
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         src_tgt_encoders = [e for e in self.prompt_encoders if e.is_source or e.is_target]
         mylogs.bp("set")
@@ -1099,13 +1106,22 @@ class T5Stack(T5PreTrainedModel):
                 i += 1
 
         router = torch.zeros((attend_num, attend_num), device=device)
-        i,j = 1,1 
-        for encoder in self.prompt_encoders:
-            if encoder.is_target:
-                # router[i, j] = 1
-                j += 1
-            i += 1
-
+        if self.route_method is not None and self.route_method.startswith("bias"):
+            i,j,k = 1,1,1
+            first = True
+            mylogs.bp("bias")
+            for encoder in self.prompt_encoders:
+                if encoder.is_private and first:
+                    k = i
+                    first = False
+                elif encoder.is_target:
+                    if self.route_method == "biasx":
+                        router[i, j] = self.target_share_temperature
+                    router[i, k] = self.target_share_temperature
+                    k += 1
+                    j += 1
+                i += 1
+            mylogs.bp("bias")
         if self.router is None:
             self.router = nn.Parameter(data=router)
 
@@ -1219,6 +1235,7 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         route_method = self.route_method
+        gen_route_method = route_method
         if self.attn_method == "const":
             route_idx = attend_to_idx
             router = torch.ones(target_idx.size()[1],
@@ -1227,6 +1244,7 @@ class T5Stack(T5PreTrainedModel):
             router = router.repeat(batch_size, 1, 1)
             attn_scores = router
         elif self.attn_method == "rb":
+            mylogs.bp("bias")
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 
@@ -1235,28 +1253,49 @@ class T5Stack(T5PreTrainedModel):
             for i in range(batch_size):
                 router[i] = self.router[target_idx[i].reshape(-1,1), 
                                     route_idx[i]]
+            attn_dist = torch.ones_like(router)
+            if route_method == "const":
+                attn_dist = 0*attn_dist
+                b = 1
+            else:
+                attn_dist = -1*attn_dist
+                b = next(self.anneal_ts)
+
+            end = attn_dist.size(2)
+            max_task_num = torch.max(task_ids).item()
+            if max_task_num < end:
+                for i in range(batch_size):
+                    task_id = task_ids[i].item()
+                    attn_dist[i, :, task_id] = b 
 
             if self.training and self.learn_attention:
-                mylogs.bp("att")
-                attn_dist = torch.zeros_like(router)
-                end = attn_dist.size(2)
-                max_task_num = torch.max(task_ids).item()
-                b = next(self.anneal_ts)
-                if max_task_num < end:
-                    for i in range(batch_size):
-                        task_id = task_ids[i].item()
-                        attn_dist[i, :, task_id] = b 
-                attn_scores = RelaxedBernoulli(temperature=self.temperature, 
-                    logits=router).rsample()            
-                if route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
-                # Apply the fixed distribution to the generated attention scores
-                attn_scores = attn_scores + attn_dist
+                logits = router
+                if route_method == "ratt": # source attention
+                    logits = router + attn_dist
+                    self.apply_softmax_to = "nothing"
+                rb_scores = RelaxedBernoulli(temperature=self.temperature, 
+                    logits=logits).rsample()            
+                if route_method == "sigmoid" or route_method == "ratt":
+                    attn_scores = torch.sigmoid(rb_scores)  
+                if route_method == "const":
+                    attn_scores  = attn_dist
+                    self.apply_softmax_to = "nothing"
+                elif route_method == "satt": # source attention
+                   attn_scores = rb_scores  + attn_dist
+                else:
+                   attn_scores = rb_scores # + attn_dist
             else:
                 mylogs.bp("route")
-                attn_scores = router
+                #attn_scores = router
+                #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
+                if route_method == "const":
+                    attn_scores  = attn_dist
+                    self.apply_softmax_to = "nothing"
+                else:
+                    attn_scores = router
+
                 if self.gen_conf is not None and "route_method" in self.gen_conf:
-                    route_method = self.gen_conf["route_method"] 
+                    gen_route_method = self.gen_conf["route_method"] 
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1342,18 +1381,18 @@ class T5Stack(T5PreTrainedModel):
 
         if not self.training:
             mylogs.bp("notr")
-            if route_method == "direct":
-                pass
-            elif route_method == "rb":
+            if gen_route_method == "rb":
                 with torch.no_grad():
                     attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
                         logits=attn_sel_scores).rsample()  
-            elif route_method == "sigmoid":
+            elif gen_route_method == "sigmoid" or route_method == "ratt":
                 mylogs.bp("sigm")
                 attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
-            elif route_method == "sign":
+            elif gen_route_method == "sign":
                 attn_sel_scores[attn_sel_scores <= 0] = 0
                 attn_sel_scores[attn_sel_scores > 0] = 1
+            elif gen_route_method == "direct":
+                pass
 
         if self.apply_softmax_to == "nothing":
             pass
@@ -1435,11 +1474,17 @@ class T5Stack(T5PreTrainedModel):
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
+
             if not self.training:
                 mylogs.bp("fll")
-            tids = task_ids
             device=input_ids.device
             batch_size = inputs_embeds.shape[0]
+            tids = task_ids
+            if task_ids is None and task:
+                mylogs.bp("tids")
+                if task in self.task_names:
+                    tid = self.task_names.index(task)
+                    tids = torch.full((batch_size, 1), tid, dtype=torch.long) 
             num_prompt_encoders = len(self.prompt_encoders) + 1
             #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
             # prompt masks for all prompt tokens

@@ -1258,10 +1258,11 @@ def train(**kwargs):
         exp_info["num_encoders"] = len(prompt_encoders)
         exp_info["len_encoders"] = ",".join([str(e.length) for e in prompt_encoders])
         exp_info["taginfo"].append("len_encoders")
+        tasks = data_args.task_name
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, 
             source_prompt_length,
-            target_prompt_length) 
+            target_prompt_length, tasks = tasks) 
         model.resize_token_embeddings(len(tokenizer))
 
     if log_var and preview == "encoders":

@@ -3,7 +3,7 @@ bash_params=""
 global_run_params=""
 extra_params=""
 sep="#"
-onError="break"
+onError="continue"
 g=0
 for i in $@
 do
@@ -26,7 +26,7 @@ onError=break
 echo "Bash params: ${bash_params}"
 echo "Global: $global_run_params"
 
-ep=20
+ep=15
 tn=20
 bs=12
 ppx="${ep}${tn}"
@@ -36,6 +36,7 @@ nums="_ep $ep _tsn 100"
 logs=$HOME/logs/$1
 if [ $1 = "test" ]; then
    rm -rf $logs
+   onError="break"
    ep=5
    tn=10
    bs=4
@@ -45,18 +46,19 @@ else
       exit
    fi
 fi
-
+ii=0
 for tn in 20 50; do
 for seed in 123; do
-for cmm in cat wavg; do
+for cmm in wavg cat; do
    if [ $cmm = "cat" ]; then
       numt=10
+      ntp=5
    else
       numt=50
+      ntp=0
    fi
-ntp=0
-for numt in 10; do
-for nsp in 0 2; do
+for nsp in 0; do
+for tst in 0.5 1; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
@@ -64,12 +66,16 @@ else
 fi
 #for tasks in "_tasks qnli stsb mnli qqp"; do 
 #for tasks in _gtasks _atasks; do 
+#for route_method in bias ratt satt const direct; do
+for route_method in biasx biasp direct; do
 for tasks in _gtasks; do 
-   catname="${1}$tasks-$cmm-$numt-$nsp-seed-$seed"
-   common="${params} _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
-   mets="$common $nums _cmm $cmm "
+   ((ii++))
+   catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii"
+   common="${params} _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   mets="$common $nums _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
+   SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
    SIL_args="$mets _lsp _ppx $ppx"
    SILP_args="$mets _upp _lsp _ppx $ppx"
    SILPI_args="$mets _upp _lsp _ppx $ppx _lpp"
@@ -79,13 +85,22 @@ for tasks in _gtasks; do
    SLPI_args="$mets _upp _lsp False _lpp _ppx $ppx"
    PI_args="$common _pt $tasks _upp _lpp _lsp False $nums"
    P_args="$common _pt $tasks $nums _skip"
+   SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   # for met in SILP SL SLPI SLP SIP SIL SILPI PI; do
+   for met in P SC SILP SL SLPI SLP SIP SIPI SIL SILPI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
-   for met in SILP SL SLP; do
+   # for met in SILP SL SLP; do
+   # for met in SLP SL; do
+   # for met in SLP SILPI SLPI SL; do
+   # for met in SIPI SIP SILPI; do
        echo $met
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue
+       fi
+       if [[ "$met" == *SC* ]]; then
+          if [ "$route_method" != "const" ]; then
+             continue
+          fi
        fi
        args_variable="${met}_args"
        if [ -n "${!args_variable}" ]; then
@@ -99,6 +114,7 @@ for tasks in _gtasks; do
            echo "Variable ${args_variable} not defined for method ${met}."
        fi
    done
+done
 done
 done
 done
