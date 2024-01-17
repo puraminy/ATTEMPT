@@ -207,7 +207,7 @@ def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["exp_id", "expid", "rouge_score", "pred_max_num"] + keep_cols:
+        if c in ["fid", "expid", "rouge_score", "pred_max_num"] + keep_cols:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
@@ -226,7 +226,7 @@ def list_dfs(df, main_df, s_rows, FID):
     ii = 0
     dfs_val = {}
     for s_row in s_rows:
-        exp=df.iloc[s_row]["exp_id"]
+        exp=df.iloc[s_row]["fid"]
         prefix=df.iloc[s_row]["prefix"]
         dfs_val["exp" + str(ii)] = exp
         mlog.info("%s == %s", FID, exp)
@@ -244,7 +244,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
     ii = 0
     dfs_val = {}
     for s_row in s_rows:
-        exp=df.iloc[s_row]["exp_id"]
+        exp=df.iloc[s_row]["fid"]
         prefix=df.iloc[s_row]["prefix"]
         dfs_val["exp" + str(ii)] = exp
         mlog.info("%s == %s", FID, exp)
@@ -342,7 +342,7 @@ def show_df(df):
         s_rows = range(len(df))
         show_msg("Saving ...")
         for s_row in s_rows:
-            exp=df.iloc[s_row]["exp_id"]
+            exp=df.iloc[s_row]["fid"]
             tdf = main_df[main_df["fid"] == exp]
             spath = tdf.iloc[0]["path"]
             tdf.to_csv(spath, sep="\t", index=False)
@@ -387,8 +387,8 @@ def show_df(df):
     if not "bert_score" in df:
        df["bert_score"] = 0
 
-    if "exp_id" in df:
-        df = df.rename(columns={"exp_id":"expid"})
+    #if "fid" in df:
+    #    df = df.rename(columns={"fid":"expid"})
 
     if "input_text" in df:
         df['input_text'] = df['input_text'].str.replace('##','')
@@ -934,7 +934,7 @@ def show_df(df):
         elif char == "=":
             col = sel_cols[cur_col]
             val=df.iloc[sel_row][col]
-            if col == "exp_id": col = FID
+            if col == "fid": col = FID
             if "filter" in consts:
                 consts["filter"] += " " + col + "='" + str(val) + "'"
             else:
@@ -978,7 +978,7 @@ def show_df(df):
             if prev_char == "x":
                 s_rows = range(len(df))
             for s_row in s_rows:
-                exp=df.iloc[s_row]["exp_id"]
+                exp=df.iloc[s_row]["fid"]
                 _score=df.iloc[s_row]["bert_score"]
                 #if _score > 0:
                 #    continue
@@ -1076,7 +1076,7 @@ def show_df(df):
             Path("temp").mkdir(parents=True, exist_ok=True)
             imgs = []
             for s_row in all_rows:
-                exp=df.iloc[s_row]["exp_id"]
+                exp=df.iloc[s_row]["fid"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
                 path=tdf.iloc[0]["path"]
@@ -1098,7 +1098,7 @@ def show_df(df):
                 new_im.save(pname)
             subprocess.run(["eog", pname])
         elif char == "l" and prev_char == "p":
-            exp=df.iloc[sel_row]["exp_id"]
+            exp=df.iloc[sel_row]["fid"]
             cond = f"(main_df['{FID}'] == '{exp}')"
             tdf = main_df[main_df[FID] == exp]
             path=tdf.iloc[0]["path"]
@@ -1127,7 +1127,7 @@ def show_df(df):
             sel_cols=["pred_max_num","pred_max", "tag","prefix","rouge_score", "num_preds","bert_score"]
         elif (char == "i" and not prev_char == "x" and hk=="G"):
             backit(df,sel_cols)
-            exp=df.iloc[sel_row]["exp_id"]
+            exp=df.iloc[sel_row]["fid"]
             cond = f"(main_df['{FID}'] == '{exp}')"
             df = main_df[main_df[FID] == exp]
             sel_cols=tag_cols + ["bert_score", "out_score", "pred_text1","target_text","input_text","rouge_score","prefix"]
@@ -1151,7 +1151,7 @@ def show_df(df):
             save_obj(rep_cols, "rep_cols", "gtasks")
             cmd = "report"
         elif char == "Q":
-            canceled, col = list_values(["m_score","word_score","preds_num","rouge_score","bert_score"])
+            canceled, col = list_values(["m_score","word_score","rouge_score","bert_score"])
             if not canceled:
                 if col in score_cols: 
                     score_cols.remove(col)
@@ -1299,7 +1299,7 @@ def show_df(df):
         elif char == "==": 
             col = sel_cols[cur_col]
             exp=df.iloc[sel_row][col]
-            if col == "exp_id": col = FID
+            if col == "fid": col = FID
             if col == "fid":
                 sel_fid = exp
             mlog.info("%s == %s", col, exp)
@@ -1466,7 +1466,7 @@ def show_df(df):
             left = 0
             col = [col, "prefix"]
             sel_cols =  load_obj("sel_cols", context, [])
-            sel_cols = list(set(sel_cols))
+            sel_cols = list(set(exp_cols + sel_cols))
             info_cols = load_obj("info_cols", context, [])
             if False: #reset:
                 info_cols = ["bert_score", "num_preds"]
@@ -1482,6 +1482,7 @@ def show_df(df):
                     _agg[c] = "mean"
                 else:
                     _agg[c] = ["first", "nunique"]
+            #df = df.groupby(col).agg(_agg).reset_index(drop=True)
             gb = df.groupby(col)
             counts = gb.size().to_frame(name='group_records')
             counts.columns = counts.columns.to_flat_index()
@@ -1500,9 +1501,9 @@ def show_df(df):
                     "input_text_nunique":"num_inps",
                     }
             for c in df.columns:
-                if c == FID + "_first":
-                    ren[c] = "exp_id"
-                elif c.endswith("_mean"):
+                #if c == FID + "_first":
+                #    ren[c] = "fid"
+                if c.endswith("_mean"):
                     ren[c] = c.replace("_mean","")
                 elif c.endswith("_first"):
                     ren[c] = c.replace("_first","")
@@ -1527,7 +1528,7 @@ def show_df(df):
                 s_rows = [sel_row]
             pfix = ""
             for s_row in s_rows:
-                exp=df.iloc[s_row]["exp_id"]
+                exp=df.iloc[s_row]["fid"]
                 score=df.iloc[s_row]["rouge_score"]
                 cond = f"(main_df['{FID}'] == '{exp}')"
                 tdf = main_df[main_df[FID] == exp]
@@ -1550,7 +1551,7 @@ def show_df(df):
                 s_rows = [sel_row]
             cond = ""
             for s_row in s_rows:
-                exp=df.iloc[s_row]["exp_id"]
+                exp=df.iloc[s_row]["fid"]
                 cond += f"| (main_df['{FID}'] == '{exp}') "
             cond = cond.strip("|")
             filter_df = main_df[eval(cond)]
@@ -1615,7 +1616,7 @@ def show_df(df):
                 path = Path(path)
                 #_selpath = os.path.join(path.parent, "sel_" + path.name) 
                 #shutil.copyfile(path, _selpath)
-                exp=df.iloc[sel_row]["exp_id"]
+                exp=df.iloc[sel_row]["fid"]
                 sel_exp = exp
                 #FID="expid"
                 cond = f"(main_df['{FID}'] == '{exp}')"
@@ -1657,7 +1658,7 @@ def show_df(df):
             if FID == "fid":
                 mdf = main_df.groupby("fid", as_index=False).first()
                 mdf = mdf.copy()
-                _sels = df["exp_id"]
+                _sels = df["fid"]
                 for s_row, row in mdf.iterrows():
                     exp=row["fid"]
                     if char == "d":
@@ -1782,7 +1783,7 @@ def show_df(df):
             backit(df, sel_cols)
             if is_enter(ch): char = "f"
             col = sel_cols[cur_col]
-            if col == "exp_id": col = FID
+            if col == "fid": col = FID
             if char == "f":
                 canceled, col, val = list_df_values(main_df, col, get_val=True)
             else:
@@ -2044,21 +2045,24 @@ def show_df(df):
             if not rep_cols:
                 rep_cols = ["expid", "template"]
             main_score = "rouge_score"
-            m_report = f"{_dir}/report_templates/report.tex.temp2"
+            if len(score_cols) > 1:
+                m_report = f"{_dir}/report_templates/report_colored_template.tex"
+            else:
+                m_report = f"{_dir}/report_templates/report_template.tex"
             with open(m_report, "r") as f:
                 report = f.read()
             with open(os.path.join(doc_dir, "report.tex"), "w") as f:
                 f.write("")
             # df = main_df
             rep_cols = exp_cols
-            gcol = exp_cols 
-            cols = ["prefix", "fid"]
-            mdf = main_df
-            # mdf["preds_num"] = mdf.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
-            cols = set(cols + exp_cols + rep_cols + score_cols) # + ["preds_num"])
+            gcol = ["folder"] + exp_cols 
+            cols = ["prefix", "fid", "eid"]
+            mdf = df #main_df
+            #mdf["num_preds"] = mdf.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
+            cols = set(cols + exp_cols + rep_cols + score_cols) 
             for c in cols:
                 if c in df.columns: 
-                    if c == "preds_num":
+                    if c == "num_preds":
                         _agg[c] = "mean"
                     elif c.endswith("score") or c in score_cols:
                         _agg[c] = "mean"
@@ -2066,26 +2070,48 @@ def show_df(df):
                         _agg[c] = "first"
             mdf[gcol] = mdf[gcol].fillna('none')
 
+            dfs = []
             for score_col in score_cols:
                 pdf = mdf.pivot_table(index=gcol, columns='prefix', 
                         values=[score_col], aggfunc='mean')
-                pdf['avg'] = pdf.mean(axis=1, skipna=True)
-                pdf['fid'] = mdf.groupby(gcol)['fid'].first()
+                pdf["avg"] = pdf.mean(axis=1, skipna=True)
+                #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
+                pdf['eid'] = mdf.groupby(gcol)['eid'].first()
+                #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
                 pdf.reset_index(inplace=True)
                 pdf.columns = [col[1] if col[0] == score_col else col[0] 
                         for col in pdf.columns]
                 pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
                               for col in pdf.columns]
-                pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+                pdf['folder'] = pdf['folder'].apply(
+                        lambda x: x.split('/')[-1].split("-")[0].replace("_","-")) 
+                # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
                 pdf['ref'] = pdf.apply(
-                        lambda row: f" \\ref{{{'fig:' + str(row['fid'])}}}", axis=1)
-                pdf = pdf.sort_values(by='avg', ascending=False)
+                        lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
+                # pdf = pdf.sort_values(by='avg', ascending=False)
                 pdf = pdf.round(2)
+                dfs.append(pdf)
 
-                latex_table=tabulate(pdf, #[exp_cols+score_cols], 
-                        headers='keys', tablefmt='latex_raw', showindex=False)
-                latex_table = latex_table.replace("tabular", "longtable")
-                report = report.replace("mytable", latex_table + "\n\n mytable")
+                #latex_table=tabulate(pdf, #[exp_cols+score_cols], 
+                #        headers='keys', tablefmt='latex_raw', showindex=False)
+                #latex_table = latex_table.replace("tabular", "longtable")
+                #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
+
+            # merged_df = merged_df.sort_values(by=['eid'], ascending=False)
+            dfs[0].sort_values(inplace=True, by="avg", ascending=False)
+            data = []
+            for _, row1 in dfs[0].iterrows():
+                data.append(row1.to_dict())
+                # Find the corresponding row in df2 based on 'id'
+                for df2 in dfs[1:]:
+                    row2 = df2[df2['eid'] == row1['eid']].to_dict('records')[0]
+                    data.append(row2)
+
+            result_df = pd.DataFrame(data)
+            latex_table=tabulate(result_df, #[exp_cols+score_cols], 
+                    headers='keys', tablefmt='latex_raw', showindex=False)
+            latex_table = latex_table.replace("tabular", "longtable")
+            report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
             report = report.replace("mytable", "\n \\newpage mytable")
             # df = pdf
             # sel_cols = pdf.columns
@@ -2115,20 +2141,19 @@ def show_df(df):
                 #pname = plot_bar(pics_dir, train_num)
                 #ii = image.format(pname, "bar", "fig:bar")
                 #report = report.replace("myimage", ii +"\n\n" + "myimage")
-                all_exps = pdf["fid"].unique()
-                dest, imgs, fnames = get_images(all_exps, 'fid')
+                all_exps = pdf["eid"].unique()
+                dest, imgs, fnames = get_images(all_exps, 'eid')
                 all_images = {}
                 kk = 0
                 id = "other"
                 images_str = ""
-                if "preds_num" in _agg:
-                    del _agg["preds_num"]
-                if "num_preds" in _agg:
-                    del _agg["num_preds"]
+                #if "num_preds" in _agg:
+                #    del _agg["num_preds"]
                 _agg["fid"] = "first"
+                _agg["eid"] = "first"
                 edf = mdf.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
                 edf = edf.sort_values(by=score_cols[0], ascending=False)
-                cols = exp_cols + score_cols
+                cols = ["eid"] + exp_cols + score_cols
                 img_string = ""
                 for key, img_list in imgs.items():
                     mkey = key
@@ -2138,12 +2163,13 @@ def show_df(df):
                         name = key + str(name)
                         _exp = key.replace("_","-")
                         _exp = _exp.split("-")[0]
-                        label = "fig:" + key 
                         fname = fnames[kk]
                         caption = key + ":"
-                        if not edf.loc[edf['fid'] == mkey].empty:
-                            edf_sels = edf.loc[edf['fid'] == mkey, cols].iloc[0].to_dict()
+                        label = ""
+                        if not edf.loc[edf['eid'] == mkey].empty:
+                            edf_sels = edf.loc[edf['eid'] == mkey, cols].iloc[0].to_dict()
                             cat = json.dumps(edf_sels).replace("_","-")
+                            label = "fig:" + str(edf_sels['eid'])
                             for k,v in edf_sels.items():
                                 if k in map_cols:
                                     k = map_cols[k]
@@ -2619,6 +2645,8 @@ def start(stdscr):
             return
         dfs = []
         ii = 0
+        ff = 0
+        folders = {}
         for f in tqdm(files):
             # mlog.info(f)
             #print(f)
@@ -2647,6 +2675,12 @@ def start(stdscr):
                 df["path"] = f
                 df["fid"] = ii
                 _dir = str(Path(f).parent)
+                folder = str(Path(f).parent.parent) 
+                if not folder in folders:
+                    folders[folder] = ff
+                    ff += 1
+                df["folder"] = folder 
+                df["eid"] = folders[folder]
                 _pp = _dir + "/*.png"
                 png_files = glob(_pp)
                 if not png_files:

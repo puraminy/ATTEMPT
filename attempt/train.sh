@@ -271,6 +271,7 @@ if [ -z "$_lp" ]; then  _lp=True; fi
 if [ -z "$_pdir" ]; then  _pdir=prompts; fi
 if [ -z "$_msl" ]; then  _msl=400; fi
 if [ -z "$_mtl" ]; then  _mtl=50; fi
+if [ -z "$_test_config" ]; then  _test_config="sel-test@"; fi
 if [ -z "$_sph" ]; then  _sph=1; fi
 if [ -z "$_mc" ]; then  _mc=False; fi #multi choice format
 
@@ -370,7 +371,7 @@ params="${params} --add_prefix=$_prefix"
 params="${params} --ds_config=en@"
 params="${params} --max_source_length=$_msl"
 params="${params} --max_target_length=$_mtl"
-params="${params} --test_ds_config=full-test@"
+params="${params} --test_ds_config=$_test_config"
 
 if [ "$_exp" = "self" ]; then
    # exp="${PWD#$log/}"

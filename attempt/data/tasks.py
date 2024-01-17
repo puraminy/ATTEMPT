@@ -2,7 +2,9 @@ from collections import OrderedDict
 from datasets import Dataset
 import collections
 import abc
+import os
 import functools
+from pathlib import Path
 from typing import Callable, List, Mapping
 from utils import pad_punctuation
 from metrics import metrics
@@ -47,6 +49,7 @@ class AbstractTask(abc.ABC):
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
+        self.data_path = task_args.data_path
         self.seed = task_args.data_seed
         self.template = task_args.template
         self.tokenizer = tokenizer
@@ -113,9 +116,31 @@ class AbstractTask(abc.ABC):
         if indices is None:
             indices = self.shuffled_indices(dataset)
         indices = indices[:n_obs]
-        return dataset.select(indices)
+        ds = dataset.select(indices)
+        return ds
 
-    def load_dataset(self, split: int):
+    def get_data_path(self, split):
+        path = self.data_path
+        self.split = split
+        if not path.startswith("/"):
+            path= op.join(mylogs.home, self.data_path)
+        if split == "test":
+            path = op.join(path, self.config, 'test.tsv')
+        else:
+            path = op.join(path, split + '.tsv')
+        return path
+
+    def save_dataset(self, dataset, output_filename):
+        if isinstance(dataset, pd.DataFrame):
+            # Save Pandas DataFrame to CSV
+            dataset.to_csv(output_filename, index=False)
+            print(f"Dataset saved as CSV: {output_filename}")
+        elif isinstance(dataset, Dataset):
+            dataset.to_pandas().to_csv(output_filename, index=False)
+        else:
+            raise ValueError("Unsupported dataset type. Cannot save.")
+
+    def load_dataset(self, split, n_obs = None):
         return datasets.load_dataset(self.name, self.config, split=split)
 
     def get_split_indices(self, split, dataset, validation_size):
@@ -136,6 +161,16 @@ class AbstractTask(abc.ABC):
         # half, use one half as test set and one half as validation set.
         self.split = split
         mylogs.bp("get")
+        file_path = self.get_data_path(split)
+        directory = os.path.dirname(file_path)
+        fname = Path(file_path).stem
+        extension = Path(file_path).suffix 
+        if n_obs is None: n_obs = 100
+        outfile = os.path.join(directory, 
+                fname + "_" + str(self.seed) + "_" + str(n_obs) + extension)
+        if Path(outfile).is_file():
+            file_name = outfile
+
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
             mapped_split = self.split_to_data_split["validation"]
@@ -146,9 +181,9 @@ class AbstractTask(abc.ABC):
                     'csv', data_files={split:file_name})[split]
             else:
                 dataset = self.load_dataset(split=mapped_split)
-            indices = self.get_split_indices(
-                split, dataset, validation_size=len(dataset)//2)
-            dataset = self.subsample(dataset, n_obs, indices)
+                indices = self.get_split_indices(
+                    split, dataset, validation_size=len(dataset)//2)
+                dataset = self.subsample(dataset, n_obs, indices)
         # For larger datasets (n_samples > 10K), we divide training set into 1K as
         # validation and the rest as training set, keeping the original validation
         # set as the test set.
@@ -161,9 +196,9 @@ class AbstractTask(abc.ABC):
                     'csv', data_files={split:file_name})[split]
             else:
                 dataset = self.load_dataset(split="train")
-            indices = self.get_split_indices(
-                split, dataset, validation_size=1000)
-            dataset = self.subsample(dataset, n_obs, indices)
+                indices = self.get_split_indices(
+                    split, dataset, validation_size=1000)
+                dataset = self.subsample(dataset, n_obs, indices)
         else:
             mapped_split = self.split_to_data_split[split]
             if lang is not None:
@@ -174,9 +209,11 @@ class AbstractTask(abc.ABC):
                     'csv', data_files={split:file_name})[split]
             else:
                 dataset = self.load_dataset(split=mapped_split)
-            # shuffles the data and samples it.
-            if n_obs is not None:
-                dataset = self.subsample(dataset, n_obs)
+                if n_obs is not None:
+                    dataset = self.subsample(dataset, n_obs)
+
+        if not Path(outfile).is_file(): 
+            self.save_dataset(dataset, outfile)
         return self.map_dataset(dataset, add_prefix)
 
     #### my post proc
@@ -811,7 +848,6 @@ class Atomic(AbstractTask):
     rels = []
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
-        self.data_path = task_args.data_path
         if not task_args.rels:
             self.rels = [self.name]
         else:
@@ -822,7 +858,7 @@ class Atomic(AbstractTask):
         self.split = split
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
-        if False: # split == "test" and self.config != "split":
+        if split == "test" and self.config != "split":
             mylogs.bp("=testdata")
             if self.config == "full-test":
                 path = op.join(path, self.config, self.name  + '.tsv')

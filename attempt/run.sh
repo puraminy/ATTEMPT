@@ -27,9 +27,10 @@ echo "Bash params: ${bash_params}"
 echo "Global: $global_run_params"
 
 ep=20
+epp=20
 tn=20
 bs=12
-ppx="${ep}${tn}"
+ppx="${epp}${tn}"
 # ppx=20200
 nums="_ep $ep _tsn 100"
 
@@ -47,7 +48,7 @@ else
    fi
 fi
 ii=0
-for tn in 20 50; do
+for tn in 20; do
 for seed in 123; do
 for cmm in wavg cat; do
    if [ $cmm = "cat" ]; then
@@ -67,8 +68,9 @@ fi
 #for tasks in "_tasks qnli stsb mnli qqp"; do 
 #for tasks in _gtasks _atasks; do 
 #for route_method in bias ratt satt const direct; do
-for route_method in biasx direct; do
-for tasks in _atasks; do 
+#for route_method in biasx biasp direct; do
+for route_method in const biasp; do
+for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii"
    common="${params} _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
@@ -87,9 +89,9 @@ for tasks in _atasks; do
    P_args="$common _pt $tasks $nums _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
-   # for met in SILP SL SLP; do
+   for met in SC SLP; do
    # for met in SLPI SLP; do
    # for met in SLP SILPI SLPI SL; do
    # for met in SIPI SIP SILPI; do

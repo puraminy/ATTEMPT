@@ -16,7 +16,7 @@ def setup_package():
         install_requires=[
             'sentence-transformers==2.2.2',
             'transformers==4.24.0',
-            'datasets==2.0.0',
+            'datasets==2.14.6',
             'scikit-learn', 
             'matplotlib==3.4.2',
             'torch',

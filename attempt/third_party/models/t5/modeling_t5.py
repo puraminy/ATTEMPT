@@ -1115,9 +1115,10 @@ class T5Stack(T5PreTrainedModel):
                     k = i
                     first = False
                 elif encoder.is_target:
-                    if self.route_method == "biasx":
+                    if self.route_method == "biasx" or self.route_method == "biass":
                         router[i, j] = self.target_share_temperature
-                    router[i, k] = self.target_share_temperature
+                    if self.route_method == "biasx" or self.route_method == "biasp":
+                        router[i, k] = self.target_share_temperature
                     k += 1
                     j += 1
                 i += 1
