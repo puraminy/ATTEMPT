@@ -3,6 +3,8 @@ from datasets import Dataset
 import collections
 import abc
 import os
+import os.path as op
+import pandas as pd
 import functools
 from pathlib import Path
 from typing import Callable, List, Mapping
@@ -121,14 +123,15 @@ class AbstractTask(abc.ABC):
 
     def get_data_path(self, split):
         path = self.data_path
-        self.split = split
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
+        path = op.join(path, self.name)
         if split == "test":
-            path = op.join(path, self.config, 'test.tsv')
-        else:
-            path = op.join(path, split + '.tsv')
-        return path
+            path = op.join(path, self.config)
+        Path(path).mkdir(parents=True, exist_ok=True)
+        self.split = split
+        file_path = op.join(path, split + '.tsv')
+        return file_path
 
     def save_dataset(self, dataset, output_filename):
         if isinstance(dataset, pd.DataFrame):
@@ -163,11 +166,11 @@ class AbstractTask(abc.ABC):
         mylogs.bp("get")
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
-        fname = Path(file_path).stem
-        extension = Path(file_path).suffix 
-        if n_obs is None: n_obs = 100
+        fname = split 
+        extension = ".csv" 
+        obs_str = str(n_obs) if n_obs is not None else "all"
         outfile = os.path.join(directory, 
-                fname + "_" + str(self.seed) + "_" + str(n_obs) + extension)
+                fname + "_" + str(self.seed) + "_" + obs_str + extension)
         if Path(outfile).is_file():
             file_name = outfile
 
@@ -835,9 +838,6 @@ class STSB(AbstractTask):
         tgt_texts = [str(round_stsb_target(example['label']))]
         return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
 
-import os.path as op
-
-import pandas as pd
 class Atomic(AbstractTask):
     name = "atomic"
     metric = [metrics.rouge]

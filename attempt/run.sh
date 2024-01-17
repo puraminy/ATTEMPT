@@ -73,8 +73,8 @@ for route_method in const biasp; do
 for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii"
-   common="${params} _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
-   mets="$common $nums _cmm $cmm _rm $route_method"
+   common="${params} $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   mets="$common _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
    SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
@@ -85,8 +85,8 @@ for tasks in _gtasks; do
    ST_args="$mets _lsp False _addt True "
    SLP_args="$mets _upp _lsp False"
    SLPI_args="$mets _upp _lsp False _lpp _ppx $ppx"
-   PI_args="$common _pt $tasks _upp _lpp _lsp False $nums"
-   P_args="$common _pt $tasks $nums _skip"
+   PI_args="$common _pt $tasks _upp _lpp _lsp False "
+   P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
    # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do

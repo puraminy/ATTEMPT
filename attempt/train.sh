@@ -239,6 +239,7 @@ log=${home}/logs
 echo "log: ${log}"
 
 if [ -z "$_bs" ]; then  _bs=16; fi
+if [ -z "$_dpath" ]; then  _dpath="datasets"; fi # data path
 if [ -z "$_lr" ]; then  _lr=0.05; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
@@ -346,7 +347,7 @@ for method in $_met; do
 params="${params} --@method=$method"
 
 # data  ddddd
-params="${params} --data_path=atomic2020"
+params="${params} --data_path=$_dpath"
 params="${params} --load_best_model_at_end=false"
 params="${params} --use_all_data=False"
 params="${params} --@max_train_samples=$_tn"
