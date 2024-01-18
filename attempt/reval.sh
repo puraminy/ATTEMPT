@@ -43,7 +43,7 @@ done
 main_vars=${main_vars#"--"}
 main_vars="${main_vars}--task_name"
 
-echo "==================== Train.sh ======================"
+echo "==================== Reval.sh ======================"
 echo "Main experiment variables: $main_vars"
 echo "Bash Prarams: ${bash_params}"
 echo "Extra Prarams: ${extra_params}"
@@ -91,3 +91,10 @@ for file in $(find "$PWD" -type f -name "exp.json"); do
       done
    done
 done
+
+
+if [[ "$*" =~ "_shutdown" ]]; then
+   echo "shut down"
+   echo 'a' | sudo -S shutdown -h now
+   exit
+fi

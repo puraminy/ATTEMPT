@@ -242,7 +242,7 @@ def cli():
     "--new_exp_folder",
     "-new",
     is_flag=True,
-    help="Whether create a new directory for experiment when loadign an existing config file"
+    help="Whether create a new directory for experiment when loading an existing config file"
 )
 @click.option(
     "--log_path",
@@ -714,6 +714,11 @@ def train(**kwargs):
     kwargs["num_prompt_tokens"] = target_prompt_length 
     kwargs["source_prompt_length"] = source_prompt_length 
     kwargs["target_prompt_length"] = target_prompt_length 
+    
+    #TODO to make it compatible with older config files
+    if data_args.data_path == "atomic2020":
+        data_args.data_path = "datasets"
+
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)

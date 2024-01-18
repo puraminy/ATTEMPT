@@ -53,7 +53,7 @@ for seed in 123; do
 for cmm in wavg cat; do
    if [ $cmm = "cat" ]; then
       numt=10
-      ntp=4
+      ntp=5
    else
       numt=50
       ntp=0
@@ -65,12 +65,12 @@ if [ $nsp -eq 0 ]; then
 else
    src=""
 fi
-#for tasks in "_tasks qnli stsb mnli qqp"; do 
+for tasks in "_tasks mnli qnli rte stsb qqp mrpc sst2"; do 
 #for tasks in _gtasks _atasks; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in const biasp; do
-for tasks in _gtasks; do 
+for route_method in biasx biasp const; do
+#for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii"
    common="${params} $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
@@ -89,9 +89,9 @@ for tasks in _gtasks; do
    P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
-   for met in SC SLP; do
+   # for met in SC SLP; do
    # for met in SLPI SLP; do
    # for met in SLP SILPI SLPI SL; do
    # for met in SIPI SIP SILPI; do

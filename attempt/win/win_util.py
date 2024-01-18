@@ -531,7 +531,6 @@ def mbeep(repeat=1):
 
 # -*- coding: utf-8 -*-
 
-win_info = None
 def confirm_all(msg):
     return confirm(msg, acc=['y', 'n', 'a'])
 
@@ -556,39 +555,53 @@ def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = T
     return ch
 
 old_msg = ''
-_ROWS = 21
-_COLS = 92
+STD_ROWS = 21
+STD_COLS = 90
+
+def set_max_rows_cols(rows, cols):
+    global STD_ROWS, STD_COLS
+    STD_ROWS = rows
+    STD_COLS = cols
+
+win_info = None
 def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
     global win_info, old_msg 
-    rows, cols = _ROWS, _COLS
-    if bottom:
-        old_msg = msg
-        win_info = cur.newwin(1, cols, rows - 1, 0)
-        win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-        win_info.erase()
-        msg = msg.replace("\n","")
-        if len(msg) > cols - 15:
-            msg = msg[:(cols - 16)] + "..."
-        print_there(0, 1, " {} ".format(msg), win_info, color)
-        win_info.clrtoeol()
-        if refresh:
-            win_info.refresh()
-        else:
-            win_info.noutrefresh()
-    else:
+    rows, cols = STD_ROWS, STD_COLS
+    start_col = 1
+    start_row = rows -1
+    mrows = 1
+    mcols = cols
+    if not bottom:
         mcols = 2*cols//3 - 2
+        start_col = (cols - mcols) // 2 
         nlines = 0
         for line in msg.splitlines():
-            wrap = textwrap.wrap(line,mcols, break_long_words=False,replace_whitespace=False)
+            wrap = textwrap.wrap(line,mcols, 
+                    break_long_words=False,replace_whitespace=False)
             nlines += len(wrap)
         nlines += 1
         mrows = nlines + 2
+        start_row = (rows - mrows) // 2 
+    old_msg = msg
+    win_info = cur.newwin(mrows, mcols, 3, 7)
+    win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
+    win_info.border()
+    win_info.erase()
+    msg = msg.replace("\n","")
+    if len(msg) > cols - 15:
+        msg = msg[:(cols - 16)] + "..."
+    print_there(0, 1, " {} ".format(msg), win_info, color)
+    win_info.clrtoeol()
+    if refresh:
+        win_info.refresh()
+    else:
+        win_info.noutrefresh()
     return win_info
 
-def show_msg(msg, color=MSG_COLOR, delay=2000):
+def show_msg(msg, color=MSG_COLOR, bottom=False, delay=-1):
     temp = old_msg
     mbeep()
-    win = show_info(msg, color)
+    win = show_info(msg, color, bottom)
     if delay > 0:
         win.timeout(delay)
         win.getch()

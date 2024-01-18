@@ -1,4 +1,3 @@
-import curses as cur
 from distutils.dir_util import copy_tree
 import subprocess
 from functools import reduce
@@ -23,13 +22,14 @@ import json
 from tqdm import tqdm
 # from comet.utils.myutils import *
 from attempt.utils.utils import combine_x,combine_y,add_margin
-file_id = "name"
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 import sklearn
 import sklearn.metrics
 import attempt.metrics.metrics as mets
+
+file_id = "name"
 
 table_mid_template = """
     \\begin{{table*}}
@@ -434,6 +434,7 @@ def show_df(df):
         tag_cols.remove("expid")
     if "expid" in df:
         df["expid"] = df["expid"].astype(str)
+        df["expname"] = df["expid"].str.split("-").str[0]
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
@@ -466,20 +467,24 @@ def show_df(df):
     sort = "rouge_score"
     on_col_list = []
     keep_cols = []
-    rep_cols = load_obj("rep_cols", "gtasks", [])
-
     unique_cols = []
     group_sel_cols = []
-    exp_cols = []
-    score_cols = [] #load_obj("score_cols", "gtasks", ["m_score"])
+    rep_cols = []
+    dfs = []
+    score_cols = ["m_score"] #load_obj("score_cols", "gtasks", ["m_score"])
     all_cols = {}
     file_dir = Path(__file__).parent
+    #sel_cols =  load_obj("sel_cols", context, [])
+    #info_cols = load_obj("info_cols", context, [])
     with open(os.path.join(file_dir, 'cols.json'),'r') as f:
         all_cols = json.load(f)
 
-    if 'exp_cols' in all_cols:
-        exp_cols = all_cols['exp_cols'] 
-        score_cols = all_cols['score_cols'] 
+    if 'sel_cols' in all_cols:
+        sel_cols = all_cols['sel_cols'] 
+        info_cols = all_cols['info_cols'] 
+
+    sel_cols = list(set(sel_cols + rep_cols + score_cols))
+    back_sel_cols = sel_cols.copy()
 
     sel_fid = "" 
     df_cond = True
@@ -645,10 +650,14 @@ def show_df(df):
         return infos, col_widths
 
     def backit(df, sel_cols):
+        if len(sel_cols) < 2:
+            mbeep()
+            return
         back.append(df)
         sels.append(sel_cols.copy())
         back_rows.append(sel_row)
         back_infos.append(info_cols.copy())
+
     for _col in ["input_text","pred_text1","target_text"]:
         if _col in df:
             df[_col] = df[_col].astype(str)
@@ -1159,7 +1168,7 @@ def show_df(df):
             save_obj(score_cols, "score_cols", "gtasks")
             char = "Z"
         elif char == "I" or ch == cur.KEY_IC:
-            canceled, col, val = list_df_values(main_df, get_val=False)
+            canceled, col, val = list_df_values(df, get_val=False)
             if not canceled:
                 if col in sel_cols: 
                     sel_cols.remove(col)
@@ -1382,15 +1391,14 @@ def show_df(df):
             consts["options"] = "b: back"
             backit(df, sel_cols)
             col = sel_cols[cur_col]
-            _agg = {}
-            for c in sel_cols:
-                if c.endswith("score"):
-                    _agg[c] = "mean"
-                else:
-                    _agg[c] = "first"
-            df = df.groupby([col]).agg(_agg).reset_index(drop=True)
-            df = df.sort_values(by=["m_score"], ascending=False)
-            sort = "m_score"
+            df = df.groupby([col]).mean(numeric_only=True).reset_index()
+            df = df.round(2)
+            if "m_score" in df:
+                df = df.sort_values(by=["m_score"], ascending=False)
+                sort = "m_score"
+            elif "avg" in df:
+                df = df.sort_values(by=["avg"], ascending=False)
+                sort = "avg"
         elif char == "u":
             infos = calc_metrics(main_df)
             subwin(infos)
@@ -1402,7 +1410,7 @@ def show_df(df):
                 info_cols = []
         elif char == "C": 
             score_col = "rouge_score"
-            backit(df, sel_cols)
+            # backit(df, sel_cols)
             df["rouge_score"] = df.groupby(['fid','prefix','input_text'])["rouge_score"].transform("max")
             df["bert_score"] = df.groupby(['fid','prefix','input_text'])["bert_score"].transform("max")
             df["hscore"] = df.groupby(['fid','prefix','input_text'])["hscore"].transform("max")
@@ -1441,33 +1449,42 @@ def show_df(df):
             else:
                 s1 = sel_rows[0]
                 s2 = sel_rows[1]
+                f1 = df.iloc[s1]["eid"]
+                f2 = df.iloc[s2]["eid"]
                 infos = []
-                for col in df.columns:
-                    if (col == "ftag" or 
-                        col == "extra_fields" or col == "path" or col == "full_tag" 
-                        or col.startswith("test_") or "output_dir" in col):
+                for col in main_df.columns:
+                    if (
+                        col == "ftag"
+                        or col == "extra_fields"
+                        or col == "path"
+                        or col == "full_tag"
+                        or col.startswith("test_")
+                        or "output_dir" in col
+                    ):
                         continue
-                    i1 = df.iloc[s1][col]
-                    i2 = df.iloc[s2][col]
-                    if str(i1) != str(i2):
-                       infos.append(col + ":" + str(i1))
-                       infos.append(col + ":" + str(i2))
-                subwin(infos)
+
+                    values_f1 = main_df[main_df["eid"] == f1][col]
+                    values_f2 = main_df[main_df["eid"] == f2][col]
+
+                    if (pd.notna(values_f1.iloc[0]) and pd.notna(values_f2.iloc[0]) 
+                            and values_f1.iloc[0] != values_f2.iloc[0]):
+                        if values_f1.iloc[0] != values_f2.iloc[0]:
+                            infos.append(f"{col}: {values_f1.iloc[0]}")
+                            infos.append(f"{col}: {values_f2.iloc[0]}")
+
+                subwin(infos)                
         elif char == "z" and prev_char == "z":
             consts["context"] = context
             sel_cols =  load_obj("sel_cols", context, [])
             info_cols = load_obj("info_cols", context, [])
         elif char == "G":
-            backit(df, sel_cols)
+            # backit(df, sel_cols)
             context = "main"
             if FID == "input_text":
                 context = "inp2"
             col = FID
             left = 0
             col = [col, "prefix"]
-            sel_cols =  load_obj("sel_cols", context, [])
-            sel_cols = list(set(exp_cols + sel_cols))
-            info_cols = load_obj("info_cols", context, [])
             if False: #reset:
                 info_cols = ["bert_score", "num_preds"]
             if reset: #col == "fid":
@@ -2015,64 +2032,33 @@ def show_df(df):
                             del rep[k][exp]
             save_obj(rep, _from, "gtasks")
         # rrrrrrrrr
-        if cmd.startswith("report") or char == "Z" or char == "R" or cmd == "comp_rep":
-            rep_cols = []
-            if "=" in cmd:
-                parts = cmd.split("=")
-                cmd = parts[0]
-                rep_cols = parts[1:]
-            if "@" in cmd:
-                parts = cmd.split("@")
-                cmd = parts[0]
-                score_cols = parts[1:]
-
-            _dir = Path(__file__).parent
-            doc_dir = "/home/ahmad/logs" #os.getcwd() 
-            # doc_dir = os.path.join(home, 
-            #        "Documents/Paper2/IJCA/FormattingGuidelines-IJCAI-23")
-            _agg = {}
-            if char == "R" or cmd == "report":
-                if not score_cols:
-                    score_cols = ["m_score"] #, "out_score"]
-                if not rep_cols:
-                    rep_cols = ["cat"]
-            elif char == "Z":
-                score_cols = ["rouge_score"]
-                if not rep_cols:
-                    rep_cols = ["cat"]
-            if not "m_score" in sel_cols:
-                sel_cols.append("m_score")
-            if not rep_cols:
-                rep_cols = ["expid", "template"]
-            main_score = "rouge_score"
-            if len(score_cols) > 1:
-                m_report = f"{_dir}/report_templates/report_colored_template.tex"
-            else:
-                m_report = f"{_dir}/report_templates/report_template.tex"
-            with open(m_report, "r") as f:
-                report = f.read()
-            with open(os.path.join(doc_dir, "report.tex"), "w") as f:
-                f.write("")
-            # df = main_df
-            rep_cols = exp_cols
-            gcol = ["folder"] + exp_cols 
-            cols = ["prefix", "fid", "eid"]
+        if cmd.startswith("rep") or char == "Z" or char == "R":
             mdf = df #main_df
-            #mdf["num_preds"] = mdf.groupby(gcol + ["prefix"], sort=False)["pred_text1"].transform("count")
-            cols = set(cols + exp_cols + rep_cols + score_cols) 
-            for c in cols:
-                if c in df.columns: 
-                    if c == "num_preds":
-                        _agg[c] = "mean"
-                    elif c.endswith("score") or c in score_cols:
-                        _agg[c] = "mean"
-                    else:
-                        _agg[c] = "first"
+            _agg = {}
+            rep_cols = []
+            pivot_cols = sel_cols[cur_col] if cur_col >= 0 else 'prefix'
+            score_cols = []
+            for c in sel_cols: 
+                if c == "num_preds":
+                    _agg[c] = "mean"
+                elif c.endswith("score") or c.endswith("_num") or c.startswith("num_"): 
+                    score_cols.append(c)
+                    _agg[c] = "mean"
+                elif c not in pivot_cols:
+                    rep_cols.append(c)
+                    _agg[c] = "first"
+            gcol = rep_cols
+            if not "folder" in rep_cols:
+                gcol += ["folder"] 
             mdf[gcol] = mdf[gcol].fillna('none')
-
             dfs = []
             for score_col in score_cols:
-                pdf = mdf.pivot_table(index=gcol, columns='prefix', 
+                if not score_col in mdf:
+                    show_msg(score_col + " isn't in columns!", bottom=False)
+                    mbeep()
+                    cmd = ""
+                    continue
+                pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
                         values=[score_col], aggfunc='mean')
                 pdf["avg"] = pdf.mean(axis=1, skipna=True)
                 #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
@@ -2092,145 +2078,176 @@ def show_df(df):
                 pdf = pdf.round(2)
                 dfs.append(pdf)
 
-                #latex_table=tabulate(pdf, #[exp_cols+score_cols], 
+                #latex_table=tabulate(pdf, #[rep_cols+score_cols], 
                 #        headers='keys', tablefmt='latex_raw', showindex=False)
                 #latex_table = latex_table.replace("tabular", "longtable")
                 #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
 
             # merged_df = merged_df.sort_values(by=['eid'], ascending=False)
-            dfs[0].sort_values(inplace=True, by="avg", ascending=False)
-            data = []
-            for _, row1 in dfs[0].iterrows():
-                data.append(row1.to_dict())
-                # Find the corresponding row in df2 based on 'id'
-                for df2 in dfs[1:]:
-                    row2 = df2[df2['eid'] == row1['eid']].to_dict('records')[0]
-                    data.append(row2)
+            if len(dfs) > 1:
+                dfs[0].sort_values(inplace=True, by="avg", ascending=False)
+                data = []
+                for _, row1 in dfs[0].iterrows():
+                    data.append(row1.to_dict())
+                    # Find the corresponding row in df2 based on 'id'
+                    for df2 in dfs[1:]:
+                        row2 = df2[df2['eid'] == row1['eid']].to_dict('records')[0]
+                        data.append(row2)
 
-            result_df = pd.DataFrame(data)
-            latex_table=tabulate(result_df, #[exp_cols+score_cols], 
+                backit(df, sel_cols)
+                df = pd.DataFrame(data)
+                sel_cols = list(df.columns)
+            elif len(dfs) > 0:
+                dfs[0].sort_values(inplace=True, by="avg", ascending=False)
+                df = dfs[0]
+                backit(df, sel_cols)
+                sel_cols = list(df.columns)
+
+        if char == "Z" or cmd.startswith("rep"):
+            _dir = Path(__file__).parent
+            doc_dir = "/home/ahmad/logs" #os.getcwd() 
+            if len(score_cols) > 1:
+                m_report = f"{_dir}/report_templates/report_colored_template.tex"
+            else:
+                m_report = f"{_dir}/report_templates/report_template.tex"
+            with open(m_report, "r") as f:
+                report = f.read()
+            with open(os.path.join(doc_dir, "report.tex"), "w") as f:
+                f.write("")
+            latex_table=tabulate(df, #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
             latex_table = latex_table.replace("tabular", "longtable")
             report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
             report = report.replace("mytable", "\n \\newpage mytable")
             # df = pdf
-            # sel_cols = pdf.columns
-            if True: #char == "R": 
-                image = """
-                    \\begin{{figure}}
-                        \centering
-                        \includegraphics[width=\\textwidth]{{{}}}
-                        \caption[image]{{{}}}
-                        \label{{{}}}
-                    \end{{figure}}
-                """
-                cat = mdf["experiment"].unique()[0]
-                multi_image = """
-                    \\begin{figure}
-                        \centering
-                        \caption[image]{mycaption}
-                        mypicture 
-                        \label{fig:all}
-                    \end{figure}
-                """
-                graphic = "\includegraphics[width=\\textwidth]{{{}}}"
-                pics_dir = doc_dir + "/pics"
-                #ii = image.format(havg, "havg", "fig:havg")
-                #report = report.replace("myimage", ii +"\n\n" + "myimage")
-                Path(pics_dir).mkdir(parents=True, exist_ok=True)
-                #pname = plot_bar(pics_dir, train_num)
-                #ii = image.format(pname, "bar", "fig:bar")
-                #report = report.replace("myimage", ii +"\n\n" + "myimage")
-                all_exps = pdf["eid"].unique()
-                dest, imgs, fnames = get_images(all_exps, 'eid')
-                all_images = {}
-                kk = 0
-                id = "other"
-                images_str = ""
-                #if "num_preds" in _agg:
-                #    del _agg["num_preds"]
-                _agg["fid"] = "first"
-                _agg["eid"] = "first"
-                edf = mdf.groupby(gcol, as_index=False).agg(_agg).reset_index(drop=True)
-                edf = edf.sort_values(by=score_cols[0], ascending=False)
-                cols = ["eid"] + exp_cols + score_cols
-                img_string = ""
-                for key, img_list in imgs.items():
-                    mkey = key
-                    key = str(key)
-                    name = key
-                    for new_im in img_list:
-                        name = key + str(name)
-                        _exp = key.replace("_","-")
-                        _exp = _exp.split("-")[0]
-                        fname = fnames[kk]
-                        caption = key + ":"
-                        label = ""
-                        if not edf.loc[edf['eid'] == mkey].empty:
-                            edf_sels = edf.loc[edf['eid'] == mkey, cols].iloc[0].to_dict()
-                            cat = json.dumps(edf_sels).replace("_","-")
-                            label = "fig:" + str(edf_sels['eid'])
-                            for k,v in edf_sels.items():
-                                if k in map_cols:
-                                    k = map_cols[k]
-                                if type(v) == float:
-                                    v = f"{v:.2f}"
-                                if k == "cat":
-                                    v = v.split("-")[0]
-                                caption += " \\textcolor{gray}{" + str(k).replace("_","-") \
-                                    + "}: \\textcolor{blue}{" + str(v).replace("_","-")+ "}" 
-                        else:
-                            cat = "none" 
-                        ss = "_scores" if "score" in fname else "_sim"
-                        if "@" in fname:
-                            ss = "_" + fname.split("@")[1]
-                        pname = doc_dir + "/pics/" + id + name.strip("-") + ss + ".png" 
-                        dest = os.path.join(doc_dir, pname) 
-                        new_im.save(dest)
-                        ii = image.format(pname, caption, label)
-                        if kk % 10 == 0:
-                            tex = f"{doc_dir}/hm_img_{kk}.tex"
-                            with open(tex, "w") as f:
-                                f.write(img_string)
-                            img_string = ""
-                            report = report.replace("myimage", 
-                                    f"\clearpage \n \input{{hm_img_{kk}.tex}} \n myimage") 
-                        img_string +=  ii +"\n\n" 
-                        if not _exp in all_images:
-                            all_images[_exp] = {}
-                        all_images[_exp][ss] = pname
-                        kk += 1
+            # iiiiiiiiiiiii
+            report = report.replace("mytable","")
+            tex = f"{doc_dir}/report.tex"
+            pdf = f"{doc_dir}/report.pdf"
+            with open(tex, "w") as f:
+                f.write(report)
+            #with open(m_report, "w") as f:
+            #    f.write(main_report)
+            mbeep()
+            #subprocess.run(["pdflatex", tex])
+            #subprocess.run(["okular", pdf])
+        if "image" in cmd or char == "Z": 
+            _dir = Path(__file__).parent
+            doc_dir = "/home/ahmad/logs" #os.getcwd() 
+            m_report = os.path.join(doc_dir, "report.tex")
+            with open(m_report, "r") as f:
+                report = f.read()
 
-                if img_string: 
-                    tex = f"{doc_dir}/hm_img_{kk}.tex"
-                    with open(tex, "w") as f:
-                        f.write(img_string)
-                    img_string = ""
-                    report = report.replace("myimage", 
-                            f"\clearpage \n \input{{hm_img_{kk}.tex}} \n myimage") 
+            image = """
+                \\begin{{figure}}
+                    \centering
+                    \includegraphics[width=\\textwidth]{{{}}}
+                    \caption[image]{{{}}}
+                    \label{{{}}}
+                \end{{figure}}
+            """
+            cat = mdf["folder"].unique()[0]
+            multi_image = """
+                \\begin{figure}
+                    \centering
+                    \caption[image]{mycaption}
+                    mypicture 
+                    \label{fig:all}
+                \end{figure}
+            """
+            graphic = "\includegraphics[width=\\textwidth]{{{}}}"
+            cat = cat.split("/")[-1].split("-")[0]
+            pics_dir = doc_dir + "/pics"
+            #ii = image.format(havg, "havg", "fig:havg")
+            #report = report.replace("myimage", ii +"\n\n" + "myimage")
+            Path(pics_dir).mkdir(parents=True, exist_ok=True)
+            #pname = plot_bar(pics_dir, train_num)
+            #ii = image.format(pname, "bar", "fig:bar")
+            #report = report.replace("myimage", ii +"\n\n" + "myimage")
+            all_exps = df["eid"].unique()
+            dest, imgs, fnames = get_images(all_exps, 'eid')
+            all_images = {}
+            kk = 0
+            id = "other"
+            images_str = ""
+            cols = ["eid"] + rep_cols + score_cols
+            img_string = ""
+            for key, img_list in imgs.items():
+                mkey = key
+                key = str(key)
+                name = key
+                for new_im in img_list:
+                    name = key + str(name)
+                    _exp = key.replace("_","-")
+                    _exp = _exp.split("-")[0]
+                    fname = fnames[kk]
+                    caption = key + ":"
+                    label = ""
+                    if not df.loc[df['eid'] == mkey].empty:
+                        df_sels = df.loc[df['eid'] == mkey, :].iloc[0].to_dict()
+                        cat = json.dumps(df_sels).replace("_","-")
+                        label = "fig:" + str(df_sels['eid'])
+                        for k,v in df_sels.items():
+                            if k in map_cols:
+                                k = map_cols[k]
+                            if type(v) == float:
+                                v = f"{v:.2f}"
+                            if k == "cat":
+                                v = v.split("-")[0]
+                            caption += " \\textcolor{gray}{" + str(k).replace("_","-") \
+                                + "}: \\textcolor{blue}{" + str(v).replace("_","-")+ "}" 
+                    else:
+                        cat = "none" 
+                    ss = "_scores" if "score" in fname else "_sim"
+                    if "@" in fname:
+                        ss = "_" + fname.split("@")[1]
+                    pname = doc_dir + "/pics/" + id + name.strip("-") + ss + ".png" 
+                    dest = os.path.join(doc_dir, pname) 
+                    new_im.save(dest)
+                    ii = image.format(pname, caption, label)
+                    if kk % 10 == 0:
+                        tex = f"{doc_dir}/hm_img_{kk}.tex"
+                        with open(tex, "w") as f:
+                            f.write(img_string)
+                        img_string = ""
+                        report = report.replace("myimage", 
+                                f"\clearpage \n \input{{hm_img_{kk}.tex}} \n myimage") 
+                    img_string +=  ii +"\n\n" 
+                    if not _exp in all_images:
+                        all_images[_exp] = {}
+                    all_images[_exp][ss] = pname
+                    kk += 1
 
-                g1 = ["SIL","SILP","SIP"] 
-                g2 = ["SILPI","SLPI","SLP", "SL"] 
-                ii = 0
-                multi_image3 = multi_image
-                for k,v in all_images.items():
-                    if ii % 2 == 0:
-                        multi_image3 += f" \\newpage \n \\subsection{{{k}}}"
-                    ii += 1
-                    for p,q in v.items():
-                        multi_image3 += multi_image.replace("mypicture", 
-                                graphic.format(q) + "\n").replace("mycaption",
-                                        str(p) + ":" + str(q))
-
-                multi_image3 = multi_image3.replace("mypicture","")
-                tex = f"{doc_dir}/scores_img.tex"
+            if img_string: 
+                tex = f"{doc_dir}/hm_img_{kk}.tex"
                 with open(tex, "w") as f:
-                    f.write(multi_image3)
-                #report = report.replace("myimage", 
-                #        "\n\n \input{scores_img.tex} \n\n myimage") 
-                #report = report.replace("myimage", "\n\n \input{sim_img.tex} \n\n myimage") 
-                #report = report.replace("myimage", "\n\n \input{other_img.tex} \n\n") 
-                ####################
+                    f.write(img_string)
+                img_string = ""
+                report = report.replace("myimage", 
+                        f"\clearpage \n \input{{hm_img_{kk}.tex}} \n myimage") 
+
+            g1 = ["SIL","SILP","SIP"] 
+            g2 = ["SILPI","SLPI","SLP", "SL"] 
+            ii = 0
+            multi_image3 = multi_image
+            for k,v in all_images.items():
+                if ii % 2 == 0:
+                    multi_image3 += f" \\newpage \n \\subsection{{{k}}}"
+                ii += 1
+                for p,q in v.items():
+                    multi_image3 += multi_image.replace("mypicture", 
+                            graphic.format(q) + "\n").replace("mycaption",
+                                    str(p) + ":" + str(q))
+
+            multi_image3 = multi_image3.replace("mypicture","")
+            tex = f"{doc_dir}/scores_img.tex"
+            with open(tex, "w") as f:
+                f.write(multi_image3)
+            #report = report.replace("myimage", 
+            #        "\n\n \input{scores_img.tex} \n\n myimage") 
+            #report = report.replace("myimage", "\n\n \input{sim_img.tex} \n\n myimage") 
+            #report = report.replace("myimage", "\n\n \input{other_img.tex} \n\n") 
+            ####################
             report = report.replace("mytable","")
             report = report.replace("myimage","")
             tex = f"{doc_dir}/report.tex"
@@ -2246,9 +2263,9 @@ def show_df(df):
         if cmd == "fix_types":
             for col in ["target_text", "pred_text1"]: 
                 main_df[col] = main_df[col].astype(str)
-            for col in ["steps", "epochs", "val_steps"]: 
-                main_df[col] = main_df[col].astype(int)
-            char = "SS"
+                for col in ["steps", "epochs", "val_steps"]: 
+                    main_df[col] = main_df[col].astype(int)
+                char = "SS"
         if cmd == "clean":
             main_df = main_df.replace(r'\n',' ', regex=True)
             char = "SS"
@@ -2282,7 +2299,7 @@ def show_df(df):
                 _b = rowinput("to")
                 main_df[col] = main_df[col].str.replace(_a,_b)
                 char = "SS"
-        if cmd == "rep" or cmd == "rep@":
+        if cmd == "replace" or cmd == "replace@":
             canceled, col,val = list_df_values(main_df, get_val=False)
             if not canceled:
                 vals = df[col].unique()
@@ -2548,6 +2565,7 @@ def change_info(infos):
     rows,cols = std.getmaxyx()
     info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 2)
 si_hash = {}
+
 def list_values(vals,si=0, sels=[]):
     tag_win = cur.newwin(15, 70, 3, 5)
     tag_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -2573,7 +2591,7 @@ def list_df_values(df, col ="", get_val=True,si=0,vi=0, sels=[]):
         cols = list(df.columns)
         is_cancled, col = list_values(cols,si, sels)
     val = ""
-    if col and get_val and not is_cancled:
+    if col in df and col and get_val and not is_cancled:
         df[col] = df[col].astype(str)
         vals = sorted(list(df[col].unique()))
         is_cancled, val = list_values(vals,vi, sels)
@@ -2586,6 +2604,7 @@ cmd_win = None
 main_win = None
 text_width = 60
 std = None
+limit = -1
 dfname = ""
 dfpath = ""
 dftype = "tsv"
@@ -2594,17 +2613,19 @@ global_cmd = ""
 global_search = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
 def start(stdscr):
-    global info_bar, text_win, cmd_win, std, main_win, colors, dfname
+    global info_bar, text_win, cmd_win, std, main_win, colors, dfname, STD_ROWS, STD_COLS
     stdscr.refresh()
     std = stdscr
     now = datetime.datetime.now()
     rows, cols = std.getmaxyx()
+    set_max_rows_cols(rows, cols) 
     height = rows - 1
     width = cols
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
     text_win = cur.newpad(rows * 50, cols * 20)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
     cmd_win = cur.newwin(1, cols, rows - 1, 0)
+
     info_bar = cur.newpad(rows*10, cols*20)
     info_bar.bkgd(' ', cur.color_pair(HL_COLOR)) # | cur.A_REVERSE)
 
@@ -2633,12 +2654,16 @@ def start(stdscr):
             dfname = Path(dfname).stem
         else:
             files = []
+            ii = 0
             for root, dirs, _files in os.walk(dfpath):
                 for _file in _files:
                     root_file = os.path.join(root,_file)
                     cond = all(s.strip() in root_file for s in dfname)
                     if dftype in _file and cond: 
                         files.append(root_file)
+                        ii += 1
+                if limit > 0 and ii > limit:
+                    break
         # mlog.info("files: %s",files)
         if not files:
             print("No file was selected")
@@ -2648,9 +2673,6 @@ def start(stdscr):
         ff = 0
         folders = {}
         for f in tqdm(files):
-            # mlog.info(f)
-            #print(f)
-            #print("==================")
             if f.endswith(".tsv"):
                 df = pd.read_table(f, low_memory=False)
             elif f.endswith(".json"):
@@ -2741,7 +2763,7 @@ def start(stdscr):
 @click.option(
     "--hkey",
     "-h",
-    default="CGR",
+    default="CG",
     type=str,
     help=""
 )
@@ -2759,15 +2781,23 @@ def start(stdscr):
     type=str,
     help=""
 )
+@click.option(
+    "--df_limit",
+    "-l",
+    default=-1,
+    type=int,
+    help="Limit of datasets to load"
+)
 @click.pass_context
-def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search):
+def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, df_limit):
     if dpy:
         port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname,dfpath,file_id,dftype,hotkey, global_cmd, global_search
+    global dfname,dfpath,file_id,dftype,hotkey, global_cmd, global_search, limit
     file_id = fid
+    limit = df_limit
     global_search = search
     hotkey = hkey 
     global_cmd = cmd

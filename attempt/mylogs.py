@@ -19,6 +19,17 @@ main_args = {}
 prev_args = {}
 prev_main_vars = {}
 
+class colors:
+    HEADER = '\033[95m'
+    INFO = '\033[94m'
+    INFO2 = '\033[96m'
+    SUCCESS = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def args(key, default="no_default"):
     if key in main_args:
         return main_args[key]
@@ -96,6 +107,9 @@ def getFname(name, path=""):
             path = "/content"
     logFilename = os.path.join(path, f"{name}.log")
     return logFilename
+
+def minfo(text, *args, **kwargs):
+    mlog.info(colors.INFO + text + colors.ENDC + "\n", *args)
 
 def tinfo(text, *args, **kwargs):
     tlog.info(text, *args)

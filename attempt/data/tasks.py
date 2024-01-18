@@ -126,8 +126,8 @@ class AbstractTask(abc.ABC):
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
         path = op.join(path, self.name)
-        if split == "test":
-            path = op.join(path, self.config)
+        #if split == "test":
+        #    path = op.join(path, self.config)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
         file_path = op.join(path, split + '.tsv')
@@ -163,7 +163,8 @@ class AbstractTask(abc.ABC):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
         self.split = split
-        mylogs.bp("get")
+        if split == "test":
+            mylogs.bp("get")
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
         fname = split 
@@ -208,6 +209,7 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             if file_name is not None:
+                mylogs.minfo("------------- LOADING FROM FILE:" + self.name + " ----------")
                 dataset = datasets.load_dataset(
                     'csv', data_files={split:file_name})[split]
             else:
@@ -852,22 +854,6 @@ class Atomic(AbstractTask):
             self.rels = [self.name]
         else:
             self.rels = task_args.rels
-
-    def get_data_path(self, split):
-        path = self.data_path
-        self.split = split
-        if not path.startswith("/"):
-            path= op.join(mylogs.home, self.data_path)
-        if split == "test" and self.config != "split":
-            mylogs.bp("=testdata")
-            if self.config == "full-test":
-                path = op.join(path, self.config, self.name  + '.tsv')
-            else:
-                path = op.join(path, self.config, split  + '.tsv')
-            print("TEST PATH:", path)
-        else:
-            path = op.join(path, self.name, split + '.tsv')
-        return path
 
     def load_dataset(self, split):
         if split != "train" or self.do_split:
