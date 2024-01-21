@@ -2122,8 +2122,8 @@ def train(**kwargs):
             del _main_vars["max_train_samples"]
         tasks = data_args.task_name
         mylogs.bp("pic")
-        names = ["score","cos"] #,"emd", "jsd", "cor"]
-        for ii, score in enumerate([ss1, sim]): #, emd, sim, sim2]): #, # ss2, ss3]:
+        names = ["score","router", "cos"] #,"emd", "jsd", "cor"]
+        for ii, score in enumerate([ss1, ss2, sim]): #, emd, sim, sim2]): #, # ss2, ss3]:
             x_labels = y_labels
             fname = names[ii]
             if ii == 0:

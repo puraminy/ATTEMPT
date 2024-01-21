@@ -4,11 +4,10 @@
     "compose_method",
     "max_train_samples"
   ],
-  "exp_cols":[
+  "sel_cols":[
     "compose_method",
     "route_method",
-    "max_train_samples",
-    "num_train_epochs"
+    "max_train_samples"
   ],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]

@@ -1127,10 +1127,12 @@ class T5Stack(T5PreTrainedModel):
         if self.router is None:
             self.router = nn.Parameter(data=router)
 
-            #self.router = nn.Parameter(data=torch.empty((
-            #    attend_num,
-            #    attend_num 
-            #), device=device).uniform_(0, 0)) #-1e-3, 1e-3
+        if route_method == "unif":
+            self.router = nn.Parameter(data=torch.empty((
+                    attend_num,
+                    attend_num 
+                ), device=device).uniform_(-1e-3, 1e-3))
+
         self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)
         self.target_encoders_idx = torch.tensor(tgt_list, device=device)
@@ -1276,7 +1278,9 @@ class T5Stack(T5PreTrainedModel):
                     logits=logits).rsample()            
                 if route_method == "sigmoid":
                     attn_scores = torch.sigmoid(rb_scores)  
-                if route_method == "const":
+                elif route_method == "unif":
+                    attn_scores = router
+                elif route_method == "const":
                     attn_scores  = attn_dist
                     self.apply_softmax_to = "nothing"
                 else:
@@ -1395,6 +1399,7 @@ class T5Stack(T5PreTrainedModel):
             pass
         elif self.apply_softmax_to == "after":
             attn_sel_scores = F.softmax(attn_sel_scores, -1)
+            # attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         elif self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         elif self.apply_softmax_to == "normafter":
@@ -1405,8 +1410,11 @@ class T5Stack(T5PreTrainedModel):
             _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
             attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
 
+        mylogs.bp("unif")
         if route_method == "unif":
-            attn_sel_scores = torch.ones_like(attn_sel_scores)
+            # attn_sel_scores = attn_sel_scores.new_ones(attn_sel_scores.shape)
+            # attn_sel_scores = torch.ones_like(attn_sel_scores, requires_grad=True)
+            pass
 
         if self.target_share == -2:
             top, _ = torch.max(attn_sel_scores, -1) 

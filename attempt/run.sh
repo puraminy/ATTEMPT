@@ -51,15 +51,15 @@ ii=0
 nsp=0
 for tn in 20; do
 for seed in 123; do
-for cmm in wavg; do
+for cmm in cat wavg; do
    if [ $cmm = "cat" ]; then
       numt=10
-      ntp=5
+      ntp=0
    else
       numt=50
       ntp=0
    fi
-for attn in const; do 
+for attn in rb; do 
 for nsp in 0; do
 for tst in 1; do
 if [ $nsp -eq 0 ]; then
@@ -71,7 +71,7 @@ fi
 for tasks in _gtasks; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in direct; do
+for route_method in unif; do
 #for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
