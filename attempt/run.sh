@@ -49,9 +49,9 @@ else
 fi
 ii=0
 nsp=0
-for tn in 1000; do
+for tn in 20; do
 for seed in 123; do
-for cmm in wavg cat; do
+for cmm in wavg; do
    if [ $cmm = "cat" ]; then
       numt=10
       ntp=5
@@ -59,7 +59,7 @@ for cmm in wavg cat; do
       numt=50
       ntp=0
    fi
-for attn in rb; do 
+for attn in const; do 
 for nsp in 0; do
 for tst in 1; do
 if [ $nsp -eq 0 ]; then
@@ -71,7 +71,7 @@ fi
 for tasks in _gtasks; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in biasp biass; do
+for route_method in direct; do
 #for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
@@ -102,15 +102,15 @@ for route_method in biasp biass; do
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue
        fi
-       if [[ "$met" == *SL* ]]; then
-          if [ "$route_method" != "biass" ]; then
-             continue
-          fi
-       else
-          if [ "$route_method" != "biasp" ]; then
-             continue
-          fi
-       fi
+   #   if [[ "$met" == *SL* ]]; then
+   #      if [ "$route_method" != "biass" ]; then
+   #         continue
+   #      fi
+   #   else
+   #      if [ "$route_method" != "biasp" ]; then
+   #         continue
+   #      fi
+   #   fi
        args_variable="${met}_args"
        if [ -n "${!args_variable}" ]; then
            bash train.sh "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"

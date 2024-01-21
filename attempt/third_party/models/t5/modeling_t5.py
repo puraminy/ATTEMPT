@@ -1272,20 +1272,15 @@ class T5Stack(T5PreTrainedModel):
 
             if self.training and self.learn_attention:
                 logits = router
-                if route_method == "ratt": # source attention
-                    logits = router + attn_dist
-                    self.apply_softmax_to = "nothing"
                 rb_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=logits).rsample()            
-                if route_method == "sigmoid" or route_method == "ratt":
+                if route_method == "sigmoid":
                     attn_scores = torch.sigmoid(rb_scores)  
                 if route_method == "const":
                     attn_scores  = attn_dist
                     self.apply_softmax_to = "nothing"
-                elif route_method == "satt": # source attention
-                   attn_scores = rb_scores  + attn_dist
                 else:
-                   attn_scores = rb_scores # + attn_dist
+                    attn_scores = rb_scores # + attn_dist
             else:
                 mylogs.bp("route")
                 #attn_scores = router
@@ -1409,6 +1404,9 @@ class T5Stack(T5PreTrainedModel):
             _min, _ = torch.min(attn_sel_scores, dim=-1, keepdim=True)
             _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
             attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
+
+        if route_method == "unif":
+            attn_sel_scores = torch.ones_like(attn_sel_scores)
 
         if self.target_share == -2:
             top, _ = torch.max(attn_sel_scores, -1) 
