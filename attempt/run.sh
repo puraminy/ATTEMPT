@@ -48,7 +48,8 @@ else
    fi
 fi
 ii=0
-for tn in 20; do
+nsp=0
+for tn in 1000; do
 for seed in 123; do
 for cmm in wavg cat; do
    if [ $cmm = "cat" ]; then
@@ -58,6 +59,7 @@ for cmm in wavg cat; do
       numt=50
       ntp=0
    fi
+for attn in rb; do 
 for nsp in 0; do
 for tst in 1; do
 if [ $nsp -eq 0 ]; then
@@ -65,15 +67,15 @@ if [ $nsp -eq 0 ]; then
 else
    src=""
 fi
-for tasks in "_tasks mnli qnli rte stsb qqp mrpc sst2"; do 
-#for tasks in _gtasks _atasks; do 
+#for tasks in "_tasks mnli qnli rte stsb qqp mrpc sst2"; do 
+for tasks in _gtasks; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in biasx biasp const; do
+for route_method in biasp biass; do
 #for tasks in _gtasks; do 
    ((ii++))
-   catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii"
-   common="${params} $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
+   common="${params} _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
    mets="$common _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
@@ -89,7 +91,8 @@ for route_method in biasx biasp const; do
    P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   for met in SILP SILPI SL; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
    # for met in SC SLP; do
    # for met in SLPI SLP; do
@@ -99,8 +102,12 @@ for route_method in biasx biasp const; do
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue
        fi
-       if [[ "$met" == *SC* ]]; then
-          if [ "$route_method" != "const" ]; then
+       if [[ "$met" == *SL* ]]; then
+          if [ "$route_method" != "biass" ]; then
+             continue
+          fi
+       else
+          if [ "$route_method" != "biasp" ]; then
              continue
           fi
        fi
@@ -116,6 +123,7 @@ for route_method in biasx biasp const; do
            echo "Variable ${args_variable} not defined for method ${met}."
        fi
    done
+done
 done
 done
 done

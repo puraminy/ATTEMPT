@@ -1106,7 +1106,8 @@ class T5Stack(T5PreTrainedModel):
                 i += 1
 
         router = torch.zeros((attend_num, attend_num), device=device)
-        if self.route_method is not None and self.route_method.startswith("bias"):
+        route_method = self.route_method
+        if route_method is not None and route_method.startswith("bias"):
             i,j,k = 1,1,1
             first = True
             mylogs.bp("bias")
@@ -1115,12 +1116,12 @@ class T5Stack(T5PreTrainedModel):
                     k = i
                     first = False
                 elif encoder.is_target:
-                    if self.route_method == "biasx" or self.route_method == "biass":
+                    if route_method == "biasx" or route_method == "biass":
                         router[i, j] = self.target_share_temperature
-                    if self.route_method == "biasx" or self.route_method == "biasp":
+                        j += 1
+                    if k > 1 and (route_method == "biasx" or route_method == "biasp"):
                         router[i, k] = self.target_share_temperature
-                    k += 1
-                    j += 1
+                        k += 1
                 i += 1
             mylogs.bp("bias")
         if self.router is None:

@@ -163,8 +163,7 @@ class AbstractTask(abc.ABC):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
         self.split = split
-        if split == "test":
-            mylogs.bp("get")
+        mylogs.bp("get")
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
         fname = split 
@@ -208,11 +207,13 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
-            if file_name is not None:
+            mylogs.bp("get")
+            if file_name is not None: # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + self.name + " ----------")
                 dataset = datasets.load_dataset(
                     'csv', data_files={split:file_name})[split]
             else:
+                mylogs.minfo("------------- LOADING Dataset :" + self.name + " ----------")
                 dataset = self.load_dataset(split=mapped_split)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
@@ -543,6 +544,7 @@ class AbstractTask(abc.ABC):
             mylogs.vlog.info(f"=========== Extra Fields | split={self.split} =========")
             mylogs.vlog.info("%s", extra_fields)
             self.counter["examples"] += 1
+        mylogs.bp("format")
         return {'source': src_text,
                 'target': tgt_text, 
                 'task': self.name,

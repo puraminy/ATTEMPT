@@ -66,7 +66,7 @@ if [ -n "$_ttasks" ]; then
    _tasks="${_tasks}#qnli#rte#mrpc#qqp"
 fi
 if [ -n "$_gtasks" ]; then
-   _tasks="${_tasks}#cola#mnli#qnli#rte#qqp#mrpc#sst2#stsb"
+   _tasks="${_tasks}cola#qqp#mrpc#mnli#qnli#rte#stsb#sst2"
 fi
 if [ -n "$_ltasks" ]; then
    _tasks="mnli#wnli#paws#mrpc#imdb#sst2"
