@@ -1127,7 +1127,7 @@ class T5Stack(T5PreTrainedModel):
         if self.router is None:
             self.router = nn.Parameter(data=router)
 
-        if route_method == "unif":
+        if route_method == "unif2":
             self.router = nn.Parameter(data=torch.empty((
                     attend_num,
                     attend_num 
@@ -1376,9 +1376,29 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
             attend_to_sel_idx = attend_to_sel_idx + 1
-        attend_to = batched_index_select(src_prompts, 1, attend_to_sel_idx)
-        attend_to = attend_to.view(batch_size, num_targets, -1, 
+        mylogs.bp("unif")
+
+        # Create a binary mask for the top k indices
+        if route_method == "unif":
+            # top_k_mask = torch.zeros_like(attn_scores)
+            # top_k_mask.scatter_(-1, attend_to_sel_idx, 1)
+            # attn_sel_scores = attn_score * top_k_mask
+            pass
+
+        # Apply the mask to select the top k prompts
+        # top_k_mask = top_k_mask.squeeze(1).unsqueeze(-1).unsqueeze(-1)
+        # attend_to = attend_to.view(batch_size, attn_scores.shape[-1], -1)  
+        # attend_to_1 = attend_to * top_k_mask
+        # attend_to_1 = attend_to_1.view(batch_size, num_targets, -1, 
+        #        self.src_prompt_dim, self.model_dim)
+
+        attend_to_x = batched_index_select(src_prompts, 1, attend_to_sel_idx)
+        attend_to_x = attend_to_x.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
+        if route_method == "unif":
+            # attend_to_x = attend_to
+            # attend_to_x = attend_to_x.unsqueeze(1)
+            pass
 
         if not self.training:
             mylogs.bp("notr")
@@ -1395,11 +1415,14 @@ class T5Stack(T5PreTrainedModel):
             elif gen_route_method == "direct":
                 pass
 
+        mylogs.bp("unif")
         if self.apply_softmax_to == "nothing":
             pass
         elif self.apply_softmax_to == "after":
-            attn_sel_scores = F.softmax(attn_sel_scores, -1)
+            # attn_sel_scores = F.softmax(attn_sel_scores, -1)
             # attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
+            # attn_sel_scores = attn_sel_scores / attn_sel_scores #.sum(dim=-1, keepdim=True) 
+            pass
         elif self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         elif self.apply_softmax_to == "normafter":
@@ -1431,26 +1454,26 @@ class T5Stack(T5PreTrainedModel):
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
         if self.compose_method == "wavg": 
             soft_prompts = torch.einsum(
-                'bts, btsld -> btld', attn_sel_scores, attend_to)
+                'bts, btsld -> btld', attn_sel_scores, attend_to_x)
         elif self.compose_method == "rcat" or self.compose_method == "scat":
             soft_prompts = torch.einsum(
-                'bts, btsld -> btsld', attn_sel_scores, attend_to)
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', agg_scores, soft_prompts)
         elif self.compose_method == "cat":
             soft_prompts = torch.einsum(
-                'bts, btsld -> btsld', attn_sel_scores, attend_to)
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "concat":
             attn_sel_scores[True] = 1
             soft_prompts = torch.einsum(
-                'bts, btsld -> btsld', attn_sel_scores, attend_to)
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "wcat":
             avg_prompts = torch.einsum(
                     'bts, btsld -> btld', attn_sel_scores[:,:,:-1], 
-                     attend_to[:,:,:-1,:,:])
-            last_prompt = attend_to[:,:,-1,:,:]
+                     attend_to_x[:,:,:-1,:,:])
+            last_prompt = attend_to_x[:,:,-1,:,:]
             soft_prompts = torch.cat(
                    [avg_prompts, last_prompt], dim=2)
         # Add target embedding when attend_target is not True

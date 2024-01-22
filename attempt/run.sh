@@ -49,7 +49,7 @@ else
 fi
 ii=0
 nsp=0
-for tn in 20; do
+for tn in 400 20; do
 for seed in 123; do
 for cmm in cat wavg; do
    if [ $cmm = "cat" ]; then
@@ -60,14 +60,14 @@ for cmm in cat wavg; do
       ntp=0
    fi
 for attn in rb; do 
-for nsp in 0; do
+for ntp in 0 5; do
 for tst in 1; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
    src=""
 fi
-#for tasks in "_tasks mnli qnli rte stsb qqp mrpc sst2"; do 
+#for tasks in "_tasks mnli qnli rte stsb qqp"; do 
 for tasks in _gtasks; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
@@ -91,8 +91,8 @@ for route_method in unif; do
    P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
-   for met in SILP SILPI SL; do
+   for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   # for met in SILPI SL; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
    # for met in SC SLP; do
    # for met in SLPI SLP; do
