@@ -92,6 +92,8 @@ global_x_labels = []
 
 from scipy.stats import entropy
 
+
+
 def cosine_similarity(A, B, N):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     portion_A = torch.tensor(A[:N]).to(device).detach().clone()
@@ -257,8 +259,9 @@ def cli():
 @click.option(
     "--new_exp_folder",
     "-new",
-    is_flag=True,
-    help="Whether create a new directory for experiment when loading an existing config file"
+    default="",
+    type=str,
+    help="The name of a new directory for experiment when loading an existing config file"
 )
 @click.option(
     "--log_path",
@@ -281,7 +284,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    exp_args = {}
    save_path = ""
    if not log_path:
-       log_path = mylogs.logPath
+       log_path = mylogs.logPath 
    if not log_path.startswith("/"):
        log_path = os.path.join(mylogs.logPath, log_path)
    if exp_conf:
@@ -297,7 +300,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        save_path = os.getcwd()
    if (not exp_conf and experiment != "self") or new_exp_folder:
        if new_exp_folder and save_path:
-          save_path = os.path.join(str(Path(save_path).parent), experiment)
+          relative_path = os.path.relpath(save_path, log_path)
+          parts = relative_path.split(os.path.sep)
+          parts[0] = new_exp_folder 
+          new_path =  os.path.sep.join(parts)
+          save_path = os.path.join(mylogs.resPath, new_path) 
+          # save_path = os.path.join(str(Path(save_path).parent), experiment)
        else:
           save_path = os.path.join(log_path, experiment)
        if Path(save_path).exists():
@@ -2003,7 +2011,6 @@ def train(**kwargs):
                 del _main_vars["max_train_samples"]
             tasks = data_args.task_name
             mylogs.bp("pic")
-            names = ["score","router", "cos"] #,"emd", "jsd", "cor"]
             for ii, (title, score) in enumerate(score_dict.items()):
                 x_labels = y_labels
                 if ii == 0:
@@ -2018,10 +2025,7 @@ def train(**kwargs):
                     y_labels=y_labels,
                     x_labels=x_labels,
                     title = title + " " \
-                            + str(kwargs.expid.split("-")[0]))
-                            # + "\n" + str(_main_vars)) 
-                            #+ "\n" \
-                            #+ route_method \
+                            + str(kwargs.expid)  + "_" + spec) 
                             #+ "_" + model_args.compose_method \
                             #+ "_" + kwargs.apply_softmax_to \
                             #+ "_" + model_args.attn_method) 
@@ -2189,6 +2193,9 @@ def train(**kwargs):
             del _main_vars["task_name"]
 
         global_scores.append(ss1)
+        targets = model.encoder.target_encoders_idx
+        y_labels = [model.encoder.prompt_names[i] for i in targets]
+        y_labels = [y.replace("tar-","") for y in y_labels]
         global_y_labels.extend(y_labels)
         global_x_labels = model.encoder.prompt_names 
         for score in [ss1]: #[ss2]

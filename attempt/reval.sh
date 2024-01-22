@@ -86,6 +86,10 @@ for file in $(find "$PWD" -type f -name "exp.json" -path "*$_pat*"); do
             echo "Training ..."
             runat run ${run_params} -cfg $file ${params} ${extra_params} 
          fi
+         if [ -n "$_one" ]; then
+            echo "Exit after one experiment"
+            exit 0
+         fi
          if [ $? != 0 ] && [ "$onError" = "break" ]; then
             echo "exit 1"
             exit 1
