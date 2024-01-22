@@ -243,7 +243,8 @@ if [ -z "$_dpath" ]; then  _dpath="datasets"; fi # data path
 if [ -z "$_lr" ]; then  _lr=0.05; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
-if [ -z "$_tmpr" ]; then  _tmpr=1.; fi
+if [ -z "$_tmpr" ]; then  _tmpr=3.; fi
+if [ -z "$_soft" ]; then  _soft="after"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_numt" ]; then  _numt=50; fi
@@ -555,11 +556,11 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@temperature=$_tmpr"
    params="${params} --@anneal_dir=$_adir"
    params="${params} --normalize=True"
-   params="${params} --anneal_min=0.0001"
+   params="${params} --anneal_min=0.001"
    params="${params} --anneal_rate=none"
-   params="${params} --@apply_softmax_to=after#!nothing"
+   params="${params} --@apply_softmax_to=$_soft"
    if [ -z "$_grm" ]; then
-      params="${params} --@gen_route_methods=direct@"
+      params="${params} --@gen_route_methods=sign@"
    else
       params="${params} --@gen_route_methods=$_grm"
    fi

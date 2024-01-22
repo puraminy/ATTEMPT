@@ -92,6 +92,22 @@ global_x_labels = []
 
 from scipy.stats import entropy
 
+def cosine_similarity(A, B, N):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    portion_A = torch.tensor(A[:N]).to(device).detach().clone()
+    portion_B = torch.tensor(B[:N]).to(device).detach().clone()
+
+    # Normalize vectors a and b
+    normalize_a = torch.nn.functional.normalize(portion_A, dim=0)
+    normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
+
+    # Compute the cosine similarity
+    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+    cos_sim = F.cosine_similarity(normalize_a, normalize_b, dim=0)
+
+    return cos_sim.item()
+
+
 def jensen_shannon_divergence(p, q):
     m = 0.5 * (p + q)
     return 0.5 * (entropy(p, m) + entropy(q, m))
@@ -323,6 +339,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if break_point:
        mylogs.setbp(break_point)
 
+   mylogs.bp("run")
    all_vars = [x.strip("--") for x in ctx.args]
    var_names = [x.split("=")[0] for x in all_vars]
    values = []
@@ -534,7 +551,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
            continue
-       if exp_exists:
+       if exp_exists and not reval:
            args["output_dir"] = "%" + output_dir 
            print("Skipping experiment ", ii, ": The experiment already exists!")
            if not preview and not repeat:
@@ -1963,6 +1980,58 @@ def train(**kwargs):
             scores = do_score(df, "rouge@bert", save_to)
             return df, scores, golds, preds
 
+        ################ Draw image
+        def save_image(model, score_dict, spec):
+            targets = model.encoder.target_encoders_idx
+            y_labels = [model.encoder.prompt_names[i] for i in targets]
+            y_labels = [y.replace("tar-","") for y in y_labels]
+            p_labels = []
+            for pl in model.encoder.prompt_names:
+                if not "tar" in pl and not "input" in pl:
+                    pl = pl.replace("source_for_","") 
+                    pl = pl.replace("source_","") 
+                    pl = pl.replace("superglue-","") 
+                    pl = pl.replace("com","src") 
+                    p_labels.append(pl)
+
+            _main_vars = main_vars.copy()
+            if "task_name" in _main_vars:
+                del _main_vars["task_name"]
+            if "num_train_epochs" in _main_vars:
+                del _main_vars["num_train_epochs"]
+            if "max_train_samples" in _main_vars:
+                del _main_vars["max_train_samples"]
+            tasks = data_args.task_name
+            mylogs.bp("pic")
+            names = ["score","router", "cos"] #,"emd", "jsd", "cor"]
+            for ii, (title, score) in enumerate(score_dict.items()):
+                x_labels = y_labels
+                if ii == 0:
+                    if p_labels: x_labels = p_labels 
+                fname = "pred@" + title + "@_" \
+                        + str(exp_info["expid"]) + "_" \
+                        + spec + "_" + "-".join(tasks) 
+                img_buf = WBCallback.save_image(
+                    # fname = fname,
+                    score=score, 
+                    cbar=False,
+                    y_labels=y_labels,
+                    x_labels=x_labels,
+                    title = title + " " \
+                            + str(kwargs.expid.split("-")[0]))
+                            # + "\n" + str(_main_vars)) 
+                            #+ "\n" \
+                            #+ route_method \
+                            #+ "_" + model_args.compose_method \
+                            #+ "_" + kwargs.apply_softmax_to \
+                            #+ "_" + model_args.attn_method) 
+                if img_buf:
+                    im = Image.open(img_buf)
+                    mylogs.bp("img")
+                    new_im = trim_image(im) 
+                    wandb.log({fname:wandb.Image(new_im)})
+                    # img_list.append(im)
+
         ##################
         results = {}
         gen_conf = {"rep_penalty":2.0}
@@ -1972,9 +2041,10 @@ def train(**kwargs):
         combs = {}
         num_random_masks = kwargs.setdefault("num_random_masks",0)
         ntp = kwargs.num_target_prompts
+        num_unmask_prompts = kwargs.setdefault("num_unmask_prompts",0)
         mylogs.bp("ttt")
         for rm in range(num_random_masks):
-            mask = model.encoder.random_attn_mask(rm, ntp)
+            mask = model.encoder.random_attn_mask(rm, num_unmask_prompts)
             combs["rand-" + str(rm)] = mask
         combs["train"] = None
         ii = 0
@@ -2034,121 +2104,71 @@ def train(**kwargs):
                         da["test_bert"] = test_bert
                         da["num_preds"] = num_preds
                         sdf_rows.append(da)
-
                         ii += 1
+    #################
+                    mylogs.bp("pic")
+                    if adapter_args.prompt_tuning:
+                        img_list = []
+                        targets = model.encoder.target_encoders_idx
+                        ss1 = model.encoder.attn_scores.index_select(0, targets)
+                        mylogs.bp("ss1")
+                        tlen = ss1.size()[0]
+                        all_len = ss1.size()[1]
+                        sim = torch.eye(tlen)
+                        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
+
+                        sim2 = torch.eye(tlen)
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    sim2[i][j] = pearson_correlation(ss1[i][:], 
+                                            ss1[j][:]) #, slen) 
+
+                        #jsd = torch.eye(tlen)
+                        jsd = torch.zeros((tlen,tlen))
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
+                                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
+                                    jsd[i, j] = torch.tensor(
+                                            jensen_shannon_divergence(p, q),
+                                            dtype=torch.float32)
+
+                        emd = torch.zeros((tlen,tlen))
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
+                                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
+                                    emd[i, j] = torch.tensor(
+                                            earth_movers_distance(p, q), 
+                                            dtype=torch.float32)
+
+                        ss1 = torch.round(ss1*100)/100
+                        if multi_tasking:
+                            ss1 = ss1[:,1:slen+tlen + 1]
+
+                        if len(torch.nonzero(ss1)) < 1:
+                            ss1 = torch.eye(tlen)
+                        score_dict= {"score":ss1, "sim":sim2}
+                        save_image(model, score_dict, spec = route_method)
+
+                    mask = model.encoder.attn_mask 
+                    ss3 = mask.index_select(0, targets)
+                    score_dict= {"mask":ss3}
+                    save_image(model, score_dict, spec=rm)
+
+                ss2 = model.encoder.router.index_select(0, targets)
+                score_dict= {"router":ss2}
+                save_image(model, score_dict, spec = "router")
+
+        ################
         sdf = pd.DataFrame(data=sdf_rows)
-
-    def cosine_similarity(A, B, N):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        portion_A = torch.tensor(A[:N]).to(device).detach().clone()
-        portion_B = torch.tensor(B[:N]).to(device).detach().clone()
-
-        # Normalize vectors a and b
-        normalize_a = torch.nn.functional.normalize(portion_A, dim=0)
-        normalize_b = torch.nn.functional.normalize(portion_B, dim=0)
-
-        # Compute the cosine similarity
-        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-        cos_sim = F.cosine_similarity(normalize_a, normalize_b, dim=0)
-
-        return cos_sim.item()
-
-    mylogs.bp("pic")
-    if adapter_args.prompt_tuning:
-        img_list = []
-        targets = model.encoder.target_encoders_idx
-        ss1 = model.encoder.attn_scores.index_select(0, targets)
-        tlen = ss1.size()[0]
-        all_len = ss1.size()[1]
-        sim = torch.eye(tlen)
-        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-        for i in range(tlen):
-            for j in range(tlen):
-                if i != j:
-                    sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
-
-        sim2 = torch.eye(tlen)
-        for i in range(tlen):
-            for j in range(tlen):
-                if i != j:
-                    sim2[i][j] = pearson_correlation(ss1[i][:], ss1[j][:]) #, slen) 
-
-
-        #jsd = torch.eye(tlen)
-        jsd = torch.zeros((tlen,tlen))
-        for i in range(tlen):
-            for j in range(tlen):
-                if i != j:
-                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
-                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                    jsd[i, j] = torch.tensor(jensen_shannon_divergence(p, q),
-                            dtype=torch.float32)
-
-        emd = torch.zeros((tlen,tlen))
-        for i in range(tlen):
-            for j in range(tlen):
-                if i != j:
-                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
-                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                    emd[i, j] = torch.tensor(earth_movers_distance(p, q), 
-                            dtype=torch.float32)
-
-        ss1 = torch.round(ss1*100)/100
-        if multi_tasking:
-            ss1 = ss1[:,1:slen+tlen + 1]
-
-        if len(torch.nonzero(ss1)) < 1:
-            ss1 = torch.eye(tlen)
-        ss2 = model.encoder.router.index_select(0, targets)
-        mask = model.encoder.attn_mask 
-        ss3 = mask.index_select(0, targets)
-        y_labels = [model.encoder.prompt_names[i] for i in targets]
-        y_labels = [y.replace("tar-","") for y in y_labels]
-        p_labels = []
-        for pl in model.encoder.prompt_names:
-            if not "tar" in pl and not "input" in pl:
-                pl = pl.replace("source_for_","") 
-                pl = pl.replace("source_","") 
-                pl = pl.replace("superglue-","") 
-                pl = pl.replace("com","src") 
-                p_labels.append(pl)
-
-        _main_vars = main_vars.copy()
-        if "task_name" in _main_vars:
-            del _main_vars["task_name"]
-        if "num_train_epochs" in _main_vars:
-            del _main_vars["num_train_epochs"]
-        if "max_train_samples" in _main_vars:
-            del _main_vars["max_train_samples"]
-        tasks = data_args.task_name
-        mylogs.bp("pic")
-        names = ["score","router", "cos"] #,"emd", "jsd", "cor"]
-        for ii, score in enumerate([ss1, ss2, sim]): #, emd, sim, sim2]): #, # ss2, ss3]:
-            x_labels = y_labels
-            fname = names[ii]
-            if ii == 0:
-                if p_labels: x_labels = p_labels 
-            fname = "pred@" + fname + "@_" + str(exp_info["expid"]) + "_" + "-".join(tasks) 
-            img_buf = WBCallback.save_image(
-                # fname = fname,
-                score=score, 
-                cbar=False,
-                y_labels=y_labels,
-                x_labels=x_labels,
-                title = names[ii] + " " + str(kwargs.expid.split("-")[0]))
-                        # + "\n" + str(_main_vars)) 
-                        #+ "\n" \
-                        #+ route_method \
-                        #+ "_" + model_args.compose_method \
-                        #+ "_" + kwargs.apply_softmax_to \
-                        #+ "_" + model_args.attn_method) 
-            if img_buf:
-                im = Image.open(img_buf)
-                mylogs.bp("img")
-                new_im = trim_image(im) 
-                wandb.log({fname:wandb.Image(new_im)})
-                # img_list.append(im)
-
         if img_list:
             new_im = combine_y(img_list)
             fname = "pred_" + str(exp_info["expid"]) 

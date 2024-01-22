@@ -1156,13 +1156,13 @@ class T5Stack(T5PreTrainedModel):
 #            prompt_dim * self.model_dim 
 #        )).uniform_(-bound, bound))
 #
-    def random_attn_mask(self, percent=0, num_target_prompts = 1):
+    def random_attn_mask(self, percent=0, num_unmask_prompts = 1):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(self.prompt_encoders) + 1 # one for input
-        base = num_target_prompts / attend_num
+        base = num_unmask_prompts / attend_num
         nse = self.num_src_encoders
         attn_mask = torch.ones(attend_num, attend_num, device=device)
-        k = num_target_prompts
+        k = num_unmask_prompts
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if not encoder.is_source:
                 r = torch.rand((1, nse -1), device=device)
@@ -1285,7 +1285,7 @@ class T5Stack(T5PreTrainedModel):
                     self.apply_softmax_to = "nothing"
                 else:
                     attn_scores = rb_scores # + attn_dist
-            else:
+            elif not self.training:
                 mylogs.bp("route")
                 #attn_scores = router
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
@@ -1404,9 +1404,9 @@ class T5Stack(T5PreTrainedModel):
             mylogs.bp("notr")
             if gen_route_method == "rb":
                 with torch.no_grad():
-                    attn_sel_scores = RelaxedBernoulli(temperature=self.temperature, 
+                    attn_sel_scores = RelaxedBernoulli(temperature=self.anneal_min, 
                         logits=attn_sel_scores).rsample()  
-            elif gen_route_method == "sigmoid" or route_method == "ratt":
+            elif gen_route_method == "sigmoid":
                 mylogs.bp("sigm")
                 attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
             elif gen_route_method == "sign":
@@ -1419,10 +1419,8 @@ class T5Stack(T5PreTrainedModel):
         if self.apply_softmax_to == "nothing":
             pass
         elif self.apply_softmax_to == "after":
-            # attn_sel_scores = F.softmax(attn_sel_scores, -1)
+            attn_sel_scores = F.softmax(attn_sel_scores, -1)
             # attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-            # attn_sel_scores = attn_sel_scores / attn_sel_scores #.sum(dim=-1, keepdim=True) 
-            pass
         elif self.apply_softmax_to == "norm":
             attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
         elif self.apply_softmax_to == "normafter":
@@ -1634,6 +1632,7 @@ class T5Stack(T5PreTrainedModel):
                         inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)
                         if (not self.training or mylogs.is_debug()): 
                             mylogs.bp("pred")
+                            # assert torch.all((attn_scores >= 0) & (attn_scores <= 1)), "Not all values are between 0 and 1"
                             num_targets = target_idx.size()[-1]
                             source_idx = source_idx.view(batch_size, num_targets, -1)
                             src_idx = source_idx[batch_size - 1]
@@ -1643,6 +1642,7 @@ class T5Stack(T5PreTrainedModel):
                                 self.attn_scores.size()[1]), device=device)
                             tscore[:, src_idx] = ascore 
                             self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
+                            # assert torch.all((self.attn_scores >= 0) & (self.attn_scores <= 1)), "Not all values of self.attn_scores are between 0 and 1"
                             targets = self.target_encoders_idx
                             #ss1 = self.attn_scores  
                             # self.attn_scores.index_select(0, targets)

@@ -49,9 +49,9 @@ else
 fi
 ii=0
 nsp=0
-for tn in 400 20; do
+for tn in 20; do
 for seed in 123; do
-for cmm in cat wavg; do
+for cmm in wavg cat; do
    if [ $cmm = "cat" ]; then
       numt=10
       ntp=0
@@ -59,6 +59,8 @@ for cmm in cat wavg; do
       numt=50
       ntp=0
    fi
+for grm in "sign@"; do
+for soft in nothing after; do
 for attn in rb; do 
 for ntp in 0 5; do
 for tst in 1; do
@@ -68,15 +70,15 @@ else
    src=""
 fi
 #for tasks in "_tasks mnli qnli rte stsb qqp"; do 
-for tasks in _gtasks; do 
+#for tasks in "_tasks mnli qnli qqp"; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in unif; do
-#for tasks in _gtasks; do 
+for route_method in biass direct; do
+for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
    common="${params} _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
-   mets="$common _cmm $cmm _rm $route_method"
+   mets="$common _soft $soft _grm $grm _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
    SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
@@ -91,8 +93,8 @@ for route_method in unif; do
    P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
-   # for met in SILPI SL; do
+   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
+   for met in SILPI SL; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
    # for met in SC SLP; do
    # for met in SLPI SLP; do
@@ -123,6 +125,8 @@ for route_method in unif; do
            echo "Variable ${args_variable} not defined for method ${met}."
        fi
    done
+done
+done
 done
 done
 done

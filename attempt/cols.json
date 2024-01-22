@@ -5,10 +5,16 @@
     "max_train_samples"
   ],
   "sel_cols":[
+    "expname",
+    "prefix",
     "compose_method",
     "route_method",
-    "max_train_samples"
+    "max_train_samples",
+    "num_target_prompts",
+    "gen_route_methods",
+    "apply_softmax_to"
   ],
+  "info_cols":[],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]
 }

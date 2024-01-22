@@ -69,7 +69,7 @@ if [ -z "$_files" ]; then
 else
    files=$_tsn
 fi
-for file in $(find "$PWD" -type f -name "exp.json"); do
+for file in $(find "$PWD" -type f -name "exp.json" -path "*$_pat*"); do
    echo $file
    for data_seed in $seed; do
       for test_num in $tsn; do
@@ -78,7 +78,9 @@ for file in $(find "$PWD" -type f -name "exp.json"); do
          if [ -n "$_test" ] || [ -n "$_all_test" ]; then
             params="${params} --reval"
          fi
-         if [ -n "$_pv" ]; then
+         if [ -n "$_pvf" ]; then
+            echo "$file"
+         elif [ -n "$_pv" ]; then
             echo "runat run ${run_params} -cfg $file ${params} $extra_params" 
          else
             echo "Training ..."

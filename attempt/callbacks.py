@@ -38,7 +38,7 @@ class AnnealCallback(TrainerCallback):
     def on_log(self, args, state, control, logs = None, **kwargs):
         model = kwargs.pop("model", None)
         e = model.encoder
-        logs["anneal:"] = '{:3}'.format('{}'.format(e.anneal_ts.cur_val)) 
+        logs["anneal:"] = '{:3}'.format('{}'.format(e.temperature)) 
 
     def on_step_begin(self, args, state, control, **kwargs):
         mylogs.bp("anneal")
