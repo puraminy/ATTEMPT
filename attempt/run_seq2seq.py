@@ -1989,7 +1989,7 @@ def train(**kwargs):
             return df, scores, golds, preds
 
         ################ Draw image
-        def save_image(model, score_dict, spec):
+        def save_image(folder, model, score_dict, spec):
             targets = model.encoder.target_encoders_idx
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
@@ -2011,29 +2011,30 @@ def train(**kwargs):
                 del _main_vars["max_train_samples"]
             tasks = data_args.task_name
             mylogs.bp("pic")
+            folder = os.path.join(folder, "img_logs")
+            Path(folder).mkdir(parents=True, exist_ok=True)
             for ii, (title, score) in enumerate(score_dict.items()):
                 x_labels = y_labels
                 if ii == 0:
                     if p_labels: x_labels = p_labels 
                 fname = "pred@" + title + "@_" \
-                        + str(exp_info["expid"]) + "_" \
-                        + spec + "_" + "-".join(tasks) 
+                        + str(exp_info["expid"]) + ".png"
+                fpath = os.path.join(folder, fname)
                 img_buf = WBCallback.save_image(
-                    # fname = fname,
+                    fpath = fpath,
                     score=score, 
                     cbar=False,
                     y_labels=y_labels,
                     x_labels=x_labels,
-                    title = title + " " \
-                            + str(kwargs.expid)  + "_" + spec) 
-                            #+ "_" + model_args.compose_method \
-                            #+ "_" + kwargs.apply_softmax_to \
-                            #+ "_" + model_args.attn_method) 
-                if img_buf:
-                    im = Image.open(img_buf)
-                    mylogs.bp("img")
-                    new_im = trim_image(im) 
-                    wandb.log({fname:wandb.Image(new_im)})
+                    title = title  + "_" + spec 
+                            + "_" + model_args.compose_method \
+                            + "_" + kwargs.apply_softmax_to \
+                            + "_" + model_args.attn_method) 
+                #if img_buf:
+                #    im = Image.open(img_buf)
+                #    mylogs.bp("img")
+                #    new_im = trim_image(im) 
+                    # wandb.log({fname:wandb.Image(new_im)})
                     # img_list.append(im)
 
         ##################
@@ -2043,18 +2044,22 @@ def train(**kwargs):
         grm = kwargs.setdefault("gen_route_methods",["rb"])
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         combs = {}
-        num_random_masks = kwargs.setdefault("num_random_masks",0)
-        ntp = kwargs.num_target_prompts
-        num_unmask_prompts = kwargs.setdefault("num_unmask_prompts",0)
-        mylogs.bp("ttt")
+        random_masks = kwargs.setdefault("num_random_masks","0-0")
+        nn, mm = random_masks.split("-") 
+        num_random_masks, num_masked_prompts =int(nn), int(mm) 
+        mylogs.bp("nrp")
         for rm in range(num_random_masks):
-            mask = model.encoder.random_attn_mask(rm, num_unmask_prompts)
-            combs["rand-" + str(rm)] = mask
+            mask = model.encoder.random_attn_mask(rm, num_masked_prompts)
+            combs["mask-" + str(rm + 1) + "-" + str(mm)] = mask
         combs["train"] = None
         ii = 0
         kk = 0
         sdf_rows = []
+        exp_folder = Path(training_args.output_dir).parent
+        exp_folder_name = Path(training_args.output_dir).stem
+        exp_folder = str(exp_folder) 
         if not adapter_args.prompt_tuning:
+            eval_folder = training_args.output_dir
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                 task = task.split("_")[0]
                 ds_conf = data_args.test_dataset_config_name[idx]
@@ -2062,7 +2067,7 @@ def train(**kwargs):
                 ds_name = "none" if not ds_name else ds_name
                 ds_conf = "none" if not ds_conf else ds_conf
                 is_train = "train" if training_args.do_train else "eval"
-                save_to = os.path.join(training_args.output_dir, 
+                save_to = os.path.join(eval_folder,
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
@@ -2072,12 +2077,21 @@ def train(**kwargs):
                     attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                     model.encoder.attn_scores = torch.zeros(
                         (attend_num, attend_num), device=device) 
+                    mylogs.bp("pic")
+                    rv = "EVAL" if not reval else "REVAL"
+                    eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
+                            + "_" + route_method + "_" \
+                            + str(kwargs.trial) + "_" + str(ii) 
+                    eval_folder = os.path.join(exp_folder, eval_folder_name)
+                    Path(eval_folder).mkdir(parents=True, exist_ok=True)
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
+                           attn_mask = mask
                         else:
                            gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
+                           attn_mask = model.encoder.attn_mask_orig 
                         exp_info["gen_route_methods"] = route_method
                         exp_info["gen_mask"] = rm 
                         mylogs.bp("test")
@@ -2087,10 +2101,8 @@ def train(**kwargs):
                         ds_name = "none" if not ds_name else ds_name
                         ds_conf = "none" if not ds_conf else ds_conf
                         is_train = "train" if training_args.do_train else "eval"
-                        save_to = os.path.join(training_args.output_dir, 
-                                ds_conf + "_results_" + is_train + "_" + ds_name + \
-                                        "_" + route_method + "_" + str(kwargs.trial) + \
-                                        "_" + mylogs.now + "_" + str(ii)  + ".tsv")
+                        save_to = os.path.join(eval_folder,
+                                ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
 
                         df, scores, preds, golds = evaluate_test(task, test_dataset, 
                                 save_to, ds_name, gen_conf)
@@ -2159,18 +2171,15 @@ def train(**kwargs):
 
                         if len(torch.nonzero(ss1)) < 1:
                             ss1 = torch.eye(tlen)
-                        score_dict= {"score":ss1, "sim":sim2}
-                        save_image(model, score_dict, spec = route_method)
+                        score_dict= {"score":ss1, "sim": sim}
+                        save_image(eval_folder, model, score_dict, spec = route_method)
 
-                    mask = model.encoder.attn_mask 
-                    ss3 = mask.index_select(0, targets)
-                    score_dict= {"mask":ss3}
-                    save_image(model, score_dict, spec=rm)
-
-                ss2 = model.encoder.router.index_select(0, targets)
-                score_dict= {"router":ss2}
-                save_image(model, score_dict, spec = "router")
-
+                    ss2 = model.encoder.router.index_select(0, targets)
+                    score_dict= {"router":ss2}
+                    if attn_mask is not None:
+                        ss3 = attn_mask.index_select(0, targets)
+                        score_dict["mask"] = ss3
+                    save_image(eval_folder, model, score_dict, spec=rm)
         ################
         sdf = pd.DataFrame(data=sdf_rows)
         if img_list:

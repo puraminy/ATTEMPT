@@ -96,9 +96,9 @@ class WBCallback(WandbCallback):
         return img_buf
 
     @staticmethod
-    def save_image(score, x_labels, y_labels, fname="", 
+    def save_image(score, x_labels, y_labels, fpath="", 
             annot=True,title="", df=None, img_h=6.5, cbar=True):
-        if not title: title = fname
+        if not title: title = fpath
         if df is not None:
             fig, axes = plt.subplot_mosaic("A;B")
             ax1, ax2 = axes["A"], axes["B"]
@@ -123,9 +123,8 @@ class WBCallback(WandbCallback):
             return None
         #plt.tight_layout()
         mylogs.bp("wand")
-        if fname:
-            wandb.log({fname:wandb.Image(fig)})
-            plt.savefig(fname, format='png')
+        if fpath:
+            plt.savefig(fpath, format='png')
         img_buf = io.BytesIO()
         plt.savefig(img_buf, format='png')
         plt.close("all")

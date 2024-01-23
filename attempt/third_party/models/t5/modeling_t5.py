@@ -1156,13 +1156,14 @@ class T5Stack(T5PreTrainedModel):
 #            prompt_dim * self.model_dim 
 #        )).uniform_(-bound, bound))
 #
-    def random_attn_mask(self, percent=0, num_unmask_prompts = 1):
+    def random_attn_mask(self, percent=0, num_masked_prompts = 1):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(self.prompt_encoders) + 1 # one for input
-        base = num_unmask_prompts / attend_num
+        base = num_masked_prompts / attend_num
         nse = self.num_src_encoders
+        mylogs.bp("nrp")
         attn_mask = torch.ones(attend_num, attend_num, device=device)
-        k = num_unmask_prompts
+        k = num_masked_prompts
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if not encoder.is_source:
                 r = torch.rand((1, nse -1), device=device)

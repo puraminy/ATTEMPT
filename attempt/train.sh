@@ -247,6 +247,7 @@ if [ -z "$_tmpr" ]; then  _tmpr=3.; fi
 if [ -z "$_soft" ]; then  _soft="after"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
+if [ -z "$_nrp" ]; then  _nrp="0-0"; fi # number of random masks 
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -520,7 +521,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --ignore_if_prompt_not_exists=False"
    params="${params} --rels=$_rels"
    params="${params} --@source_prompts_order=unsorted#rand"
-   params="${params} --@num_random_masks=0"
+   params="${params} --@num_random_masks=$_nrp"
    params="${params} --@compose_method=$_cmm"
    if [ -z "$_temp" ]; then
       params="${params} --@template=ptar"

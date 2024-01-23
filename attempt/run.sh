@@ -49,6 +49,7 @@ else
 fi
 ii=0
 nsp=0
+tst=1
 for tn in 20; do
 for seed in 123; do
 for cmm in wavg cat; do
@@ -59,11 +60,11 @@ for cmm in wavg cat; do
       numt=50
       ntp=0
    fi
-for grm in "sign@"; do
-for soft in nothing after; do
+for grm in "sign@rb@sigmoid@direct"; do
+for soft in after nothing; do
 for attn in rb; do 
-for ntp in 0 5; do
-for tst in 1; do
+for ntp in 5; do
+for nrp in "3-5"; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
@@ -73,11 +74,11 @@ fi
 #for tasks in "_tasks mnli qnli qqp"; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in biass direct; do
+for route_method in direct; do
 for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
-   common="${params} _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   common="${params} _nrp $nrp _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
    mets="$common _soft $soft _grm $grm _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
@@ -116,6 +117,10 @@ for tasks in _gtasks; do
        args_variable="${met}_args"
        if [ -n "${!args_variable}" ]; then
            bash train.sh "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
+           if [[ "$*" =~ "_one" ]]; then
+               echo "exit after first experiment"
+               exit 0
+           fi
            if [ $? != 0 ] && [ "$onError" = "break" ];
            then
                echo "exit 1"
