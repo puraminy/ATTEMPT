@@ -247,7 +247,7 @@ if [ -z "$_tmpr" ]; then  _tmpr=3.; fi
 if [ -z "$_soft" ]; then  _soft="after"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
-if [ -z "$_nrp" ]; then  _nrp="0-0"; fi # number of random masks 
+if [ -z "$_masking" ]; then  _masking="0-random-0"; fi # number of random masks 
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -264,6 +264,7 @@ elif [ -z "$_lsp" ]; then
    _lsp=False
 fi
 if [ -z "$_learn_sp" ]; then  _learn_sp=True; fi
+if [ -z "$_thresh" ]; then  _thresh=False; fi
 if [ -z "$_addt" ]; then  _addt=False; fi
 if [ -z "$_attn" ]; then  _attn=rb; fi
 if [ -z "$_cmm" ]; then  _cmm="wavg#cat"; fi
@@ -514,14 +515,14 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@use_private_prompts=$_upp"
    params="${params} --@load_private_prompts=$_lpp"
    params="${params} --@learn_attention=True"
-   params="${params} --sel_positives=False"
+   params="${params} --sel_thresh=$_thresh"
    params="${params} --@learn_source_prompts=$_learn_sp"
    params="${params} --load_prompts=$_lp"
    params="${params} --@learn_loaded_prompts=True#!False"
    params="${params} --ignore_if_prompt_not_exists=False"
    params="${params} --rels=$_rels"
    params="${params} --@source_prompts_order=unsorted#rand"
-   params="${params} --@num_random_masks=$_nrp"
+   params="${params} --@prompt_masking=$_masking"
    params="${params} --@compose_method=$_cmm"
    if [ -z "$_temp" ]; then
       params="${params} --@template=ptar"
@@ -597,13 +598,7 @@ echo "EXIT 0"
 done
 
 
-if [ "$_exp" = "show" ]; then
-   show_results --path=${log}/${exp}
-fi
 
-if [ "$_exp" != "self" ] && [ -z "$_file" ]; then
-   cp train.sh ${log}/$exp
-fi
 case "$home" in 
    *-----TODO------*)
       # Do stuff

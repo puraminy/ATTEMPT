@@ -50,21 +50,22 @@ fi
 ii=0
 nsp=0
 tst=1
+attn=rb
 for tn in 20; do
 for seed in 123; do
-for cmm in wavg cat; do
+for cmm in cat wavg; do
    if [ $cmm = "cat" ]; then
       numt=10
-      ntp=0
+      ntp=5
    else
       numt=50
       ntp=0
    fi
-for grm in "sign@rb@sigmoid@direct"; do
-for soft in after nothing; do
+for grm in "sign@direct"; do
 for attn in rb; do 
+for soft in after nothing; do
 for ntp in 5; do
-for nrp in "3-5"; do
+for masking in "none" "0-col-1"; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
@@ -75,10 +76,11 @@ fi
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
 for route_method in direct; do
+for thresh in 100 0.5 0.3; do
 for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
-   common="${params} _nrp $nrp _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   common="${params} _thresh $thresh  _masking $masking _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
    mets="$common _soft $soft _grm $grm _cmm $cmm _rm $route_method"
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
@@ -95,7 +97,7 @@ for tasks in _gtasks; do
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
    # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
-   for met in SILPI SL; do
+   for met in SILPI SL SIL SLP SC; do
    # for met in ST SL; do # SIP SIL SILP SILPI; do
    # for met in SC SLP; do
    # for met in SLPI SLP; do
@@ -131,6 +133,10 @@ for tasks in _gtasks; do
        fi
    done
 done
+if [[ "$*" =~ "_loop1" ]]; then
+   echo "exit after first loop"
+   exit 0
+fi
 done
 done
 done
@@ -140,6 +146,9 @@ done
 done
 done
 done
+done
+
+cp run.sh $logs
 
 if [[ "$*" =~ "_shutdown" ]]; then
    echo "shut down"

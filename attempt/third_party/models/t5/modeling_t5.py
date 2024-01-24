@@ -53,10 +53,43 @@ from attempt.adapters import AdapterController
 from typing import Dict, Any
 import attempt.mylogs as mylogs
 from attempt.callbacks import WBCallback
-
+from torch.nn.utils.rnn import pad_sequence
 ######### 
 # My utility function
 ############
+
+def batched_topk(batch_size, scores, num_attend_to, limit, sorted=False, threshold=100):
+    if threshold == 100:
+        k = num_attend_to
+        k = min(k, limit)
+        k = max(k, 1)
+        return torch.topk(scores, k, sorted=sorted)
+
+    # Initialize empty lists to store results
+    selected_scores_list = []
+    selected_indices_list = []
+    for i in range(batch_size):
+        k = num_attend_to
+        if threshold:
+            num_above = (scores[i] > threshold).sum().item()
+            k = min(num_attend_to, num_above)
+        k = min(k, limit)
+        k = max(k, 1)
+        sel_scores, sel_idx = torch.topk(scores[i], k, sorted=sorted)
+
+        # Append results to the lists
+        selected_scores_list.append(sel_scores.T)
+        selected_indices_list.append(sel_idx.T)
+
+    # Convert lists to tensors
+    mylogs.bp("topk")
+    selected_scores = pad_sequence(selected_scores_list, 
+            batch_first=True, padding_value=0.0).permute(0,2,1)
+    selected_indices = pad_sequence(selected_indices_list, 
+            batch_first=True, padding_value=0.0).permute(0,2,1)
+
+    return selected_scores, selected_indices
+
 def batched_index_select(inp, dim, index):
     views = [inp.shape[0]] + [1 if i != dim else -1 for i in range(1, len(inp.shape))]
     expanse = list(inp.shape)
@@ -403,10 +436,11 @@ class T5Attention(nn.Module):
                            bias=False if not self.bitfit else True)
 
         #   My code
-        self.attn_W_down = nn.Linear(self.d_model, self.inner_dim, bias=False)
-        self.attn_W_up = nn.Linear(self.inner_dim, self.d_model, bias=False)
-        self.attn_non_linear = nn.SiLU()
-        self.layer_norm = nn.LayerNorm(self.d_model)
+        # self.attn_W_down = nn.Linear(self.d_model, self.inner_dim, bias=False)
+        # self.attn_W_up = nn.Linear(self.inner_dim, self.d_model, bias=False)
+        # self.attn_non_linear = nn.SiLU()
+        # self.layer_norm = nn.LayerNorm(self.d_model)
+        # End my Code
 
         if self.has_relative_attention_bias:
             self.relative_attention_bias = nn.Embedding(
@@ -692,7 +726,7 @@ class T5LayerSelfAttention(nn.Module):
             y2 = self.adapter_config.soft_prompts
             y[pmask] = y2 
 
-        hidden_states = hidden_states + y # self.dropout(y)
+        hidden_states = hidden_states + self.dropout(y)
         # add attentions if we output them
         outputs = (hidden_states,) + attention_output[1:]
         return outputs
@@ -1019,6 +1053,7 @@ class T5Stack(T5PreTrainedModel):
         self.prefix_emb = prefix_emb if self.attend_target is True else None
         self.prefix_tuning = config.prefix_tuning
         self.source_prompts_order = config.source_prompts_order
+        self.padding_pos = config.padding_pos
         self.attn_tuning = attn_tuning
         self.mul_prefix_emb = mul_prefix_emb
         self.attn_method = attn_method
@@ -1027,7 +1062,7 @@ class T5Stack(T5PreTrainedModel):
         self.learned_temperature = learned_temperature
         self.target_task_id = None
         self.task_names = None
-        self.sel_positives = config.sel_positives
+        self.sel_thresh = config.sel_thresh
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1075,6 +1110,8 @@ class T5Stack(T5PreTrainedModel):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(src_tgt_encoders) + 1 # one for input
         self.attn_scores = torch.zeros(
+            (attend_num, attend_num), device=device) 
+        self.attn_mask_learned = torch.zeros(
             (attend_num, attend_num), device=device) 
         self.src_prompt_dim = src_prompt_dim
         self.prompt_names = ["input"] + [x.name for x in src_tgt_encoders]
@@ -1156,20 +1193,24 @@ class T5Stack(T5PreTrainedModel):
 #            prompt_dim * self.model_dim 
 #        )).uniform_(-bound, bound))
 #
-    def random_attn_mask(self, percent=0, num_masked_prompts = 1):
+    def make_attn_mask(self, index=0, num_masked_prompts = 1, mask_type="rand"):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_masked_prompts / attend_num
-        nse = self.num_src_encoders
+        nse = sum(1 for enc in self.prompt_encoders if enc.is_source and not enc.is_private)
         mylogs.bp("nrp")
-        attn_mask = torch.ones(attend_num, attend_num, device=device)
+        attn_mask = self.attn_mask.clone() 
         k = num_masked_prompts
         for i, encoder in enumerate(self.prompt_encoders, start=1):
-            if not encoder.is_source:
-                r = torch.rand((1, nse -1), device=device)
-                k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
-                mask = r <= k_th_quant
-                attn_mask[i, 1:nse] = mask.long()
+            if encoder.is_target:
+                if mask_type == "rand" or mask_type == "random":
+                    r = torch.rand((1, nse -1), device=device)
+                    k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
+                    mask = r <= k_th_quant
+                    attn_mask[i, 1:nse] = mask.long()
+                else:
+                    to = min(nse, index + num_masked_prompts)
+                    attn_mask[i, index:to] = 0 
         return attn_mask
 
     def anneal(self, i_step):
@@ -1350,21 +1391,17 @@ class T5Stack(T5PreTrainedModel):
             num_attend_to = num_attend_to // num_targets
         else:
             num_attend_to = self.num_target_prompts
-        num_attend_to = min(self.num_target_prompts, attend_to_idx.size()[1])
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
-        if (not self.training and self.compose_method == "wavg" 
-                and self.sel_positives is True): 
-            positive_scores = router[router >= 0]
-            positive_scores = positive_scores.reshape(batch_size, -1)
-            num_attend_to = positive_scores.size()[1]
-        if self.source_prompts_order == "unsorted":
-            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                    num_attend_to, sorted=False)
-        else:
-            attn_sel_scores, attend_to_sel_idx = torch.topk(attn_scores, 
-                    num_attend_to, sorted=True)
+        mylogs.bp("topk")
+        attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
+                attn_scores, 
+                num_attend_to, 
+                limit=attend_to_idx.size(1),
+                sorted=self.source_prompts_order == "sorted",
+                threshold=self.sel_thresh)
+
         mylogs.bp("att")
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
@@ -1501,7 +1538,7 @@ class T5Stack(T5PreTrainedModel):
         return lambda x: self.isin(x, self.task_prompt_ids)
 
     # pppppppppp
-    def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task):
+    def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task, att_mask):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
 
@@ -1620,7 +1657,7 @@ class T5Stack(T5PreTrainedModel):
                             sel_prompts = torch.cat((sel_prompts,
                                 avg_tp), dim=1)
                             source_idx = torch.cat([source_idx, target_idx], dim=1)
-                        soft_prompts, attn_scores, source_idx = self.attend_prompts(
+                        soft_prompts, attn_scores, attend_to_idx = self.attend_prompts(
                                 inputs_embeds, 
                                 src_prompts = sel_prompts, 
                                 target_prompts = target_prompts,
@@ -1629,20 +1666,42 @@ class T5Stack(T5PreTrainedModel):
                                 target_idx=target_idx, 
                                 task_ids = tids,
                                 task=task)
-                        self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
-                        inputs_embeds[target_prompt_masks]= soft_prompts.view(-1, self.model_dim)
-                        if (not self.training or mylogs.is_debug()): 
-                            mylogs.bp("pred")
-                            # assert torch.all((attn_scores >= 0) & (attn_scores <= 1)), "Not all values are between 0 and 1"
+                        # self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
+                        if not self.training:
                             num_targets = target_idx.size()[-1]
-                            source_idx = source_idx.view(batch_size, num_targets, -1)
-                            src_idx = source_idx[batch_size - 1]
+                            attend_to_idx = attend_to_idx.view(batch_size, num_targets, -1)
+                            src_idx = attend_to_idx[batch_size - 1]
                             tgt_idx = target_idx[batch_size - 1]
+                            mylogs.bp("pred")
+                        ###### Pad extra prompt tokens
+                        tmask = target_prompt_masks.clone()
+                        sview = soft_prompts.view(batch_size, -1, self.model_dim)
+                        number_to_keep = sview.size(1) 
+                        sequence_length = tmask.size(1)
+                        if self.padding_pos == "end":
+                            sequence_range = range(sequence_length)
+                        else:
+                            sequence_range = range(sequence_length -1, -1, -1)
+                        for i in range(batch_size):
+                            num_true = 0
+                            for j in sequence_range: 
+                                if tmask[i, j] and num_true < number_to_keep:
+                                    num_true += 1
+                                elif tmask[i, j]:
+                                    tmask[i, j] = False
+                                    att_mask[i, j] = 0
+                                    input_ids[i, j] = 0
+
+                        inputs_embeds[tmask]= soft_prompts.view(-1, self.model_dim)
+                        if not self.training: # or mylogs.is_debug(): 
+                            # assert torch.all((attn_scores >= 0) & (attn_scores <= 1)), "Not all values are between 0 and 1"
                             ascore = attn_scores[batch_size - 1]
                             tscore = torch.zeros((ascore.size()[0],
                                 self.attn_scores.size()[1]), device=device)
                             tscore[:, src_idx] = ascore 
                             self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
+
+                            self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
                             # assert torch.all((self.attn_scores >= 0) & (self.attn_scores <= 1)), "Not all values of self.attn_scores are between 0 and 1"
                             targets = self.target_encoders_idx
                             #ss1 = self.attn_scores  
@@ -1664,8 +1723,8 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
                     inputs_embeds[target_prompt_masks]=target_prompts.view(-1, self.model_dim)
-            return None
-        return input_ids
+            return input_ids, att_mask 
+        return input_ids, att_mask
     ######################################################
     def per_layer_config(self, config, layer_id, adapter_config, is_decoder):
         """Sets the train_task_adapter in the config, based on the information given."""
@@ -1781,8 +1840,9 @@ class T5Stack(T5PreTrainedModel):
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
             inputs_embeds = self.embed_tokens(input_ids)
             ################ MyCode mmmmmmmmmmmm
-            input_ids = self.prompt_encoders_forward(input_ids, 
-                    inputs_embeds, task_ids, task)
+            mylogs.bp("befw")
+            input_ids, attention_mask = self.prompt_encoders_forward(input_ids, 
+                    inputs_embeds, task_ids, task, att_mask = attention_mask)
             ################ My code End
 
             if self.append_prefix and self.append_attn_prefix is False:
@@ -2401,6 +2461,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         self.attn_scores = None
         self.attn_mask = None
         self.attn_mask_orig = None
+        self.attn_mask_learned = None
         self.prompt_names = None
 
         encoder_config = copy.deepcopy(config)

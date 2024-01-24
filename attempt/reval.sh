@@ -75,8 +75,9 @@ for file in $(find "$PWD" -type f -name "exp.json" -path "*$_pat*"); do
       for test_num in $tsn; do
          params="${main_params} --data_seed=$data_seed"
          params="${params} --max_test_samples=$test_num"
-         if [ -n "$_test" ] || [ -n "$_all_test" ]; then
+         if [ -z "$_train" ]; then
             params="${params} --reval"
+            exit
          fi
          if [ -n "$_pvf" ]; then
             echo "$file"

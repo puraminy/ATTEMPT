@@ -177,6 +177,15 @@ def plot_bar(rep, folder, sel_col):
     plt.savefig(pname)
     return pname
 
+def get_sel_exprs(df, sel_rows, sel_row):
+    exprs = []
+    s_rows = sel_rows
+    if not s_rows:
+        s_rows = [sel_row]
+    for s_row in s_rows:
+        exp=df.iloc[s_row]["eid"]
+        exprs.append(exp)
+    return exprs
 
 def load_results(path):
     with open(path, "r") as f:
@@ -683,8 +692,9 @@ def show_df(df):
             #shutil.copy(path, _selpath)
             # grm = tdf.iloc[0]["gen_route_methods"]
             runid = tdf.iloc[0]["runid"]
-            run = "wandb/offline*" + str(runid) + f"/files/media/images/{start}*.png"
-            paths = glob(str(path.parent.parent) +"/" +run)
+            #run = "wandb/offline*" + str(runid) + f"/files/media/images/{start}*.png"
+            run = "img_logs/{start}*.png"
+            paths = glob(str(path.parent) +"/img_logs/*.png")
             # paths = glob(run)
             spath = "images/" + str(runid)
             if Path(spath).exists():
@@ -725,9 +735,13 @@ def show_df(df):
             Path("temp").mkdir(parents=True, exist_ok=True)
             for key, img_dict in imgs.items():
                 sorted_keys = reversed(sorted(img_dict.keys()))
+                # sorted_keys = ["score", "router", "cos"] # TODO fixed
                 img_list = [img_dict[k] for k in sorted_keys] 
                 if len(img_list) > 1:
-                    new_im = combine_x(img_list)
+                    if len(img_list) > 2:
+                        new_im = combine_y(img_list)
+                    else:
+                        new_im = combine_x(img_list)
                     name = str(key) 
                     dest = os.path.join("temp", name.strip("-") + ".png")
                     new_im.save(dest)
@@ -1001,15 +1015,14 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
-        if char in ["o","O"]:
+        if char == "O":
+            sel_exp=df.iloc[sel_row]["eid"]
+            tdf = main_df[main_df['eid'] == sel_exp]
+            spath = tdf.iloc[0]["path"]
+            subprocess.run(["nautilus", spath])
+        if char == "o":
             images = []
-            exprs = []
-            s_rows = sel_rows
-            if not s_rows:
-                s_rows = [sel_row]
-            for s_row in s_rows:
-                exp=df.iloc[s_row]["eid"]
-                exprs.append(exp)
+            exprs = get_sel_exprs(df, sel_rows, sel_row)
             experiment_images, fnames = get_images(df, exprs, 'eid')
             capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
             for key, img_list in experiment_images.items(): 
@@ -1056,7 +1069,7 @@ def show_df(df):
                             xx += tw + 10
                     images.append(_image)
             if images:
-                pic = combine_y(images)
+                pic = combine_x(images)
                 dest = os.path.join("routers.png")
                 pic.save(dest)
                 #pname=df.iloc[sel_row]["image"]
@@ -1472,8 +1485,15 @@ def show_df(df):
                 sel_cols.append("num_preds")
             df["avg_len"] = avg_len
             df = df.sort_values(by = ["rouge_score"], ascending=False)
+            exp_num = df["folder"].nunique()
+            consts["Number of experiments"] = str(exp_num)
             sort = "rouge_score"
-        elif char == "z": 
+        elif char == "z":
+            backit(df, sel_cols)
+            exprs = get_sel_exprs(df, sel_rows, sel_row)
+            sel_rows = []
+            df = df[df['eid'].isin(exprs)]
+        elif char == "z" and prev_char == "a": 
             if len(df) > 1:
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         orig_tag_cols, keep_cols)
@@ -2641,7 +2661,7 @@ def start(stdscr):
                 df["path"] = f
                 df["fid"] = ii
                 _dir = str(Path(f).parent)
-                folder = str(Path(f).parent.parent) 
+                folder = str(Path(f).parent) 
                 if not folder in folders:
                     folders[folder] = ff
                     ff += 1

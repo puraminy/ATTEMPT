@@ -176,6 +176,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
 
         has_labels = "labels" in inputs
         inputs = self._prepare_inputs(inputs)
+        # gen_inputs = inputs.clone().detach()
         gen_kwargs = {
             "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
             "num_beams": self._num_beams if self._num_beams is not None else self.model.config.num_beams,
@@ -189,25 +190,28 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         )
 
         # in case the batch is shorter than max length, the output should be padded
-        if generated_tokens.shape[-1] < gen_kwargs["max_length"]:
-            generated_tokens = self._pad_tensors_to_max_len(
-                generated_tokens, gen_kwargs["max_length"])
+        if not self.args.prediction_loss_only:
+            if generated_tokens.shape[-1] < gen_kwargs["max_length"]:
+                generated_tokens = self._pad_tensors_to_max_len(
+                    generated_tokens, gen_kwargs["max_length"])
 
-        with torch.no_grad():
-            if False: # self.use_amp:
-                with autocast():
-                    outputs = model(**inputs)
-            else:
-                outputs = model(**inputs)
-            if has_labels:
-                if self.label_smoother is not None:
-                    loss = self.label_smoother(
-                        outputs, inputs["labels"]).mean().detach()
+        loss = None
+        if self.args.prediction_loss_only:
+            with torch.no_grad():
+                if False: # self.use_amp:
+                    with autocast():
+                        outputs = model(**inputs)
                 else:
-                    loss = (outputs["loss"] if isinstance(
-                        outputs, dict) else outputs[0]).mean().detach()
-            else:
-                loss = None
+                    outputs = model(**inputs)
+                if has_labels:
+                    if self.label_smoother is not None:
+                        loss = self.label_smoother(
+                            outputs, inputs["labels"]).mean().detach()
+                    else:
+                        loss = (outputs["loss"] if isinstance(
+                            outputs, dict) else outputs[0]).mean().detach()
+                else:
+                    loss = None
 
         if self.args.prediction_loss_only:
             return (loss, None, None)

@@ -7,6 +7,7 @@
   "sel_cols":[
     "expname",
     "prefix",
+    "gen_mask",
     "compose_method",
     "route_method",
     "max_train_samples",

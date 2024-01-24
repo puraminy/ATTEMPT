@@ -418,7 +418,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
+   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
    args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -480,7 +480,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                args["expid"] = ii 
        elif merge: 
            args["expid"] = str(exp_args["expid"]) 
-       else:
+       elif not reval:
            args["expid"] = str(exp_args["expid"]) + "-" + str(ii)
        args["main_vars"] = mvars
        args["cat"] = experiment.split("/")[-1] 
@@ -953,7 +953,8 @@ def train(**kwargs):
     config.num_target_prompts = num_target_prompts
     config.attend_private = use_private_prompts 
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
-    config.sel_positives = kwargs.setdefault("sel_positives", False)
+    config.padding_pos = kwargs.setdefault("padding_pos", "start")
+    config.sel_thresh = kwargs.setdefault("sel_thresh", 100)
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -1361,6 +1362,7 @@ def train(**kwargs):
     def preprocess_function(examples, max_target_length, task_id=None):
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
+        mylogs.bp("data")
         if preview == "data":
             mylogs.plog.info("sourece: %s", examples["source"][:hit_count])
             mylogs.plog.info("target: %s", examples["target"][:hit_count])
@@ -2026,10 +2028,11 @@ def train(**kwargs):
                     cbar=False,
                     y_labels=y_labels,
                     x_labels=x_labels,
-                    title = title  + "_" + spec 
-                            + "_" + model_args.compose_method \
-                            + "_" + kwargs.apply_softmax_to \
-                            + "_" + model_args.attn_method) 
+                    title = title  
+                            + " | " + model_args.compose_method \
+                            + " | " + kwargs.apply_softmax_to \
+                            + " | " + spec
+                )
                 #if img_buf:
                 #    im = Image.open(img_buf)
                 #    mylogs.bp("img")
@@ -2044,17 +2047,23 @@ def train(**kwargs):
         grm = kwargs.setdefault("gen_route_methods",["rb"])
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         combs = {}
-        random_masks = kwargs.setdefault("num_random_masks","0-0")
-        nn, mm = random_masks.split("-") 
-        num_random_masks, num_masked_prompts =int(nn), int(mm) 
+        masking = kwargs.setdefault("prompt_masking","0-col-0")
+        if masking == "none" or masking is None: masking = "0-col-0"
+        nn, mask_type, mm = masking.split("-") 
+        num_masks, num_masked_prompts =int(nn), int(mm) 
+        if num_masks == 0: num_masks = num_source_prompts
         mylogs.bp("nrp")
-        for rm in range(num_random_masks):
-            mask = model.encoder.random_attn_mask(rm, num_masked_prompts)
-            combs["mask-" + str(rm + 1) + "-" + str(mm)] = mask
-        combs["train"] = None
+        combs["no-mask"] = None
+        if num_masked_prompts > 0:
+            for rm in range(num_masks):
+                col = rm + 1
+                mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
+                mkey = mask_type + "-" + str(col) + "-" + str(mm)
+                combs[mkey] = mask
         ii = 0
         kk = 0
         sdf_rows = []
+        img_list = []
         exp_folder = Path(training_args.output_dir).parent
         exp_folder_name = Path(training_args.output_dir).stem
         exp_folder = str(exp_folder) 
@@ -2077,21 +2086,22 @@ def train(**kwargs):
                     attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                     model.encoder.attn_scores = torch.zeros(
                         (attend_num, attend_num), device=device) 
+                    model.encoder.attn_mask_learned = torch.zeros(
+                        (attend_num, attend_num), device=device) 
                     mylogs.bp("pic")
                     rv = "EVAL" if not reval else "REVAL"
                     eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                            + "_" + route_method + "_" \
+                            + "_" + route_method + "_trial-" \
                             + str(kwargs.trial) + "_" + str(ii) 
                     eval_folder = os.path.join(exp_folder, eval_folder_name)
                     Path(eval_folder).mkdir(parents=True, exist_ok=True)
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                         gen_conf["route_method"] = route_method
+                        gen_conf["mask_type"] = rm
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
-                           attn_mask = mask
                         else:
                            gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-                           attn_mask = model.encoder.attn_mask_orig 
                         exp_info["gen_route_methods"] = route_method
                         exp_info["gen_mask"] = rm 
                         mylogs.bp("test")
@@ -2124,12 +2134,11 @@ def train(**kwargs):
     #################
                     mylogs.bp("pic")
                     if adapter_args.prompt_tuning:
-                        img_list = []
                         targets = model.encoder.target_encoders_idx
                         ss1 = model.encoder.attn_scores.index_select(0, targets)
                         mylogs.bp("ss1")
-                        tlen = ss1.size()[0]
-                        all_len = ss1.size()[1]
+                        tlen = ss1.size(0)
+                        all_len = ss1.size(1)
                         sim = torch.eye(tlen)
                         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                         for i in range(tlen):
@@ -2175,10 +2184,18 @@ def train(**kwargs):
                         save_image(eval_folder, model, score_dict, spec = route_method)
 
                     ss2 = model.encoder.router.index_select(0, targets)
+                    tlen = ss2.size(0)
+                    if multi_tasking:
+                        ss2 = ss2[:,1:slen+tlen + 1]
                     score_dict= {"router":ss2}
-                    if attn_mask is not None:
-                        ss3 = attn_mask.index_select(0, targets)
-                        score_dict["mask"] = ss3
+                    if mask is not None:
+                        ss3 = mask.index_select(0, targets)
+                    else:
+                        mask = model.encoder.attn_mask_learned 
+                        ss3 = mask.index_select(0, targets)
+                    if multi_tasking:
+                        ss3 = ss3[:,1:slen+tlen + 1]
+                    score_dict["mask"] = ss3
                     save_image(eval_folder, model, score_dict, spec=rm)
         ################
         sdf = pd.DataFrame(data=sdf_rows)
