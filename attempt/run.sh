@@ -1,30 +1,55 @@
 #!/usr/bin/bash
-bash_params=""
-global_run_params=""
-extra_params=""
+params=""
+vars=""
+flags=""
+others=""
 sep="#"
 onError="continue"
 g=0
 for i in $@
 do
    case $i in
-       _*) bash_params="${bash_params} $i"; g=bash;;
+       -*) params="${params} $i"; g=run;;
+       *=*) vars="${vars} $i"; g=vars;;
+       _*) flags="${flags} $i"; g=flag;;
        *) p=$i
-          if [ "$g" = bash ]; then
-             bash_params=${bash_params%=*}
-             bash_params="${bash_params} $p"
+          if [ "$g" = run ]; then
+             params=${params%=*}
+             params="${params} $p"
+             g=0
           else
-             others="$others $p"
+             if [ "$others" = "" ]; then
+                others="$p"
+             else
+                others="$others $p"
+             fi
+             g=0
           fi
        ;;
  esac
+ if [ "$g" = flag ]; then
+    flags="${flags}=True";
+ fi
 done
+eval "${flags}"
+eval "${vars}"
 
-params="$*"
 alias runsh="bash ${HOME}/ATTEMPT/attempt/train.sh"
 onError=break
-echo "Bash params: ${bash_params}"
-echo "Global: $global_run_params"
+echo "Flags:${flags}"
+echo "Variables:${vars}"
+echo "Run params:${params}"
+echo "Others:${others}"
+arr=($others)
+
+if [ ${#arr[@]} -lt 2 ]; then
+   echo "Output folder and methods are required (eg. bash run.sh out1 method1 method2 ...)"
+   exit
+fi
+output=${arr[0]}
+echo "Output: $output"
+methods=("${arr[@]:1}")
+echo "Methods: $methods"
 
 ep=20
 epp=20
@@ -34,8 +59,8 @@ ppx="${epp}${tn}"
 # ppx=20200
 nums="_ep $ep _tsn 100"
 
-logs=$HOME/logs/$1
-if [ $1 = "test" ]; then
+logs=$HOME/logs/$output
+if [ -n "$_test" ]; then
    rm -rf $logs
    onError="break"
    ep=5
@@ -76,7 +101,7 @@ fi
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
 for route_method in direct; do
-for thresh in 100 0.5 0.3; do
+for thresh in 0.0 100; do
 for tasks in _gtasks; do 
    ((ii++))
    catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
@@ -96,14 +121,7 @@ for tasks in _gtasks; do
    P_args="$common _pt $tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
-   # for met in P SC SILP SL SLPI SLP SIP SIL SILPI; do
-   for met in SILPI SL SIL SLP SC; do
-   # for met in ST SL; do # SIP SIL SILP SILPI; do
-   # for met in SC SLP; do
-   # for met in SLPI SLP; do
-   # for met in SLP SILPI SLPI SL; do
-   # for met in SIPI SIP SILPI; do
-       echo $met
+   for met in $methods; do
        if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
           continue
        fi
@@ -118,8 +136,14 @@ for tasks in _gtasks; do
    #   fi
        args_variable="${met}_args"
        if [ -n "${!args_variable}" ]; then
+           echo $met
+           if [ -n "$_pv" ]; then
+              echo "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
+              echo "exit after preview rund command"
+              exit 0
+           fi
            bash train.sh "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
-           if [[ "$*" =~ "_one" ]]; then
+           if [[ -n "$_one" ]]; then
                echo "exit after first experiment"
                exit 0
            fi
@@ -129,11 +153,12 @@ for tasks in _gtasks; do
                exit 1
            fi
        else
-           echo "Variable ${args_variable} not defined for method ${met}."
+           echo "Method ${args_variable} was not set for method ${met}."
+           exit 0
        fi
    done
 done
-if [[ "$*" =~ "_loop1" ]]; then
+if [[ -n "$_loop1" ]]; then
    echo "exit after first loop"
    exit 0
 fi
@@ -150,8 +175,8 @@ done
 
 cp run.sh $logs
 
-if [[ "$*" =~ "_shutdown" ]]; then
-   echo "shut down"
+if [[ -n "$_shutdown" ]]; then
+   echo "shut down after finish"
    echo 'a' | sudo -S shutdown -h now
    exit
 fi

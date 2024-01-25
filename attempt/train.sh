@@ -43,15 +43,6 @@ done
 main_vars=${main_vars#"--"}
 main_vars="${main_vars}--task_name"
 
-################## Utils
-get_com_ppx() {
-   arr=($(echo -n $1 | sed "s/${sep}/ /g"))
-   IFS=$'\n' sorted=($(sort <<<"${arr[*]}")); unset IFS
-   tlist=$(printf "%s-" "${sorted[@]}")
-   tlist=${tlist%-}
-   result=${tlist}
-}
-
 ################
 
 echo "==================== Train.sh ======================"
@@ -61,6 +52,15 @@ echo "Extra Prarams: ${extra_params}"
 echo "Run Prarams: ${run_params}"
 eval "${bash_params}"
 echo "Tasks: $_tasks"
+
+################## Utils
+get_com_ppx() {
+   arr=($(echo -n $1 | sed "s/${sep}/ /g"))
+   IFS=$'\n' sorted=($(sort <<<"${arr[*]}")); unset IFS
+   tlist=$(printf "%s-" "${sorted[@]}")
+   tlist=${tlist%-}
+   result=${tlist}
+}
 
 if [ -n "$_ttasks" ]; then
    _tasks="${_tasks}#qnli#rte#mrpc#qqp"
@@ -245,7 +245,7 @@ if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=3.; fi
 if [ -z "$_soft" ]; then  _soft="after"; fi
-if [ -z "$_inp" ]; then  _inp=False; fi
+if [ -z "$_inp" ]; then  _inp=True; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_masking" ]; then  _masking="0-random-0"; fi # number of random masks 
 if [ -z "$_numt" ]; then  _numt=50; fi

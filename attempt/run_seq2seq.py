@@ -2176,7 +2176,8 @@ def train(**kwargs):
 
                         ss1 = torch.round(ss1*100)/100
                         if multi_tasking:
-                            ss1 = ss1[:,1:slen+tlen + 1]
+                            start = 0 if model_args.attend_input else 1 
+                            ss1 = ss1[:,start:slen+tlen + 1]
 
                         if len(torch.nonzero(ss1)) < 1:
                             ss1 = torch.eye(tlen)
@@ -2186,7 +2187,8 @@ def train(**kwargs):
                     ss2 = model.encoder.router.index_select(0, targets)
                     tlen = ss2.size(0)
                     if multi_tasking:
-                        ss2 = ss2[:,1:slen+tlen + 1]
+                        start = 0 if model_args.attend_input else 1 
+                        ss2 = ss2[:,start:slen+tlen + 1]
                     score_dict= {"router":ss2}
                     if mask is not None:
                         ss3 = mask.index_select(0, targets)
@@ -2194,7 +2196,8 @@ def train(**kwargs):
                         mask = model.encoder.attn_mask_learned 
                         ss3 = mask.index_select(0, targets)
                     if multi_tasking:
-                        ss3 = ss3[:,1:slen+tlen + 1]
+                        start = 0 if model_args.attend_input else 1 
+                        ss3 = ss3[:,start:slen+tlen + 1]
                     score_dict["mask"] = ss3
                     save_image(eval_folder, model, score_dict, spec=rm)
         ################

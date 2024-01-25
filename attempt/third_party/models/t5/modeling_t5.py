@@ -1062,7 +1062,7 @@ class T5Stack(T5PreTrainedModel):
         self.learned_temperature = learned_temperature
         self.target_task_id = None
         self.task_names = None
-        self.sel_thresh = config.sel_thresh
+        self.sel_thresh = float(config.sel_thresh)
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1395,10 +1395,13 @@ class T5Stack(T5PreTrainedModel):
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
         mylogs.bp("topk")
+        if self.sel_thresh != 100:
+            attn_scores[router < self.sel_thresh]  = 0
+
         attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
                 attn_scores, 
                 num_attend_to, 
-                limit=attend_to_idx.size(1),
+                limit=attend_to_idx.size(1) - 1,
                 sorted=self.source_prompts_order == "sorted",
                 threshold=self.sel_thresh)
 
@@ -1413,7 +1416,8 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
-            attend_to_sel_idx = attend_to_sel_idx + 1
+            # attend_to_sel_idx = attend_to_sel_idx + 1
+            pass
         mylogs.bp("unif")
 
         # Create a binary mask for the top k indices
