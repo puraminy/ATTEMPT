@@ -3,18 +3,21 @@ params=""
 vars=""
 flags=""
 others=""
-sep="#"
 onError="continue"
+debug=False
 g=0
 for i in $@
 do
+   if [[ "$i" == "-d" ]]; then
+      debug=True
+   fi
    case $i in
+       --*) params="${params} $i"; g=param;;
        -*) params="${params} $i"; g=run;;
        *=*) vars="${vars} $i"; g=vars;;
        _*) flags="${flags} $i"; g=flag;;
        *) p=$i
           if [ "$g" = run ]; then
-             params=${params%=*}
              params="${params} $p"
              g=0
           else
@@ -40,6 +43,9 @@ echo "Flags:${flags}"
 echo "Variables:${vars}"
 echo "Run params:${params}"
 echo "Others:${others}"
+if [[ -n "$_sd" ]]; then
+   echo "shut down after finish"
+fi
 arr=($others)
 
 if [ ${#arr[@]} -lt 2 ]; then
@@ -51,62 +57,88 @@ echo "Output: $output"
 methods=("${arr[@]:1}")
 echo "Methods: $methods"
 
-ep=20
+
+if [ "$methods" = "all" ]; then
+   methods="SILPI SIL SLPI SILP SLP SL SIP"
+fi
+
+if [ -z $_ep ]; then
+   _ep=15
+fi
 epp=20
-tn=20
+tnn=20
+if [ -z $_tn ]; then
+  _tn=10
+fi
+
 bs=12
-ppx="${epp}${tn}"
+ppx="${epp}${tnn}"
 # ppx=20200
-nums="_ep $ep _tsn 100"
+nums="_ep $_ep _tsn 100"
+
+tst=1 # bias 
+
+if [ -z "$_norm" ]; then
+   _norm=after_sigmoid
+fi
 
 logs=$HOME/logs/$output
-if [ -n "$_test" ]; then
+if [ -n "$_test" ] || [ -n "$_debug" ]; then
    rm -rf $logs
    onError="break"
-   ep=5
+   _ep=5
    tn=10
    bs=4
 else
-   if [ $ep -lt 10 ]; then
+   if [ $_ep -lt 10 ]; then
       echo "epochs are too low!"
       exit
    fi
 fi
 ii=0
 nsp=0
-tst=1
 attn=rb
-for tn in 20; do
+
+if [ -z "$_cmm" ]; then
+   _cmm="cat"
+fi
+if [ -z "$_rm" ]; then
+   _rm="direct"
+fi
+
+if [ -z "$_tasks" ]; then
+   _tasks="_tasks mnli qnli stsb qqp mrpc" 
+elif [ "$_tasks" = "g" ]; then
+   _tasks="_gtasks"
+fi
+
+for tn in $_tn; do
 for seed in 123; do
-for cmm in cat wavg; do
-   if [ $cmm = "cat" ]; then
+for cmm in $_cmm; do
+   if [ $_cmm = "cat" ]; then
       numt=10
       ntp=5
    else
       numt=50
       ntp=0
    fi
-for grm in "sign@direct"; do
+for gnm in "sigmoid@soft"; do
 for attn in rb; do 
-for soft in after nothing; do
-for ntp in 5; do
+for nsp in 0; do
 for masking in "none" "0-col-1"; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
    src=""
 fi
-#for tasks in "_tasks mnli qnli rte stsb qqp"; do 
 #for tasks in "_tasks mnli qnli qqp"; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
-for route_method in direct; do
-for thresh in 0.0 100; do
-for tasks in _gtasks; do 
+#for tasks in _gtasks; do 
    ((ii++))
-   catname="${1}$tasks-$cmm-$ntp-$nsp-seed-$seed-$route_method-$ii-$tn"
-   common="${params} _thresh $thresh  _masking $masking _attn $attn $nums _tst $tst _bs $bs _tn $tn $tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
-   mets="$common _soft $soft _grm $grm _cmm $cmm _rm $route_method"
+   catname="$cmm-$ntp-$nsp-seed-$seed-$ii-$tn"
+   common="${params} _rm $_rm _tst $tst _masking $masking _attn $attn $nums _bs $bs _tn $tn $_tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
+   mets="$common _norm $_norm _gnm $gnm _cmm $cmm "
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
    SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
@@ -117,8 +149,8 @@ for tasks in _gtasks; do
    ST_args="$mets _lsp False _addt True "
    SLP_args="$mets _upp _lsp False"
    SLPI_args="$mets _upp _lsp False _lpp _ppx $ppx"
-   PI_args="$common _pt $tasks _upp _lpp _lsp False "
-   P_args="$common _pt $tasks _skip"
+   PI_args="$common _pt $_tasks _upp _lpp _lsp False "
+   P_args="$common _pt $_tasks _skip"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
    for met in $methods; do
@@ -143,7 +175,7 @@ for tasks in _gtasks; do
               exit 0
            fi
            bash train.sh "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
-           if [[ -n "$_one" ]]; then
+           if [[ -n "$_one" ]] || [[ -n "$_debug" ]]; then
                echo "exit after first experiment"
                exit 0
            fi
@@ -168,14 +200,12 @@ done
 done
 done
 done
-done
-done
-done
-done
 
-cp run.sh $logs
+if [ -d $logs ]; then
+   cp run.sh $logs/
+fi
 
-if [[ -n "$_shutdown" ]]; then
+if [[ -n "$_sd" ]]; then
    echo "shut down after finish"
    echo 'a' | sudo -S shutdown -h now
    exit

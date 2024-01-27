@@ -356,6 +356,12 @@ class ModelArguments:
             "help": "set router temperature anneal rate."
         },
     )
+    anneal_type: str = field(
+        default="exp",
+        metadata={
+            "help": "set router temperature anneal type (exp or linear)."
+        },
+    )
 
     anneal_min: float = field(
         default=1.,

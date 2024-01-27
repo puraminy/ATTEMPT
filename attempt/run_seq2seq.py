@@ -947,6 +947,7 @@ def train(**kwargs):
     config.select_method = model_args.select_method #my option
     config.target_share_temperature = model_args.target_share_temperature
     config.anneal_min = model_args.anneal_min # my option
+    config.anneal_type = model_args.anneal_type # my option
     config.anneal_dir = model_args.anneal_dir # my option
     config.anneal_rate = anneal_rate # my option
     config.attend_target = model_args.attend_target
@@ -954,7 +955,8 @@ def train(**kwargs):
     config.attend_private = use_private_prompts 
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
-    config.sel_thresh = kwargs.setdefault("sel_thresh", 100)
+    sel_thresh = kwargs.setdefault("sel_thresh", 100)
+    config.sel_thresh = -1*sel_thresh if sel_thresh > 0 else sel_thresh
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -963,7 +965,7 @@ def train(**kwargs):
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
-    config.apply_softmax_to = kwargs.setdefault("apply_softmax_to", "all") #my option
+    config.norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
         config.prefix_num = len(model_args.prompt_embedding_path) 
@@ -2030,7 +2032,7 @@ def train(**kwargs):
                     x_labels=x_labels,
                     title = title  
                             + " | " + model_args.compose_method \
-                            + " | " + kwargs.apply_softmax_to \
+                            + " | " + kwargs.norm_method \
                             + " | " + spec
                 )
                 #if img_buf:
@@ -2044,7 +2046,7 @@ def train(**kwargs):
         results = {}
         gen_conf = {"rep_penalty":2.0}
         ds_backup = None
-        grm = kwargs.setdefault("gen_route_methods",["rb"])
+        gnm = kwargs.setdefault("gen_norm_methods",["sign"])
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         combs = {}
         masking = kwargs.setdefault("prompt_masking","0-col-0")
@@ -2058,7 +2060,7 @@ def train(**kwargs):
             for rm in range(num_masks):
                 col = rm + 1
                 mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
-                mkey = mask_type + "-" + str(col) + "-" + str(mm)
+                mkey = str(col) + "-" + mask_type + "-" + str(mm)
                 combs[mkey] = mask
         ii = 0
         kk = 0
@@ -2082,7 +2084,7 @@ def train(**kwargs):
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             for rm, mask in combs.items():
-                for route_method in grm: 
+                for norm_method in gnm: 
                     attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                     model.encoder.attn_scores = torch.zeros(
                         (attend_num, attend_num), device=device) 
@@ -2091,18 +2093,20 @@ def train(**kwargs):
                     mylogs.bp("pic")
                     rv = "EVAL" if not reval else "REVAL"
                     eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                            + "_" + route_method + "_trial-" \
+                            + "_" + norm_method + "_trial-" \
                             + str(kwargs.trial) + "_" + str(ii) 
                     eval_folder = os.path.join(exp_folder, eval_folder_name)
                     Path(eval_folder).mkdir(parents=True, exist_ok=True)
+                    counter = 0
+                    total_score = 0
                     for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                        gen_conf["route_method"] = route_method
+                        gen_conf["norm_method"] = norm_method
                         gen_conf["mask_type"] = rm
                         if mask is not None: 
                            gen_conf["attn_mask"] = mask 
                         else:
                            gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-                        exp_info["gen_route_methods"] = route_method
+                        exp_info["gen_norm_methods"] = norm_method
                         exp_info["gen_mask"] = rm 
                         mylogs.bp("test")
                         task = task.split("_")[0]
@@ -2121,18 +2125,21 @@ def train(**kwargs):
                                                 ds_conf,"test.tsv")
                         mylogs.bp("test")
                         test_rouge = wandb.run.summary["test_rouge"]
+                        total_score += df["m_score"].mean() 
                         test_bert = wandb.run.summary["test_bert"]
                         num_preds = wandb.run.summary["num_preds"]
                         da = {}
                         da["task"] = task
-                        da["route_method"] = route_method
+                        da["norm_method"] = norm_method
                         da["test_rouge"] = test_rouge
                         da["test_bert"] = test_bert
                         da["num_preds"] = num_preds
                         sdf_rows.append(da)
                         ii += 1
+                        counter += 1
     #################
                     mylogs.bp("pic")
+                    mean_score = total_score / counter
                     if adapter_args.prompt_tuning:
                         targets = model.encoder.target_encoders_idx
                         ss1 = model.encoder.attn_scores.index_select(0, targets)
@@ -2182,7 +2189,8 @@ def train(**kwargs):
                         if len(torch.nonzero(ss1)) < 1:
                             ss1 = torch.eye(tlen)
                         score_dict= {"score":ss1, "sim": sim}
-                        save_image(eval_folder, model, score_dict, spec = route_method)
+                        save_image(eval_folder, model, score_dict, 
+                                spec = norm_method + " | {:.2f}".format(mean_score))
 
                     ss2 = model.encoder.router.index_select(0, targets)
                     tlen = ss2.size(0)

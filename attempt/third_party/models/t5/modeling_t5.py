@@ -57,9 +57,39 @@ from torch.nn.utils.rnn import pad_sequence
 ######### 
 # My utility function
 ############
+def normalize_scores(scores, method="soft", sel_thresh=100, resample=False):
+    if method == "rb" or resample is True:
+        scores = RelaxedBernoulli(temperature=0.001, 
+            logits=scores).rsample()  
 
-def batched_topk(batch_size, scores, num_attend_to, limit, sorted=False, threshold=100):
-    if threshold == 100:
+    if sel_thresh != 100:
+        scores[scores < sel_thresh] = -100
+
+    if method == "nothing":
+        return scores
+    elif method == "direct" or method == "soft" or method == "rb":
+        scores = F.softmax(scores, -1)
+    elif method == "sigmoid":
+        scores = torch.sigmoid(scores)  
+    elif method == "sign":
+        scores[scores <= 0] = 0
+        scores[scores > 0] = 1
+    elif method == "norm":
+        scores=scores / scores.sum(dim=-1, keepdim=True) 
+    elif method == "normsoft":
+        scores=scores / scores.sum(dim=-1, keepdim=True) 
+        scores = F.softmax(scores, -1)
+    elif method == "minmax":
+        _min, _ = torch.min(scores, dim=-1, keepdim=True)
+        _max, _ = torch.max(scores, dim=-1, keepdim=True)
+        scores = (scores - _min) / (_max - _min)
+    
+
+    return scores
+
+def batched_topk(batch_size, scores, num_attend_to, sorted=False, threshold=100):
+    limit = scores.size(-1)
+    if threshold == 100 or threshold == -100:
         k = num_attend_to
         k = min(k, limit)
         k = max(k, 1)
@@ -70,7 +100,7 @@ def batched_topk(batch_size, scores, num_attend_to, limit, sorted=False, thresho
     selected_indices_list = []
     for i in range(batch_size):
         k = num_attend_to
-        if threshold:
+        if threshold != 100:
             num_above = (scores[i] > threshold).sum().item()
             k = min(num_attend_to, num_above)
         k = min(k, limit)
@@ -82,11 +112,10 @@ def batched_topk(batch_size, scores, num_attend_to, limit, sorted=False, thresho
         selected_indices_list.append(sel_idx.T)
 
     # Convert lists to tensors
-    mylogs.bp("topk")
     selected_scores = pad_sequence(selected_scores_list, 
             batch_first=True, padding_value=0.0).permute(0,2,1)
     selected_indices = pad_sequence(selected_indices_list, 
-            batch_first=True, padding_value=0.0).permute(0,2,1)
+            batch_first=True, padding_value=0).permute(0,2,1)
 
     return selected_scores, selected_indices
 
@@ -285,7 +314,7 @@ class Anneal:
     def __init__(self, temperature, anneal_dir, anneal_rate, anneal_min, anneal_type="exp"):
         self.anneal_min = anneal_min
         self.cur_step = 0
-        self.temperature = temperature
+        self.start_val = temperature
         self.cur_val = temperature
         self.anneal_dir = anneal_dir
         self.anneal_rate = anneal_rate
@@ -300,9 +329,9 @@ class Anneal:
         delta = self.anneal_dir * self.anneal_rate * i_step
         if self.anneal_type == "exp":
            exp_rate = np.exp(delta)
-           t = max(self.anneal_min, self.temperature * exp_rate)
+           t = max(self.anneal_min, self.cur_val * exp_rate)
         else:
-           t = self.temperature + delta 
+           t = self.start_val + delta 
         self.cur_val = t
         return self.cur_val 
 
@@ -1039,10 +1068,17 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
+        self.anneal_type = config.anneal_type
+        self.temperature = temperature
 
+        self.anneal_router = Anneal(self.temperature, 
+                anneal_dir = self.anneal_dir, 
+                anneal_rate = self.anneal_rate, 
+                anneal_min = self.anneal_min, 
+                anneal_type=self.anneal_type)
         self.anneal_ts = Anneal(self.target_share_temperature, 
                 anneal_dir = -1, anneal_rate = 0.05, anneal_min = 0, anneal_type="linear")
-        self.apply_softmax_to = config.apply_softmax_to
+        self.norm_method = config.norm_method
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
         self.attend_target = attend_target
@@ -1068,8 +1104,6 @@ class T5Stack(T5PreTrainedModel):
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
             self.temperature = (self.model_dim * torch.exp(torch.clamp(nn.Parameter(
                 torch.Tensor([1]), requires_grad=True), min=0.005, max=5))).cuda()
-        else:
-            self.temperature = temperature
         self.append_prefix = self.prefix_tuning and not self.is_decoder and not self.attn_tuning
         self.append_attn_prefix = self.prefix_tuning and not self.is_decoder and self.attn_tuning
         if self.prefix_tuning:
@@ -1154,10 +1188,10 @@ class T5Stack(T5PreTrainedModel):
                     first = False
                 elif encoder.is_target:
                     if route_method == "biasx" or route_method == "biass":
-                        router[i, j] = self.target_share_temperature
+                        router[i, j] = 0.5 # self.target_share_temperature
                         j += 1
                     if k > 1 and (route_method == "biasx" or route_method == "biasp"):
-                        router[i, k] = self.target_share_temperature
+                        router[i, k] = 0.5 #self.target_share_temperature
                         k += 1
                 i += 1
             mylogs.bp("bias")
@@ -1197,9 +1231,10 @@ class T5Stack(T5PreTrainedModel):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_masked_prompts / attend_num
-        nse = sum(1 for enc in self.prompt_encoders if enc.is_source and not enc.is_private)
+        nse = sum(1 for enc in self.prompt_encoders 
+                if enc.is_source and not enc.is_private and not enc.is_target)
         mylogs.bp("nrp")
-        attn_mask = self.attn_mask.clone() 
+        attn_mask = self.attn_mask_orig.clone() 
         k = num_masked_prompts
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if encoder.is_target:
@@ -1214,9 +1249,8 @@ class T5Stack(T5PreTrainedModel):
         return attn_mask
 
     def anneal(self, i_step):
-         exp_rate = np.exp(self.anneal_dir * self.anneal_rate * i_step)
-         t = max(self.anneal_min, self.temperature * exp_rate)
-         self.temperature = t
+         mylogs.bp("anneal")
+         self.temperature = self.anneal_router.anneal(i_step)
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
@@ -1281,7 +1315,7 @@ class T5Stack(T5PreTrainedModel):
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         route_method = self.route_method
-        gen_route_method = route_method
+        gen_norm_method = self.norm_method
         if self.attn_method == "const":
             route_idx = attend_to_idx
             router = torch.ones(target_idx.size()[1],
@@ -1318,13 +1352,11 @@ class T5Stack(T5PreTrainedModel):
                 logits = router
                 rb_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=logits).rsample()            
-                if route_method == "sigmoid":
-                    attn_scores = torch.sigmoid(rb_scores)  
-                elif route_method == "unif":
+                if route_method == "unif":
                     attn_scores = router
                 elif route_method == "const":
                     attn_scores  = attn_dist
-                    self.apply_softmax_to = "nothing"
+                    self.norm_method = "nothing"
                 else:
                     attn_scores = rb_scores # + attn_dist
             elif not self.training:
@@ -1333,12 +1365,12 @@ class T5Stack(T5PreTrainedModel):
                 #attn_scores = torch.sigmoid(attn_scores)  # layer * n_prompts
                 if route_method == "const":
                     attn_scores  = attn_dist
-                    self.apply_softmax_to = "nothing"
+                    self.norm_method = "nothing"
                 else:
                     attn_scores = router
 
-                if self.gen_conf is not None and "route_method" in self.gen_conf:
-                    gen_route_method = self.gen_conf["route_method"] 
+                if self.gen_conf is not None and "norm_method" in self.gen_conf:
+                    gen_norm_method = self.gen_conf["norm_method"] 
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1380,32 +1412,30 @@ class T5Stack(T5PreTrainedModel):
             raise NotImplementedError
 
         mylogs.bp("att")
-        if self.apply_softmax_to == "before":
-            if self.normalize is True:
-               attn_scores = attn_scores / attn_scores.sum(dim=-1, keepdim=True) 
-            attn_scores = F.softmax(attn_scores, -1)
+        if self.training and "before" in self.norm_method:
+            method = self.norm_method.replace("before_","")
+            attn_scores = normalize_scores(attn_scores, method) 
 
-        num_targets = attend_for.size()[1] 
+        num_targets = attend_for.size(1) 
         if self.compose_method == "cat":
-            num_attend_to = (num_targets * attend_for.size()[2]) // self.src_prompt_dim
+            num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
             num_attend_to = self.num_target_prompts
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
-        mylogs.bp("topk")
-        if self.sel_thresh != 100:
-            attn_scores[router < self.sel_thresh]  = 0
+        mylogs.bp("tk1")
+        if not self.training:
+            mylogs.bp("tk2")
 
         attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
                 attn_scores, 
                 num_attend_to, 
-                limit=attend_to_idx.size(1) - 1,
                 sorted=self.source_prompts_order == "sorted",
-                threshold=self.sel_thresh)
-
-        mylogs.bp("att")
+                threshold=100) #  self.sel_thresh)
+        if torch.any(attend_to_sel_idx == -1):
+            mylogs.bp("negg")
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
             attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
@@ -1416,10 +1446,9 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
         attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
         if not self.attend_input:
-            # attend_to_sel_idx = attend_to_sel_idx + 1
-            pass
-        mylogs.bp("unif")
+            attend_to_sel_idx = attend_to_sel_idx + 1
 
+        mylogs.bp("unif")
         # Create a binary mask for the top k indices
         if route_method == "unif":
             # top_k_mask = torch.zeros_like(attn_scores)
@@ -1444,34 +1473,15 @@ class T5Stack(T5PreTrainedModel):
 
         if not self.training:
             mylogs.bp("notr")
-            if gen_route_method == "rb":
-                with torch.no_grad():
-                    attn_sel_scores = RelaxedBernoulli(temperature=self.anneal_min, 
-                        logits=attn_sel_scores).rsample()  
-            elif gen_route_method == "sigmoid":
-                mylogs.bp("sigm")
-                attn_sel_scores = torch.sigmoid(attn_sel_scores)  # layer * n_prompts
-            elif gen_route_method == "sign":
-                attn_sel_scores[attn_sel_scores <= 0] = 0
-                attn_sel_scores[attn_sel_scores > 0] = 1
-            elif gen_route_method == "direct":
-                pass
+            attn_sel_scores = normalize_scores(attn_sel_scores, 
+                    gen_norm_method,
+                    sel_thresh=self.sel_thresh)
 
         mylogs.bp("unif")
-        if self.apply_softmax_to == "nothing":
-            pass
-        elif self.apply_softmax_to == "after":
-            attn_sel_scores = F.softmax(attn_sel_scores, -1)
-            # attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-        elif self.apply_softmax_to == "norm":
-            attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-        elif self.apply_softmax_to == "normafter":
-            attn_sel_scores = attn_sel_scores / attn_sel_scores.sum(dim=-1, keepdim=True) 
-            attn_sel_scores = F.softmax(attn_sel_scores, -1)
-        elif self.apply_softmax_to == "minmax":
-            _min, _ = torch.min(attn_sel_scores, dim=-1, keepdim=True)
-            _max, _ = torch.max(attn_sel_scores, dim=-1, keepdim=True)
-            attn_sel_scores = (attn_sel_scores - _min) / (_max - _min)
+        if self.training and "after" in self.norm_method:
+            method = self.norm_method.replace("after_","")
+            attn_sel_scores = normalize_scores(attn_sel_scores, method, 
+                    sel_thresh=self.sel_thresh)
 
         mylogs.bp("unif")
         if route_method == "unif":
@@ -1489,7 +1499,7 @@ class T5Stack(T5PreTrainedModel):
             top = torch.mean(attn_sel_scores, -1) 
             target_shares = 1 - top.transpose(0,1)
         mylogs.bp("att")
-        if self.apply_softmax_to == "nothing":
+        if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
         if self.compose_method == "wavg": 
@@ -1671,43 +1681,47 @@ class T5Stack(T5PreTrainedModel):
                                 task_ids = tids,
                                 task=task)
                         # self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
+                        amask = attn_scores > 0 
                         if not self.training:
                             num_targets = target_idx.size()[-1]
                             attend_to_idx = attend_to_idx.view(batch_size, num_targets, -1)
                             src_idx = attend_to_idx[batch_size - 1]
                             tgt_idx = target_idx[batch_size - 1]
-                            mylogs.bp("pred")
+                            mylogs.bp("pred2")
+                            ascore = attn_scores[batch_size - 1]
+                            self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
+                            self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
                         ###### Pad extra prompt tokens
+                        mylogs.bp("pred1")
+                        # amask = amask.squeeze(1)
+                        amask = amask.repeat_interleave(self.src_prompt_dim)
+                        amask = amask.view(batch_size, -1)
+                        masked_prompts = soft_prompts[amask.unsqueeze(1)]
+
                         tmask = target_prompt_masks.clone()
-                        sview = soft_prompts.view(batch_size, -1, self.model_dim)
-                        number_to_keep = sview.size(1) 
+                        number_to_keep_per_batch = torch.sum(amask, dim=-1) 
                         sequence_length = tmask.size(1)
                         if self.padding_pos == "end":
                             sequence_range = range(sequence_length)
                         else:
                             sequence_range = range(sequence_length -1, -1, -1)
+                        num_true = [0]*batch_size
                         for i in range(batch_size):
-                            num_true = 0
                             for j in sequence_range: 
-                                if tmask[i, j] and num_true < number_to_keep:
-                                    num_true += 1
+                                if (tmask[i, j] and amask[i, j] 
+                                    and num_true[i] < number_to_keep_per_batch[i]):
+                                    num_true[i] += 1
                                 elif tmask[i, j]:
                                     tmask[i, j] = False
                                     att_mask[i, j] = 0
                                     input_ids[i, j] = 0
 
-                        inputs_embeds[tmask]= soft_prompts.view(-1, self.model_dim)
+                        inputs_embeds[tmask]= masked_prompts.view(-1, self.model_dim)
                         if not self.training: # or mylogs.is_debug(): 
+                            pass
                             # assert torch.all((attn_scores >= 0) & (attn_scores <= 1)), "Not all values are between 0 and 1"
-                            ascore = attn_scores[batch_size - 1]
-                            tscore = torch.zeros((ascore.size()[0],
-                                self.attn_scores.size()[1]), device=device)
-                            tscore[:, src_idx] = ascore 
-                            self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
-
-                            self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
                             # assert torch.all((self.attn_scores >= 0) & (self.attn_scores <= 1)), "Not all values of self.attn_scores are between 0 and 1"
-                            targets = self.target_encoders_idx
+                            # targets = self.target_encoders_idx
                             #ss1 = self.attn_scores  
                             # self.attn_scores.index_select(0, targets)
                             #ss2 = self.router.index_select(0, targets)
