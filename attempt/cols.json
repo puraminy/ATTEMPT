@@ -7,13 +7,15 @@
   "sel_cols":[
     "expname",
     "prefix",
+    "trial",
+    "sel_thresh",
     "gen_mask",
     "compose_method",
     "route_method",
     "max_train_samples",
     "num_target_prompts",
-    "gen_route_methods",
-    "apply_softmax_to"
+    "gen_norm_methods",
+    "norm_method"
   ],
   "info_cols":[],
   "score_cols_m":["m_score"],
