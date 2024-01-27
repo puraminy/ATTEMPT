@@ -379,6 +379,11 @@ def show_df(df):
         df["cossim_decoder"] ="" 
         df["cossim_encoder"] ="" 
 
+    if "gen_route_methods" in df:
+        df["gen_norm_methods"] = df["gen_route_methods"]
+        df["norm_method"] = df["apply_softmax_to"]
+
+
     if not "query" in df:
         df["query"] = df["input_text"]
     if not "learning_rate" in df:
@@ -2061,11 +2066,15 @@ def show_df(df):
                 backit(df, sel_cols)
                 df = pd.DataFrame(data)
                 sel_cols = list(df.columns)
+                sel_cols.remove("avg")
+                sel_cols.insert(2, "avg")
             elif len(dfs) > 0:
                 dfs[0].sort_values(inplace=True, by="avg", ascending=False)
                 df = dfs[0]
                 backit(df, sel_cols)
                 sel_cols = list(df.columns)
+                sel_cols.remove("avg")
+                sel_cols.insert(2, "avg")
 
         if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
             _dir = Path(__file__).parent
