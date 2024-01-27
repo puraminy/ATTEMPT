@@ -16,6 +16,7 @@ do
             main_vars="${main_vars}${p}"
             g=extra
        ;;
+      *=*) bash_params="${bash_params} $i"; g=vars;;
       _*) bash_params="${bash_params} $i"; g=bash;;
       -*) run_params="${run_params} $i"; g=run;;
        # Other Parameter 
@@ -238,16 +239,26 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
+if [ -z "$_cmm" ]; then  _cmm="wavg#cat"; fi
+if [ $_cmm = "cat" ]; then
+   if [ -z "$_numt" ]; then  _numt=10; fi
+   if [ -z "$_ntp" ]; then  _ntp=auto; fi # number of target prompts
+else
+   if [ -z "$_numt" ]; then  _numt=50; fi
+   if [ -z "$_ntp" ]; then  _ntp=0; fi 
+fi
 if [ -z "$_bs" ]; then  _bs=16; fi
 if [ -z "$_dpath" ]; then  _dpath="datasets"; fi # data path
 if [ -z "$_lr" ]; then  _lr=0.05; fi
 if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
-if [ -z "$_tmpr" ]; then  _tmpr=.1; fi
-if [ -z "$_norm" ]; then  _soft="after_soft"; fi
+if [ -z "$_tmpr" ]; then  _tmpr=1.; fi
+if [ -z "$_atype" ]; then  _atype="linear"; fi # anneal type
+if [ -z "$_norm" ]; then  _norm="nothing"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_masking" ]; then  _masking="0-random-0"; fi # number of random masks 
+if [ -z "$_spo" ]; then  _spo="unsorted"; fi # source prompt order 
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -264,10 +275,9 @@ elif [ -z "$_lsp" ]; then
    _lsp=False
 fi
 if [ -z "$_learn_sp" ]; then  _learn_sp=True; fi
-if [ -z "$_thresh" ]; then  _thresh=False; fi
+if [ -z "$_thresh" ]; then  _thresh=100; fi
 if [ -z "$_addt" ]; then  _addt=False; fi
 if [ -z "$_attn" ]; then  _attn=rb; fi
-if [ -z "$_cmm" ]; then  _cmm="wavg#cat"; fi
 if [ -z "$_at" ]; then  _at=True; fi
 if [ -z "$_sp" ]; then  _sp=True; fi # save prompts
 if [ -z "$_ai" ]; then  _ai=False; fi
@@ -521,7 +531,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@learn_loaded_prompts=True#!False"
    params="${params} --ignore_if_prompt_not_exists=False"
    params="${params} --rels=$_rels"
-   params="${params} --@source_prompts_order=unsorted#rand"
+   params="${params} --@source_prompts_order=$_spo"
    params="${params} --@prompt_masking=$_masking"
    params="${params} --@compose_method=$_cmm"
    if [ -z "$_temp" ]; then
@@ -559,7 +569,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --@anneal_dir=$_adir"
    params="${params} --normalize=True"
    params="${params} --anneal_min=0.001"
-   params="${params} --anneal_type=exp"
+   params="${params} --anneal_type=$_atype"
    params="${params} --anneal_rate=0.01"
    params="${params} --@norm_method=$_norm"
    if [ -z "$_gnm" ]; then

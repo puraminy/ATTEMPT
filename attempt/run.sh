@@ -76,12 +76,6 @@ ppx="${epp}${tnn}"
 # ppx=20200
 nums="_ep $_ep _tsn 100"
 
-tst=1 # bias 
-
-if [ -z "$_norm" ]; then
-   _norm=after_sigmoid
-fi
-
 logs=$HOME/logs/$output
 if [ -n "$_test" ] || [ -n "$_debug" ]; then
    rm -rf $logs
@@ -98,33 +92,25 @@ fi
 ii=0
 nsp=0
 attn=rb
-
-if [ -z "$_cmm" ]; then
-   _cmm="cat"
+_cmm="cat"
+if [ -n "$_wc" ]; then
+   _cmm="wavg cat"
 fi
-if [ -z "$_rm" ]; then
-   _rm="direct"
+if [ -n "$_cw" ]; then
+   _cmm="cat wavg"
 fi
 
 if [ -z "$_tasks" ]; then
    _tasks="_tasks mnli qnli stsb qqp mrpc" 
-elif [ "$_tasks" = "g" ]; then
+fi
+
+if [ -n "$_g" ]; then
    _tasks="_gtasks"
 fi
 
 for tn in $_tn; do
 for seed in 123; do
-for cmm in $_cmm; do
-   if [ $_cmm = "cat" ]; then
-      numt=10
-      ntp=5
-   else
-      numt=50
-      ntp=0
-   fi
-for gnm in "sigmoid@soft"; do
-for attn in rb; do 
-for nsp in 0; do
+for gnm in "sign@soft_relu@sigmoid_relu@sigmoid@soft"; do
 for masking in "none" "0-col-1"; do
 if [ $nsp -eq 0 ]; then
    src="_seqt"
@@ -135,10 +121,11 @@ fi
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
 #for tasks in _gtasks; do 
+for cmm in $_cmm; do
    ((ii++))
    catname="$cmm-$ntp-$nsp-seed-$seed-$ii-$tn"
-   common="${params} _rm $_rm _tst $tst _masking $masking _attn $attn $nums _bs $bs _tn $tn $_tasks $src _numt $numt _ntp $ntp _nsp $nsp _prefix"
-   mets="$common _norm $_norm _gnm $gnm _cmm $cmm "
+   common="${flags} ${vars} ${params} _seed $seed _masking $masking $nums _bs $bs _tn $tn $_tasks $src _prefix"
+   mets="$common _gnm $gnm _cmm $cmm "
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
    SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
@@ -169,14 +156,13 @@ fi
        args_variable="${met}_args"
        if [ -n "${!args_variable}" ]; then
            echo $met
-           if [ -n "$_pv" ]; then
-              echo "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
-              echo "exit after preview rund command"
-              exit 0
+           if [ -n "$_rv" ]; then
+              echo "_cat $catname _exp ${met} ${!args_variable} -lp $logs"
+           else
+              bash train.sh "_cat $catname _exp ${met} ${!args_variable} -lp $logs"
            fi
-           bash train.sh "_cat $catname _exp ${met} ${!args_variable} _seed $seed -lp $logs"
            if [[ -n "$_one" ]] || [[ -n "$_debug" ]]; then
-               echo "exit after first experiment"
+               echo "exit after first experiment, use _all flag to run all loops!"
                exit 0
            fi
            if [ $? != 0 ] && [ "$onError" = "break" ];
@@ -190,12 +176,11 @@ fi
        fi
    done
 done
-if [[ -n "$_loop1" ]]; then
+if [[ -z "$_all" ]]; then
    echo "exit after first loop"
+   echo "exit after first all, use _all flag to run all loops!"
    exit 0
 fi
-done
-done
 done
 done
 done

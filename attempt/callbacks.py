@@ -110,12 +110,12 @@ class WBCallback(WandbCallback):
             ax1 = axes["A"]
             ax_t = ax1
         ax1.set_title(title)
-        fig.set_size_inches(12.5, img_h)
+        fig.set_size_inches(len(x_labels)*0.8, len(y_labels)*0.8)
         np_score = score.detach().cpu().numpy()
         if np_score.size != 0:
             sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
                     cbar=cbar, 
-                    annot_kws={'rotation': 90}, 
+                    # annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,
                     yticklabels=y_labels,
                     linewidth=0.5)

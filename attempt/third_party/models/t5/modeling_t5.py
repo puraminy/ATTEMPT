@@ -57,12 +57,13 @@ from torch.nn.utils.rnn import pad_sequence
 ######### 
 # My utility function
 ############
-def normalize_scores(scores, method="soft", sel_thresh=100, resample=False):
+def normalize_scores(scores, method="soft", 
+        sel_thresh=None, gen_thresh=None, resample=False):
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=0.001, 
             logits=scores).rsample()  
 
-    if sel_thresh != 100:
+    if sel_thresh is not None and abs(sel_thresh) != 100:
         scores[scores < sel_thresh] = -100
 
     if method == "nothing":
@@ -74,6 +75,16 @@ def normalize_scores(scores, method="soft", sel_thresh=100, resample=False):
     elif method == "sign":
         scores[scores <= 0] = 0
         scores[scores > 0] = 1
+    elif method == "relu":
+        scores[scores <= 0] = 0
+    elif method == "sigmoid_relu":
+        ret_scores = torch.sigmoid(scores)  
+        ret_scores[scores <= 0] = 0
+        scores = ret_scores
+    elif method == "soft_relu":
+        ret_scores = F.softmax(scores, -1)
+        ret_scores[scores <= 0] = 0
+        scores = ret_scores
     elif method == "norm":
         scores=scores / scores.sum(dim=-1, keepdim=True) 
     elif method == "normsoft":
@@ -84,6 +95,8 @@ def normalize_scores(scores, method="soft", sel_thresh=100, resample=False):
         _max, _ = torch.max(scores, dim=-1, keepdim=True)
         scores = (scores - _min) / (_max - _min)
     
+    if gen_thresh is not None and abs(gen_thresh) != 100:
+        scores[scores < gen_thresh] = 0
 
     return scores
 
@@ -96,6 +109,7 @@ def batched_topk(batch_size, scores, num_attend_to, sorted=False, threshold=100)
         return torch.topk(scores, k, sorted=sorted)
 
     # Initialize empty lists to store results
+    assert False, "thresh"
     selected_scores_list = []
     selected_indices_list = []
     for i in range(batch_size):
@@ -1369,8 +1383,6 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     attn_scores = router
 
-                if self.gen_conf is not None and "norm_method" in self.gen_conf:
-                    gen_norm_method = self.gen_conf["norm_method"] 
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
         elif self.attn_method == "dot":
@@ -1473,9 +1485,14 @@ class T5Stack(T5PreTrainedModel):
 
         if not self.training:
             mylogs.bp("notr")
+            gen_thresh = self.sel_thresh
+            if self.gen_conf is not None and "norm_method" in self.gen_conf:
+                gen_norm_method = self.gen_conf["norm_method"] 
+            if self.gen_conf is not None and "gen_thresh" in self.gen_conf:
+                gen_thresh = self.gen_conf["gen_thresh"] 
             attn_sel_scores = normalize_scores(attn_sel_scores, 
                     gen_norm_method,
-                    sel_thresh=self.sel_thresh)
+                    gen_thresh=gen_thresh)
 
         mylogs.bp("unif")
         if self.training and "after" in self.norm_method:
@@ -1681,7 +1698,6 @@ class T5Stack(T5PreTrainedModel):
                                 task_ids = tids,
                                 task=task)
                         # self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
-                        amask = attn_scores > 0 
                         if not self.training:
                             num_targets = target_idx.size()[-1]
                             attend_to_idx = attend_to_idx.view(batch_size, num_targets, -1)
@@ -1694,9 +1710,14 @@ class T5Stack(T5PreTrainedModel):
                         ###### Pad extra prompt tokens
                         mylogs.bp("pred1")
                         # amask = amask.squeeze(1)
-                        amask = amask.repeat_interleave(self.src_prompt_dim)
-                        amask = amask.view(batch_size, -1)
-                        masked_prompts = soft_prompts[amask.unsqueeze(1)]
+                        masked_prompts = soft_prompts
+                        amask = torch.ones((batch_size, self.prompt_dim), dtype=bool)
+                        if self.compose_method == "cat":
+                            amask = attn_scores > 0 
+                            amask = amask.repeat_interleave(self.src_prompt_dim)
+                            amask = amask.view(batch_size, -1)
+                            _amask = amask.unsqueeze(1)
+                            masked_prompts = soft_prompts[_amask]
 
                         tmask = target_prompt_masks.clone()
                         number_to_keep_per_batch = torch.sum(amask, dim=-1) 

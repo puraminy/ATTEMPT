@@ -365,6 +365,14 @@ def show_df(df):
     if not "tag" in df:
         df["tag"] = np.NaN 
 
+    main_vars = []
+    if "main_vars" in df:
+        main_vars = df["main_vars"].iloc[0]
+        main_vars = json.loads(main_vars)
+        main_vars = list(main_vars.keys())
+        main_vars = [e for e in main_vars 
+                if not e in ['max_train_samples', 'task_name', 'num_train_epochs']]
+
     #if not "word_score" in df:
     #    df['word_score'] = df['pred_text1'].str.split().str.len()
 
@@ -500,7 +508,7 @@ def show_df(df):
         sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
 
-    sel_cols = list(set(sel_cols + rep_cols + score_cols))
+    sel_cols = list(set(main_vars + sel_cols + rep_cols + score_cols))
     back_sel_cols = sel_cols.copy()
 
     sel_fid = "" 

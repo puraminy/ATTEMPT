@@ -293,6 +293,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         if reval:
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
+            exp_args["trial"] = str(exp_args["trial"]) + "-re"
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
@@ -710,6 +711,8 @@ def train(**kwargs):
     num_target_prompts = 1
     if model_args.attn_tuning is True:
         num_target_prompts = kwargs.setdefault("num_target_prompts",num_source_prompts) 
+        if num_target_prompts == "auto":
+            num_target_prompts = (num_source_prompts // 2) + 1
         ntp = num_target_prompts
         if ntp == 0: 
             num_target_prompts = num_source_prompts
@@ -1993,8 +1996,9 @@ def train(**kwargs):
             return df, scores, golds, preds
 
         ################ Draw image
-        def save_image(folder, model, score_dict, spec):
+        def save_image(folder, model, score_dict, spec, square=False, annot=True):
             targets = model.encoder.target_encoders_idx
+            mylogs.bp("pic")
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
             p_labels = []
@@ -2006,47 +2010,44 @@ def train(**kwargs):
                     pl = pl.replace("com","src") 
                     p_labels.append(pl)
 
-            _main_vars = main_vars.copy()
-            if "task_name" in _main_vars:
-                del _main_vars["task_name"]
-            if "num_train_epochs" in _main_vars:
-                del _main_vars["num_train_epochs"]
-            if "max_train_samples" in _main_vars:
-                del _main_vars["max_train_samples"]
             tasks = data_args.task_name
-            mylogs.bp("pic")
             folder = os.path.join(folder, "img_logs")
             Path(folder).mkdir(parents=True, exist_ok=True)
+            title = list(score_dict.keys())[0]
+            fname = "pred@" + title + "@_" + str(exp_info["expid"]) + ".png"
+            fpath = os.path.join(folder, fname)
+            img_list=[]
             for ii, (title, score) in enumerate(score_dict.items()):
                 x_labels = y_labels
-                if ii == 0:
+                if not square:
                     if p_labels: x_labels = p_labels 
-                fname = "pred@" + title + "@_" \
-                        + str(exp_info["expid"]) + ".png"
-                fpath = os.path.join(folder, fname)
                 img_buf = WBCallback.save_image(
-                    fpath = fpath,
                     score=score, 
                     cbar=False,
+                    annot=annot,
                     y_labels=y_labels,
                     x_labels=x_labels,
                     title = title  
                             + " | " + model_args.compose_method \
-                            + " | " + kwargs.norm_method \
+                            + " | " + str(kwargs.norm_method) \
                             + " | " + spec
                 )
-                #if img_buf:
-                #    im = Image.open(img_buf)
-                #    mylogs.bp("img")
-                #    new_im = trim_image(im) 
-                    # wandb.log({fname:wandb.Image(new_im)})
-                    # img_list.append(im)
+                if img_buf:
+                    im = Image.open(img_buf)
+                    new_im = trim_image(im) 
+                    img_list.append(im)
+
+            new_im = combine_x(img_list)
+            new_im.save(fpath)
 
         ##################
         results = {}
         gen_conf = {"rep_penalty":2.0}
         ds_backup = None
         gnm = kwargs.setdefault("gen_norm_methods",["sign"])
+        if type(gnm) != list: gnm = [gnm] 
+        gent = kwargs.get("gen_thresh", [None])
+        if type(gent) != list: gent = [gent]
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         combs = {}
         masking = kwargs.setdefault("prompt_masking","0-col-0")
@@ -2085,129 +2086,118 @@ def train(**kwargs):
         else:
             for rm, mask in combs.items():
                 for norm_method in gnm: 
-                    attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
-                    model.encoder.attn_scores = torch.zeros(
-                        (attend_num, attend_num), device=device) 
-                    model.encoder.attn_mask_learned = torch.zeros(
-                        (attend_num, attend_num), device=device) 
-                    mylogs.bp("pic")
-                    rv = "EVAL" if not reval else "REVAL"
-                    eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                            + "_" + norm_method + "_trial-" \
-                            + str(kwargs.trial) + "_" + str(ii) 
-                    eval_folder = os.path.join(exp_folder, eval_folder_name)
-                    Path(eval_folder).mkdir(parents=True, exist_ok=True)
-                    counter = 0
-                    total_score = 0
-                    for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                        gen_conf["norm_method"] = norm_method
-                        gen_conf["mask_type"] = rm
-                        if mask is not None: 
-                           gen_conf["attn_mask"] = mask 
-                        else:
-                           gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-                        exp_info["gen_norm_methods"] = norm_method
-                        exp_info["gen_mask"] = rm 
-                        mylogs.bp("test")
-                        task = task.split("_")[0]
-                        ds_conf = data_args.test_dataset_config_name[idx]
-                        ds_name = data_args.test_dataset_name[idx]
-                        ds_name = "none" if not ds_name else ds_name
-                        ds_conf = "none" if not ds_conf else ds_conf
-                        is_train = "train" if training_args.do_train else "eval"
-                        save_to = os.path.join(eval_folder,
+                    for gt in gent: 
+                        attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
+                        model.encoder.attn_scores = torch.zeros(
+                            (attend_num, attend_num), device=device) 
+                        model.encoder.attn_mask_learned = torch.zeros(
+                            (attend_num, attend_num), device=device) 
+                        mylogs.bp("pic")
+                        rv = "EVAL" if not reval else "REVAL"
+                        eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
+                                + "_" + str(gt) + "_" + norm_method + "_trial-" \
+                                + str(kwargs.trial) + "_" + str(ii) 
+                        eval_folder = os.path.join(exp_folder, eval_folder_name)
+                        Path(eval_folder).mkdir(parents=True, exist_ok=True)
+                        counter = 0
+                        total_score = 0
+                        for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                            gen_conf["norm_method"] = norm_method
+                            gen_conf["mask_type"] = rm
+                            gen_conf["gen_thresh"] = gt
+                            if mask is not None: 
+                               gen_conf["attn_mask"] = mask 
+                            else:
+                               gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
+                            exp_info["gen_norm_methods"] = norm_method
+                            exp_info["gen_mask"] = rm 
+                            mylogs.bp("test")
+                            task = task.split("_")[0]
+                            ds_conf = data_args.test_dataset_config_name[idx]
+                            ds_name = data_args.test_dataset_name[idx]
+                            ds_name = "none" if not ds_name else ds_name
+                            ds_conf = "none" if not ds_conf else ds_conf
+                            is_train = "train" if training_args.do_train else "eval"
+                            save_to = os.path.join(eval_folder,
                                 ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
 
-                        df, scores, preds, golds = evaluate_test(task, test_dataset, 
-                                save_to, ds_name, gen_conf)
+                            df, scores, preds, golds = evaluate_test(task, test_dataset, 
+                                    save_to, ds_name, gen_conf)
 
-                        df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                                ds_conf,"test.tsv")
-                        mylogs.bp("test")
-                        test_rouge = wandb.run.summary["test_rouge"]
-                        total_score += df["m_score"].mean() 
-                        test_bert = wandb.run.summary["test_bert"]
-                        num_preds = wandb.run.summary["num_preds"]
-                        da = {}
-                        da["task"] = task
-                        da["norm_method"] = norm_method
-                        da["test_rouge"] = test_rouge
-                        da["test_bert"] = test_bert
-                        da["num_preds"] = num_preds
-                        sdf_rows.append(da)
-                        ii += 1
-                        counter += 1
-    #################
-                    mylogs.bp("pic")
-                    mean_score = total_score / counter
-                    if adapter_args.prompt_tuning:
+                            df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                                    ds_conf,"test.tsv")
+                            mylogs.bp("test")
+                            test_rouge = wandb.run.summary["test_rouge"]
+                            total_score += df["m_score"].mean() 
+                            test_bert = wandb.run.summary["test_bert"]
+                            num_preds = wandb.run.summary["num_preds"]
+                            da = {}
+                            da["task"] = task
+                            da["norm_method"] = norm_method
+                            da["test_rouge"] = test_rouge
+                            da["test_bert"] = test_bert
+                            da["num_preds"] = num_preds
+                            sdf_rows.append(da)
+                            ii += 1
+                            counter += 1
+        #################
+                        mylogs.bp("pic")
+                        mean_score = total_score / counter
                         targets = model.encoder.target_encoders_idx
-                        ss1 = model.encoder.attn_scores.index_select(0, targets)
-                        mylogs.bp("ss1")
-                        tlen = ss1.size(0)
-                        all_len = ss1.size(1)
-                        sim = torch.eye(tlen)
+                        router_scores = model.encoder.router.index_select(0, targets)
+                        router_scores = model.encoder.router.index_select(0, targets)
+                        tlen = router_scores.size(0)
+                        rsim = torch.eye(tlen)
                         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                         for i in range(tlen):
                             for j in range(tlen):
                                 if i != j:
-                                    sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
+                                    rsim[i][j] = cos(router_scores[i][:], 
+                                            router_scores[j][:])
+                        save_image(eval_folder, model, {"a-sim":rsim}, 
+                                    annot=False, square=True,
+                                    spec = norm_method + " | {:.2f}".format(mean_score))
+                        if adapter_args.prompt_tuning:
+                            ss1 = model.encoder.attn_scores.index_select(0, targets)
+                            mylogs.bp("ss1")
+                            tlen = ss1.size(0)
+                            all_len = ss1.size(1)
+                            sim = torch.eye(tlen)
+                            cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                            for i in range(tlen):
+                                for j in range(tlen):
+                                    if i != j:
+                                        sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
 
-                        sim2 = torch.eye(tlen)
-                        for i in range(tlen):
-                            for j in range(tlen):
-                                if i != j:
-                                    sim2[i][j] = pearson_correlation(ss1[i][:], 
-                                            ss1[j][:]) #, slen) 
+                            ss1 = torch.round(ss1*100)/100
+                            if multi_tasking:
+                                start = 0 if model_args.attend_input else 1 
+                                ss1 = ss1[:,start:slen+tlen + 1]
 
-                        #jsd = torch.eye(tlen)
-                        jsd = torch.zeros((tlen,tlen))
-                        for i in range(tlen):
-                            for j in range(tlen):
-                                if i != j:
-                                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
-                                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                                    jsd[i, j] = torch.tensor(
-                                            jensen_shannon_divergence(p, q),
-                                            dtype=torch.float32)
+                            if len(torch.nonzero(ss1)) < 1:
+                                ss1 = torch.eye(tlen)
+                            save_image(eval_folder, model, {"score":ss1}, 
+                                    spec = norm_method + " | {:.2f}".format(mean_score))
 
-                        emd = torch.zeros((tlen,tlen))
-                        for i in range(tlen):
-                            for j in range(tlen):
-                                if i != j:
-                                    p = F.softmax(ss1[i, :], dim=0).cpu().numpy()
-                                    q = F.softmax(ss1[j, :], dim=0).cpu().numpy()
-                                    emd[i, j] = torch.tensor(
-                                            earth_movers_distance(p, q), 
-                                            dtype=torch.float32)
+                            #score_dict= {"sim-rsim":torch.cat([sim,rsim], dim=1)}
+                            #save_image(eval_folder, model, score_dict, 
+                            #        annot=False,
+                            #        spec = norm_method + " | {:.2f}".format(mean_score))
 
-                        ss1 = torch.round(ss1*100)/100
+                        tlen = router_scores.size(0)
                         if multi_tasking:
                             start = 0 if model_args.attend_input else 1 
-                            ss1 = ss1[:,start:slen+tlen + 1]
-
-                        if len(torch.nonzero(ss1)) < 1:
-                            ss1 = torch.eye(tlen)
-                        score_dict= {"score":ss1, "sim": sim}
-                        save_image(eval_folder, model, score_dict, 
-                                spec = norm_method + " | {:.2f}".format(mean_score))
-
-                    ss2 = model.encoder.router.index_select(0, targets)
-                    tlen = ss2.size(0)
-                    if multi_tasking:
-                        start = 0 if model_args.attend_input else 1 
-                        ss2 = ss2[:,start:slen+tlen + 1]
-                    score_dict= {"router":ss2}
-                    if mask is not None:
-                        ss3 = mask.index_select(0, targets)
-                    else:
-                        mask = model.encoder.attn_mask_learned 
-                        ss3 = mask.index_select(0, targets)
-                    if multi_tasking:
-                        start = 0 if model_args.attend_input else 1 
-                        ss3 = ss3[:,start:slen+tlen + 1]
-                    score_dict["mask"] = ss3
-                    save_image(eval_folder, model, score_dict, spec=rm)
+                            router_scores = router_scores[:,start:slen+tlen + 1]
+                        save_image(eval_folder, model, {"router":router_scores}, spec=rm)
+                        if mask is not None:
+                            ss3 = mask.index_select(0, targets)
+                        else:
+                            learned_mask = model.encoder.attn_mask_learned 
+                            ss3 = learned_mask.index_select(0, targets)
+                        if multi_tasking:
+                            start = 0 if model_args.attend_input else 1 
+                            ss3 = ss3[:,start:slen+tlen + 1]
+                        save_image(eval_folder, model, {"mask": ss3}, spec=rm)
         ################
         sdf = pd.DataFrame(data=sdf_rows)
         if img_list:
@@ -2218,7 +2208,7 @@ def train(**kwargs):
 
         targets = model.encoder.target_encoders_idx
         ss1 = model.encoder.attn_scores.index_select(0, targets)
-        ss2 = model.encoder.router.index_select(0, targets)
+        router_scores = model.encoder.router.index_select(0, targets)
         _tag = kwargs.setdefault("tag",[])
         #if diff_args:
         #    for k,v in diff_args["values_changed"].items():
@@ -2235,7 +2225,7 @@ def train(**kwargs):
         y_labels = [y.replace("tar-","") for y in y_labels]
         global_y_labels.extend(y_labels)
         global_x_labels = model.encoder.prompt_names 
-        for score in [ss1]: #[ss2]
+        for score in [ss1]: #[router_scores]
             img_buf = WBCallback.save_image(score=score, 
                y_labels=y_labels,
                x_labels=model.encoder.prompt_names, 
