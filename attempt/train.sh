@@ -278,7 +278,7 @@ elif [ -z "$_lsp" ]; then
    _lsp=False
 fi
 if [ -z "$_learn_sp" ]; then  _learn_sp=True; fi
-if [ -z "$_thresh" ]; then  _thresh=100; fi
+if [ -z "$_thresh" ]; then  _thresh=none; fi
 if [ -z "$_addt" ]; then  _addt=False; fi
 if [ -z "$_attn" ]; then  _attn=rb; fi
 if [ -z "$_at" ]; then  _at=True; fi

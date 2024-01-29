@@ -160,7 +160,8 @@ def trace(frame, event, arg):
 
 mlog.info(now)
 #sys.settrace(trace)
-def add_handler(logger, fname, set_format=False):
+def add_handler(logger, fname, set_format=False, base_folder=""):
+    Path(os.path.join(base_folder, "logs")).mkdir(parents=True, exist_ok=True)
     logger.setLevel(logging.INFO)
     logFilename = os.path.join("logs", fname + ".log")
     handler = logging.FileHandler(logFilename, mode="w")
@@ -169,10 +170,9 @@ def add_handler(logger, fname, set_format=False):
     logger.addHandler(handler)
     return logFilename
 
-Path("logs").mkdir(parents=True, exist_ok=True)
-
-for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
-    add_handler(logger, fname)
+def init_logs(base_folder):
+    for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
+        add_handler(logger, fname, base_folder)
 
 def diff_args():
     if not prev_args:

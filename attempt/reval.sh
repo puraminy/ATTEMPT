@@ -48,9 +48,13 @@ echo "Main experiment variables: $main_vars"
 echo "Bash Prarams: ${bash_params}"
 echo "Extra Prarams: ${extra_params}"
 echo "Run Prarams: ${run_params}"
+echo "Others: ${others}"
 eval "${bash_params}"
 
 main_params=""
+if [ -z "$_exp" ]; then
+   _exp=self
+fi
 if [ -z "$_seed" ]; then
    seed=123
 else
@@ -62,43 +66,50 @@ fi
 if [ -n "$_all_test" ]; then
    _tsn=-1 
 fi
+
+if [ -z "$_json" ]; then
+   _json="exp.json"
+fi
 if [ -z "$_tsn" ]; then
    tsn=100
 else
    tsn=$_tsn
 fi
 if [ -z "$_files" ]; then
-   readarray -t files < <(find "$PWD" -type f -name "exp.json")
-else
-   files=$_tsn
+   files=$(find . -type f -name "*${_json}*" -path "*${_pat}*")
 fi
-for file in $(find "$PWD" -type f -name "exp.json" -path "*$_pat*"); do
+echo "files: $files"
+for file in $files; do 
    echo $file
-   for data_seed in $seed; do
-      for test_num in $tsn; do
-         params="${main_params} --data_seed=$data_seed"
-         params="${params} --max_test_samples=$test_num"
-         if [ -z "$_train" ]; then
-            params="${params} --reval"
-         fi
-         if [ -n "$_pvf" ]; then
-            echo "$file"
-         elif [ -n "$_pv" ]; then
-            echo "runat run ${run_params} -cfg $file ${params} $extra_params" 
-         else
-            echo "Training ..."
-            runat run ${run_params} -cfg $file ${params} ${extra_params} 
-         fi
-         if [ -n "$_one" ]; then
-            echo "Exit after one experiment"
-            exit 0
-         fi
-         if [ $? != 0 ] && [ "$onError" = "break" ]; then
-            echo "exit 1"
-            exit 1
-         fi
-      done
-   done
+   filename=$(basename -- "$file")
+   extension="${filename##*.}"
+   filename="${filename%.*}"
+   experiment=""
+   if [ -z "$_train" ]; then
+      params="${params} --reval"
+   else
+      if [[ $_exp != "self" ]]; then 
+         experiment="-exp $_exp/$filename"
+      else
+         experiment="-exp self" 
+      fi
+   fi
+   if [ -n "$_pvf" ]; then
+      echo "$file"
+   elif [ -n "$_pv" ]; then
+      echo "runat run ${run_params} $experiment -cfg $file ${params} $extra_params" 
+   else
+      echo "Training ..."
+      runat run ${run_params} -cfg $file ${params} ${extra_params} 
+   fi
+   if [ -n "$_one" ]; then
+      echo "Exit after one experiment"
+      exit 0
+   fi
+   if [ $? != 0 ] && [ "$onError" = "break" ]; then
+      echo "exit 1"
+      exit 1
+   fi
 done
 
 

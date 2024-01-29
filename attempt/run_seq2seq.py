@@ -280,6 +280,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        debugpy.listen(('0.0.0.0', int(port)))
        print("Waiting for client at run...port:", port)
        debugpy.wait_for_client()  # blocks execution until client is attached
+   if break_point:
+       mylogs.setbp(break_point)
    exclude_list = []
    exp_args = {}
    save_path = ""
@@ -290,20 +292,22 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
+        exp_args["load_model_dir"] = exp_args["output_dir"]
+        exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
         if reval:
-            if exp_args["reval"] == True:
-                mylogs.minfo("SKIP:" + exp_conf + " is a re-evaluation file")
-                return
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
             exp_args["reval"] = True
-            exp_args["trial"] = str(trial) + "-re-" + str(exp_args["expid"].split("-")[-1])
+            exp_args["trial"] = str(trial) + "-rev-" + str(exp_args["expid"].split("-")[-1])
+
+   mylogs.bp("start")
    experiment = experiment.replace("#","-").replace("@","-")
-   if exp_conf: 
-       save_path = exp_args["save_path"]
-   if not save_path or experiment == "self":
-       save_path = os.getcwd()
-   if (not exp_conf and experiment != "self") or new_exp_folder:
+   if exp_conf and reval and not new_exp_folder: 
+      save_path = exp_args["save_path"]
+   
+   if experiment == "self":
+       save_path = os.path.join(os.getcwd(), "output")
+   if not reval or new_exp_folder:
        if new_exp_folder and save_path:
           relative_path = os.path.relpath(save_path, log_path)
           parts = relative_path.split(os.path.sep)
@@ -311,6 +315,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
           new_path =  os.path.sep.join(parts)
           save_path = os.path.join(mylogs.resPath, new_path) 
           # save_path = os.path.join(str(Path(save_path).parent), experiment)
+       elif new_exp_folder:
+          save_path = os.path.join(log_path, new_exp_folder)
        else:
           save_path = os.path.join(log_path, experiment)
        if Path(save_path).exists():
@@ -333,7 +339,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
        if Path(save_path).is_file():
            os.remove(save_path)
-       Path(save_path).mkdir(exist_ok=True, parents=True)
+
+   Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
    args["conf"] = Path(exp_conf).stem
    args["save_path"] = save_path
@@ -351,8 +358,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["reval"] = reval 
    tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
-   if break_point:
-       mylogs.setbp(break_point)
 
    mylogs.bp("run")
    all_vars = [x.strip("--") for x in ctx.args]
@@ -477,6 +482,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            print(f"Dep var observed {conflict} ignored")
            continue
        ii += 1
+       mylogs.bp("expid")
        if max_exp > 0 and exps_done > max_exp:
            print(f"Max number of exp reached {max_exp} ")
            return
@@ -487,16 +493,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                args["expid"] = ii 
        elif merge: 
            args["expid"] = str(exp_args["expid"]) 
-       elif not reval:
-           args["expid"] = str(exp_args["expid"]) + "-" + str(ii)
+       else:
+           args["expid"] = str(exp_args["expid"]).split("-")[-1]
        args["main_vars"] = mvars
        args["cat"] = experiment.split("/")[-1] 
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
        output_dir = save_path 
-       if exp_conf:
-           output_dir = exp_args["output_dir"]
-       elif not merge:
+       #if exp_conf:
+       #    output_dir = exp_args["output_dir"]
+       if not merge:
            ee = int(args["expid"]) 
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
@@ -579,7 +585,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if debug:
            ctx.invoke(train, **args)
        else:
-           try:
+           #try:
                done = ctx.invoke(train, **args)
                y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
@@ -588,11 +594,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    exps_done += 1
                elif preview == "lict":
                    c = input("check for conflicts!")
-           except Exception as e:
-               print(f"================ {ii}/{total} =====================")
-               _conf = json.dumps(args, indent=2)
-               print(_conf)
-               raise Exception("An error occured in the experiment")
+           #except Exception as e:
+           #    print(f"================ {ii}/{total} =====================")
+           #    _conf = json.dumps(args, indent=2)
+           #    print(_conf)
+           #    raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
 
@@ -673,8 +679,9 @@ def train(**kwargs):
     print("============ CONF ===========")
     print(exp_conf)
     Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
-    with open(op.join(training_args.output_dir,"exp.json"), "w") as f:
-        print(exp_conf, file=f)
+    if not reval:
+        with open(op.join(training_args.output_dir,"exp.json"), "w") as f:
+            print(exp_conf, file=f)
     mylogs.bp("conf")
 
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
@@ -965,8 +972,7 @@ def train(**kwargs):
     config.attend_private = use_private_prompts 
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
-    sel_thresh = kwargs.setdefault("sel_thresh", 100)
-    config.sel_thresh = -1*sel_thresh if sel_thresh > 0 else sel_thresh
+    config.sel_thresh = kwargs.setdefault("sel_thresh", None)
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -1701,6 +1707,7 @@ def train(**kwargs):
             lsp=False, 
             prompts_prefix="pat"):
         #model.load_encoders(load_path, load_source_prompts=lsp)
+        mylogs.bp("load_model")
         dpath = os.path.join(load_path, "attn_W_down.pt")
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attention_paths = [dpath, 
@@ -1831,7 +1838,8 @@ def train(**kwargs):
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
-            load_model(training_args.output_dir, 
+            load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
+            load_model(load_model_dir,
                     lsp=True, 
                     prompts_prefix=prompts_prefix)
 
@@ -1853,8 +1861,9 @@ def train(**kwargs):
     reval = not training_args.do_train 
     slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     exp_info["slen"] = slen
+    load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
     if reval: 
-        load_model(training_args.output_dir, 
+        load_model(load_model_dir, 
                 lsp=model_args.attn_tuning,
                 prompts_prefix=prompts_prefix)
     for k,v in kwargs.items():

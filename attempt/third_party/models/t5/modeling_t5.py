@@ -63,7 +63,7 @@ def normalize_scores(scores, method="soft",
         scores = RelaxedBernoulli(temperature=0.001, 
             logits=scores).rsample()  
 
-    if sel_thresh is not None and abs(sel_thresh) != 100:
+    if sel_thresh is not None:
         scores[scores < sel_thresh] = -100
 
     if method == "nothing":
@@ -95,26 +95,25 @@ def normalize_scores(scores, method="soft",
         _max, _ = torch.max(scores, dim=-1, keepdim=True)
         scores = (scores - _min) / (_max - _min)
     
-    if gen_thresh is not None and abs(gen_thresh) != 100:
+    if gen_thresh is not None:
         scores[scores < gen_thresh] = 0
 
     return scores
 
-def batched_topk(batch_size, scores, num_attend_to, sorted=False, threshold=100):
+def batched_topk(batch_size, scores, num_attend_to, sorted=False, threshold=None):
     limit = scores.size(-1)
-    if threshold == 100 or threshold == -100:
+    if threshold is None: 
         k = num_attend_to
         k = min(k, limit)
         k = max(k, 1)
         return torch.topk(scores, k, sorted=sorted)
 
     # Initialize empty lists to store results
-    assert False, "thresh"
     selected_scores_list = []
     selected_indices_list = []
     for i in range(batch_size):
         k = num_attend_to
-        if threshold != 100:
+        if threshold is not None: 
             num_above = (scores[i] > threshold).sum().item()
             k = min(num_attend_to, num_above)
         k = min(k, limit)
@@ -1112,7 +1111,7 @@ class T5Stack(T5PreTrainedModel):
         self.learned_temperature = learned_temperature
         self.target_task_id = None
         self.task_names = None
-        self.sel_thresh = float(config.sel_thresh)
+        self.sel_thresh = config.sel_thresh
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1452,7 +1451,7 @@ class T5Stack(T5PreTrainedModel):
                 attn_scores, 
                 num_attend_to, 
                 sorted="sorted" in self.source_prompts_order,
-                threshold=100) #  self.sel_thresh)
+                threshold=None) #  self.sel_thresh)
         if torch.any(attend_to_sel_idx == -1):
             mylogs.bp("negg")
         if self.source_prompts_order == "rand":
@@ -1494,7 +1493,7 @@ class T5Stack(T5PreTrainedModel):
 
         if not self.training:
             mylogs.bp("notr")
-            gen_thresh = self.sel_thresh
+            gen_thresh = None 
             if self.gen_conf is not None and "gen_norm_method" in self.gen_conf:
                 gen_norm_method = self.gen_conf["gen_norm_method"] 
             if self.gen_conf is not None and "gen_thresh" in self.gen_conf:
@@ -1507,7 +1506,7 @@ class T5Stack(T5PreTrainedModel):
         if self.training and "after" in self.norm_method:
             method = self.norm_method.replace("after_","")
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
-                    sel_thresh=self.sel_thresh)
+                    sel_thresh=None)
 
         mylogs.bp("unif")
         if route_method == "unif":
@@ -1722,11 +1721,12 @@ class T5Stack(T5PreTrainedModel):
                         masked_prompts = soft_prompts
                         amask = torch.ones((batch_size, self.prompt_dim), dtype=bool)
                         if self.compose_method == "cat" or self.compose_method == "concat":
-                            amask = attn_scores > 0 
-                            amask = amask.repeat_interleave(self.src_prompt_dim)
-                            amask = amask.view(batch_size, -1)
-                            _amask = amask.unsqueeze(1)
-                            masked_prompts = soft_prompts[_amask]
+                            if self.sel_thresh is not None:
+                                amask = attn_scores > self.sel_thresh 
+                                amask = amask.repeat_interleave(self.src_prompt_dim)
+                                amask = amask.view(batch_size, -1)
+                                _amask = amask.unsqueeze(1)
+                                masked_prompts = soft_prompts[_amask]
 
                         tmask = target_prompt_masks.clone()
                         number_to_keep_per_batch = torch.sum(amask, dim=-1) 
