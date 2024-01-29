@@ -63,16 +63,20 @@ if [ "$methods" = "all" ]; then
 fi
 
 if [ -z $_ep ]; then
-   _ep=15
+   _ep=10
 fi
-epp=20
-tnn=20
+if [ -z $_epp ]; then
+   _epp=20
+fi
+if [ -z $tnn ]; then
+   _tnn=20
+fi
 if [ -z $_tn ]; then
   _tn=10
 fi
 
 bs=12
-ppx="${epp}${tnn}"
+ppx="${_epp}${_tnn}"
 # ppx=20200
 nums="_ep $_ep _tsn 100"
 
@@ -90,16 +94,26 @@ else
    fi
 fi
 ii=0
-nsp=0
+if [ -z "$_nsp" ]; then
+   _nsp=0
+else
+   _nsp=$(echo "$_nsp" | sed "s/\#/ /g")
+fi
 attn=rb
-_cmm="cat"
-if [ -n "$_wc" ]; then
-   _cmm="wavg cat"
+if [ -n "$_cmm" ]; then
+   _cmm=$(echo "$_cmm" | sed "s/\#/ /g")
+    echo "CMM: $_cmm"
+else
+   if [ -n "$_w" ]; then
+      _cmm="wavg"
+   fi
+   if [ -n "$_wc" ]; then
+      _cmm="wavg cat"
+   fi
+   if [ -n "$_cw" ]; then
+      _cmm="cat wavg"
+   fi
 fi
-if [ -n "$_cw" ]; then
-   _cmm="cat wavg"
-fi
-
 if [ -z "$_tasks" ]; then
    _tasks="_tasks mnli qnli stsb qqp mrpc" 
 fi
@@ -107,27 +121,38 @@ fi
 if [ -n "$_g" ]; then
    _tasks="_gtasks"
 fi
+if [ -n "$_a" ]; then
+   _tasks="_atasks"
+fi
+if [ -n "$_sa" ]; then
+   _tasks="_satasks"
+fi
+
 
 for tn in $_tn; do
 for seed in 123; do
-for gnm in "sign@soft_relu@sigmoid_relu@sigmoid@soft"; do
+for gnm in "soft@"; do
 for masking in "none" "0-col-1"; do
+#for tasks in "_tasks mnli qnli qqp"; do 
+#for route_method in bias ratt satt const direct; do
+#for route_method in biasx biasp direct; do
+#for tasks in _gtasks; do 
+for nsp in $_nsp; do
+echo "NSP: $nsp"
 if [ $nsp -eq 0 ]; then
    src="_seqt"
 else
    src=""
 fi
-#for tasks in "_tasks mnli qnli qqp"; do 
-#for route_method in bias ratt satt const direct; do
-#for route_method in biasx biasp direct; do
-#for tasks in _gtasks; do 
 for cmm in $_cmm; do
+   echo "CMM: $cmm"
    ((ii++))
    catname="$cmm-$ntp-$nsp-seed-$seed-$ii-$tn"
    common="${flags} ${vars} ${params} _seed $seed _masking $masking $nums _bs $bs _tn $tn $_tasks $src _prefix"
    mets="$common _gnm $gnm _cmm $cmm "
 
    SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
+   SI_args="$mets _lsp _ppx $ppx _learn_sp False "
    SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
    SIL_args="$mets _lsp _ppx $ppx"
    SILP_args="$mets _upp _lsp _ppx $ppx"
@@ -137,7 +162,7 @@ for cmm in $_cmm; do
    SLP_args="$mets _upp _lsp False"
    SLPI_args="$mets _upp _lsp False _lpp _ppx $ppx"
    PI_args="$common _pt $_tasks _upp _lpp _lsp False "
-   P_args="$common _pt $_tasks _skip"
+   P_args="_ep $_epp _tn $tnn _bs $bs _pt $_tasks _skip _prefix -merge"
    SC_args="$common _cmm $cmm _lsp False _rm const "
 
    for met in $methods; do
@@ -175,6 +200,7 @@ for cmm in $_cmm; do
            exit 0
        fi
    done
+done
 done
 if [[ -z "$_all" ]]; then
    echo "exit after first loop"

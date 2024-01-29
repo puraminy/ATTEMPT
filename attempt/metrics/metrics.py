@@ -550,8 +550,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False):
     for logger in [mlog, vlog, clog]:
         logger.info("Len data frame: {}".format(len(df)))
         logger.info("Rouge:{} ".format(mean_rouge_str)) 
-        if "bert" in scorers:
-            logger.info("BERT:{} ".format(mean_bert_str)) 
+        #if "bert" in scorers:
+        #    logger.info("BERT:{} ".format(mean_bert_str)) 
         #logger.info("nli_counter: {}".format(nli_counter))
         #logger.info("hyp_counter: {}".format(hyp_counter))
         logger.info("Distinct preds:{}".format(len(pred_counts)))

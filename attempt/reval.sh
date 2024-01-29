@@ -56,6 +56,9 @@ if [ -z "$_seed" ]; then
 else
    seed=$_seed
 fi
+#if [ -z "$_pat" ]; then
+#   _pat="Eval"
+#fi
 if [ -n "$_all_test" ]; then
    _tsn=-1 
 fi

@@ -177,6 +177,13 @@ def plot_bar(rep, folder, sel_col):
     plt.savefig(pname)
     return pname
 
+def pivot_colors(df,row,col, default=None):
+    rel_col = "n-" + col
+    if rel_col in df:
+        if df.iloc[row][rel_col] <= 1:
+            return 91
+    return default if default is not None else TEXT_COLOR 
+
 def get_sel_exprs(df, sel_rows, sel_row):
     exprs = []
     s_rows = sel_rows
@@ -205,7 +212,7 @@ def load_results(path):
     df.to_csv(path.replace("json", "tsv"), sep="\t", index = False)
     return df
 
-def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
+def remove_uniques(df, sel_cols, tag_cols = [], keep_cols = []):
     _info_cols = []
     _tag_cols = tag_cols
     _sel_cols = []
@@ -216,7 +223,7 @@ def remove_uniques(df, sel_cols, tag_cols, keep_cols = []):
         if not c in items:
             continue
         _count = items[c]
-        if c in ["fid", "expid", "rouge_score", "pred_max_num"] + keep_cols:
+        if c in keep_cols:
             _sel_cols.append(c)
         elif _count > 1: 
            _sel_cols.append(c)
@@ -367,11 +374,14 @@ def show_df(df):
 
     main_vars = []
     if "main_vars" in df:
-        main_vars = df["main_vars"].iloc[0]
-        main_vars = json.loads(main_vars)
-        main_vars = list(main_vars.keys())
-        main_vars = [e for e in main_vars 
-                if not e in ['max_train_samples', 'task_name', 'num_train_epochs']]
+        mvars = []
+        for var in df["main_vars"].unique():
+            dvar = json.loads(var)
+            lvar = list(dvar.keys())
+            mvars.extend([e for e in lvar 
+                    if not e in ['max_train_samples', 'source_prompts',
+                        'task_name', 'num_train_epochs']])
+        main_vars = list(dict.fromkeys(main_vars))
 
     #if not "word_score" in df:
     #    df['word_score'] = df['pred_text1'].str.split().str.len()
@@ -381,16 +391,19 @@ def show_df(df):
 
     if not "pid" in df:
         df["pid"] = 0
-    if not "l1_decoder" in df:
-        df["l1_decoder"] ="" 
-        df["l1_encoder"] ="" 
-        df["cossim_decoder"] ="" 
-        df["cossim_encoder"] ="" 
+
+    #if not "l1_decoder" in df:
+    #    df["l1_decoder"] ="" 
+    #    df["l1_encoder"] ="" 
+    #    df["cossim_decoder"] ="" 
+    #    df["cossim_encoder"] ="" 
 
     if "gen_route_methods" in df:
-        df["gen_norm_methods"] = df["gen_route_methods"]
+        df["gen_norm_method"] = df["gen_route_methods"]
         df["norm_method"] = df["apply_softmax_to"]
 
+    if "gen_norm_methods" in df:
+        df["gen_norm_method"] = df["gen_norm_methods"]
 
     if not "query" in df:
         df["query"] = df["input_text"]
@@ -455,8 +468,8 @@ def show_df(df):
     if "expid" in tag_cols:
         tag_cols.remove("expid")
     if "expid" in df:
-        df["expid"] = df["expid"].astype(str)
         df["expname"] = df["expid"].str.split("-").str[0]
+        df["expid"] = df["expid"].str.split("-").str[1]
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
@@ -484,16 +497,19 @@ def show_df(df):
     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 36)
     seq = ""
     reset = False
+    pcols = [] #pivot unique cols
+    cond_colors = {} # a dictionary of functions
     back_sel_cols = []
+    main_sel_cols = []
     search = ""
     sort = "rouge_score"
     on_col_list = []
     keep_cols = []
     unique_cols = []
     group_sel_cols = []
+    group_df = None
     rep_cols = []
     dfs = []
-    score_cols = ["m_score"] #load_obj("score_cols", "gtasks", ["m_score"])
     pivot_cols = ['prefix']
     experiment_images = {}
 
@@ -508,7 +524,16 @@ def show_df(df):
         sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
 
-    sel_cols = list(set(main_vars + sel_cols + rep_cols + score_cols))
+    main_sel_cols = sel_cols.copy()
+
+    rels = df["prefix"].unique()
+    if "xAttr" in rels:
+        score_cols = ['rouge_score','num_preds'] 
+    else:
+        score_cols = ['m_score', 'num_preds'] 
+
+    sel_cols = main_vars + sel_cols + rep_cols + score_cols
+    sel_cols = list(dict.fromkeys(sel_cols))
     back_sel_cols = sel_cols.copy()
 
     sel_fid = "" 
@@ -659,6 +684,9 @@ def show_df(df):
                           cell_color = MSG_COLOR
                        elif ii == _sel_row:
                           cell_color = sel_row_color
+                       elif sel_col in cond_colors:
+                           cell_color = cond_colors[sel_col](df, ii, sel_col, 
+                                   default = row_color)
                        else:
                           cell_color = row_color
                    text = textwrap.shorten(text, width=36, placeholder="...")
@@ -747,9 +775,10 @@ def show_df(df):
                 shutil.rmtree("temp")
             Path("temp").mkdir(parents=True, exist_ok=True)
             for key, img_dict in imgs.items():
-                sorted_keys = reversed(sorted(img_dict.keys()))
-                # sorted_keys = ["score", "router", "cos"] # TODO fixed
+                #sorted_keys = (sorted(img_dict.keys()))
+                sorted_keys = ["a-sim", "score", "router", "mask"] # TODO fixed
                 img_list = [img_dict[k] for k in sorted_keys] 
+                max_width = 0
                 if len(img_list) > 1:
                     if len(img_list) > 2:
                         new_im = combine_y(img_list)
@@ -759,7 +788,15 @@ def show_df(df):
                     dest = os.path.join("temp", name.strip("-") + ".png")
                     new_im.save(dest)
                     c_imgs[key] = [new_im] 
+                    if new_im.width > max_width:
+                        max_width = new_im.width
                     fnames.append(dest)
+            for key, img_list in c_imgs.items():
+                for i, img in enumerate(img_list):
+                    if img.width < max_width:
+                        dif = max_width - img.width // 2
+                        _image = add_margin(img, 0, dif, 0, dif, (255, 255, 255))
+                        c_imgs[key][i] = _image
             imgs = c_imgs
         return imgs, fnames
 
@@ -800,7 +837,8 @@ def show_df(df):
         top = max(top, 0)
         sel_row = min(sel_row, len(df) - 1)
         sel_row = max(sel_row, 0)
-        sel_rows = list(set(sel_rows))
+        sel_rows = list(dict.fromkeys(sel_rows))
+        sel_cols = list(dict.fromkeys(sel_cols))
         sel_group = max(sel_group, 0)
         #sel_group = min(sel_row, sel_group)
         cur_col = min(cur_col, len(sel_cols) - 1)
@@ -987,7 +1025,7 @@ def show_df(df):
             canceled, col, val = list_df_values(df, get_val=False)
             if not canceled:
                 sel_cols = order(sel_cols, [col],int(char))
-        elif char in ["e","E"]:
+        elif char in ["E"]:
             if not edit_col or char == "E":
                 canceled, col, val = list_df_values(df, get_val=False)
                 if not canceled:
@@ -1028,6 +1066,11 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
+        if char == "e":
+            backit(df, sel_cols)
+            sel_exp=df.iloc[sel_row]["eid"]
+            df = group_df[group_df['eid'] == sel_exp]
+            sel_cols = group_sel_cols.copy()
         if char == "O":
             sel_exp=df.iloc[sel_row]["eid"]
             tdf = main_df[main_df['eid'] == sel_exp]
@@ -1426,6 +1469,11 @@ def show_df(df):
                         col == "ftag"
                         or col == "extra_fields"
                         or col == "path"
+                        or col == "folder"
+                        or col == "exp_name"
+                        or col == "fid"
+                        or col == "id"
+                        or col == "eid"
                         or col == "full_tag"
                         or col.startswith("test_")
                         or "output_dir" in col
@@ -1458,11 +1506,17 @@ def show_df(df):
                 info_cols = ["bert_score", "num_preds"]
             if reset: #col == "fid":
                 sel_cols = ["eid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
-                sel_cols = list(set(sel_cols))
+                sel_cols = list(dict.fromkeys(sel_cols))
             reset = False
 
             _agg = {}
             group_sel_cols = sel_cols.copy()
+            if "folder" in group_sel_cols:
+                group_sel_cols.remove("folder")
+            if "prefix" in group_sel_cols:
+                group_sel_cols.remove("prefix")
+                group_sel_cols.insert(0, "prefix")
+
             for c in df.columns:
                 if c.endswith("score"):
                     _agg[c] = "mean"
@@ -1498,6 +1552,8 @@ def show_df(df):
                 sel_cols.append("num_preds")
             df["avg_len"] = avg_len
             df = df.sort_values(by = ["rouge_score"], ascending=False)
+
+            group_df = df.copy()
             exp_num = df["folder"].nunique()
             consts["Number of experiments"] = str(exp_num)
             sort = "rouge_score"
@@ -1521,12 +1577,12 @@ def show_df(df):
                 s_rows = [sel_row]
             pfix = ""
             for s_row in s_rows:
-                exp=df.iloc[s_row]["fid"]
+                exp=df.iloc[s_row]["eid"]
                 score=df.iloc[s_row]["rouge_score"]
-                cond = f"(main_df['{FID}'] == '{exp}')"
-                tdf = main_df[main_df[FID] == exp]
+                cond = f"(main_df['eid'] == '{exp}')"
+                tdf = main_df[main_df.eid == exp]
                 prefix=tdf.iloc[0]["prefix"]
-                expid=tdf.iloc[0]["expid"]
+                expid=tdf.iloc[0]["eid"]
                 path=tdf.iloc[0]["path"]
                 js = os.path.join(str(Path(path).parent), "exp.json")
                 fname ="exp_" + str(expid) + "_" + prefix + "_" + str(round(score,2)) + ".json"
@@ -1555,7 +1611,7 @@ def show_df(df):
             sel_rows = []
             FID = "input_text"
             hotkey = hk
-        elif char in ["n", "t", "i"]: # and prev_cahr != "x" and hk == "gG":
+        elif char in ["n", "t", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
             left = 0
             context= "comp"
             cur_col = -1
@@ -1619,14 +1675,14 @@ def show_df(df):
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
                     task = df.iloc[0]["prefix"]
-                sel_cols=orig_tag_cols + ["bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
-                #sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+                sel_cols=orig_tag_cols + ["prefix","bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
+                sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, main_vars)
                 #unique_cols = info_cols.copy()
-                sel_cols = list(set(sel_cols))
+                sel_cols = list(dict.fromkeys(sel_cols))
                 df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 sort = "input_text"
-                info_cols = []
+                info_cols = ["input_text","prefix"]
                 df = df.reset_index()
             if len(df) > 1:
                 sel_cols=orig_tag_cols + ["bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score","prefix"]
@@ -2010,14 +2066,36 @@ def show_df(df):
                         if exp in cat:
                             del rep[k][exp]
             save_obj(rep, _from, "gtasks")
+        if char in ["1","2"]:
+            if not pcols or not all(col in df for col in pcols):
+                mbeep()
+            else:
+                if prev_char not in ["1","2"]:
+                    backit(df, sel_cols)
+                if score_cols:
+                    ss = int(char) - 1
+                    if ss < len(score_cols):
+                        score_col = score_cols[ss]
+                sel_cols = info_cols.copy()
+                avg_col = "All"
+                if score_col == score_cols[0]:
+                    for col in df.columns:
+                        if col in pcols or col == "All":
+                            sel_cols.append(col)
+                else:
+                    for col in df.columns:
+                        if col.startswith(score_col[0] + "-"):
+                            sel_cols.append(col)
+                    avg_col = score_col[0] + "-All"
+                df = df.sort_values(by=avg_col, ascending=False)
+
         # rrrrrrrrr
-        if cmd.startswith("rep") or char == "Z" or char == "r":
+        if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df
             _agg = {}
             rep_cols = []
-            score_cols = []
             for c in sel_cols: 
-                if c == "num_preds":
+                if c in score_cols: 
                     _agg[c] = "mean"
                 elif (c.endswith("score") 
                         or (char == "Z" and (c.endswith("_num") or c.startswith("num_")))): 
@@ -2030,65 +2108,67 @@ def show_df(df):
             if not "eid" in rep_cols:
                 gcol += ["eid"] 
             mdf[gcol] = mdf[gcol].fillna('none')
-            dfs = []
-            for score_col in score_cols:
-                if not score_col in mdf:
-                    show_msg(score_col + " isn't in columns!", bottom=False)
-                    mbeep()
-                    cmd = ""
-                    continue
-                pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
-                        values=[score_col], aggfunc='mean')
-                pdf["avg"] = pdf.mean(axis=1, skipna=True)
-                #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
-                # pdf['eid'] = mdf.groupby(gcol)['eid'].first()
-                #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
-                pdf.reset_index(inplace=True)
-                pdf.columns = [col[1] if col[0] == score_col else col[0] 
-                        for col in pdf.columns]
-                pdf.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
-                              for col in pdf.columns]
-                # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
-                pdf['ref'] = pdf.apply(
-                        lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
-                # pdf = pdf.sort_values(by='avg', ascending=False)
-                pdf = pdf.round(2)
-                dfs.append(pdf)
 
-                #latex_table=tabulate(pdf, #[rep_cols+score_cols], 
-                #        headers='keys', tablefmt='latex_raw', showindex=False)
-                #latex_table = latex_table.replace("tabular", "longtable")
-                #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
+            pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
+                    values=score_cols, aggfunc='mean', margins=True)
+            columns = pdf.columns.to_flat_index()
+            # pdf["avg"] = pdf.mean(axis=1, skipna=True)
+            #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
+            # pdf['eid'] = mdf.groupby(gcol)['eid'].first()
+            #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
+            pdf.reset_index(inplace=True)
+            pdf.columns = [col[1] if col[0] == score_cols[0] 
+                    else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
+                    for col in pdf.columns]
+            # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+            pdf['ref'] = pdf.apply(
+                    lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
+            pdf = pdf.round(2)
+            #latex_table=tabulate(pdf, #[rep_cols+score_cols], 
+            #        headers='keys', tablefmt='latex_raw', showindex=False)
+            #latex_table = latex_table.replace("tabular", "longtable")
+            #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
 
-            # merged_df = merged_df.sort_values(by=['eid'], ascending=False)
-            if len(dfs) > 1:
-                dfs[0].sort_values(inplace=True, by="avg", ascending=False)
-                data = []
-                for _, row1 in dfs[0].iterrows():
-                    data.append(row1.to_dict())
-                    # Find the corresponding row in df2 based on 'id'
-                    for df2 in dfs[1:]:
-                        row2 = df2[df2['eid'] == row1['eid']].to_dict('records')[0]
-                        data.append(row2)
+            avg_col = "All"
+            backit(df, sel_cols)
+            score_col = score_cols[0]
+            sel_cols = [] 
+            pcols = []
+            for col in pivot_cols:
+                pcols.extend(df[col].unique())
+            for col in pcols:
+                cond_colors[col] = pivot_colors
 
-                backit(df, sel_cols)
-                df = pd.DataFrame(data)
-                sel_cols = list(df.columns)
-                sel_cols.remove("avg")
-                sel_cols.insert(2, "avg")
-            elif len(dfs) > 0:
-                dfs[0].sort_values(inplace=True, by="avg", ascending=False)
-                df = dfs[0]
-                backit(df, sel_cols)
-                sel_cols = list(df.columns)
-                sel_cols.remove("avg")
-                sel_cols.insert(2, "avg")
-
+            if score_col == score_cols[0]:
+                avg_col = "All"
+                for col in pdf.columns:
+                    if col in df or col in pcols:
+                        sel_cols.append(col)
+            else:
+                avg_col = score_col[0] + "-All"
+                for col in pdf.columns:
+                    if col in df or col.startswith(score_col[0] + "-"):
+                        sel_cols.append(col)
+            df = pdf.iloc[:-1]
+            df = df.sort_values(by=avg_col, ascending=False)
+            sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
+                    keep_cols=pivot_cols + info_cols)
+            if "folder" in sel_cols:
+                sel_cols.remove("folder")
+            if not "folder" in info_cols_back:
+                info_cols_back.append("folder")
+            for i, col in enumerate(info_cols + [avg_col]):
+                if col in sel_cols:
+                    sel_cols.remove(col)
+                sel_cols.insert(i, col)
+            #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
+            #              for col in pdf.columns]
         if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
             if len(score_cols) > 1:
-                m_report = f"{_dir}/report_templates/report_colored_template.tex"
+                # m_report = f"{_dir}/report_templates/report_colored_template.tex"
+                m_report = f"{_dir}/report_templates/report_template.tex"
             else:
                 m_report = f"{_dir}/report_templates/report_template.tex"
             with open(m_report, "r") as f:
@@ -2259,7 +2339,7 @@ def show_df(df):
             save_obj(map_cols, "map_cols", "atomic")
             cur_col += 1
         if cmd == "copy" or char == "\\":
-            exp=df.iloc[sel_row]["expid"]
+            exp=df.iloc[sel_row]["eid"]
             exp = str(exp)
             spath = tdf.iloc[0]["path"]
             oldpath = Path(spath).parent.parent

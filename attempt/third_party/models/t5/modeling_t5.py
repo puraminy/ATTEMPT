@@ -338,15 +338,15 @@ class Anneal:
         return self
 
     def anneal(self, i_step):
-        if self.cur_val < self.anneal_min:
+        if self.cur_val <= self.anneal_min:
             return self.anneal_min
         delta = self.anneal_dir * self.anneal_rate * i_step
         if self.anneal_type == "exp":
            exp_rate = np.exp(delta)
-           t = max(self.anneal_min, self.cur_val * exp_rate)
+           t = self.cur_val * exp_rate
         else:
            t = self.start_val + delta 
-        self.cur_val = t
+        self.cur_val = max(t, self.anneal_min)
         return self.cur_val 
 
     def __next__(self):
@@ -1364,6 +1364,7 @@ class T5Stack(T5PreTrainedModel):
 
             if self.training and self.learn_attention:
                 logits = router
+                mylogs.bp("rbsample")
                 rb_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=logits).rsample()            
                 if route_method == "unif":
@@ -1423,36 +1424,44 @@ class T5Stack(T5PreTrainedModel):
         else:
             raise NotImplementedError
 
-        mylogs.bp("att")
+        mylogs.bp("before")
         if self.training and "before" in self.norm_method:
             method = self.norm_method.replace("before_","")
             attn_scores = normalize_scores(attn_scores, method) 
 
         num_targets = attend_for.size(1) 
-        if self.compose_method == "cat":
+        if self.compose_method == "cat" or self.compose_method == "concat":
             num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
             num_attend_to = self.num_target_prompts
+
+        if not self.training and "gen_ntp" in self.gen_conf:
+            num_attend_to = self.gen_conf["gen_ntp"]
+
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_scores[:,:,-1] = attn_scores[:,:,-1]+ 2
 
         mylogs.bp("tk1")
+        mylogs.bp(task + "1")
         if not self.training:
             mylogs.bp("tk2")
+            mylogs.bp(task + "2")
 
         attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
                 attn_scores, 
                 num_attend_to, 
-                sorted=self.source_prompts_order == "sorted",
+                sorted="sorted" in self.source_prompts_order,
                 threshold=100) #  self.sel_thresh)
         if torch.any(attend_to_sel_idx == -1):
             mylogs.bp("negg")
         if self.source_prompts_order == "rand":
             idx = torch.randperm(attend_to_sel_idx.shape[-1])
             attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
-        elif self.source_prompts_order == "asc":
+            attn_sel_scores = attn_sel_scores[:,:,idx].view(attn_sel_scores.size())
+        elif self.source_prompts_order == "sorted_asc":
             attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
+            attn_sel_scores = torch.flip(attn_sel_scores, dims=(-1,))
 
         if False: #self.attend_target or self.attend_private: # force to select them
             attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
@@ -1486,8 +1495,8 @@ class T5Stack(T5PreTrainedModel):
         if not self.training:
             mylogs.bp("notr")
             gen_thresh = self.sel_thresh
-            if self.gen_conf is not None and "norm_method" in self.gen_conf:
-                gen_norm_method = self.gen_conf["norm_method"] 
+            if self.gen_conf is not None and "gen_norm_method" in self.gen_conf:
+                gen_norm_method = self.gen_conf["gen_norm_method"] 
             if self.gen_conf is not None and "gen_thresh" in self.gen_conf:
                 gen_thresh = self.gen_conf["gen_thresh"] 
             attn_sel_scores = normalize_scores(attn_sel_scores, 
@@ -1712,7 +1721,7 @@ class T5Stack(T5PreTrainedModel):
                         # amask = amask.squeeze(1)
                         masked_prompts = soft_prompts
                         amask = torch.ones((batch_size, self.prompt_dim), dtype=bool)
-                        if self.compose_method == "cat":
+                        if self.compose_method == "cat" or self.compose_method == "concat":
                             amask = attn_scores > 0 
                             amask = amask.repeat_interleave(self.src_prompt_dim)
                             amask = amask.view(batch_size, -1)
@@ -1722,14 +1731,15 @@ class T5Stack(T5PreTrainedModel):
                         tmask = target_prompt_masks.clone()
                         number_to_keep_per_batch = torch.sum(amask, dim=-1) 
                         sequence_length = tmask.size(1)
-                        if self.padding_pos == "end":
+                        if True: #self.padding_pos == "end":
                             sequence_range = range(sequence_length)
                         else:
                             sequence_range = range(sequence_length -1, -1, -1)
                         num_true = [0]*batch_size
+                        alen = amask.size(1)
                         for i in range(batch_size):
                             for j in sequence_range: 
-                                if (tmask[i, j] and amask[i, j] 
+                                if (tmask[i, j] and j < alen and amask[i, j] 
                                     and num_true[i] < number_to_keep_per_batch[i]):
                                     num_true[i] += 1
                                 elif tmask[i, j]:

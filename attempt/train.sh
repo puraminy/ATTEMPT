@@ -228,7 +228,8 @@ if [ -n "$_pvtasks" ]; then
 fi
 case $run_params in
    *"-d"*) # debug is enabled
-      _test=True
+      # _test=True
+      echo "Debug mode"
       ;;
    *"-nd"*) # debug is enabled
       run_params=$(echo "$run_params" | sed "s/-nd/-d/")
@@ -254,7 +255,9 @@ if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=1.; fi
 if [ -z "$_atype" ]; then  _atype="linear"; fi # anneal type
+if [ -z "$_anr" ]; then _anr=0.02; fi #anneal rate
 if [ -z "$_norm" ]; then  _norm="nothing"; fi
+if [ -z "$_gnm" ]; then  _gnm="soft"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
 if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_masking" ]; then  _masking="0-random-0"; fi # number of random masks 
@@ -570,13 +573,9 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    params="${params} --normalize=True"
    params="${params} --anneal_min=0.001"
    params="${params} --anneal_type=$_atype"
-   params="${params} --anneal_rate=0.01"
+   params="${params} --anneal_rate=$_anr"
    params="${params} --@norm_method=$_norm"
-   if [ -z "$_gnm" ]; then
-      params="${params} --@gen_norm_methods=sign@"
-   else
-      params="${params} --@gen_norm_methods=$_gnm"
-   fi
+   params="${params} --@gen_norm_method=$_gnm"
    params="${params} --route_method=$_rm"
    params="${params} --use_saved_router=$_usr"
    params="${params} --init_from_words=False"
