@@ -297,7 +297,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
             exp_args["reval"] = True
-            exp_args["trial"] = str(exp_args["trial"]) + "-re-" + str(trial)
+            exp_args["trial"] = str(trial) + "-re-" + str(exp_args["expid"].split("-")[-1])
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf: 
        save_path = exp_args["save_path"]
@@ -2053,7 +2053,7 @@ def train(**kwargs):
         results = {}
         ds_backup = None
         mylogs.bp("gen_conf")
-        gnm = kwargs.setdefault("gen_norm_method",["sign"])
+        gnm = kwargs.setdefault("gen_norm_method",["soft"])
         if type(gnm) != list: gnm = [gnm] 
         gen_thresh = kwargs.get("gen_thresh", [None])
         if type(gen_thresh) != list: gen_thresh = [gen_thresh]

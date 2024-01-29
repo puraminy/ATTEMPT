@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 from attempt.win import *
 from mylogs import * 
+from datetime import datetime, timedelta
 import json
 from tqdm import tqdm
 # from comet.utils.myutils import *
@@ -184,6 +185,19 @@ def pivot_colors(df,row,col, default=None):
     if rel_col in df:
         if df.iloc[row][rel_col] <= 1:
             return 91
+    return default if default is not None else TEXT_COLOR 
+
+def time_colors(df,row,col, default=None):
+    rel_col = "time" 
+    last_hour = datetime.now() - timedelta(hours = 1)
+    last_10_minutes = datetime.now() - timedelta(minutes = 10)
+    if rel_col in df:
+        time = str(datetime.now().year) + "-" + df.iloc[row][rel_col]
+        time = datetime.strptime(time, '%Y-%m-%d-%H:%M')
+        if time > last_10_minutes:
+            return WARNING_COLOR
+        elif time > last_hour:
+            return 81
     return default if default is not None else TEXT_COLOR 
 
 def get_sel_exprs(df, sel_rows, sel_row):
@@ -2136,6 +2150,9 @@ def show_df(df):
             score_col = score_cols[0]
             sel_cols = [] 
             pcols = []
+            cond_colors["eid"] = time_colors
+            cond_colors["time"] = time_colors
+            cond_colors["expid"] = time_colors
             for col in pivot_cols:
                 pcols.extend(df[col].unique())
             for col in pcols:
@@ -2163,6 +2180,10 @@ def show_df(df):
                 if col in sel_cols:
                     sel_cols.remove(col)
                 sel_cols.insert(i, col)
+            if "time" in sel_cols:
+                sel_cols.remove("time")
+                sel_cols.append("time")
+
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
         if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
@@ -2679,7 +2700,7 @@ def start(stdscr):
     global info_bar, text_win, cmd_win, std, main_win, colors, dfname, STD_ROWS, STD_COLS
     stdscr.refresh()
     std = stdscr
-    now = datetime.datetime.now()
+    now = datetime.now()
     rows, cols = std.getmaxyx()
     set_max_rows_cols(rows, cols) 
     height = rows - 1

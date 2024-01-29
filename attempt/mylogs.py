@@ -50,7 +50,7 @@ def get_tag(tags=None, args=None, as_str=False):
     for _t in tags:
         if _t in args:
             val = args[_t]
-            if type(val) == list: val = "@".join(val)
+            if type(val) == list: val = "@".join([str(v) for v in val])
             val = str(val).split("/")[-1]
             tag_dict[_t] = val
             tag_str += "|" + _t + "=" + val
