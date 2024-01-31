@@ -697,7 +697,8 @@ def train(**kwargs):
 
     # sssssssss
     torch.autograd.set_detect_anomaly(True)
-    training_args.report_to = kwargs.get("report_to", None)
+    training_args.report_to = kwargs.get("report_to", "wandb")
+
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     _dict = kwargs.copy()
@@ -2203,20 +2204,21 @@ def train(**kwargs):
 #################
                 mylogs.bp("pic")
                 mean_score = total_score / counter
-                targets = model.encoder.target_encoders_idx
-                router_scores = model.encoder.router.index_select(0, targets)
-                router_scores = model.encoder.router.index_select(0, targets)
-                tlen = router_scores.size(0)
-                rsim = torch.eye(tlen)
-                cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                for i in range(tlen):
-                    for j in range(tlen):
-                        if i != j:
-                            rsim[i][j] = cos(router_scores[i][:], 
-                                    router_scores[j][:])
-                save_image(eval_folder, model, {"a-sim":rsim}, 
-                            annot=False, square=True,
-                            spec = norm_method + " | {:.2f}".format(mean_score))
+                if adapter_args.prompt_tuning:
+                    targets = model.encoder.target_encoders_idx
+                    router_scores = model.encoder.router.index_select(0, targets)
+                    router_scores = model.encoder.router.index_select(0, targets)
+                    tlen = router_scores.size(0)
+                    rsim = torch.eye(tlen)
+                    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                    for i in range(tlen):
+                        for j in range(tlen):
+                            if i != j:
+                                rsim[i][j] = cos(router_scores[i][:], 
+                                        router_scores[j][:])
+                    save_image(eval_folder, model, {"a-sim":rsim}, 
+                                annot=False, square=True,
+                                spec = norm_method + " | {:.2f}".format(mean_score))
                 if adapter_args.prompt_tuning:
                     ss1 = model.encoder.attn_scores.index_select(0, targets)
                     mylogs.bp("ss1")

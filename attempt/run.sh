@@ -65,30 +65,30 @@ configs=${arr[@]:1}
 echo "Configs: $configs"
 
 ######################################## Task flags:
-if [ -n "$_gtasks" ]; then
-   _tasks="${_tasks}#qqp#mrpc#mnli#qnli#sstb"
+if [ -n "$_gt" ]; then
+   _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"
 fi
-if [ -n "$_gftasks" ]; then
+if [ -n "$_gft" ]; then
    _tasks="${_tasks}cola#qqp#mrpc#mnli#qnli#rte#stsb#sst2"
 fi
-if [ -n "$_ltasks" ]; then
+if [ -n "$_lt" ]; then
    _tasks="mnli#wnli#paws#mrpc#imdb#sst2"
 fi
 
-if [ -n "$_otasks" ]; then
+if [ -n "$_ot" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
 sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
-if [ -n "$_sgtasks" ]; then
+if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
-if [ -n "$_atasks" ]; then
+if [ -n "$_at" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
 fi
-if [ -n "$_aftasks" ]; then
+if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
 fi
-if [ -n "$_ltasks2" ]; then
+if [ -n "$_lt2" ]; then
    _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
 fi
 if [ -z "$_tasks" ]; then
@@ -213,13 +213,14 @@ fi
 if [ -z "$_path" ]; then 
    _path="${SCRIPT_DIR}/configs"
 fi
-if [ -z "$_dpat" ]; then _dpat="crosspt"; fi
+if [ -z "$_dpat" ]; then _dpat=""; fi
 if [ -n "$_base" ]; then 
    _dpat="baselines"
 fi
 
 logs=$HOME/logs/$output
 for conf in "${configs[@]}"; do
+   echo "find ${_path} -type f -name \"*${conf}*.json\" -path \"*${_dpat}*\""
    files=$(find ${_path} -type f -name "*${conf}*.json" -path "*${_dpat}*")
    for file in $files; do 
       filename=$(basename -- "$file")
