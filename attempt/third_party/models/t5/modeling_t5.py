@@ -324,8 +324,8 @@ DEPARALLELIZE_DOCSTRING = r"""
 """
 
 class Anneal:
-    def __init__(self, temperature, anneal_dir, anneal_rate, anneal_min, anneal_type="exp"):
-        self.anneal_min = anneal_min
+    def __init__(self, temperature, anneal_dir, anneal_rate, anneal_point, anneal_type="exp"):
+        self.anneal_point = anneal_point
         self.cur_step = 0
         self.start_val = temperature
         self.cur_val = temperature
@@ -337,15 +337,20 @@ class Anneal:
         return self
 
     def anneal(self, i_step):
-        if self.cur_val <= self.anneal_min:
-            return self.anneal_min
+        if self.anneal_dir == -1 and self.cur_val <= self.anneal_point:
+            return self.anneal_point
+        if self.anneal_dir == 1 and self.cur_val >= self.anneal_point:
+            return self.anneal_point
         delta = self.anneal_dir * self.anneal_rate * i_step
         if self.anneal_type == "exp":
            exp_rate = np.exp(delta)
            t = self.cur_val * exp_rate
         else:
            t = self.start_val + delta 
-        self.cur_val = max(t, self.anneal_min)
+        if self.anneal_dir == -1:
+            self.cur_val = max(t, self.anneal_point)
+        else:
+            self.cur_val = min(t, self.anneal_point)
         return self.cur_val 
 
     def __next__(self):
@@ -1087,10 +1092,22 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_router = Anneal(self.temperature, 
                 anneal_dir = self.anneal_dir, 
                 anneal_rate = self.anneal_rate, 
-                anneal_min = self.anneal_min, 
+                anneal_point = self.anneal_min, 
                 anneal_type=self.anneal_type)
+
+        self.sel_thresh = config.sel_thresh
+        self.thresh_anneal_dir = 1
+        self.thresh_anneal_type = "linear"
+        self.thresh_anneal_rate = 0.002
+        self.thresh_anneal_max = 0.5
+        self.do_anneal_thresh = False
+        self.anneal_thresh = Anneal(self.sel_thresh, 
+                anneal_dir = self.thresh_anneal_dir, 
+                anneal_rate = self.thresh_anneal_rate, 
+                anneal_point = self.thresh_anneal_max, 
+                anneal_type=self.thresh_anneal_type)
         self.anneal_ts = Anneal(self.target_share_temperature, 
-                anneal_dir = -1, anneal_rate = 0.05, anneal_min = 0, anneal_type="linear")
+                anneal_dir = -1, anneal_rate = 0.05, anneal_point = 0, anneal_type="linear")
         self.norm_method = config.norm_method
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
@@ -1111,7 +1128,6 @@ class T5Stack(T5PreTrainedModel):
         self.learned_temperature = learned_temperature
         self.target_task_id = None
         self.task_names = None
-        self.sel_thresh = config.sel_thresh
         if self.learned_temperature is True:
             # The code causes error; need to fix a bug.
             # RuntimeError: Trying to backward through the graph a second time (or directly access saved variables after they have already been freed). Saved intermediate values of the graph are freed when you call .backward() or autograd.grad(). Specify retain_graph=True if you need to backward through the graph a second time or if you need to access saved variables after calling backward
@@ -1264,6 +1280,8 @@ class T5Stack(T5PreTrainedModel):
     def anneal(self, i_step):
          mylogs.bp("anneal")
          self.temperature = self.anneal_router.anneal(i_step)
+         if self.do_anneal_thresh is True:
+             self.sel_thresh = self.anneal_thresh.anneal(i_step)
 
     ################# MyCode fffffffffff
     def attend_prompts(self, inputs_embeds, src_prompts, 
@@ -1719,10 +1737,17 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("pred1")
                         # amask = amask.squeeze(1)
                         masked_prompts = soft_prompts
-                        amask = torch.ones((batch_size, self.prompt_dim), dtype=bool)
+                        amask = torch.ones((batch_size, 
+                            attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
                         if self.compose_method == "cat" or self.compose_method == "concat":
-                            if self.sel_thresh is not None:
-                                amask = attn_scores > self.sel_thresh 
+                            if self.training: 
+                                thresh = self.sel_thresh 
+                            else:
+                                thresh = self.gen_conf.get("gen_thresh", None)
+                            if thresh is not None:
+                                amask = attn_scores > thresh 
+                                if not torch.all(amask):
+                                    mylogs.bp("amask")
                                 amask = amask.repeat_interleave(self.src_prompt_dim)
                                 amask = amask.view(batch_size, -1)
                                 _amask = amask.unsqueeze(1)

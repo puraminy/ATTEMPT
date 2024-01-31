@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from curses import wrapper
 from tabulate import tabulate
 import click
+import warnings
 import itertools
 import numpy as np
 import statistics as stat
@@ -32,6 +33,8 @@ import sklearn
 import sklearn.metrics
 import attempt.metrics.metrics as mets
 
+
+warnings.simplefilter(action='ignore', category=Warning)
 file_id = "name"
 
 table_mid_template = """
@@ -200,15 +203,15 @@ def time_colors(df,row,col, default=None):
             return 81
     return default if default is not None else TEXT_COLOR 
 
-def get_sel_exprs(df, sel_rows, sel_row):
-    exprs = []
+def get_sel_rows(df, sel_rows, sel_row, col="eid"):
+    values = []
     s_rows = sel_rows
     if not s_rows:
         s_rows = [sel_row]
     for s_row in s_rows:
-        exp=df.iloc[s_row]["eid"]
-        exprs.append(exp)
-    return exprs
+        cell=df.iloc[s_row][col]
+        values.append(cell)
+    return values 
 
 def load_results(path):
     with open(path, "r") as f:
@@ -397,7 +400,7 @@ def show_df(df):
             mvars.extend([e for e in lvar 
                     if not e in ['max_train_samples', 'source_prompts',
                         'task_name', 'num_train_epochs']])
-        main_vars = list(dict.fromkeys(main_vars))
+        main_vars = list(dict.fromkeys(mvars))
 
     #if not "word_score" in df:
     #    df['word_score'] = df['pred_text1'].str.split().str.len()
@@ -518,6 +521,7 @@ def show_df(df):
     back_sel_cols = []
     main_sel_cols = []
     search = ""
+    mode = "main"
     sort = "rouge_score"
     on_col_list = []
     keep_cols = []
@@ -748,12 +752,12 @@ def show_df(df):
             #_selpath = os.path.join(path.parent, "pred_sel" + path.name) 
             #shutil.copy(path, _selpath)
             # grm = tdf.iloc[0]["gen_route_methods"]
-            runid = tdf.iloc[0]["runid"]
+            runid = tdf.iloc[0]["eid"]
             #run = "wandb/offline*" + str(runid) + f"/files/media/images/{start}*.png"
             run = "img_logs/{start}*.png"
             paths = glob(str(path.parent) +"/img_logs/*.png")
             # paths = glob(run)
-            spath = "images/" + str(runid)
+            spath = "images/exp-" + str(runid)
             if Path(spath).exists():
                 shutil.rmtree(spath)
             Path(spath).mkdir(parents=True, exist_ok=True)
@@ -853,6 +857,7 @@ def show_df(df):
         top = max(top, 0)
         sel_row = min(sel_row, len(df) - 1)
         sel_row = max(sel_row, 0)
+        sel_rows = sorted(sel_rows)
         sel_rows = list(dict.fromkeys(sel_rows))
         sel_cols = list(dict.fromkeys(sel_cols))
         sel_group = max(sel_group, 0)
@@ -1094,7 +1099,7 @@ def show_df(df):
             subprocess.run(["nautilus", spath])
         if char == "o":
             images = []
-            exprs = get_sel_exprs(df, sel_rows, sel_row)
+            exprs = get_sel_rows(df, sel_rows, sel_row)
             experiment_images, fnames = get_images(df, exprs, 'eid')
             capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
             for key, img_list in experiment_images.items(): 
@@ -1467,6 +1472,7 @@ def show_df(df):
                 sel_rows.remove(sel_row)
             else:
                 sel_rows.append(sel_row)
+            sel_rows = sorted(sel_rows)
             adjust = False
         elif char == "?": 
             if not sel_rows:
@@ -1575,7 +1581,7 @@ def show_df(df):
             sort = "rouge_score"
         elif char == "z":
             backit(df, sel_cols)
-            exprs = get_sel_exprs(df, sel_rows, sel_row)
+            exprs = get_sel_rows(df, sel_rows, sel_row)
             sel_rows = []
             df = df[df['eid'].isin(exprs)]
         elif char == "z" and prev_char == "a": 
@@ -1587,6 +1593,16 @@ def show_df(df):
             info_cols = []
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
+        elif char == "t":
+            backit(df, sel_cols)
+            mode = "cfg"
+            files = glob(os.path.join(home,"results","*.json"))
+            fnames = [Path(f).stem for f in files]
+            df = pd.DataFrame(fnames, columns=['cfg'])
+            sel_cols = ["cfg"]
+            #with open(, 'r') as f:
+            #    lines = f.readlines()
+            #subwin(lines)                
         elif char == "T":
             s_rows = sel_rows
             if not sel_rows:
@@ -1594,19 +1610,25 @@ def show_df(df):
             pfix = ""
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
-                score=df.iloc[s_row]["rouge_score"]
+                score = ""
+                if "rouge_score" in df:
+                    score=df.iloc[s_row]["rouge_score"]
+                elif "All" in df:
+                    score=df.iloc[s_row]["All"]
                 cond = f"(main_df['eid'] == '{exp}')"
                 tdf = main_df[main_df.eid == exp]
-                prefix=tdf.iloc[0]["prefix"]
-                expid=tdf.iloc[0]["eid"]
-                path=tdf.iloc[0]["path"]
-                js = os.path.join(str(Path(path).parent), "exp.json")
-                fname ="exp_" + str(expid) + "_" + prefix + "_" + str(round(score,2)) + ".json"
-                if not pfix:
-                    pfix = rowinput("prefix:")
-                fname = pfix + "_" + fname
-                dest = os.path.join(home, "results", fname)
-                shutil.copyfile(js, dest)
+                prefix=tdf.iloc[0]["expname"]
+                expid=tdf.iloc[0]["expid"]
+                compose=tdf.iloc[0]["compose_method"]
+                epc=tdf.iloc[0]["num_train_epochs"]
+                path=tdf.iloc[0]["output_dir"]
+                js = os.path.join(path, "exp.json")
+                score = str(round(score,2)) if score else "noscore" 
+                fname = prefix + "_" + compose + "_" + str(epc) + "_" + score + ".json"
+                fname = rowinput("prefix:", default=fname)
+                if fname:
+                    dest = os.path.join(home, "results", fname)
+                    shutil.copyfile(js, dest)
         elif char == "p":
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
@@ -1627,7 +1649,7 @@ def show_df(df):
             sel_rows = []
             FID = "input_text"
             hotkey = hk
-        elif char in ["n", "t", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+        elif char in ["n", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
             left = 0
             context= "comp"
             cur_col = -1
@@ -1990,6 +2012,12 @@ def show_df(df):
             info_cols = []
             for col in df.columns:
                 info_cols.append(col)
+        elif char == "m" and "cfg" in df:
+            char = ""
+            files = get_sel_rows(df, sel_rows, sel_row, col="cfg")
+            files = [os.path.join(home, "results", c + ".json") for c in files]
+            files.insert(0, "meld")
+            subprocess.run(files)
         elif char == "m" and prev_char == "x":
             info_cols = []
             sel_cols = []
@@ -2092,7 +2120,7 @@ def show_df(df):
                     ss = int(char) - 1
                     if ss < len(score_cols):
                         score_col = score_cols[ss]
-                sel_cols = info_cols.copy()
+                sel_cols = info_cols + main_vars
                 avg_col = "All"
                 if score_col == score_cols[0]:
                     for col in df.columns:
@@ -2148,7 +2176,6 @@ def show_df(df):
             avg_col = "All"
             backit(df, sel_cols)
             score_col = score_cols[0]
-            sel_cols = [] 
             pcols = []
             cond_colors["eid"] = time_colors
             cond_colors["time"] = time_colors
@@ -2158,24 +2185,29 @@ def show_df(df):
             for col in pcols:
                 cond_colors[col] = pivot_colors
 
+            _sel_cols = [] 
             if score_col == score_cols[0]:
                 avg_col = "All"
                 for col in pdf.columns:
                     if col in df or col in pcols:
-                        sel_cols.append(col)
+                        _sel_cols.append(col)
             else:
                 avg_col = score_col[0] + "-All"
                 for col in pdf.columns:
                     if col in df or col.startswith(score_col[0] + "-"):
-                        sel_cols.append(col)
+                        _sel_cols.append(col)
             df = pdf.iloc[:-1]
             df = df.sort_values(by=avg_col, ascending=False)
+
+            sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
                     keep_cols=pivot_cols + info_cols)
-            if "folder" in sel_cols:
-                sel_cols.remove("folder")
-            if not "folder" in info_cols_back:
-                info_cols_back.append("folder")
+            for col in ["folder", "output_dir"]:
+                if col in sel_cols:
+                    sel_cols.remove(col)
+                if not col in info_cols_back:
+                    info_cols_back.append(col)
+
             for i, col in enumerate(info_cols + [avg_col]):
                 if col in sel_cols:
                     sel_cols.remove(col)

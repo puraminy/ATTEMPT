@@ -4,13 +4,9 @@ vars=""
 flags=""
 others=""
 onError="continue"
-debug=False
 g=0
 for i in $@
 do
-   if [[ "$i" == "-d" ]]; then
-      debug=True
-   fi
    case $i in
        --*) params="${params} $i"; g=param;;
        -*) params="${params} $i"; g=run;;
@@ -43,8 +39,9 @@ echo "Flags:${flags}"
 echo "Variables:${vars}"
 echo "Run params:${params}"
 echo "Others:${others}"
-if [[ -n "$_sd" ]]; then
+if [ -n "$_sd" ]; then
    echo "shut down after finish"
+   read -p "Shut down after finish: " ok
 fi
 arr=($others)
 
@@ -54,28 +51,25 @@ if [ ${#arr[@]} -lt 2 ]; then
 fi
 output=${arr[0]}
 echo "Output: $output"
-methods=("${arr[@]:1}")
+methods=${arr[@]:1} 
 echo "Methods: $methods"
-
 
 if [ "$methods" = "all" ]; then
    methods="SILPI SIL SLPI SILP SLP SL SIP"
 fi
 
-if [ -z $_ep ]; then
-   _ep=10
-fi
+if [ -z $_bs ]; then _bs=12; fi
+if [ -z $_ep ]; then _ep=10; fi
+if [ -z $_tn ]; then _tn=10; fi
+
 if [ -z $_epp ]; then
    _epp=20
 fi
 if [ -z $tnn ]; then
    _tnn=20
 fi
-if [ -z $_tn ]; then
-  _tn=10
-fi
 
-bs=12
+bs=$_bs
 ppx="${_epp}${_tnn}"
 # ppx=20200
 nums="_ep $_ep _tsn 100"
@@ -104,6 +98,7 @@ if [ -n "$_cmm" ]; then
    _cmm=$(echo "$_cmm" | sed "s/\#/ /g")
     echo "CMM: $_cmm"
 else
+   _cmm="cat"
    if [ -n "$_w" ]; then
       _cmm="wavg"
    fi
@@ -128,11 +123,15 @@ if [ -n "$_sa" ]; then
    _tasks="_satasks"
 fi
 
+cfg=""
+if [ -n "$_cfg" ]; then
+   cfg="-cfg ${cfg}"
+fi
 
 for tn in $_tn; do
 for seed in 123; do
-for gnm in "soft@"; do
-for masking in "none" "0-col-1"; do
+for gnm in "soft@nothing"; do
+for masking in "none"; do
 #for tasks in "_tasks mnli qnli qqp"; do 
 #for route_method in bias ratt satt const direct; do
 #for route_method in biasx biasp direct; do
@@ -184,7 +183,7 @@ for cmm in $_cmm; do
            if [ -n "$_rv" ]; then
               echo "_cat $catname _exp ${met} ${!args_variable} -lp $logs"
            else
-              bash train.sh "_cat $catname _exp ${met} ${!args_variable} -lp $logs"
+              bash train.sh "_cat $catname _exp ${met} ${!args_variable} -lp $logs $cfg"
            fi
            if [[ -n "$_one" ]] || [[ -n "$_debug" ]]; then
                echo "exit after first experiment, use _all flag to run all loops!"
@@ -202,9 +201,14 @@ for cmm in $_cmm; do
    done
 done
 done
-if [[ -z "$_all" ]]; then
+if [[ -n "$_loop1" ]]; then
    echo "exit after first loop"
    echo "exit after first all, use _all flag to run all loops!"
+   if [ -n "$_sd" ]; then
+      echo "shut down after finish"
+      echo 'a' | sudo -S shutdown -h now
+      exit
+   fi
    exit 0
 fi
 done
@@ -216,7 +220,7 @@ if [ -d $logs ]; then
    cp run.sh $logs/
 fi
 
-if [[ -n "$_sd" ]]; then
+if [ -n "$_sd" ]; then
    echo "shut down after finish"
    echo 'a' | sudo -S shutdown -h now
    exit

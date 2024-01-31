@@ -1,4 +1,4 @@
-import wandb
+#import wandb
 import seaborn as sns
 #import PIL
 import matplotlib.pyplot as plt
@@ -38,14 +38,14 @@ class AnnealCallback(TrainerCallback):
     def on_log(self, args, state, control, logs = None, **kwargs):
         model = kwargs.pop("model", None)
         e = model.encoder
-        logs["anneal:"] = '{:3}'.format('{}'.format(e.temperature)) 
+        logs["temperature:"] = '{:3}'.format('{}'.format(e.temperature)) 
+        logs["threshold:"] = '{:3}'.format('{}'.format(e.sel_thresh)) 
 
     def on_step_begin(self, args, state, control, **kwargs):
-        mylogs.bp("anneal")
         model = kwargs.pop("model", None)
         e = model.encoder
         e.anneal(state.global_step)
-        wandb.log({"temperature": e.temperature})
+        # wandb.log({"temperature": e.temperature})
         #mylogs.winfo("router","%s: %s  (%s %s > %s)", state.global_step, 
         #        e.router_temperature, e.anneal_dir, e.anneal_rate, e.anneal_min)
 
@@ -88,8 +88,8 @@ class WBCallback(WandbCallback):
                         linewidth=0.5)
         #plt.tight_layout()
         mylogs.bp("wand")
-        if fname:
-            wandb.log({fname:wandb.Image(fig)})
+        #if fname:
+        #    wandb.log({fname:wandb.Image(fig)})
         img_buf = io.BytesIO()
         plt.savefig(img_buf, format='png')
         plt.close("all")

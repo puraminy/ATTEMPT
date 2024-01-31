@@ -180,8 +180,11 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
             if file_name is not None:
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                #dataset = datasets.load_dataset(
+                #    'csv', data_files={split:file_name})[split]
+                df = pd.read_csv(file_name)
+                #df.label = df.label.astype(int)
+                dataset = Dataset.from_pandas(df)
             else:
                 dataset = self.load_dataset(split=mapped_split)
                 indices = self.get_split_indices(
@@ -195,8 +198,11 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split="train", lang_code=lang)
             if file_name is not None:
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                #dataset = datasets.load_dataset(
+                #    'csv', data_files={split:file_name})[split]
+                df = pd.read_csv(file_name)
+                #df.label = df.label.astype(int)
+                dataset = Dataset.from_pandas(df)
             else:
                 dataset = self.load_dataset(split="train")
                 indices = self.get_split_indices(
@@ -210,8 +216,11 @@ class AbstractTask(abc.ABC):
             mylogs.bp("get")
             if file_name is not None: # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + self.name + " ----------")
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                #dataset = datasets.load_dataset(
+                #    'csv', data_files={split:file_name})[split]
+                df = pd.read_csv(file_name)
+                #df.label = df.label.astype(int)
+                dataset = Dataset.from_pandas(df)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + self.name + " ----------")
                 dataset = self.load_dataset(split=mapped_split)

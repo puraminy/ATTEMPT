@@ -84,6 +84,7 @@ from deepdiff import DeepDiff
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
+os.environ['HF_DATASETS_OFFLINE'] = '1' #TODO remove it or declare it as parameter
 
 logger = logging.getLogger(__name__)
 global_scores = []
@@ -244,6 +245,12 @@ def cli():
     help="Evaluation without training"
 )
 @click.option(
+    "--use_wandb",
+    "-uw",
+    is_flag=True,
+    help="Evaluation without training"
+)
+@click.option(
     "--download_model",
     "-mod",
     is_flag=True,
@@ -273,7 +280,7 @@ def cli():
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
         debug, version, trial, rem, repeat, deep_check, merge, 
-        reval, download_model, max_exp, new_exp_folder, log_path):
+        reval, use_wandb, download_model, max_exp, new_exp_folder, log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -294,6 +301,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args = json.load(f)
         exp_args["load_model_dir"] = exp_args["output_dir"]
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
+        experiment = exp_args["experiment"] if experiment == "exp" else experiment
         if reval:
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
@@ -356,6 +364,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["preview"] = preview 
    args["repeat"] = repeat 
    args["reval"] = reval 
+   args["use_wandb"] = use_wandb 
    tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
 
@@ -399,6 +408,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    mylogs.bp("run")
    if not main_vars:
        main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
+   if not main_vars:
+       main_vars = [x.split("=")[0].strip("--") for x in ctx.args if x.startswith("--")]
+       main_vars = "--".join([x.strip("@") for x in main_vars])
+
    if not exp_vars:
        #if main_vars:
        #    exp_vars = main_vars
@@ -431,7 +444,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
    not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
-   args["full_tag"] = full_tags 
+   # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
    exps_done = 0
@@ -580,12 +593,23 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
               continue 
        # preview existing experiments 
        if preview == "ex" or preview == "ex-why" or preview == "exists": #
-           continue
+           #print(f"========== Experiment {ii} pf {total},  Input Vars: ===============")
+           #all_var_str = json.dumps(var_dict, indent=2)
+           #print(all_var_str)
+           print(f"========== Experiment {ii} pf {total},  Main Vars: ===============")
+           main_var_str = json.dumps(mvars, indent=2)
+           print(main_var_str)
+           print("==================================================================")
+           ans = input("Continue preview? [yes]:")
+           if not ans or ans == "yes":
+               continue
+           else:
+               return
        done = "na"
        if debug:
            ctx.invoke(train, **args)
        else:
-           #try:
+           try:
                done = ctx.invoke(train, **args)
                y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
@@ -594,11 +618,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    exps_done += 1
                elif preview == "lict":
                    c = input("check for conflicts!")
-           #except Exception as e:
-           #    print(f"================ {ii}/{total} =====================")
-           #    _conf = json.dumps(args, indent=2)
-           #    print(_conf)
-           #    raise Exception("An error occured in the experiment")
+           except Exception as e:
+               print(f"================ {ii}/{total} =====================")
+               _conf = json.dumps(args, indent=2)
+               print(_conf)
+               raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
            return
 
@@ -629,6 +653,7 @@ def train(**kwargs):
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     config_name = kwargs.setdefault("config","base")
+    use_wandb = kwargs.get("use_wandb", False)
     home = mylogs.home
     if config_name == "base":
         config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
@@ -672,10 +697,15 @@ def train(**kwargs):
 
     # sssssssss
     torch.autograd.set_detect_anomaly(True)
-    training_args.report_to = kwargs["report_to"] 
+    training_args.report_to = kwargs.get("report_to", None)
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
-    exp_conf = json.dumps(kwargs, indent=2)
+    _dict = kwargs.copy()
+    for c in ["tag","log_var","main_vars","full_tag"]:
+        if c in _dict:
+            del _dict[c]
+
+    exp_conf = json.dumps(_dict, indent=2)
     print("============ CONF ===========")
     print(exp_conf)
     Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
@@ -689,9 +719,9 @@ def train(**kwargs):
     # set other options
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
+
     data_args.eval_dataset_name=data_args.task_name
     data_args.test_dataset_name=data_args.task_name
-
 
     mylogs.bp("nsp")
     num_prompts = kwargs.setdefault("num_prompts", 1) 
@@ -860,18 +890,19 @@ def train(**kwargs):
     Path(wandb_dir).mkdir(parents=True, exist_ok=True)
     experiment = kwargs.experiment
     tags_dict = mylogs.get_tag(tag, kwargs)
-    if not preview or preview=="one":
-       wandb.init(
-          # Set the project where this run will be logged
-          project= experiment.replace("#","-").replace("/","-")[:100], 
-          name=title,
-          dir=wandb_dir,
-          settings=wandb.Settings(symlink=False),
-          # Track hyperparameters and run metadata
-          config=tags_dict
-       )
-    if wandb.run is not None:
-        exp_info["runid"] = wandb.run.id
+    if use_wandb:
+       if preview or preview=="one":
+           wandb.init(
+              # Set the project where this run will be logged
+              project= experiment.replace("#","-").replace("/","-")[:100], 
+              name=title,
+              dir=wandb_dir,
+              settings=wandb.Settings(symlink=False),
+              # Track hyperparameters and run metadata
+              config=tags_dict
+           )
+       if wandb.run is not None:
+          exp_info["runid"] = wandb.run.id
     _tag = mylogs.get_tag(tag)  
     exp_info["tag"] = list(_tag.values())
     exp_info["taginfo"] = list(_tag.keys())
@@ -1855,7 +1886,8 @@ def train(**kwargs):
                 if not metric_to_check.startswith("eval_"):
                     metric_to_check = f"eval_{metric_to_check}"
                 metric_value = metrics[metric_to_check]
-                wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
+                if use_wandb:
+                    wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
     reval = not training_args.do_train 
@@ -2008,7 +2040,7 @@ def train(**kwargs):
                 if mm == 0:
                     df["m_score"] = round(float(v),1) 
                 mm += 1
-            scores = do_score(df, "rouge@bert", save_to)
+            scores = do_score(df, "rouge@bert", save_to, use_wandb=use_wandb)
             return df, scores, golds, preds
 
         ################ Draw image
@@ -2065,12 +2097,11 @@ def train(**kwargs):
         gnm = kwargs.setdefault("gen_norm_method",["soft"])
         if type(gnm) != list: gnm = [gnm] 
         gen_thresh = kwargs.get("gen_thresh", [None])
+        gen_thresh = [float(gg) if gg is not None else gg for gg in gen_thresh]
         if type(gen_thresh) != list: gen_thresh = [gen_thresh]
-        gen_ntp = kwargs.setdefault("gen_ntp",[num_source_prompts])
+        gen_ntp = kwargs.setdefault("gen_ntp",[num_target_prompts])
         if type(gen_ntp) != list: gen_ntp = [gen_ntp] 
         gen_ntp = [gg for gg in gen_ntp if gg <= num_target_prompts]
-        if not gen_ntp:
-           gen_ntp = [num_target_prompts]
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         gen_masks = {}
@@ -2155,16 +2186,17 @@ def train(**kwargs):
                     df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                             ds_conf,"test.tsv")
                     mylogs.bp("test")
-                    test_rouge = wandb.run.summary["test_rouge"]
                     total_score += df["m_score"].mean() 
-                    test_bert = wandb.run.summary["test_bert"]
-                    num_preds = wandb.run.summary["num_preds"]
                     da = {}
+                    if use_wandb:
+                        test_rouge = wandb.run.summary["test_rouge"]
+                        test_bert = wandb.run.summary["test_bert"]
+                        num_preds = wandb.run.summary["num_preds"]
+                        da["test_rouge"] = test_rouge
+                        da["test_bert"] = test_bert
+                        da["num_preds"] = num_preds
                     da["task"] = task
                     da["norm_method"] = norm_method
-                    da["test_rouge"] = test_rouge
-                    da["test_bert"] = test_bert
-                    da["num_preds"] = num_preds
                     sdf_rows.append(da)
                     ii += 1
                     counter += 1
@@ -2231,7 +2263,10 @@ def train(**kwargs):
         if img_list:
             new_im = combine_y(img_list)
             fname = "pred_" + str(exp_info["expid"]) 
-            wandb.log({fname:wandb.Image(new_im)})
+            if use_wandb:
+                wandb.log({fname:wandb.Image(new_im)})
+            else:
+                new_im.save(os.path.join(training_args.output_dir, "images", fname))
 
 
         targets = model.encoder.target_encoders_idx
@@ -2395,7 +2430,8 @@ def train(**kwargs):
             results[checkpoint_dir]["test_avg"] = np.mean(test_avg)
             results[checkpoint_dir]["test_each"] = test_metrics_all
     print(results)
-    wandb.finish()
+    if use_wandb:
+        wandb.finish()
     return results
 
 if __name__ == "__main__":

@@ -93,11 +93,11 @@ fi
 if [ -n "$_sstasks" ]; then
    _stasks="mnli#${sgtasks}"
 fi
-if [ -n "$_spt" ]; then
- _nsp=${#_tasks[@]}
-fi
 if [ -z "$_pat" ] && [ -z "$_ft" ] && [ -z "$_pt" ]; then
  _pat=True
+fi
+if [ -n "$_spt" ]; then
+ _nsp=${#_tasks[@]}
 fi
 if [ -n "$_pat" ]; then
    if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
@@ -259,9 +259,9 @@ if [ -z "$_anr" ]; then _anr=0.02; fi #anneal rate
 if [ -z "$_norm" ]; then  _norm="nothing"; fi
 if [ -z "$_gnm" ]; then  _gnm="soft"; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
-if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_masking" ]; then  _masking="0-random-0"; fi # number of random masks 
 if [ -z "$_spo" ]; then  _spo="unsorted"; fi # source prompt order 
+if [ -z "$_ntp" ]; then  _ntp=0; fi # number of target prompts
 if [ -z "$_numt" ]; then  _numt=50; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
@@ -468,9 +468,9 @@ if [ "$method" = "pt" ] || [ "$method" = "ptat" ]; then
    params="${params} --prompt_tuning=True"
    params="${params} --use_optimizer=True"
    params="${params} --opt_type=regular"
-   params="${params} --prompt_encoders_dir=$_pdir"
    params="${params} --load_prompts=$_lp"
    params="${params} --ignore_train_if_prompt_exists=True"
+   params="${params} --prompt_encoders_dir=$_pdir"
    params="${params} --skip_if_prompt_exists=$_skip"
    params="${params} --prompts_prefix=$_ppx"
    params="${params} --output_prompts_prefix=$_opx"
@@ -516,12 +516,12 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    else
       params="${params} --@load_source_prompts=$_lsp"
    fi
-   params="${params} --@num_prompt_tokens=$_numt"
    params="${params} --@prompt_length=$_pl"
-   params="${params} --@num_source_prompts=$_nsp"
+   params="${params} --@num_prompt_tokens=$_numt"
    params="${params} --@num_target_prompts=$_ntp"
    params="${params} --learn_attention=True"
    params="${params} --use_source_set=False"
+   params="${params} --@num_source_prompts=$_nsp"
    params="${params} --@source_prompts=$_src"
    params="${params} --attend_to_all=True"
    params="${params} --@learn_loaded_prompts=True#False"
