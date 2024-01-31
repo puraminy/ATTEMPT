@@ -184,7 +184,7 @@ def cli():
     "-mv",
     type=str,
     default="",
-    help="The name of one multi-valued variable for which you want to check the difference of their values, if not given it runs all combinations"
+    help="The name of one multi-valued variable for which you want to check the difference of their values, if not given it runs all combinations e.g. var1@var2@var3"
 )
 @click.option(
     "--log_var",
@@ -350,7 +350,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
-   args["conf"] = Path(exp_conf).stem
+   args["conf"] = exp_conf
    args["save_path"] = save_path
    args["load_path"] = "" 
    args["is_debug"] = debug

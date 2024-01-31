@@ -1,20 +1,30 @@
 #!/usr/bin/bash
-params=""
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+extra_params=""
 vars=""
 flags=""
 others=""
 onError="continue"
+main_vars=""
 g=0
 for i in $@
 do
    case $i in
-       --*) params="${params} $i"; g=param;;
-       -*) params="${params} $i"; g=run;;
+      --*) 
+            q=${i#"--"}
+            extra_params="${extra_params} --@${q}"; 
+            p=${i%=*}
+            main_vars="${main_vars}--${q}"
+            g=extra
+            mvar=True
+       ;;
+       -*) extra_params="${extra_params} $i"; g=run;;
        *=*) vars="${vars} $i"; g=vars;;
        _*) flags="${flags} $i"; g=flag;;
        *) p=$i
           if [ "$g" = run ]; then
-             params="${params} $p"
+             extra_params="${extra_params} $p"
              g=0
           else
              if [ "$others" = "" ]; then
@@ -33,195 +43,201 @@ done
 eval "${flags}"
 eval "${vars}"
 
-alias runsh="bash ${HOME}/ATTEMPT/attempt/train.sh"
+if [ -n "$mvar" ]; then
+   main_vars="-mv ${main_vars}"
+fi
 onError=break
+echo "==================== Reval.sh ======================"
 echo "Flags:${flags}"
 echo "Variables:${vars}"
-echo "Run params:${params}"
+echo "Run Extra Params:${extra_params}"
 echo "Others:${others}"
-if [ -n "$_sd" ]; then
-   echo "shut down after finish"
-   read -p "Shut down after finish: " ok
-fi
-arr=($others)
 
+arr=($others)
 if [ ${#arr[@]} -lt 2 ]; then
-   echo "Output folder and methods are required (eg. bash run.sh out1 method1 method2 ...)"
+   echo "Output folder and config file or patterns are required (eg. bash eval.sh out1 pat1 pat2 )"
    exit
 fi
 output=${arr[0]}
 echo "Output: $output"
-methods=${arr[@]:1} 
-echo "Methods: $methods"
+configs=${arr[@]:1} 
+echo "Configs: $configs"
 
-if [ "$methods" = "all" ]; then
-   methods="SILPI SIL SLPI SILP SLP SL SIP"
+######################################## Task flags:
+if [ -n "$_ttasks" ]; then
+   _tasks="${_tasks}#qnli#rte#mrpc#qqp"
+fi
+if [ -n "$_gtasks" ]; then
+   _tasks="${_tasks}cola#qqp#mrpc#mnli#qnli#rte#stsb#sst2"
+fi
+if [ -n "$_ltasks" ]; then
+   _tasks="mnli#wnli#paws#mrpc#imdb#sst2"
 fi
 
-if [ -z $_bs ]; then _bs=12; fi
-if [ -z $_ep ]; then _ep=10; fi
-if [ -z $_tn ]; then _tn=10; fi
-
-if [ -z $_epp ]; then
-   _epp=20
+if [ -n "$_otasks" ]; then
+   _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
-if [ -z $tnn ]; then
-   _tnn=20
+sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
+if [ -n "$_sgtasks" ]; then
+   _tasks="${_tasks}#${sgtasks}"
 fi
-
-bs=$_bs
-ppx="${_epp}${_tnn}"
-# ppx=20200
-nums="_ep $_ep _tsn 100"
-
-logs=$HOME/logs/$output
-if [ -n "$_test" ] || [ -n "$_debug" ]; then
-   rm -rf $logs
-   onError="break"
-   _ep=5
-   tn=10
-   bs=4
-else
-   if [ $_ep -lt 10 ]; then
-      echo "epochs are too low!"
-      exit
-   fi
+if [ -n "$_atasks" ]; then
+   _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
 fi
-ii=0
-if [ -z "$_nsp" ]; then
-   _nsp=0
-else
-   _nsp=$(echo "$_nsp" | sed "s/\#/ /g")
+if [ -n "$_satasks" ]; then
+   _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
 fi
-attn=rb
-if [ -n "$_cmm" ]; then
-   _cmm=$(echo "$_cmm" | sed "s/\#/ /g")
-    echo "CMM: $_cmm"
-else
-   _cmm="cat"
-   if [ -n "$_w" ]; then
-      _cmm="wavg"
-   fi
-   if [ -n "$_wc" ]; then
-      _cmm="wavg cat"
-   fi
-   if [ -n "$_cw" ]; then
-      _cmm="cat wavg"
-   fi
+if [ -n "$_ltasks2" ]; then
+   _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
 fi
 if [ -z "$_tasks" ]; then
-   _tasks="_tasks mnli qnli stsb qqp mrpc" 
+   echo "_tasks (target tasks) is missinge e.g. _tasks=mnli#qqp#rte or use tasks flags e.g _gtasks for all glue tasks "
+   exit
 fi
-
-if [ -n "$_g" ]; then
-   _tasks="_gtasks"
+if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
+   _stasks=$_tasks
 fi
-if [ -n "$_a" ]; then
-   _tasks="_atasks"
+if [ -z "$_nsp" ] && [ -z "$_stasks" ] && [ -z "$_src" ]; then
+   echo "_stasks (source tasks for source prompts) is missinge e.g. _stasks=mnli#qqp#rte  or use _nsp=4 to use 4 source prompts or use _seqt flag to use the target tasks as source tasks"
+   exit
 fi
-if [ -n "$_sa" ]; then
-   _tasks="_satasks"
-fi
-
-cfg=""
-if [ -n "$_cfg" ]; then
-   cfg="-cfg ${cfg}"
-fi
-
-for tn in $_tn; do
-for seed in 123; do
-for gnm in "soft@nothing"; do
-for masking in "none"; do
-#for tasks in "_tasks mnli qnli qqp"; do 
-#for route_method in bias ratt satt const direct; do
-#for route_method in biasx biasp direct; do
-#for tasks in _gtasks; do 
-for nsp in $_nsp; do
-echo "NSP: $nsp"
-if [ $nsp -eq 0 ]; then
-   src="_seqt"
-else
-   src=""
-fi
-for cmm in $_cmm; do
-   echo "CMM: $cmm"
-   ((ii++))
-   catname="$cmm-$ntp-$nsp-seed-$seed-$ii-$tn"
-   common="${flags} ${vars} ${params} _seed $seed _masking $masking $nums _bs $bs _tn $tn $_tasks $src _prefix"
-   mets="$common _gnm $gnm _cmm $cmm "
-
-   SIP_args="$mets _upp _lsp _ppx $ppx _learn_sp False "
-   SI_args="$mets _lsp _ppx $ppx _learn_sp False "
-   SIPI_args="$mets _upp _lsp _ppx $ppx _lpp _learn_sp False "
-   SIL_args="$mets _lsp _ppx $ppx"
-   SILP_args="$mets _upp _lsp _ppx $ppx"
-   SILPI_args="$mets _upp _lsp _ppx $ppx _lpp"
-   SL_args="$mets _lsp False "
-   ST_args="$mets _lsp False _addt True "
-   SLP_args="$mets _upp _lsp False"
-   SLPI_args="$mets _upp _lsp False _lpp _ppx $ppx"
-   PI_args="$common _pt $_tasks _upp _lpp _lsp False "
-   P_args="_ep $_epp _tn $tnn _bs $bs _pt $_tasks _skip _prefix -merge"
-   SC_args="$common _cmm $cmm _lsp False _rm const "
-
-   for met in $methods; do
-       if [[ "$met" == *SI* ]] && [ "$nsp" -ne 0 ]; then
-          continue
-       fi
-   #   if [[ "$met" == *SL* ]]; then
-   #      if [ "$route_method" != "biass" ]; then
-   #         continue
-   #      fi
-   #   else
-   #      if [ "$route_method" != "biasp" ]; then
-   #         continue
-   #      fi
-   #   fi
-       args_variable="${met}_args"
-       if [ -n "${!args_variable}" ]; then
-           echo $met
-           if [ -n "$_rv" ]; then
-              echo "_cat $catname _exp ${met} ${!args_variable} -lp $logs"
-           else
-              bash train.sh "_cat $catname _exp ${met} ${!args_variable} -lp $logs $cfg"
-           fi
-           if [[ -n "$_one" ]] || [[ -n "$_debug" ]]; then
-               echo "exit after first experiment, use _all flag to run all loops!"
-               exit 0
-           fi
-           if [ $? != 0 ] && [ "$onError" = "break" ];
-           then
-               echo "exit 1"
-               exit 1
-           fi
-       else
-           echo "Method ${args_variable} was not set for method ${met}."
-           exit 0
-       fi
-   done
-done
-done
-if [[ -n "$_loop1" ]]; then
-   echo "exit after first loop"
-   echo "exit after first all, use _all flag to run all loops!"
-   if [ -n "$_sd" ]; then
-      echo "shut down after finish"
-      echo 'a' | sudo -S shutdown -h now
+if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
+   if [ -z "$_lsp" ] || [ "$_lsp" = "True" ]; then
+      echo "_ppx (prompts prefix of saved source prompts) is missinge e.g. _ppx pat or use _lsp=False if you don't load source prompts"
       exit
    fi
-   exit 0
 fi
-done
-done
-done
+if [ -z "$_src" ]; then
+   stasks=$_stasks
+   echo "Source tasks are: $stasks"
+   arr=($(echo -n $_stasks | sed "s/\#/ /g"))
+   _src=""
+   for t in "${arr[@]}"; do
+      _src="${_src}@$t"
+   done
+   # _src=${_src#"@"}
+   echo "Used source prompts are: ${_src}"
+fi
+echo "Tasks: ===================="
+echo $_tasks
+if [ -z "$_single" ]; then
+   _tasks=$(echo "$_tasks" | sed "s/\#/@/g")
+   echo "Multi Tasks: $_tasks"
+fi
+
+####################################
+#   Default variables
+if [ -z "$_exp" ]; then _exp=self; fi # Experiment name
+if [ -z "$_seed" ]; then _seed=123; fi # Experiment seed
+if [ -z "$_json" ]; then  _json="exp.json"; fi  # The base config file
+if [ -n "$_all" ]; then _json="json"; fi
+
+if [ -z $_bs ]; then _bs=12; fi  # batch size
+if [ -z $_ep ]; then _ep=10; fi  # epochs
+if [ -z $_tn ]; then _tn=10; fi  # train number
+if [ -n "$_all_test" ]; then _tsn=-1; fi  # number of test dataset
+if [ -z "$_tsn" ]; then _tsn=100; fi
+
+if [ "$_nsp" = "all" ]; then _nsp=${#_tasks[@]}; fi
+if [ -z "$_nsp" ]; then  _nsp=0; fi # Number of source prompts
+
+if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi # router prefix
+if [ -z "$_skip" ]; then  _skip=False; fi #skip generation prompt if it exists
+if [ -z "$_lp" ]; then  _lp=True; fi  #load prompts
+if [ -z "$_pdir" ]; then  _pdir=prompts; fi # directory to save prompts
+if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi # prefix for prompts to load
+if [ -z "$_opx" ]; then  _opx="${_ppx}"; fi # prefix for prompts to save
+
+
+###################################
+params=""
+params="${params} --prompt_encoders_dir=$_pdir"
+params="${params} --skip_if_prompt_exists=$_skip"
+params="${params} --prompts_prefix=$_ppx"
+params="${params} --output_prompts_prefix=$_opx"
+params="${params} --load_prompts=$_lp"
+params="${params} --ignore_train_if_prompt_exists=True"
+params="${params} --prompts_to_save=none"
+params="${params} --save_router=$_sr"
+params="${params} --save_source_prompts=True"
+params="${params} --save_all_prompts=$_sp"
+params="${params} --router_prefix=$_rpx"
+params="${params} --use_saved_router=$_usr"
+###################################
+# Setting task Parameters
+params="${params} --per_device_train_batch_size=$_bs"
+params="${params} --per_device_eval_batch_size=$_bs"
+params="${params} --@num_train_epochs=$_ep"
+
+if [ -n "$_tasks" ]; then
+   params="${params} --@task_name=$_tasks"
+fi
+params="${params} --@num_source_prompts=$_nsp"
+params="${params} --@source_prompts=$_src"
+
+if [ -n "$_cmm" ]; then
+   if [ $_cmm = "cat" ]; then
+      if [ -z "$_numt" ]; then  _numt=10; fi
+      if [ -z "$_ntp" ]; then  _ntp=auto; fi # number of target prompts
+   else
+      if [ -z "$_numt" ]; then  _numt=50; fi
+      if [ -z "$_ntp" ]; then  _ntp=0; fi 
+   fi
+   params="${params} --@compose_method=$_cmm"
+   params="${params} --@num_prompt_tokens=$_numt"
+   params="${params} --@num_target_prompts=$_ntp"
+fi
+
+params=$(echo "$params" | sed "s/ --/\n --/g")
+extra_params=$(echo "$extra_params" | sed "s/ --/\n --/g")
+
+if [ -n "$_cur" ]; then 
+   _path="."; 
+fi
+if [ -z "$_path" ]; then 
+   _path="${SCRIPT_DIR}/configs"
+fi
+if [ -z "$_dpat" ]; then _dpat="crosspt"; fi
+if [ -n "$_base" ]; then 
+   _dpat="baselines"
+fi
+
+logs=$HOME/logs/$output
+for conf in "${configs[@]}"; do
+   files=$(find ${_path} -type f -name "*${conf}*" -path "*${_dpat}*")
+   for file in $files; do 
+      echo $file
+      filename=$(basename -- "$file")
+      extension="${filename##*.}"
+      filename="${filename%.*}"
+      experiment=""
+      if [ -z "$_train" ]; then
+         params="${params} --reval"
+      fi
+      experiment=$filename
+      if [ -n "$_pvf" ]; then
+         echo "$file"
+      elif [ -n "$_pv" ]; then
+         echo "runat run -exp $experiment -cfg $file -lp $logs ${params} ${extra_params} ${main_vars}" 
+      else
+         echo "Training ..."
+         python3 $SCRIPT_DIR/run_seq2seq.py run -cfg $file -exp $experiment -lp $logs ${params} ${extra_params} $main_vars 
+      fi
+      if [ -n "$_one" ]; then
+         echo "Exit after one experiment"
+         break 2
+      fi
+      if [ $? != 0 ] && [ "$onError" = "break" ]; then
+         echo "exit 1"
+         break 2
+      fi
+   done
 done
 
-if [ -d $logs ]; then
-   cp run.sh $logs/
-fi
+echo "Finished!!!"
 
 if [ -n "$_sd" ]; then
-   echo "shut down after finish"
+   echo "shut down"
    echo 'a' | sudo -S shutdown -h now
    exit
 fi
