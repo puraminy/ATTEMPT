@@ -1206,34 +1206,31 @@ class T5Stack(T5PreTrainedModel):
                 self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
                 i += 1
 
-        mylogs.bp("router")
-        router = torch.zeros((attend_num, attend_num), device=device)
-        route_method = self.route_method
-        if route_method is not None and route_method.startswith("bias"):
-            i,j,k = 1,1,1
-            first = True
-            mylogs.bp("bias")
-            for encoder in self.prompt_encoders:
-                if encoder.is_private and first:
-                    k = i
-                    first = False
-                elif encoder.is_target:
-                    if route_method == "biasx" or route_method == "biass":
-                        router[i, j] = 0.5 # self.target_share_temperature
-                        j += 1
-                    if k > 1 and (route_method == "biasx" or route_method == "biasp"):
-                        router[i, k] = 0.5 #self.target_share_temperature
-                        k += 1
-                i += 1
-            mylogs.bp("bias")
         if self.router is None:
-            self.router = nn.Parameter(data=router)
-
-        if route_method == "unif2":
-            self.router = nn.Parameter(data=torch.empty((
+            router = nn.Parameter(data=torch.empty((
                     attend_num,
                     attend_num 
                 ), device=device).uniform_(-1e-3, 1e-3))
+            # router = torch.zeros((attend_num, attend_num), device=device)
+            route_method = self.route_method
+            if route_method is not None and route_method.startswith("bias"):
+                i,j,k = 1,1,1
+                first = True
+                mylogs.bp("bias")
+                for encoder in self.prompt_encoders:
+                    if encoder.is_private and first:
+                        k = i
+                        first = False
+                    elif encoder.is_target:
+                        if route_method == "biasx" or route_method == "biass":
+                            router[i, j] = 0.5 # self.target_share_temperature
+                            j += 1
+                        if k > 1 and (route_method == "biasx" or route_method == "biasp"):
+                            router[i, k] = 0.5 #self.target_share_temperature
+                            k += 1
+                    i += 1
+                mylogs.bp("bias")
+                self.router = nn.Parameter(data=router)
 
         self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)
