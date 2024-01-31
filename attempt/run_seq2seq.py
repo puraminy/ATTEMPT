@@ -894,19 +894,18 @@ def train(**kwargs):
     Path(wandb_dir).mkdir(parents=True, exist_ok=True)
     experiment = kwargs.experiment
     tags_dict = mylogs.get_tag(tag, kwargs)
-    if use_wandb:
-       if preview or preview=="one":
-           wandb.init(
-              # Set the project where this run will be logged
-              project= experiment.replace("#","-").replace("/","-")[:100], 
-              name=title,
-              dir=wandb_dir,
-              settings=wandb.Settings(symlink=False),
-              # Track hyperparameters and run metadata
-              config=tags_dict
-           )
-       if wandb.run is not None:
-          exp_info["runid"] = wandb.run.id
+    wandb.init(
+      # Set the project where this run will be logged
+      project= experiment.replace("#","-").replace("/","-")[:100], 
+      name=title,
+      dir=wandb_dir,
+      settings=wandb.Settings(symlink=False),
+      # Track hyperparameters and run metadata
+      config=tags_dict
+    )
+    if wandb.run is not None:
+      exp_info["runid"] = wandb.run.id
+
     _tag = mylogs.get_tag(tag)  
     exp_info["tag"] = list(_tag.values())
     exp_info["taginfo"] = list(_tag.keys())
