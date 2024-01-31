@@ -47,7 +47,8 @@ if [ -n "$mvar" ]; then
    main_vars="-mv ${main_vars}"
 fi
 onError=break
-echo "==================== Reval.sh ======================"
+echo ""
+echo "==================== Parameters: ======================"
 echo "Flags:${flags}"
 echo "Variables:${vars}"
 echo "Run Extra Params:${extra_params}"
@@ -64,10 +65,10 @@ configs=${arr[@]:1}
 echo "Configs: $configs"
 
 ######################################## Task flags:
-if [ -n "$_ttasks" ]; then
-   _tasks="${_tasks}#qnli#rte#mrpc#qqp"
-fi
 if [ -n "$_gtasks" ]; then
+   _tasks="${_tasks}#qqp#mrpc#mnli#qnli#sstb"
+fi
+if [ -n "$_gftasks" ]; then
    _tasks="${_tasks}cola#qqp#mrpc#mnli#qnli#rte#stsb#sst2"
 fi
 if [ -n "$_ltasks" ]; then
@@ -82,10 +83,10 @@ if [ -n "$_sgtasks" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_atasks" ]; then
-   _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
-fi
-if [ -n "$_satasks" ]; then
    _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
+fi
+if [ -n "$_aftasks" ]; then
+   _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
 fi
 if [ -n "$_ltasks2" ]; then
    _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
@@ -109,21 +110,25 @@ if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
 fi
 if [ -z "$_src" ]; then
    stasks=$_stasks
-   echo "Source tasks are: $stasks"
    arr=($(echo -n $_stasks | sed "s/\#/ /g"))
    _src=""
    for t in "${arr[@]}"; do
       _src="${_src}@$t"
    done
    # _src=${_src#"@"}
-   echo "Used source prompts are: ${_src}"
 fi
-echo "Tasks: ===================="
+echo ""
+echo "==================== Tasks: ===================="
 echo $_tasks
 if [ -z "$_single" ]; then
    _tasks=$(echo "$_tasks" | sed "s/\#/@/g")
    echo "Multi Tasks: $_tasks"
 fi
+echo ""
+echo "==================== Source Tasks: ============="
+echo "Source tasks are: $stasks"
+echo "Used source prompts are: ${_src}"
+echo ""
 
 ####################################
 #   Default variables
@@ -141,6 +146,7 @@ if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ "$_nsp" = "all" ]; then _nsp=${#_tasks[@]}; fi
 if [ -z "$_nsp" ]; then  _nsp=0; fi # Number of source prompts
 
+if [ -z "$_sp" ]; then  _sp=True; fi # save prompts
 if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi # router prefix
 if [ -z "$_skip" ]; then  _skip=False; fi #skip generation prompt if it exists
 if [ -z "$_lp" ]; then  _lp=True; fi  #load prompts
@@ -148,6 +154,13 @@ if [ -z "$_pdir" ]; then  _pdir=prompts; fi # directory to save prompts
 if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi # prefix for prompts to load
 if [ -z "$_opx" ]; then  _opx="${_ppx}"; fi # prefix for prompts to save
 
+if [ -z "$_sr" ]; then  _sr=False; fi # save router
+if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
+
+#if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
+#if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
+#if [ -z "$_lsp" ]; then _lsp=False; fi # load save prompts
+#if [ -z "$_learn_sp" ]; then  _learn_sp=True; fi
 
 ###################################
 params=""
@@ -187,6 +200,9 @@ if [ -n "$_cmm" ]; then
    params="${params} --@num_prompt_tokens=$_numt"
    params="${params} --@num_target_prompts=$_ntp"
 fi
+if [ -n "$_reval" ]; then
+   params="${params} --reval"
+fi
 
 params=$(echo "$params" | sed "s/ --/\n --/g")
 extra_params=$(echo "$extra_params" | sed "s/ --/\n --/g")
@@ -204,21 +220,21 @@ fi
 
 logs=$HOME/logs/$output
 for conf in "${configs[@]}"; do
-   files=$(find ${_path} -type f -name "*${conf}*" -path "*${_dpat}*")
+   files=$(find ${_path} -type f -name "*${conf}*.json" -path "*${_dpat}*")
    for file in $files; do 
-      echo $file
       filename=$(basename -- "$file")
       extension="${filename##*.}"
       filename="${filename%.*}"
       experiment=""
-      if [ -z "$_train" ]; then
-         params="${params} --reval"
-      fi
       experiment=$filename
       if [ -n "$_pvf" ]; then
          echo "$file"
       elif [ -n "$_pv" ]; then
-         echo "runat run -exp $experiment -cfg $file -lp $logs ${params} ${extra_params} ${main_vars}" 
+         echo "=================== Command: ===================="
+         echo "python3 run_seq2seq run -exp $experiment" 
+         echo "-cfg ${file}"
+         echo "-lp $logs"
+         echo "${params} ${extra_params} ${main_vars}" 
       else
          echo "Training ..."
          python3 $SCRIPT_DIR/run_seq2seq.py run -cfg $file -exp $experiment -lp $logs ${params} ${extra_params} $main_vars 
@@ -234,6 +250,7 @@ for conf in "${configs[@]}"; do
    done
 done
 
+echo ""
 echo "Finished!!!"
 
 if [ -n "$_sd" ]; then
