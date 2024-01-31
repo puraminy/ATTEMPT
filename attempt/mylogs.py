@@ -116,9 +116,6 @@ def tinfo(text, *args, **kwargs):
 
 def winfo(lname, text, *args, **kwargs):
     logger = logging.getLogger(lname)
-    if not logger.handlers:
-        logger.info(text, *args)
-        add_handler(logger, lname, True)
     logger.info(text, *args)
 
 import inspect
@@ -161,9 +158,10 @@ def trace(frame, event, arg):
 mlog.info(now)
 #sys.settrace(trace)
 def add_handler(logger, fname, set_format=False, base_folder=""):
-    Path(os.path.join(base_folder, "logs")).mkdir(parents=True, exist_ok=True)
+    log_folder = os.path.join(base_folder, "logs")
+    Path(log_folder).mkdir(parents=True, exist_ok=True)
     logger.setLevel(logging.INFO)
-    logFilename = os.path.join("logs", fname + ".log")
+    logFilename = os.path.join(log_folder, fname + ".log")
     handler = logging.FileHandler(logFilename, mode="w")
     if set_format:
         handler.setFormatter(FORMAT)

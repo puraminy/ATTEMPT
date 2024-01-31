@@ -18,13 +18,13 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 else:
                     assert not kwargs.use_optimizer, "No need to use optimizer" 
                 assert training_args.learning_rate > 0.01, "Learning rate is too small for prefix tuning"
-            if not model_args.attn_tuning:
-                if model_args.attend_target is False:
-                    assert model_args.add_target is True, "Can't both attend target and add target be false"
 
         elif adapter_args.prompt_tuning:
             if model_args.attn_method == "const":
                 assert model_args.route_method == "direct", "route method for const method must be direct"  
+            if not model_args.attn_tuning:
+                if model_args.attend_target is False:
+                    assert model_args.add_target is True, "Can't both attend target and add target be false"
 
             if kwargs.prompt_sharing == "shared_prompts":
                 assert not "-pnt" in kwargs.template and not "-psht" in kwargs.template, "Shared_prompts is for templates with shared prompt"

@@ -157,6 +157,16 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
         table = table.format(head, cont, capt, label)
     return table
 
+def clean_file(f):
+    with open(f, 'r') as f1:
+        _dict = json.load(f1)
+        for c in ["tag","log_var","main_vars","full_tag"]:
+            if c in _dict:
+                del _dict[c]
+    with open(f, 'w') as f2:
+        json.dump(_dict, f2, indent=3)
+
+
 def plot_bar(rep, folder, sel_col):
     methods = list(rep[sel_col + "@m_score"].keys()) 
     bar_width = 0.25
@@ -203,15 +213,6 @@ def time_colors(df,row,col, default=None):
             return 81
     return default if default is not None else TEXT_COLOR 
 
-def get_sel_rows(df, sel_rows, sel_row, col="eid"):
-    values = []
-    s_rows = sel_rows
-    if not s_rows:
-        s_rows = [sel_row]
-    for s_row in s_rows:
-        cell=df.iloc[s_row][col]
-        values.append(cell)
-    return values 
 
 def load_results(path):
     with open(path, "r") as f:
@@ -488,6 +489,7 @@ def show_df(df):
         tag_cols.remove("expid")
     if "expid" in df:
         df["expname"] = df["expid"].str.split("-").str[0]
+        df["expname"] = df["expname"].str.split("_").str[0]
         df["expid"] = df["expid"].str.split("-").str[1]
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
@@ -592,6 +594,7 @@ def show_df(df):
     sel_group = 0
     group_col = ""
     group_rows = []
+
     def row_print(df, col_widths ={}, _print=False):
         nonlocal group_rows
         infos = []
@@ -722,6 +725,21 @@ def show_df(df):
            if ii > _sel_row + ROWS:
                break
         return infos, col_widths
+
+    def get_sel_rows(df, row_id="eid", col="eid", from_main=True):
+        values = []
+        s_rows = sel_rows
+        if not s_rows:
+            s_rows = [sel_row]
+        for s_row in s_rows:
+            row=df.iloc[s_row][row_id]
+            if from_main:
+                tdf = main_df[main_df[row_id] == row]
+            else:
+                tdf = df[df[row_id] == row]
+            val=tdf.iloc[0][col]
+            values.append(val)
+        return values 
 
     def backit(df, sel_cols):
         if len(sel_cols) < 2:
@@ -1092,14 +1110,14 @@ def show_df(df):
             sel_exp=df.iloc[sel_row]["eid"]
             df = group_df[group_df['eid'] == sel_exp]
             sel_cols = group_sel_cols.copy()
-        if char == "O":
+        if char == "O" and prev_char == "x":
             sel_exp=df.iloc[sel_row]["eid"]
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             subprocess.run(["nautilus", spath])
         if char == "o":
             images = []
-            exprs = get_sel_rows(df, sel_rows, sel_row)
+            exprs = get_sel_rows(df)
             experiment_images, fnames = get_images(df, exprs, 'eid')
             capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
             for key, img_list in experiment_images.items(): 
@@ -1474,7 +1492,7 @@ def show_df(df):
                 sel_rows.append(sel_row)
             sel_rows = sorted(sel_rows)
             adjust = False
-        elif char == "?": 
+        elif char == "!": 
             if not sel_rows:
                 tinfo=df.iloc[sel_row]["ftag"]
                 infos = tinfo.split(",")
@@ -1581,7 +1599,7 @@ def show_df(df):
             sort = "rouge_score"
         elif char == "z":
             backit(df, sel_cols)
-            exprs = get_sel_rows(df, sel_rows, sel_row)
+            exprs = get_sel_rows(df)
             sel_rows = []
             df = df[df['eid'].isin(exprs)]
         elif char == "z" and prev_char == "a": 
@@ -1593,10 +1611,25 @@ def show_df(df):
             info_cols = []
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
+        elif char == "O":
+            exp=df.iloc[sel_row]["eid"]
+            cond = f"(main_df['eid'] == '{exp}')"
+            tdf = main_df[main_df.eid == exp]
+            path=tdf.iloc[0]["output_dir"]
+            js = os.path.join(path, "exp.json")
+            meld = ["meld", js]
+            if "conf" in tdf:
+                conf = tdf.iloc[0]["conf"]
+                if not "/" in conf:
+                    conf = os.path.join(home, "results", conf + ".json")
+                meld.append(conf)
+            subprocess.run(meld)
         elif char == "t":
             backit(df, sel_cols)
             mode = "cfg"
             files = glob(os.path.join(home,"results","*.json"))
+            #for f in files:
+            # clean_file(f)
             fnames = [Path(f).stem for f in files]
             df = pd.DataFrame(fnames, columns=['cfg'])
             sel_cols = ["cfg"]
@@ -1629,6 +1662,8 @@ def show_df(df):
                 if fname:
                     dest = os.path.join(home, "results", fname)
                     shutil.copyfile(js, dest)
+                    clean_file(dest)
+
         elif char == "p":
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
@@ -2014,8 +2049,13 @@ def show_df(df):
                 info_cols.append(col)
         elif char == "m" and "cfg" in df:
             char = ""
-            files = get_sel_rows(df, sel_rows, sel_row, col="cfg")
+            files = get_sel_rows(df, col="cfg")
             files = [os.path.join(home, "results", c + ".json") for c in files]
+            files.insert(0, "meld")
+            subprocess.run(files)
+        elif char == "m":
+            dirs = get_sel_rows(df, col="output_dir")
+            files = [os.path.join(d, "exp.json") for d in dirs]
             files.insert(0, "meld")
             subprocess.run(files)
         elif char == "m" and prev_char == "x":
@@ -2200,8 +2240,9 @@ def show_df(df):
             df = df.sort_values(by=avg_col, ascending=False)
 
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
-            sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
-                    keep_cols=pivot_cols + info_cols)
+            if len(df) > 1:
+                sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
+                        keep_cols=pivot_cols + info_cols)
             for col in ["folder", "output_dir"]:
                 if col in sel_cols:
                     sel_cols.remove(col)
@@ -2247,7 +2288,7 @@ def show_df(df):
             mbeep()
             #subprocess.run(["pdflatex", tex])
             #subprocess.run(["okular", pdf])
-        if "image" in cmd or char == "Z" or char == "m":
+        if "image" in cmd or char == "Z":
             show_msg("Generating images ...", bottom=True, delay=2000)
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 

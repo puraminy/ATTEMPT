@@ -1067,6 +1067,7 @@ class T5Stack(T5PreTrainedModel):
         self.target_prompt_ids = []
         self.task_prompt_ids = []
         self.router = None
+        self.init_router = None
         self.training = True
         self.pred_task = ""
         self.prompt_dim = None
@@ -1205,6 +1206,7 @@ class T5Stack(T5PreTrainedModel):
                 self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
                 i += 1
 
+        mylogs.bp("router")
         router = torch.zeros((attend_num, attend_num), device=device)
         route_method = self.route_method
         if route_method is not None and route_method.startswith("bias"):
@@ -1915,8 +1917,9 @@ class T5Stack(T5PreTrainedModel):
             inputs_embeds = self.embed_tokens(input_ids)
             ################ MyCode mmmmmmmmmmmm
             mylogs.bp("befw")
-            input_ids, attention_mask = self.prompt_encoders_forward(input_ids, 
-                    inputs_embeds, task_ids, task, att_mask = attention_mask)
+            if self.prompt_tuning or self.attn_prompt_tuning:
+                input_ids, attention_mask = self.prompt_encoders_forward(input_ids, 
+                        inputs_embeds, task_ids, task, att_mask = attention_mask)
             ################ My code End
 
             if self.append_prefix and self.append_attn_prefix is False:

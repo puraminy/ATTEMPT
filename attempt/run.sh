@@ -10,6 +10,9 @@ main_vars=""
 g=0
 for i in $@
 do
+   if [ "$i" = "-d" ]; then
+      _debug=True
+   fi
    case $i in
       --*) 
             q=${i#"--"}
@@ -95,39 +98,45 @@ if [ -z "$_tasks" ]; then
    echo "_tasks (target tasks) is missinge e.g. _tasks=mnli#qqp#rte or use tasks flags e.g _gtasks for all glue tasks "
    exit
 fi
-if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
-   _stasks=$_tasks
+if [ -z "$_pat" ] && [ -z "$_ft" ] && [ -z "$_pt" ]; then
+ _pat=True
 fi
-if [ -z "$_nsp" ] && [ -z "$_stasks" ] && [ -z "$_src" ]; then
-   echo "_stasks (source tasks for source prompts) is missinge e.g. _stasks=mnli#qqp#rte  or use _nsp=4 to use 4 source prompts or use _seqt flag to use the target tasks as source tasks"
-   exit
-fi
-if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
-   if [ -z "$_lsp" ] || [ "$_lsp" = "True" ]; then
-      echo "_ppx (prompts prefix of saved source prompts) is missinge e.g. _ppx pat or use _lsp=False if you don't load source prompts"
+if [ -n "$_pat" ]; then
+   if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
+      _stasks=$_tasks
+   fi
+   if [ -z "$_nsp" ] && [ -z "$_stasks" ] && [ -z "$_src" ]; then
+      echo "_stasks (source tasks for source prompts) is missinge e.g. _stasks=mnli#qqp#rte  or use _nsp=4 to use 4 source prompts or use _seqt flag to use the target tasks as source tasks"
       exit
    fi
+   if [ -z "$_nsp" ] && [ -z "$_ppx" ]; then
+      if [ -z "$_lsp" ] || [ "$_lsp" = "True" ]; then
+         echo "_ppx (prompts prefix of saved source prompts) is missinge e.g. _ppx pat or use _lsp=False if you don't load source prompts"
+         exit
+      fi
+   fi
+   if [ -z "$_src" ]; then
+      stasks=$_stasks
+      arr=($(echo -n $_stasks | sed "s/\#/ /g"))
+      _src=""
+      for t in "${arr[@]}"; do
+         _src="${_src}@$t"
+      done
+      # _src=${_src#"@"}
+   fi
+   echo "==================== Source Tasks: ============="
+   echo "Source tasks are: $stasks"
+   echo "Used source prompts are: ${_src}"
+   echo ""
 fi
-if [ -z "$_src" ]; then
-   stasks=$_stasks
-   arr=($(echo -n $_stasks | sed "s/\#/ /g"))
-   _src=""
-   for t in "${arr[@]}"; do
-      _src="${_src}@$t"
-   done
-   # _src=${_src#"@"}
-fi
+
 echo ""
-echo "==================== Tasks: ===================="
+echo "================== Target Tasks: ================="
 echo $_tasks
 if [ -z "$_single" ]; then
    _tasks=$(echo "$_tasks" | sed "s/\#/@/g")
    echo "Multi Tasks: $_tasks"
 fi
-echo ""
-echo "==================== Source Tasks: ============="
-echo "Source tasks are: $stasks"
-echo "Used source prompts are: ${_src}"
 echo ""
 
 ####################################
@@ -142,6 +151,10 @@ if [ -z $_ep ]; then _ep=10; fi  # epochs
 if [ -z $_tn ]; then _tn=10; fi  # train number
 if [ -n "$_all_test" ]; then _tsn=-1; fi  # number of test dataset
 if [ -z "$_tsn" ]; then _tsn=100; fi
+
+if [ -n "$_debug" ]; then
+   _ep=5
+fi
 
 if [ "$_nsp" = "all" ]; then _nsp=${#_tasks[@]}; fi
 if [ -z "$_nsp" ]; then  _nsp=0; fi # Number of source prompts
@@ -232,7 +245,7 @@ for conf in "${configs[@]}"; do
          echo "$file"
       elif [ -n "$_pv" ]; then
          echo "=================== Command: ===================="
-         echo "python3 run_seq2seq run -exp $experiment" 
+         echo "python3 $SCRIPT_DIR/run_seq2seq.py run -exp $experiment" 
          echo "-cfg ${file}"
          echo "-lp $logs"
          echo "${params} ${extra_params} ${main_vars}" 
@@ -252,7 +265,7 @@ for conf in "${configs[@]}"; do
 done
 
 echo ""
-echo "Finished!!!"
+echo "Finished!!! v1"
 
 if [ -n "$_sd" ]; then
    echo "shut down"
