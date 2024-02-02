@@ -64,7 +64,7 @@ if [ ${#arr[@]} -lt 2 ]; then
 fi
 output=${arr[0]}
 echo "Output: $output"
-configs=${arr[@]:1} 
+configs=(${arr[@]:1})
 echo "Configs: $configs"
 
 ######################################## Task flags:
@@ -99,7 +99,8 @@ if [ -z "$_tasks" ]; then
    exit
 fi
 if [ -z "$_pat" ] && [ -z "$_ft" ] && [ -z "$_pt" ]; then
- _pat=True
+ # _pat=True #TODO set _pat to true or read from conf without checking source tasks
+ echo "Relying on conf files!"
 fi
 if [ -n "$_pat" ]; then
    if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
@@ -195,6 +196,9 @@ params="${params} --per_device_train_batch_size=$_bs"
 params="${params} --per_device_eval_batch_size=$_bs"
 params="${params} --@num_train_epochs=$_ep"
 
+params="${params} --@max_train_samples=$_tn"
+params="${params} --max_test_samples=$_tsn"
+
 if [ -n "$_tasks" ]; then
    params="${params} --@task_name=$_tasks"
 fi
@@ -232,7 +236,9 @@ if [ -n "$_base" ]; then
 fi
 
 logs=$HOME/logs/$output
+ii=1
 for conf in "${configs[@]}"; do
+   ((ii++))
    echo "find ${_path} -type f -name \"*${conf}*.json\" -path \"*${_dpat}*\""
    files=$(find ${_path} -type f -name "*${conf}*.json" -path "*${_dpat}*")
    for file in $files; do 
@@ -249,6 +255,7 @@ for conf in "${configs[@]}"; do
          echo "-cfg ${file}"
          echo "-lp $logs"
          echo "${params} ${extra_params} ${main_vars}" 
+         echo "--------------- end of experiment $ii -----------"
       else
          echo "Training ..."
          python3 $SCRIPT_DIR/run_seq2seq.py run -cfg $file -exp $experiment -lp $logs ${params} ${extra_params} $main_vars 
@@ -259,16 +266,22 @@ for conf in "${configs[@]}"; do
       fi
       if [ $? != 0 ] && [ "$onError" = "break" ]; then
          echo "exit 1"
+         has_error=True
          break 2
       fi
    done
 done
 
 echo ""
-echo "Finished!!! v1"
+if [ -z "$has_error" ]; then
+   echo "Finished!"
+else
+   echo "Has Error!!!"
+fi
 
 if [ -n "$_sd" ]; then
    echo "shut down"
-   echo 'a' | sudo -S shutdown -h now
-   exit
+   if [ -z "$_pv" ]; then
+      echo 'a' | sudo -S shutdown -h now
+   fi
 fi

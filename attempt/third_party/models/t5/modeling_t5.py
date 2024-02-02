@@ -1230,7 +1230,7 @@ class T5Stack(T5PreTrainedModel):
                             k += 1
                     i += 1
                 mylogs.bp("bias")
-                self.router = nn.Parameter(data=router)
+            self.router = nn.Parameter(data=router)
 
         self.attn_mask_orig = self.attn_mask.clone()
         self.source_encoders_idx = torch.tensor(src_list, device=device)

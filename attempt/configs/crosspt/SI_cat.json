@@ -115,7 +115,8 @@
    "anneal_rate": 0.02,
    "norm_method": "nothing",
    "gen_norm_method": [
-      "nothing"
+      "nothing-0",
+      "soft-0.1"
    ],
    "route_method": "direct",
    "use_saved_router": false,
@@ -125,12 +126,12 @@
    "save_source_prompts": true,
    "save_all_prompts": true,
    "router_prefix": 1010,
-   "gen_thresh": [
-      0
-   ],
+   "gen_thresh": null,
    "expid": "SI-6",
    "cat": "SI",
    "output_dir": "/home/ahmad/logs/sir4/6",
    "config": "base",
-   "load_model_dir": "/home/ahmad/logs/si3/cat--0-seed-123-1-10/SI/1"
+   "load_model_dir": "/home/ahmad/logs/si3/cat--0-seed-123-1-10/SI/1",
+   "source_per_task": true,
+   "source_pert_task": true
 }

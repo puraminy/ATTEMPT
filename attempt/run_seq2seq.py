@@ -405,7 +405,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
    inp_exp_vars = exp_vars
-   mylogs.bp("run")
+   mylogs.bp("start")
    if not main_vars:
        main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
    if not main_vars:
@@ -705,7 +705,8 @@ def train(**kwargs):
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     _dict = kwargs.copy()
-    for c in ["tag","log_var","main_vars","full_tag"]:
+    for c in ["tag","log_var","main_vars","full_tag", 
+            "total_exp", "break_point", "repeat"]:
         if c in _dict:
             del _dict[c]
 
@@ -752,8 +753,11 @@ def train(**kwargs):
         nsp = len(tasks)
     if use_source_set:
         nsp = max([len(s) for s in task_source_prompts_set.values()])
-    if data_args.source_prompts is not None:
+    if data_args.source_prompts is not None and len(data_args.source_prompts) > 0:
         nsp = len(data_args.source_prompts) 
+    elif source_per_task:
+        data_args.source_prompts = tasks # source are the same target tasks
+
     nsp += inp_nsp 
     num_source_prompts = nsp 
     num_target_prompts = 1
@@ -1206,7 +1210,8 @@ def train(**kwargs):
         # mmmmmmmmmmmmm Add source prompts
         prompt_encoders = []
         source_prompts = []
-        nsp = kwargs.setdefault("num_source_prompts", nsp) 
+        mylogs.bp("nsp")
+        nsp = kwargs.get("num_source_prompts", 0)
         if data_args.source_prompts:
             source_prompts = ["source_" + sp for sp in data_args.source_prompts]
         if nsp > 0:
@@ -2149,6 +2154,10 @@ def train(**kwargs):
         else:
             gen_combs = itertools.product(gen_masks.items(),gnm, gen_thresh, gen_ntp)
             for (rm,mask), norm_method, gt, gntp in gen_combs:
+                if "-" in norm_method:
+                    norm_method, gt = norm_method.split("-")
+                    gt = float(gt)
+
                 attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                 model.encoder.attn_scores = torch.zeros(
                     (attend_num, attend_num), device=device) 
@@ -2224,12 +2233,15 @@ def train(**kwargs):
                                         router_scores[j][:])
                     save_image(eval_folder, model, {"a-sim":rsim}, 
                                 annot=False, square=True,
-                                spec = norm_method + " | {:.2f}".format(mean_score))
+                                spec = norm_method + "-" + str(gt) \
+                                        + " | {:.2f}".format(mean_score))
                     tlen = router_scores.size(0)
                     if multi_tasking:
                         start = 0 if model_args.attend_input else 1 
                         router_scores = router_scores[:,start:slen+tlen + 1]
-                    save_image(eval_folder, model, {"router":router_scores}, spec=rm)
+                    save_image(eval_folder, model, {"router":router_scores}, 
+                                spec = norm_method + "-" + str(gt) \
+                                        + " | {:.2f}".format(mean_score))
                     if init_router is not None:
                         init_router_scores = init_router.index_select(0, targets)
                         init_router_scores = init_router_scores[:,start:slen+tlen + 1]
@@ -2255,8 +2267,8 @@ def train(**kwargs):
                     if len(torch.nonzero(ss1)) < 1:
                         ss1 = torch.eye(tlen)
                     save_image(eval_folder, model, {"score":ss1}, 
-                            spec = norm_method + " | {:.2f}".format(mean_score))
-
+                                spec = norm_method + "-" + str(gt) \
+                                        + " | {:.2f}".format(mean_score))
                     #score_dict= {"sim-rsim":torch.cat([sim,rsim], dim=1)}
                     #save_image(eval_folder, model, score_dict, 
                     #        annot=False,

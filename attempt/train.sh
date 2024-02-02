@@ -98,9 +98,12 @@ if [ -z "$_pat" ] && [ -z "$_ft" ] && [ -z "$_pt" ]; then
 fi
 if [ -n "$_spt" ]; then
  _nsp=${#_tasks[@]}
+elif [ $_nsp -eq 0 ]; then
+ _spt=True
 fi
 if [ -n "$_pat" ]; then
    if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
+      _spt=True # source per task
       _stasks=$_tasks
    fi
    if [ -z "$_nsp" ] && [ -z "$_stasks" ]; then
@@ -367,8 +370,8 @@ params="${params} --data_path=$_dpath"
 params="${params} --load_best_model_at_end=false"
 params="${params} --use_all_data=False"
 params="${params} --@max_train_samples=$_tn"
-params="${params} --max_val_samples=$_vn"
 params="${params} --max_test_samples=$_tsn"
+params="${params} --max_val_samples=$_vn"
 params="${params} --samples_per_head=$_sph"
 params="${params} --multi_choice=$_mc"
 params="${params} --map_labels=True"
@@ -518,6 +521,7 @@ if [ "$method" = "ptat" ] || [ "$method" = "adapter" ]; then
    fi
    params="${params} --@prompt_length=$_pl"
    params="${params} --@num_prompt_tokens=$_numt"
+   params="${params} --@source_per_task=$_spt"
    params="${params} --@num_target_prompts=$_ntp"
    params="${params} --learn_attention=True"
    params="${params} --use_source_set=False"
