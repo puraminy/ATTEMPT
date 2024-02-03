@@ -59,6 +59,7 @@ from torch.nn.utils.rnn import pad_sequence
 ############
 def normalize_scores(scores, method="soft", 
         sel_thresh=None, gen_thresh=None, resample=False):
+    mylogs.bp("norm")
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=0.001, 
             logits=scores).rsample()  

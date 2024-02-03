@@ -116,6 +116,7 @@ class AbstractTask(abc.ABC):
         """
         num_samples = len(dataset)
         n_obs = self.check_n_obs(n_obs, num_samples)
+        mylogs.bp("filter")
         if indices is None:
             indices = self.shuffled_indices(dataset)
         indices = indices[:n_obs]
@@ -864,7 +865,7 @@ class Atomic(AbstractTask):
     do_shuffle = True
     samples_per_head = 3
     rels = []
-    split_to_data_name = {"train":"atomic"}
+    split_to_data_name = {"train":"atomic", "test":"atomic"}
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         if not task_args.rels:
@@ -894,7 +895,7 @@ class Atomic(AbstractTask):
         self.df = df
         return ds
 
-    def check_n_obs(self, n_obs, total_size):
+    def check_n_obs2(self, n_obs, total_size):
         if n_obs < 0:
             return total_size
         df = self.df
@@ -905,20 +906,26 @@ class Atomic(AbstractTask):
         n_obs = len(out)
         return n_obs
 
-    def postproc_df(self, df, split):
+    def subsample(self, dataset, n_obs=None, indices=None):
         mylogs.bp("filter")
         rows = []
         counter = {}
+        df = self.df
         for idx, row in df.iterrows():
-            if df.prefix.strip() != self.name:
-                continue
             if not row.input_text in counter:
                 counter[row.input_text] = 0
             counter[row.input_text] += 1
             if counter[row.input_text] > self.samples_per_head:
                 continue
             rows.append(row.to_dict())
-        df = pd.DataFrame(data=rows)
+            if len(counter) > n_obs:
+                break
+        self.df = pd.DataFrame(data=rows)
+        ds = Dataset.from_pandas(self.df)
+        return ds
+
+    def postproc_df(self, df, split):
+        df = df[df.prefix == self.name]
         return df
 
     def preproc_df(self, df, split):
@@ -931,13 +938,13 @@ class Atomic(AbstractTask):
         if "sel" in df:
             sort_by = ["sel", "freqs","input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
-        i = 0
-        for idx, row in df.iterrows():
-            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
-            mylogs.success(text, log=False)
-            i += 1
-            if i > 30:
-                break;
+        #i = 0
+        #for idx, row in df.iterrows():
+        #    text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+        #    mylogs.success(text, log=False)
+        #    i += 1
+        #    if i > 30:
+        #        break;
         return df
 
 
