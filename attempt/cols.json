@@ -6,18 +6,33 @@
   ],
   "sel_cols":[
     "expname",
+    "prefix"
+  ],
+  "rep_cols":[
+    "expid",
+    "expname",
+    "folder",
+    "output_dir",
+    "use_private_prompts",
     "prefix",
     "trial",
-    "sel_thresh",
-    "gen_mask",
+    "mask_type",
+    "temperature",
+    "gen_thresh",
     "compose_method",
     "route_method",
     "max_train_samples",
+    "num_train_epochs",
     "num_target_prompts",
-    "gen_norm_methods",
-    "norm_method"
+    "gen_norm_method",
+    "norm_method",
+    "sel_thresh",
+    "time"
   ],
-  "info_cols":[],
+  "info_cols":[
+    "expid",
+    "compose_method"
+  ],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]
 }

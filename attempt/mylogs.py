@@ -109,10 +109,18 @@ def getFname(name, path=""):
     return logFilename
 
 def minfo(text, *args, **kwargs):
-    mlog.info(colors.INFO2 + text + colors.ENDC + "\n", *args)
+    log = kwargs.pop("log", True)
+    if log:
+        mlog.info(colors.INFO2 + text + colors.ENDC + "\n", *args)
+    else:
+        print(colors.INFO2 + text + colors.ENDC + "\n", *args)
 
 def success(text, *args, **kwargs):
-    mlog.info(colors.SUCCESS + text + colors.ENDC + "\n", *args)
+    log = kwargs.pop("log", True)
+    if log:
+        mlog.info(colors.SUCCESS + text + colors.ENDC + "\n", *args)
+    else:
+        print(colors.SUCCESS + text + colors.ENDC + "\n", *args)
 
 def warning(text, *args, **kwargs):
     mlog.info(colors.WARNING + text + colors.ENDC + "\n", *args)

@@ -245,6 +245,12 @@ def cli():
     help="Evaluation without training"
 )
 @click.option(
+    "--test",
+    "-test",
+    is_flag=True,
+    help="Evaluation without training"
+)
+@click.option(
     "--use_wandb",
     "-uw",
     is_flag=True,
@@ -280,7 +286,7 @@ def cli():
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
         debug, version, trial, rem, repeat, deep_check, merge, 
-        reval, use_wandb, download_model, max_exp, new_exp_folder, log_path):
+        reval, test, use_wandb, download_model, max_exp, new_exp_folder, log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -301,6 +307,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args = json.load(f)
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
         experiment = exp_args["experiment"] if experiment == "exp" else experiment
+        if test:
+            exp_args["do_train"] = False
+            exp_args["do_test"] = True 
         if reval:
             exp_args["load_model_dir"] = exp_args["output_dir"]
             exp_args["do_train"] = False
@@ -815,7 +824,7 @@ def train(**kwargs):
     task_args["template"] = data_args.template
     task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
-    task_args["rels"] = kwargs.rels
+    task_args["rels"] = data_args.task_name if kwargs.rels == "tasks" else kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
     task_args["id"] = kwargs["expid"]
 
@@ -1010,7 +1019,6 @@ def train(**kwargs):
     config.attend_private = use_private_prompts 
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
-    config.sel_thresh = kwargs.setdefault("sel_thresh", None)
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.attend_source = model_args.attend_source #my option
     config.attend_input = model_args.attend_input #my option
@@ -1019,7 +1027,14 @@ def train(**kwargs):
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
-    config.norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
+    norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
+    if "-" in norm_method:
+        norm_method, sel_thresh = norm_method.split("-")
+        sel_thresh = float(sel_thresh)
+    else:
+        sel_thresh = kwargs.setdefault("sel_thresh", None)
+    config.norm_method = norm_method
+    config.sel_thresh = sel_thresh
     config.shared_attn = model_args.shared_attn
     if model_args.prompt_embedding_path:
         config.prefix_num = len(model_args.prompt_embedding_path) 
@@ -2110,8 +2125,8 @@ def train(**kwargs):
         gnm = kwargs.setdefault("gen_norm_method",["soft"])
         if type(gnm) != list: gnm = [gnm] 
         gen_thresh = kwargs.get("gen_thresh", [None])
-        gen_thresh = [float(gg) if gg is not None else gg for gg in gen_thresh]
         if type(gen_thresh) != list: gen_thresh = [gen_thresh]
+        gen_thresh = [float(gg) if gg is not None else gg for gg in gen_thresh]
         gen_ntp = kwargs.setdefault("gen_ntp",[num_target_prompts])
         if type(gen_ntp) != list: gen_ntp = [gen_ntp] 
         gen_ntp = [gg for gg in gen_ntp if gg <= num_target_prompts]

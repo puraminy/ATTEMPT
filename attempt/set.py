@@ -13,7 +13,7 @@ from pathlib import Path
 def main(ctx, fname):
     cur_path = os.getcwd()
     for f in fname:
-        files = glob.glob(os.path.join(cur_path, f + "*"))
+        files = glob.glob(os.path.join(cur_path, "*" + f + "*"))
     inp_kv = ""
     new_kv = ""
     for f in files:
@@ -29,11 +29,11 @@ def main(ctx, fname):
             k,v = inp_kv.split("=")
             k = k.strip()
             v = v.strip()
-            mylogs.success(k+ " was set to " + v)
+            mylogs.success(k + ":" + (str(d[k]) if k in d else "()") + " ===> " + v)
             if v.lower() == "true": v = True
             elif v.lower() == "false": v = False
             elif v.isnumeric(): v = float(v)
-            elif "@" in v: v = v.split("@")
+            elif "@" in v: v = [val for val in v.split("@") if val]
             elif v == "none": v = None
             d[k] = v
             print("old kv is:", inp_kv)

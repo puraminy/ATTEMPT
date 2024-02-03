@@ -67,7 +67,7 @@ def normalize_scores(scores, method="soft",
         scores[scores < sel_thresh] = -100
 
     if method == "nothing":
-        return scores
+       pass 
     elif method == "direct" or method == "soft" or method == "rb":
         scores = F.softmax(scores, -1)
     elif method == "sigmoid":
@@ -1509,12 +1509,12 @@ class T5Stack(T5PreTrainedModel):
             pass
 
         if not self.training:
-            mylogs.bp("notr")
             gen_thresh = None 
             if self.gen_conf is not None and "gen_norm_method" in self.gen_conf:
                 gen_norm_method = self.gen_conf["gen_norm_method"] 
             if self.gen_conf is not None and "gen_thresh" in self.gen_conf:
                 gen_thresh = self.gen_conf["gen_thresh"] 
+            mylogs.bp("gn-"+ gen_norm_method)
             attn_sel_scores = normalize_scores(attn_sel_scores, 
                     gen_norm_method,
                     gen_thresh=gen_thresh)

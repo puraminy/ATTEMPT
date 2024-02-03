@@ -58,15 +58,28 @@ echo "Run Extra Params:${extra_params}"
 echo "Others:${others}"
 
 arr=($others)
-if [ ${#arr[@]} -lt 2 ]; then
-   echo "Output folder and config file or patterns are required (eg. bash eval.sh out1 pat1 pat2 )"
-   exit
+if [ -n "$_re" ]; then
+   _cur=True
 fi
-output=${arr[0]}
-echo "Output: $output"
-configs=(${arr[@]:1})
-echo "Configs: $configs"
 
+if [ -z "$_reval" ]; then
+   if [ ${#arr[@]} -lt 2 ]; then 
+      echo "Output folder and config file or patterns are required (eg. bash eval.sh out1 pat1 pat2 )"
+      exit
+   fi
+   output=${arr[0]}
+   echo "Output: $output"
+   configs=(${arr[@]:1})
+   echo "Configs: $configs"
+else
+   _cur=True
+   if [ ${#arr[@]} -eq 0 ]; then 
+      configs="exp"
+   else
+      configs=(${arr[@]})
+   fi 
+   echo "Configs: $configs"
+fi
 ######################################## Task flags:
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"
@@ -86,7 +99,7 @@ if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_at" ]; then
-   _tasks="${_tasks}#xAttr#xIntent#xReact#xWant#oWant"
+   _tasks="${_tasks}#xAttr#xReact#oReact#xIntent#xWant#oWant"
 fi
 if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
@@ -94,7 +107,7 @@ fi
 if [ -n "$_lt2" ]; then
    _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
 fi
-if [ -z "$_tasks" ]; then
+if [ -z "$_tasks" ] && [ -z "$_reval" ] && [ -z "$_re" ]; then
    echo "_tasks (target tasks) is missinge e.g. _tasks=mnli#qqp#rte or use tasks flags e.g _gtasks for all glue tasks "
    exit
 fi
@@ -178,44 +191,46 @@ if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 
 ###################################
 params=""
-params="${params} --prompt_encoders_dir=$_pdir"
-params="${params} --skip_if_prompt_exists=$_skip"
-params="${params} --prompts_prefix=$_ppx"
-params="${params} --output_prompts_prefix=$_opx"
-params="${params} --load_prompts=$_lp"
-params="${params} --ignore_train_if_prompt_exists=True"
-params="${params} --prompts_to_save=none"
-params="${params} --save_router=$_sr"
-params="${params} --save_source_prompts=True"
-params="${params} --save_all_prompts=$_sp"
-params="${params} --router_prefix=$_rpx"
-params="${params} --use_saved_router=$_usr"
-###################################
-# Setting task Parameters
-params="${params} --per_device_train_batch_size=$_bs"
-params="${params} --per_device_eval_batch_size=$_bs"
-params="${params} --@num_train_epochs=$_ep"
+if [ -z "$_re" ]; then
+   params="${params} --prompt_encoders_dir=$_pdir"
+   params="${params} --skip_if_prompt_exists=$_skip"
+   params="${params} --prompts_prefix=$_ppx"
+   params="${params} --output_prompts_prefix=$_opx"
+   params="${params} --load_prompts=$_lp"
+   params="${params} --ignore_train_if_prompt_exists=True"
+   params="${params} --prompts_to_save=none"
+   params="${params} --save_router=$_sr"
+   params="${params} --save_source_prompts=True"
+   params="${params} --save_all_prompts=$_sp"
+   params="${params} --router_prefix=$_rpx"
+   params="${params} --use_saved_router=$_usr"
+   ###################################
+   # Setting task Parameters
+   params="${params} --per_device_train_batch_size=$_bs"
+   params="${params} --per_device_eval_batch_size=$_bs"
+   params="${params} --@num_train_epochs=$_ep"
 
-params="${params} --@max_train_samples=$_tn"
-params="${params} --max_test_samples=$_tsn"
+   params="${params} --@max_train_samples=$_tn"
+   params="${params} --max_test_samples=$_tsn"
 
-if [ -n "$_tasks" ]; then
-   params="${params} --@task_name=$_tasks"
-fi
-params="${params} --@num_source_prompts=$_nsp"
-params="${params} --@source_prompts=$_src"
-
-if [ -n "$_cmm" ]; then
-   if [ $_cmm = "cat" ]; then
-      if [ -z "$_numt" ]; then  _numt=10; fi
-      if [ -z "$_ntp" ]; then  _ntp=auto; fi # number of target prompts
-   else
-      if [ -z "$_numt" ]; then  _numt=50; fi
-      if [ -z "$_ntp" ]; then  _ntp=0; fi 
+   if [ -n "$_tasks" ]; then
+      params="${params} --@task_name=$_tasks"
    fi
-   params="${params} --@compose_method=$_cmm"
-   params="${params} --@num_prompt_tokens=$_numt"
-   params="${params} --@num_target_prompts=$_ntp"
+   params="${params} --@num_source_prompts=$_nsp"
+   params="${params} --@source_prompts=$_src"
+
+   if [ -n "$_cmm" ]; then
+      if [ $_cmm = "cat" ]; then
+         if [ -z "$_numt" ]; then  _numt=10; fi
+         if [ -z "$_ntp" ]; then  _ntp=auto; fi # number of target prompts
+      else
+         if [ -z "$_numt" ]; then  _numt=50; fi
+         if [ -z "$_ntp" ]; then  _ntp=0; fi 
+      fi
+      params="${params} --@compose_method=$_cmm"
+      params="${params} --@num_prompt_tokens=$_numt"
+      params="${params} --@num_target_prompts=$_ntp"
+   fi
 fi
 if [ -n "$_reval" ]; then
    params="${params} --reval"
@@ -236,12 +251,12 @@ if [ -n "$_base" ]; then
 fi
 
 logs=$HOME/logs/$output
-ii=1
+ii=0
 for conf in "${configs[@]}"; do
-   ((ii++))
    echo "find ${_path} -type f -name \"*${conf}*.json\" -path \"*${_dpat}*\""
    files=$(find ${_path} -type f -name "*${conf}*.json" -path "*${_dpat}*")
    for file in $files; do 
+      ((ii++))
       filename=$(basename -- "$file")
       extension="${filename##*.}"
       filename="${filename%.*}"

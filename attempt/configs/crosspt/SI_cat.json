@@ -68,7 +68,7 @@
    "load_prompts": true,
    "ignore_train_if_prompt_exists": true,
    "skip_if_prompt_exists": false,
-   "prompts_prefix": 2020,
+   "prompts_prefix": 2020.0,
    "output_prompts_prefix": 2020,
    "prompt_encoder_type": "mlp",
    "load_source_prompts": true,
@@ -113,7 +113,7 @@
    "anneal_min": 0.001,
    "anneal_type": "linear",
    "anneal_rate": 0.02,
-   "norm_method": "nothing",
+   "norm_method": "nothing-0.5",
    "gen_norm_method": [
       "nothing-0",
       "soft-0.1"

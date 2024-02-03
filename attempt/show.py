@@ -545,6 +545,7 @@ def show_df(df):
     if 'sel_cols' in all_cols:
         sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
+        rep_cols = all_cols['rep_cols']
 
     main_sel_cols = sel_cols.copy()
 
@@ -554,8 +555,8 @@ def show_df(df):
     else:
         score_cols = ['m_score', 'num_preds'] 
 
-    sel_cols = main_vars + sel_cols + rep_cols + score_cols
-    sel_cols = list(dict.fromkeys(sel_cols))
+    rep_cols = main_vars + sel_cols + rep_cols + score_cols
+    rep_cols = list(dict.fromkeys(rep_cols))
     back_sel_cols = sel_cols.copy()
 
     sel_fid = "" 
@@ -814,8 +815,9 @@ def show_df(df):
             Path("temp").mkdir(parents=True, exist_ok=True)
             for key, img_dict in imgs.items():
                 #sorted_keys = (sorted(img_dict.keys()))
-                sorted_keys = ["a-sim", "score", "router", "mask"] # TODO fixed
-                img_list = [img_dict[k] for k in sorted_keys] 
+                sorted_keys = ["a-sim", "score", "init_router", "router", "mask"] 
+                # TODO fixed
+                img_list = [img_dict[k] for k in sorted_keys if k in img_dict] 
                 max_width = 0
                 if len(img_list) > 1:
                     if len(img_list) > 2:
@@ -1115,7 +1117,7 @@ def show_df(df):
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             subprocess.run(["nautilus", spath])
-        if char == "o":
+        if char in ["o","y"]:
             images = []
             exprs = get_sel_rows(df)
             experiment_images, fnames = get_images(df, exprs, 'eid')
@@ -1544,7 +1546,7 @@ def show_df(df):
             col = [col, "prefix"]
             if False: #reset:
                 info_cols = ["bert_score", "num_preds"]
-            if reset: #col == "fid":
+            if False: #col == "fid":
                 sel_cols = ["eid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
                 sel_cols = list(dict.fromkeys(sel_cols))
             reset = False
@@ -1592,7 +1594,8 @@ def show_df(df):
                 sel_cols.append("num_preds")
             df["avg_len"] = avg_len
             df = df.sort_values(by = ["rouge_score"], ascending=False)
-
+            sel_cols = ["expname","eid","prefix","rouge_score","num_preds"]
+            group_sel_cols = sel_cols.copy()
             group_df = df.copy()
             exp_num = df["folder"].nunique()
             consts["Number of experiments"] = str(exp_num)
@@ -1703,9 +1706,10 @@ def show_df(df):
             other_col = "target_text"
             if char =="i": 
                 pass
-            #    group_col = "input_text"
-            #    on_col_list = ["input_text"] 
-            #    other_col = "pred_text1"
+            if "input_text" in df:
+                group_col = "input_text"
+                on_col_list = ["input_text"] 
+                other_col = "pred_text1"
             if char =="t": 
                 on_col_list = ["target_text"] 
                 other_col = "pred_text1"
@@ -1944,7 +1948,7 @@ def show_df(df):
             filter_df = main_df
             df = main_df[cond]
             hotkey = hk
-        if char in ["y","Y"]:
+        elif char in ["y","Y"] and prev_char == "x":
             #yyyyyyyy
            cols = get_cols(df, 2)
            backit(df, sel_cols)
@@ -2177,8 +2181,8 @@ def show_df(df):
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df
             _agg = {}
-            rep_cols = []
-            for c in sel_cols: 
+            _rep_cols = []
+            for c in rep_cols: 
                 if c in score_cols: 
                     _agg[c] = "mean"
                 elif (c.endswith("score") 
@@ -2186,9 +2190,9 @@ def show_df(df):
                     score_cols.append(c)
                     _agg[c] = "mean"
                 elif c not in pivot_cols:
-                    rep_cols.append(c)
+                    _rep_cols.append(c)
                     _agg[c] = "first"
-            gcol = rep_cols
+            gcol = _rep_cols
             if not "eid" in rep_cols:
                 gcol += ["eid"] 
             mdf[gcol] = mdf[gcol].fillna('none')

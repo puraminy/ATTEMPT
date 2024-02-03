@@ -41,6 +41,7 @@ class AbstractTask(abc.ABC):
     rel_nat = None
     samples_per_head = 1
     labels_map = {} # verbelizer
+    split_to_data_name = {}
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
@@ -125,7 +126,11 @@ class AbstractTask(abc.ABC):
         path = self.data_path
         if not path.startswith("/"):
             path= op.join(mylogs.home, self.data_path)
-        path = op.join(path, self.name)
+        if split in self.split_to_data_name: 
+            ds_name = self.split_to_data_name[split] 
+        else:
+            ds_name = self.name
+        path = op.join(path, ds_name)
         #if split == "test":
         #    path = op.join(path, self.config)
         Path(path).mkdir(parents=True, exist_ok=True)
@@ -166,7 +171,7 @@ class AbstractTask(abc.ABC):
         mylogs.bp("get")
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
-        fname = split 
+        fname = self.name + "_" + split 
         extension = ".csv" 
         obs_str = str(n_obs) if n_obs is not None else "all"
         outfile = os.path.join(directory, 
@@ -859,6 +864,7 @@ class Atomic(AbstractTask):
     do_shuffle = True
     samples_per_head = 3
     rels = []
+    split_to_data_name = {"train":"atomic"}
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         if not task_args.rels:
@@ -881,6 +887,8 @@ class Atomic(AbstractTask):
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
         assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
+        df = self.postproc_df(df, split)
+        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
         
         ds = Dataset.from_pandas(df)
         self.df = df
@@ -897,7 +905,43 @@ class Atomic(AbstractTask):
         n_obs = len(out)
         return n_obs
 
+    def postproc_df(self, df, split):
+        mylogs.bp("filter")
+        rows = []
+        counter = {}
+        for idx, row in df.iterrows():
+            if df.prefix.strip() != self.name:
+                continue
+            if not row.input_text in counter:
+                counter[row.input_text] = 0
+            counter[row.input_text] += 1
+            if counter[row.input_text] > self.samples_per_head:
+                continue
+            rows.append(row.to_dict())
+        df = pd.DataFrame(data=rows)
+        return df
+
     def preproc_df(self, df, split):
+        mylogs.bp("filter")
+        df["freqs"] = df.groupby(['input_text'])['input_text'].transform('count')
+        print("len df:", len(df))
+        # df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
+        print("len new df:", len(df))
+        sort_by = ["freqs","input_text", "prefix"] 
+        if "sel" in df:
+            sort_by = ["sel", "freqs","input_text", "prefix"] 
+        df = df.sort_values(by=sort_by, ascending=False)
+        i = 0
+        for idx, row in df.iterrows():
+            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+            mylogs.success(text, log=False)
+            i += 1
+            if i > 30:
+                break;
+        return df
+
+
+    def preproc_df2(self, df, split):
         df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
         print("len df:", len(df))
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
@@ -907,10 +951,19 @@ class Atomic(AbstractTask):
             mylogs.bp("df")
             sort_by = ["sel", "freqs","input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
+        i = 0
+        for idx, row in df.iterrows():
+            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+            mylogs.success(text)
+            i += 1
+            if i > 30:
+                break;
         return df
 
     def filter(self, df, split):
         cond = ""
+        mylogs.bp("filter")
+        df = df[~df["target_text"].str.contains('none', na=False)]
         for val in self.rels: 
             cond += f"| (df['prefix'] == '{val}') "
         cond = cond.strip("|")

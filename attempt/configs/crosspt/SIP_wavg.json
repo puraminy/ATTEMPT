@@ -68,7 +68,7 @@
    "load_prompts": true,
    "ignore_train_if_prompt_exists": true,
    "skip_if_prompt_exists": false,
-   "prompts_prefix": 2020,
+   "prompts_prefix": 2020.0,
    "output_prompts_prefix": 2020,
    "prompt_encoder_type": "mlp",
    "load_source_prompts": true,
@@ -115,8 +115,8 @@
    "anneal_rate": 0.02,
    "norm_method": "nothing",
    "gen_norm_method": [
-      "nothing-0",
-      "soft-0.1"
+      "soft-0.1",
+      "nothing-0"
    ],
    "route_method": "direct",
    "use_saved_router": false,

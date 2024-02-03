@@ -68,7 +68,7 @@
    "load_prompts": true,
    "ignore_train_if_prompt_exists": true,
    "skip_if_prompt_exists": false,
-   "prompts_prefix": 4010,
+   "prompts_prefix": 2020.0,
    "output_prompts_prefix": 4010,
    "prompt_encoder_type": "mlp",
    "load_source_prompts": false,
