@@ -22,8 +22,9 @@ def main(ctx, fname):
         print("-----------------------")
         mylogs.minfo(Path(f).stem)
         print("old kv is:", inp_kv)
-        new_kv = input("key=value:")
-        if new_kv and new_kv != "s":
+        if new_kv != "all":
+            new_kv = input("key=value:")
+        if new_kv and new_kv != "s" and new_kv != "all":
             inp_kv = new_kv
         while True:
             k,v = inp_kv.split("=")
@@ -37,10 +38,11 @@ def main(ctx, fname):
             elif v == "none": v = None
             d[k] = v
             print("old kv is:", inp_kv)
-            new_kv = input("key=value:",)
-            if new_kv and new_kv != "s":
+            if new_kv != "all":
+                new_kv = input("key=value:",)
+            if new_kv and new_kv != "s" and new_kv != "all":
                 inp_kv = new_kv
-            if not new_kv:
+            if not new_kv or new_kv == "all":
                 break
         with open(f, 'w') as j:
             json.dump(d, j, indent=3)

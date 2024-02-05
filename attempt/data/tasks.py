@@ -56,6 +56,7 @@ class AbstractTask(abc.ABC):
         self.seed = task_args.data_seed
         self.template = task_args.template
         self.tokenizer = tokenizer
+        self.prefix = task_args.get("prefix", self.name)
         ## list of prompts
         if task: 
             self.task_name = task
@@ -159,13 +160,13 @@ class AbstractTask(abc.ABC):
         else:
             return indices[validation_size:]
 
-    def map_dataset(self, dataset, add_prefix):
+    def map_dataset(self, dataset, prefix):
         mylogs.bp("map")
-        return dataset.map(functools.partial(self.preprocessor, add_prefix=add_prefix),
+        return dataset.map(functools.partial(self.preprocessor, prefix=prefix),
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
 
-    def get(self, split, add_prefix=True, n_obs=None, split_validation_test=False, lang=None, file_name=None):
+    def get(self, split, prefix="", n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
         self.split = split
@@ -235,7 +236,7 @@ class AbstractTask(abc.ABC):
 
         if not Path(outfile).is_file(): 
             self.save_dataset(dataset, outfile)
-        return self.map_dataset(dataset, add_prefix)
+        return self.map_dataset(dataset, prefix)
 
     #### my post proc
     def post_process(self, preds, labels):
@@ -348,13 +349,14 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target}" # {end}"
+        target = "(mask) (prefix) (nat) {target}" # {end}"
         return src, target
 
     def get_template(self):
         src, target = self.get_template_format()
         parts = self.template.split("-")
         pcom = 0 # number of shared prompts among all tasks
+        mylogs.bp("template")
         for part in parts:
             if part == "unsup": 
                src = src.replace("(mask)", "{mask}")
@@ -377,8 +379,8 @@ class AbstractTask(abc.ABC):
                src = src.replace("(prefix)", "{prefix}",1)
             if part == "pt":
                src = src.replace("(prompt)", "[task_i] (prompt) ",1)
-            if part == "pw":
-               src = src.replace("(prompt)", "{prompt_fw} (prompt) ",1)
+            if part == "pnat":
+               src = src.replace("(prompt)", "{prompt_from_nat} (prompt) ",1)
             if part == "pn":
                src = src.replace("(prompt)", "{prompt_n} (prompt) ",1)
             if part == "pnt":
@@ -386,15 +388,24 @@ class AbstractTask(abc.ABC):
             if part == "pnr":
                src = src.replace("(prompt)", "{prompt_nr} (prompt) ",1)
             if part == "psh":
-               src = src.replace("(prompt)", "{prompt_sh} (prompt) ",1)
+               src = src.replace("(prompt)", "{prompt_shared_tokens} (prompt) ",1)
             if part == "psht":
-               src = src.replace("(prompt)", "{prompt_sht} (prompt) ",1)
+               src = src.replace("(prompt)", "{prompt_task_eq_shared} (prompt) ",1)
             if part == "pshr":
-               src = src.replace("(prompt)", "{prompt_shr} (prompt) ",1)
-            if part == "nat_inp" or part == "nat": 
-               src = src.replace("(nat)", "{rel_nat}")
-            if part == "nat_tgt": 
-               target = target.replace("(nat)", "{rel_nat}")
+               src = src.replace("(prompt)", "{prompt_shared_random} (prompt) ",1)
+            if part == "nat_input" or part == "nat": 
+               src = src.replace("(nat)", "{rel_nat}", 1)
+            if part == "input_shared_words":
+               src = src.replace("(prefix)", "{rel_shared_words}:", 1)
+            if part == "nat_target": 
+               target = target.replace("(nat)", "{rel_nat}", 1)
+            if part == "target_shared_words": 
+               target = target.replace("(prefix)", "{rel_shared_words}:", 1)
+
+        # remove unused place holders
+        src = re.sub(r'\(.*?\)','',src)
+        src = re.sub(' +', ' ',src)
+        target = re.sub(r'\(.*?\)','',target)
 
         return src, target, pcom
 
@@ -406,8 +417,8 @@ class AbstractTask(abc.ABC):
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else self.rel_nat
-            rel_fw = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
-            rel_fw = rel_fw.split()
+            rel_from_nat = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
+            rel_from_nat = rel_from_nat.split()
             num_prompts = self.task_args.setdefault("num_prompts",1)
             task_comb = self.task_args.setdefault("task_comb", "none")
             tid = self.task_args["id"]
@@ -426,35 +437,39 @@ class AbstractTask(abc.ABC):
             prompt_nt = "[task" + "_" + str(l) + "]" 
             data["prompt_nt"] = prompt_nt
 
-            prompts_fw = ["[task_" + w + "]" for w in rel_fw]
-            prompts_fw_cycle = []
+            prompt_from_nat = ["[task_" + w + "]" for w in rel_from_nat]
+            prompt_from_nat_cycle = []
             for i in range(self.get_prompt_length(0)):
-                j = i % len(rel_fw)
-                tok = "[task" + "_" + rel_fw[j] + "?" + str(i) + "]"
-                prompts_fw_cycle.append(tok)
+                j = i % len(rel_from_nat)
+                tok = "[task" + "_" + rel_from_nat[j] + "?" + str(i) + "]"
+                prompt_from_nat_cycle.append(tok)
             if self.prompt_config["fixed_length"]:
-                data["prompt_fw"] = " ".join(prompts_fw_cycle)
+                data["prompt_from_nat"] = " ".join(prompt_from_nat_cycle)
             else:
-                data["prompt_fw"] = " ".join(prompts_fw)
+                data["prompt_from_nat"] = " ".join(prompt_from_nat)
 
-            rel_sh = REL_TO_SHARED_TOKENS[task] if task in REL_TO_SHARED_TOKENS else task
-            rel_sh = rel_sh.split()
+            if task in REL_TO_SHARED_TOKENS:
+                rel_with_shared_tokens = REL_TO_SHARED_TOKENS[task] 
+            else:
+                rel_with_shared_tokens = task 
+            rel_with_shared_tokens = rel_with_shared_tokens.split()
+            data["rel_shared_words"] = " ".join(rel_with_shared_tokens)
             # prompt shr creates same prompts for shared tokens of tasks, 
             # the length of prompts 
             # is specified with i
-            prompt_sh = ["[" + w + "_i]" for w in rel_sh]
-            data["prompt_sh"] = " ".join(prompt_sh)
+            prompt_shared_tokens = ["[" + w + "_i]" for w in rel_with_shared_tokens]
+            data["prompt_shared_tokens"] = " ".join(prompt_shared_tokens)
             # prompt is the same as prompt sh but the tokens are shuffled 
-            shuffle(rel_sh)
-            prompt_shr = ["[" + w + "_j]" for w in rel_sh]
-            data["prompt_shr"] = " ".join(prompt_shr)
+            shuffle(rel_with_shared_tokens)
+            prompt_shared_random = ["[" + w + "_j]" for w in rel_with_shared_tokens]
+            data["prompt_shared_random"] = " ".join(prompt_shared_random)
             # psht is for comparision. it uses task specific prompts with the length 
             # of shared prompts concatenated to each other, 
             # however prompts for each tasks are distnict
             # it also substract the length of common or shared prompts among all tasks
-            l = self.get_prompt_length(0)*(len(rel_sh) - pcom)
-            prompt_sht = "[task" + "_" + str(l) + "]" 
-            data["prompt_sht"] = prompt_sht
+            l = self.get_prompt_length(0)*(len(rel_with_shared_tokens) - pcom)
+            prompt_task_eq_shared = "[task" + "_" + str(l) + "]" 
+            data["prompt_task_eq_shared"] = prompt_task_eq_shared
 
         return data
 
@@ -471,10 +486,6 @@ class AbstractTask(abc.ABC):
     def fill_template(self, data):
         mylogs.bp("fill")
         src,tgt,pcom = self.get_template()
-        # remove unused place holders
-        src = re.sub(r'\(.*?\)','',src)
-        src = re.sub(' +', ' ',src)
-        tgt = re.sub(r'\(.*?\)','',tgt)
 
         mask = "<extra_id_0>"
         data = self.extend_data(data, pcom=pcom)
@@ -501,10 +512,13 @@ class AbstractTask(abc.ABC):
 
     def seq2seq_format(self, sources: List[str],
                        targets: List[str],
-                       add_prefix: bool = False,
                        prefix: str = None,
                        extra_fields={}):
-        src_prefix = self.name if prefix is None else prefix
+        if not prefix:
+            prefix = self.prefix
+        if not prefix:
+            prefix = self.name
+        src_prefix = "src-" + prefix
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
@@ -575,14 +589,14 @@ class Squad(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(self.name, split=split)
 
-    def preprocessor(self, example, add_prefix):
+    def preprocessor(self, example, prefix):
         answer = pad_punctuation(example['answers']).split("\t")
         question = pad_punctuation(example['question'])
         context = pad_punctuation(example['context'])
         source = ["question:", question[:100],
                   "context:", context[:350]]
         target = [answer] if type(answer) == str else answer
-        return self.seq2seq_format(source, target, add_prefix)
+        return self.seq2seq_format(source, target, prefix)
 
 
 
@@ -601,14 +615,14 @@ class DROP(AbstractTask):
                         mylogs.home, "drop/drop_dataset/drop_dataset_dev.json"))
 
 
-    def preprocessor(self, example, add_prefix):
+    def preprocessor(self, example, prefix):
         answer = pad_punctuation(example['answers_spans']['spans'][0])
         question = pad_punctuation(example['question'])
         context = pad_punctuation(example['passage'])
         source = ["question:", question,
                   "context:", context]
         target = [answer]
-        return self.seq2seq_format(source, target, add_prefix)
+        return self.seq2seq_format(source, target, prefix)
 
 
 class PIQA(AbstractTask):
@@ -630,11 +644,11 @@ class PIQA(AbstractTask):
         ds = Dataset.from_pandas(df)
         return ds
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["question:", example['goal'], "choice1:",
                      example["sol1"][0], "choice2:", example["sol2"][0]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class CommonsenseQA(AbstractTask):
@@ -649,12 +663,12 @@ class CommonsenseQA(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('commonsense_qa', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
         src_texts = ["question:", example['question'], "choice1:", example["choices"]["text"][0], "choice2:", example["choices"]["text"][1],
                      "choice3:", example["choices"]["text"][2], "choice4:", example["choices"]["text"][3], "choice5:", example["choices"]["text"][4]]
         tgt_texts = [label2id[example["answerKey"]]]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SocialIQA(AbstractTask):
@@ -669,11 +683,11 @@ class SocialIQA(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(mylogs.home + '/datasets/social_i_qa.py', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["question:", example['question'], "context:", example["context"], "|| choice0:",
                      example["answerA"][0], "|| choice1:", example["answerB"][0], "|| choice2:", example["answerC"][0]]
         tgt_texts = [str(int(example["label"]) - 1)]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SciTail(AbstractTask):
@@ -688,12 +702,12 @@ class SciTail(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('scitail', "snli_format", split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         label2id = {"entailment": "0", "neutral": "1"}
         src_texts = ["premise:", example['sentence1'],
                      "hypothesis:", example["sentence2"]]
         tgt_texts = [label2id[example["gold_label"]]]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class MRPC(AbstractTask):
@@ -711,11 +725,11 @@ class MRPC(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mrpc', split=split) 
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
                      "sentence2:", example["sentence2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class COLA(AbstractTask):
@@ -732,10 +746,10 @@ class COLA(AbstractTask):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["sentence:", example['sentence']]
+    def preprocessor(self, example, prefix):
+        src_texts = ["sentence1:", example['sentence']]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class IMDB(AbstractTask):
     name = "imdb"
@@ -751,10 +765,10 @@ class IMDB(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('imdb', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example['text']]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class TweetEval(AbstractTask):
@@ -772,10 +786,10 @@ class TweetEval(AbstractTask):
         return datasets.load_dataset('tweet_eval', 'sentiment',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example['text']]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 
@@ -797,10 +811,10 @@ class SST2(AbstractTask):
         return datasets.load_dataset('glue', 'sst2',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["sentence:", example['sentence']]
+    def preprocessor(self, example, prefix):
+        src_texts = ["sentence1:", example['sentence']]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class YelpPolarity(AbstractTask):
@@ -814,10 +828,10 @@ class YelpPolarity(AbstractTask):
         print(split)
         return datasets.load_dataset('yelp_polarity')[split]
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example['text']]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class Amazon_Polarity(AbstractTask):
@@ -830,11 +844,11 @@ class Amazon_Polarity(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('yelp_polarity', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence:", "<title> {0} <context> {1}".format(
             example['title'], example['context'])]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class STSB(AbstractTask):
@@ -851,11 +865,11 @@ class STSB(AbstractTask):
         return datasets.load_dataset('glue', 'stsb',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
                      "sentence2:", example["sentence2"]]
         tgt_texts = [str(round_stsb_target(example['label']))]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class Atomic(AbstractTask):
     name = "atomic"
@@ -978,7 +992,7 @@ class Atomic(AbstractTask):
         return df
 
     #### ppppppppppppppp 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         mylogs.bp("task_prep")
         src_texts = [str(example["input_text"])]
         tgt_texts = [str(example["target_text"])]
@@ -988,10 +1002,16 @@ class Atomic(AbstractTask):
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
         return self.seq2seq_format(src_texts, tgt_texts, 
-                add_prefix=False, extra_fields=extra_fields)
+                prefix, extra_fields=extra_fields)
 
 class xIntent(Atomic):
     name = "xIntent"
+
+class isAfter(Atomic):
+    name = "isAfter"
+
+class isBefore(Atomic):
+    name = "isBefore"
 
 class AtomicRel(Atomic):
     name = "atomic-rels"
@@ -1031,7 +1051,7 @@ class AtomicRel(Atomic):
             path = op.join(path, split + '.tsv')
         return path
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["head:", str(example["input_text"]), 
                     "tail:", str(example["target_text"])]
         tgt_texts = [example["prefix"].strip()]
@@ -1040,7 +1060,7 @@ class AtomicRel(Atomic):
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
         return self.seq2seq_format(src_texts, tgt_texts, 
-                add_prefix=False, extra_fields=extra_fields)
+                prefix, extra_fields=extra_fields)
 
 class Causes(Atomic):
     name = "Causes"
@@ -1110,10 +1130,10 @@ class CommonGen(AbstractTask):
     def load_dataset(self, split):
         return load_dataset(mylogs.home + "/datasets/common_gen.py", split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["concepts:"] + example["concepts"]
         tgt_texts = [example['target']]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class QQP(AbstractTask):
@@ -1133,11 +1153,11 @@ class QQP(AbstractTask):
         return datasets.load_dataset('glue', 'qqp',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["question1:", example['question1'],
-                     "question2:", example["question2"]]
+    def preprocessor(self, example, prefix):
+        src_texts = ["sentence1:", example['question1'],
+                     "sentence2:", example["question2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class MNLI(AbstractTask):
@@ -1156,11 +1176,11 @@ class MNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["premise:", example['premise'], 
-                     "hypothesis:", example["hypothesis"]]
+    def preprocessor(self, example, prefix):
+        src_texts = ["sentence1:", example['premise'], 
+                     "sentence2:", example["hypothesis"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class ParsNLI(AbstractTask):
     name = "parsnli"
@@ -1172,11 +1192,11 @@ class ParsNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example['sent1'],
                      "hypothesis:", example["sent2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class PAWS(AbstractTask):
     name = "paws"
@@ -1196,11 +1216,11 @@ class PAWS(AbstractTask):
         ds = Dataset.from_pandas(df)
         return ds
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
                      "sentence2:", example["sentence2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SNLI(AbstractTask):
@@ -1216,11 +1236,11 @@ class SNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('snli', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example['premise'],
                      "hypothesis: ", example["hypothesis"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class MultiNLI(AbstractTask):
@@ -1235,11 +1255,11 @@ class MultiNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('multi_nli', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example['premise'],
                      "hypothesis:", example["hypothesis"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class QNLI(AbstractTask):
@@ -1260,11 +1280,11 @@ class QNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
-        src_texts = ["question:", example['question'][:100],
-                "sentence:", example["sentence"][:350]]
+    def preprocessor(self, example, prefix):
+        src_texts = ["sentence1:", example['question'][:100],
+                "sentence2:", example["sentence"][:350]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class RTE(AbstractTask):
@@ -1282,11 +1302,11 @@ class RTE(AbstractTask):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
                      "sentence2:", example["sentence2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class WNLI(AbstractTask):
@@ -1302,11 +1322,11 @@ class WNLI(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
                      "sentence2:", example["sentence2"]]
         tgt_texts = [str(example['label'])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUEBoolQ(AbstractTask):
@@ -1322,11 +1342,11 @@ class SuperGLUEBoolQ(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'boolq', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["question:", example["question"],
                      "passage:", example["passage"]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUERTE(AbstractTask):
@@ -1342,11 +1362,11 @@ class SuperGLUERTE(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example["premise"],
                      "hypothesis:", example["hypothesis"]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUECB(AbstractTask):
@@ -1362,11 +1382,11 @@ class SuperGLUECB(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'cb', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example["premise"],
                      "hypothesis:", example["hypothesis"]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUECOPA(AbstractTask):
@@ -1382,12 +1402,12 @@ class SuperGLUECOPA(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'copa', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["premise:", example["premise"],
                      "choice1:", example["choice1"],
                      "choice2:", example["choice2"]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUEMultiRC(AbstractTask):
@@ -1410,7 +1430,7 @@ class SuperGLUEMultiRC(AbstractTask):
         text = re.sub('<(/)?b>', '', text)
         return text
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         group = example['idx']['question']
         # T5 applies remove_markup to the joined string, but this should not make
         # any difference as well.
@@ -1419,7 +1439,7 @@ class SuperGLUEMultiRC(AbstractTask):
                      "answer:", self.remove_markup(example["answer"]),
                      "paragraph:", self.remove_markup(example["paragraph"])]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix, extra_fields={"group": group})
+        return self.seq2seq_format(src_texts, tgt_texts, prefix, extra_fields={"group": group})
 
 
 class SuperGLUEWIC(AbstractTask):
@@ -1435,12 +1455,12 @@ class SuperGLUEWIC(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'wic', split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example["sentence1"],
                      "sentence2:", example["sentence2"],
                      "word:", example["word"]]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 from datasets import load_dataset, DownloadConfig
 
@@ -1492,7 +1512,7 @@ class SuperGLUEWSCFixed(AbstractTask):
         pattern = re.sub('W', span_str, pattern)
         return re.sub(pattern, r'\1{0} \2 {0}'.format(mark), text)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         # converts text as done in T5.
         text = example['text']
         text = self._mark_span(
@@ -1503,7 +1523,7 @@ class SuperGLUEWSCFixed(AbstractTask):
         text = self._mark_span(text, example['span2_text'], span2_index, '#')
         src_texts = ["text:", text]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SuperGLUERecord(AbstractTask):
@@ -1542,7 +1562,7 @@ class SuperGLUERecord(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'record', split=split)
 
-    def preprocessor(self, batch, add_prefix=True):
+    def preprocessor(self, batch, prefix):
         new_batch = collections.defaultdict(list)
         keys = batch.keys()
         for values in zip(*batch.values()):
@@ -1553,13 +1573,13 @@ class SuperGLUERecord(AbstractTask):
                 r'(\.|\?|\!|\"|\')\n@highlight\n', r'\1 ', passage)
             passage = re.sub(r'\n@highlight\n', '. ', passage)
             inputs = f"record query: {ex['query']} entities: {', '.join(ex['entities'])} passage: {passage}"
-            if add_prefix:
+            if prefix:
                 inputs = self.name + " " + inputs
             # duplicates the samples based on  number of answers.
             num_answers = len(ex["answers"])
             answers = ex["answers"] if num_answers > 0 else ["<unk>"]
             for ans in answers:
-                fmt = self.seq2seq_format([inputs],[ans], add_prefix)
+                fmt = self.seq2seq_format([inputs],[ans], prefix)
                 new_batch["source"].extend([fmt["source"]])
                 new_batch["target"].extend([fmt["target"]])
                 new_batch["task"].extend([self.name])
@@ -1567,8 +1587,8 @@ class SuperGLUERecord(AbstractTask):
                 new_batch["extra_fields"].extend([exf])
         return new_batch
 
-    def map_dataset(self, dataset, add_prefix=True):
-        return dataset.map(functools.partial(self.preprocessor, add_prefix=add_prefix),
+    def map_dataset(self, dataset, prefix):
+        return dataset.map(functools.partial(self.preprocessor, prefix=prefix),
                            batched=True, remove_columns=dataset.column_names)
 
 class WinoGrande(AbstractTask):
@@ -1583,17 +1603,19 @@ class WinoGrande(AbstractTask):
     def load_dataset(self, split):
         return datasets.load_dataset('winogrande', "winogrande_xl", split=split)
 
-    def preprocessor(self, example, add_prefix=True):
+    def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example["sentence"],
                      "option0:", example["option1"],
                      "option1:", example["option1"]]
         tgt_texts = [str(int(example["answer"]) - 1)]
-        return self.seq2seq_format(src_texts, tgt_texts, add_prefix)
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 TASK_MAPPING = OrderedDict(
     [
         ('atomic', Atomic),
+        ('isAfter', isAfter),
+        ('isBefore', isBefore),
         ('xIntent', xIntent),
         ('xReason', xReason),
         ('Desires', Desires),

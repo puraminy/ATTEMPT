@@ -114,10 +114,7 @@
    "anneal_type": "linear",
    "anneal_rate": 0.02,
    "norm_method": "nothing",
-   "gen_norm_method": [
-      "soft-0.1",
-      "nothing-0"
-   ],
+   "gen_norm_method": "nothing-0",
    "route_method": "direct",
    "use_saved_router": false,
    "init_from_words": false,
@@ -131,5 +128,7 @@
    "cat": "SILPI",
    "output_dir": "/home/ahmad/logs/silpi1/wavg--0-seed-123-2-10/SILPI/7",
    "config": "base",
-   "source_per_task": true
+   "source_per_task": true,
+   "private_prompt_encoder_type": "mlp",
+   "cross_prefix": false
 }

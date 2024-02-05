@@ -734,8 +734,6 @@ def train(**kwargs):
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
 
-    data_args.eval_dataset_name=data_args.task_name
-    data_args.test_dataset_name=data_args.task_name
 
     mylogs.bp("nsp")
     num_prompts = kwargs.setdefault("num_prompts", 1) 
@@ -745,6 +743,33 @@ def train(**kwargs):
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
+    tasks = data_args.task_name
+    train_prefix = {}
+    test_prefix = {}
+    task_names = []
+    mylogs.bp("test_prefix")
+    for task_name in tasks:
+        tname = train_px = test_px = task_name #prefix for test and train sets
+        test_prefix_list = task_name.split("--")
+        if len(test_prefix_list) > 1:
+            tname = test_prefix_list[0] 
+        task_names.append(tname)
+        train_prefix[tname] = [tname]
+        test_prefix[tname] = test_prefix_list 
+
+    cross_prefix = kwargs.get("cross_prefix", False)
+    if cross_prefix:
+        for task in task_names:
+            for other in task_names:
+                if other != task:
+                    if not task in test_prefix:
+                        test_prefix[task] = []
+                    if not other in test_prefix[task]:
+                        test_prefix[task].append(other)
+
+    data_args.task_name = task_names
+    data_args.eval_dataset_name=data_args.task_name
+    data_args.test_dataset_name=data_args.task_name
 
     task_source_prompts_set ={}
     tasks = data_args.task_name
@@ -1252,13 +1277,17 @@ def train(**kwargs):
                 adapter_args.num_prompt_tokens * config.d_model
             )).uniform_(-bound, bound), requires_grad=False)
         for prompt in source_prompts: 
-            encoder, enc_type = create_encoder(prompt, model, tokenizer, 
+            encoder_name = prompt
+            encoder_type = adapter_args.prompt_encoder_type
+            if "_for" in encoder_name:
+                encoder_type = kwargs.get("private_prompt_encoder_type", encoder_type)
+            encoder, enc_type = create_encoder(encoder_name, model, tokenizer, 
                     prompt_tokens=[],
                     is_source = True,
                     length = adapter_args.num_prompt_tokens,
-                    encoder_type=adapter_args.prompt_encoder_type,
+                    encoder_type = encoder_type,
                     shared_mat= shared_mat) 
-            if "_for" in encoder.name:
+            if "_for" in encoder_name:
                 encoder.is_shared = False
                 encoder.is_private = True
             if kwargs.setdefault("init_from_words", False):
@@ -1476,55 +1505,39 @@ def train(**kwargs):
     task_args = dotdict(task_args.copy())
     if training_args.do_train:
         # Load datasets from files if your target datasets are not in huggingface datasets.
-        if data_args.train_files is not None:
-            train_datasets = [AutoTask.get(dataset_name,
-                                           dataset_config_name,
-                                           task_args=task_args, tokenizer=tokenizer).get(
-                split="train",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_train_samples, lang=data_args.lang_name, file_name=train_file)
-                for dataset_name, dataset_config_name, train_file
-                in zip(data_args.dataset_name, data_args.dataset_config_name, data_args.train_files)]
-        else:
-            train_datasets = [AutoTask.get(dataset_name,
-                                           dataset_config_name,
-                                           task_args=task_args, tokenizer=tokenizer).get(
-                split="train",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_train_samples, lang=data_args.lang_name, file_name=data_args.train_file)
-                for dataset_name, dataset_config_name
-                in zip(data_args.dataset_name, data_args.dataset_config_name)]
+        train_datasets = []
+        max_target_lengths = []
+        for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
+                data_args.dataset_config_name):
+            for prefix in train_prefix[dataset_name]:
+                auto_task = AutoTask.get(dataset_name,
+                                         dataset_config_name,
+                                         task_args=task_args, tokenizer=tokenizer)
+                train_ds = auto_task.get(
+                        split="train",
+                        split_validation_test=training_args.split_validation_test,
+                        prefix=prefix,
+                        n_obs=data_args.max_train_samples, 
+                        lang=data_args.lang_name, file_name=data_args.train_file)
+                train_datasets.append(train_ds)
 
-        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name, task_args=task_args, tokenizer=tokenizer).get_max_target_length(
-            tokenizer=tokenizer, default_max_length=data_args.max_target_length, )
-            for dataset_name, dataset_config_name in zip(data_args.dataset_name, data_args.dataset_config_name)]
-
+                mtl = auto_task.get_max_target_length(
+                                tokenizer=tokenizer, 
+                                default_max_length=data_args.max_target_length)
+                max_target_lengths.append(mtl)
         for i, train_dataset in enumerate(train_datasets):
-            if model_args.shared_attn is True:
-                train_datasets[i] = train_datasets[i].map(
-                    functools.partial(
-                        preprocess_function, max_target_length=max_target_lengths[i], task_id=i),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    # if train_dataset != "superglue-record" else column_names+["answers"],
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
-            else:
-                train_datasets[i] = train_datasets[i].map(
-                    functools.partial(preprocess_function,
-                                      max_target_length=max_target_lengths[i]
-                                      #mycode adding task ids
-                                      ,task_id=i
-                                      ),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    # if train_dataset != "superglue-record" else column_names+["answers"],
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
+            train_datasets[i] = train_datasets[i].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[i]
+                                  #mycode adding task ids
+                                  ,task_id=i
+                                  ),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if train_dataset != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
         if trainer_shuffle:
             train_dataset = concatenate_datasets(train_datasets)
         else:
@@ -1534,22 +1547,13 @@ def train(**kwargs):
     if preview == "data":
        return "data_preview" 
     if training_args.do_eval:
-        if data_args.validation_files is not None:
-            eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                        task_args=task_args, tokenizer=tokenizer).get(
-                split="validation",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=validation_file)
-                for eval_dataset, eval_dataset_config, validation_file in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name, data_args.validation_files)}
-        else:
-            eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                        task_args=task_args, tokenizer=tokenizer).get(
-                split="validation",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
-                for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
+        eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
+                                                    task_args=task_args, tokenizer=tokenizer).get(
+            split="validation",
+            split_validation_test=training_args.split_validation_test,
+            prefix=train_prefix[dataset_name],
+            n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
+            for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
 
         max_target_lengths = [AutoTask.get(dataset_name, 
             dataset_config_name,
@@ -1558,26 +1562,15 @@ def train(**kwargs):
             for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
 
         for k, name in enumerate(eval_datasets):
-            if model_args.shared_attn is True:
-                eval_datasets[name] = eval_datasets[name].map(
-                    functools.partial(
-                        preprocess_function, max_target_length=max_target_lengths[k], task_id=k),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    # if name != "superglue-record" else column_names+["answers"],
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
-            else:
-                eval_datasets[name] = eval_datasets[name].map(
-                    functools.partial(preprocess_function,
-                                      max_target_length=max_target_lengths[k]),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    # if name != "superglue-record" else column_names+["answers"],
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
+            eval_datasets[name] = eval_datasets[name].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[k]),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if name != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
 
     if preview == "template":
         return
@@ -1835,8 +1828,9 @@ def train(**kwargs):
             #else: 
             #    prompts_prefix = "att_" + prompts_prefix 
             #prompts_prefix = prompts_prefix.strip("_")
+            mylogs.bp("save_prompts")
             prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
-            save_all_prompts = kwargs.setdefault("save_all_prompts", False) 
+            save_all_prompts = kwargs.setdefault("save_all_prompts", True) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
             opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
             if not prompts_to_save:
@@ -1927,50 +1921,42 @@ def train(**kwargs):
         if not k in exp_info:
             exp_info[k] = v
     if training_args.do_test:
-        if data_args.test_files is not None:
-            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
-                                                        task_args=task_args, tokenizer=tokenizer).get(
-                split="test",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=test_file)
-                for test_dataset, test_dataset_config, test_file in zip(data_args.test_dataset_name, data_args.test_dataset_config_name, data_args.test_files)}
-        else:
-            test_datasets = {test_dataset + "_" + test_dataset_config: AutoTask.get(test_dataset, test_dataset_config,
-                                                        task_args=task_args, tokenizer=tokenizer).get(
-                split="test",
-                split_validation_test=training_args.split_validation_test,
-                add_prefix=False if adapter_args.train_task_adapters else True,
-                n_obs=data_args.max_test_samples, lang=data_args.lang_name, file_name=data_args.test_file)
-                for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)}
-            mylogs.bp("test_dataset")
+        mylogs.bp("test_prefix")
+        test_datasets = {}
+        max_target_lengths = []
+        first_ds = ""
+        for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, 
+                data_args.test_dataset_config_name): 
+            auto_task = AutoTask.get(
+                test_dataset, test_dataset_config,
+                task_args=task_args, tokenizer=tokenizer)
+            for prefix in test_prefix[test_dataset]:
+                ds_key = test_dataset + "_" + prefix
+                if first_ds == "": first_ds = ds_key
+                test_datasets[ds_key]= auto_task.get(
+                        split="test",
+                        split_validation_test=training_args.split_validation_test,
+                        prefix=prefix,
+                        n_obs=data_args.max_test_samples, 
+                        lang=data_args.lang_name, 
+                        file_name=data_args.test_file)
 
-        max_target_lengths = [AutoTask.get(dataset_name, dataset_config_name,
-            task_args=task_args, tokenizer=tokenizer).get_max_target_length(
-            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
-            for dataset_name, dataset_config_name in zip(data_args.test_dataset_name, data_args.test_dataset_config_name)]
+                mtl = auto_task.get_max_target_length(
+                    tokenizer=tokenizer, 
+                    default_max_length=data_args.max_target_length)
+                max_target_lengths.append(mtl)
         for k, name in enumerate(test_datasets):
-            if model_args.shared_attn is True:
-                test_datasets[name] = test_datasets[name].map(
-                    functools.partial(
-                        preprocess_function, max_target_length=max_target_lengths[k], task_id=k),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
-            else:
-                test_datasets[name] = test_datasets[name].map(
-                    functools.partial(preprocess_function,
-                                      max_target_length=max_target_lengths[k]),
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                )
+            test_datasets[name] = test_datasets[name].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[k]),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
 
         if has_extra:
-            data_info["test"] = test_datasets[data_args.test_dataset_name[0] + "_" + data_args.test_dataset_config_name[0]]['extra_fields'] if training_args.do_test else None
+            data_info["test"] = test_datasets[first_ds]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
 
@@ -2072,7 +2058,8 @@ def train(**kwargs):
             return df, scores, golds, preds
 
         ################ Draw image
-        def save_image(folder, model, score_dict, spec, square=False, annot=True):
+        def save_image(folder, model, score_dict, spec, 
+                square=False, annot=True, vmin=None, vmax=None):
             if not model_args.attn_tuning:
                 return
             targets = model.encoder.target_encoders_idx
@@ -2102,6 +2089,8 @@ def train(**kwargs):
                 img_buf = WBCallback.save_image(
                     score=score, 
                     cbar=False,
+                    vmin = vmin,
+                    vmax = vmax,
                     annot=annot,
                     y_labels=y_labels,
                     x_labels=x_labels,
@@ -2203,9 +2192,11 @@ def train(**kwargs):
                        gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
 
                     mylogs.bp("test")
+                    ds_conf = task #data_args.test_dataset_config_name[idx]
+                    ds_name = task #data_args.test_dataset_name[idx]
+                    
                     task = task.split("_")[0]
-                    ds_conf = data_args.test_dataset_config_name[idx]
-                    ds_name = data_args.test_dataset_name[idx]
+                    
                     ds_name = "none" if not ds_name else ds_name
                     ds_conf = "none" if not ds_conf else ds_conf
                     is_train = "train" if training_args.do_train else "eval"
@@ -2246,8 +2237,9 @@ def train(**kwargs):
                             if i != j:
                                 rsim[i][j] = cos(router_scores[i][:], 
                                         router_scores[j][:])
+                    vmin = 0 if tlen <=3 else None
                     save_image(eval_folder, model, {"a-sim":rsim}, 
-                                annot=False, square=True,
+                                annot=True, square=True, vmin=vmin, vmax=1,
                                 spec = norm_method + "-" + str(gt) \
                                         + " | {:.2f}".format(mean_score))
                     tlen = router_scores.size(0)
@@ -2309,50 +2301,51 @@ def train(**kwargs):
                 new_im.save(os.path.join(training_args.output_dir, "images", fname))
 
 
-        targets = model.encoder.target_encoders_idx
-        ss1 = model.encoder.attn_scores.index_select(0, targets)
-        router_scores = model.encoder.router.index_select(0, targets)
-        _tag = kwargs.setdefault("tag",[])
-        #if diff_args:
-        #    for k,v in diff_args["values_changed"].items():
-        #        if not "output_dir" in k and not "expid" in k:
+        if adapter_args.prompt_tuning:
+            targets = model.encoder.target_encoders_idx
+            ss1 = model.encoder.attn_scores.index_select(0, targets)
+            router_scores = model.encoder.router.index_select(0, targets)
+            _tag = kwargs.setdefault("tag",[])
+            #if diff_args:
+            #    for k,v in diff_args["values_changed"].items():
+            #        if not "output_dir" in k and not "expid" in k:
 
-        #           da[k] = v
-        _main_vars = main_vars.copy()
-        if "task_name" in _main_vars:
-            del _main_vars["task_name"]
+            #           da[k] = v
+            _main_vars = main_vars.copy()
+            if "task_name" in _main_vars:
+                del _main_vars["task_name"]
 
-        global_scores.append(ss1)
-        targets = model.encoder.target_encoders_idx
-        y_labels = [model.encoder.prompt_names[i] for i in targets]
-        y_labels = [y.replace("tar-","") for y in y_labels]
-        global_y_labels.extend(y_labels)
-        global_x_labels = model.encoder.prompt_names 
-        for score in [ss1]: #[router_scores]
-            img_buf = WBCallback.save_image(score=score, 
-               y_labels=y_labels,
-               x_labels=model.encoder.prompt_names, 
-               title = str(kwargs.expid) + str(_main_vars) \
-                        + "_" + model_args.attn_method,
-                img_h=6.5 if multi_tasking else 2.5,
-                df=None) 
-            if img_buf:
-                cur_img = Image.open(img_buf)
-                #tags_img = tag_to_image(da, get_image=True)
-                #cur_img = combine_x([tags_img, cur_img])
-                cat = Path(kwargs.save_path).parent
-                sp = op.join(cat, "images") 
-                Path(sp).mkdir(exist_ok=True, parents=True)
-                pic = "router_" + str(exp_info["expid"])
-                pp = sp + "/pred_" + pic + ".png"
-                existing_images = glob.glob(op.join(sp, "pred_*.png"))
-                merge_plots = kwargs.setdefault("merge_plots", False)
-                if existing_images and merge_plots:
-                    pp = existing_images[0]
-                if Path(pp).is_file():
-                    _image = Image.open(pp)
-                    cur_img = combine_y([cur_img, _image])
-                cur_img.save(pp)
+            global_scores.append(ss1)
+            targets = model.encoder.target_encoders_idx
+            y_labels = [model.encoder.prompt_names[i] for i in targets]
+            y_labels = [y.replace("tar-","") for y in y_labels]
+            global_y_labels.extend(y_labels)
+            global_x_labels = model.encoder.prompt_names 
+            for score in [ss1]: #[router_scores]
+                img_buf = WBCallback.save_image(score=score, 
+                   y_labels=y_labels,
+                   x_labels=model.encoder.prompt_names, 
+                   title = str(kwargs.expid) + str(_main_vars) \
+                            + "_" + model_args.attn_method,
+                    img_h=6.5 if multi_tasking else 2.5,
+                    df=None) 
+                if img_buf:
+                    cur_img = Image.open(img_buf)
+                    #tags_img = tag_to_image(da, get_image=True)
+                    #cur_img = combine_x([tags_img, cur_img])
+                    cat = Path(kwargs.save_path).parent
+                    sp = op.join(cat, "images") 
+                    Path(sp).mkdir(exist_ok=True, parents=True)
+                    pic = "router_" + str(exp_info["expid"])
+                    pp = sp + "/pred_" + pic + ".png"
+                    existing_images = glob.glob(op.join(sp, "pred_*.png"))
+                    merge_plots = kwargs.setdefault("merge_plots", False)
+                    if existing_images and merge_plots:
+                        pp = existing_images[0]
+                    if Path(pp).is_file():
+                        _image = Image.open(pp)
+                        cur_img = combine_y([cur_img, _image])
+                    cur_img.save(pp)
 
     if kwargs.setdefault("eval_test", False):
         for task, test_dataset in test_datasets.items():

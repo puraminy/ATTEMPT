@@ -99,7 +99,7 @@
    "prompt_learning_rate": 0.05,
    "attn_learning_rate": 0.1,
    "attn_method": "rb",
-   "temperature": 1,
+   "temperature": 1.0,
    "anneal_dir": -1,
    "normalize": true,
    "anneal_min": 0.001,
@@ -120,5 +120,7 @@
    "cat": "SL_cat_20_59.23_test",
    "output_dir": "/home/ahmad/logs/sl-test/SL_cat_20_59.23_test/34",
    "config": "base",
-   "source_per_task": false
+   "source_per_task": false,
+   "private_prompt_encoder_type": "mlp",
+   "cross_prefix": false
 }

@@ -97,7 +97,7 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_image(score, x_labels, y_labels, fpath="", 
-            annot=True,title="", df=None, img_h=6.5, cbar=True):
+            annot=True,title="", df=None, img_h=6.5, cbar=True, vmin=None, vmax=None):
         if not title: title = fpath
         if df is not None:
             fig, axes = plt.subplot_mosaic("A;B")
@@ -115,6 +115,7 @@ class WBCallback(WandbCallback):
         if np_score.size != 0:
             sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
                     cbar=cbar, 
+                    vmin = vmin, vmax=vmax,
                     # annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,
                     yticklabels=y_labels,

@@ -1208,11 +1208,11 @@ class T5Stack(T5PreTrainedModel):
                 i += 1
 
         if self.router is None:
-            router = nn.Parameter(data=torch.empty((
-                    attend_num,
-                    attend_num 
-                ), device=device).uniform_(-1e-3, 1e-3))
-            # router = torch.zeros((attend_num, attend_num), device=device)
+            #router = nn.Parameter(data=torch.empty((
+            #        attend_num,
+            #        attend_num 
+            #    ), device=device).uniform_(-1e-3, 1e-3))
+            router = torch.zeros((attend_num, attend_num), device=device)
             route_method = self.route_method
             if route_method is not None and route_method.startswith("bias"):
                 i,j,k = 1,1,1
@@ -1520,8 +1520,8 @@ class T5Stack(T5PreTrainedModel):
                     gen_norm_method,
                     gen_thresh=gen_thresh)
 
-        mylogs.bp("unif")
-        if self.training and "after" in self.norm_method:
+        mylogs.bp("norm")
+        if self.training:
             method = self.norm_method.replace("after_","")
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
                     sel_thresh=None)

@@ -73,6 +73,7 @@ if [ -z "$_reval" ]; then
    echo "Configs: $configs"
 else
    _cur=True
+   _re=True
    if [ ${#arr[@]} -eq 0 ]; then 
       configs="exp"
    else
@@ -99,10 +100,10 @@ if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_at" ]; then
-   _tasks="${_tasks}#xAttr#xReact#oReact#xIntent#xWant#oWant"
+   _tasks="${_tasks}#xAttr#xReact#oReact#oWant#xWant#xIntent"
 fi
 if [ -n "$_aft" ]; then
-   _tasks="${_tasks}#xAttr#xReact#xIntent#oReact#oEffect#oWant#xNeed#xEffect#xWant"
+   _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
 fi
 if [ -n "$_lt2" ]; then
    _tasks="mnli#qnli#qqp#mrpc#imdb#sst2#superglue-boolq#stsb"
