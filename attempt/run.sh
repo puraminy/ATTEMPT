@@ -82,6 +82,9 @@ else
    echo "Configs: $configs"
 fi
 ######################################## Task flags:
+if [ -n "$_gst" ]; then
+   _tasks="${_tasks}#mnli#qnli#mrpc"
+fi
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"
 fi

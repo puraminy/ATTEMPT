@@ -22,6 +22,8 @@ def main(ctx, fname):
         print("-----------------------")
         mylogs.minfo(Path(f).stem)
         print("old kv is:", inp_kv)
+        if new_kv == "q":
+            break
         if new_kv != "all":
             new_kv = input("key=value:")
         if new_kv and new_kv != "s" and new_kv != "all":
@@ -42,7 +44,7 @@ def main(ctx, fname):
                 new_kv = input("key=value:",)
             if new_kv and new_kv != "s" and new_kv != "all":
                 inp_kv = new_kv
-            if not new_kv or new_kv == "all":
+            if not new_kv or new_kv == "all" or new_kv == "q":
                 break
         with open(f, 'w') as j:
             json.dump(d, j, indent=3)

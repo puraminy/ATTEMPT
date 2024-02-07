@@ -56,7 +56,7 @@ class WBCallback(WandbCallback):
 
     @staticmethod
     def save_images(scores, x_labels, y_labels, state=None, fname="", 
-            annot=True,title="", add_tags=True):
+            annot=True,title="", add_tags=True, vmin=None, vmax=None):
         if not title: title = fname
         if add_tags:
             fig, axes = plt.subplot_mosaic("ABB;ACC;ADD")
@@ -82,7 +82,8 @@ class WBCallback(WandbCallback):
             np_score = score.detach().cpu().numpy()
             if np_score.size != 0:
                 sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
-                        annot_kws={'rotation': 90}, 
+                        # annot_kws={'rotation': 90}, 
+                        vmin = vmin, vmax=vmax,
                         xticklabels=x_labels,
                         yticklabels=y_labels,
                         linewidth=0.5)
@@ -96,32 +97,33 @@ class WBCallback(WandbCallback):
         return img_buf
 
     @staticmethod
-    def save_image(score, x_labels, y_labels, fpath="", 
+    def save_image(scores, x_labels, y_labels, fpath="", 
             annot=True,title="", df=None, img_h=6.5, cbar=True, vmin=None, vmax=None):
         if not title: title = fpath
-        if df is not None:
-            fig, axes = plt.subplot_mosaic("A;B")
+        mylogs.bp("save_image")
+        if len(scores) == 2:
+            fig, axes = plt.subplot_mosaic("AB")
             ax1, ax2 = axes["A"], axes["B"]
-            ax1.table(cellText=df.values, colLabels=df.columns, fontsize=15, loc='center')
-            ax1.axis("off")
+            axes = [ax1, ax2]
             ax_t = ax2
         else:
             fig, axes = plt.subplot_mosaic("A")
             ax1 = axes["A"]
+            axes = [ax1]
             ax_t = ax1
         ax1.set_title(title)
-        fig.set_size_inches(score.size(1)*0.8, score.size(0)*0.8)
-        np_score = score.detach().cpu().numpy()
-        if np_score.size != 0:
-            sns.heatmap(np_score, ax=ax_t, cmap="crest", annot=annot, 
+        if not type(scores) == list:
+            scores = [scores]
+        fig.set_size_inches(len(scores)*scores[0].size(1)*0.8, scores[0].size(0)*0.8)
+        for ax, sc in zip(axes, scores):
+            np_score = sc.detach().cpu().numpy()
+            sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
                     cbar=cbar, 
                     vmin = vmin, vmax=vmax,
                     # annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,
                     yticklabels=y_labels,
                     linewidth=0.5)
-        else:
-            return None
         #plt.tight_layout()
         mylogs.bp("wand")
         if fpath:

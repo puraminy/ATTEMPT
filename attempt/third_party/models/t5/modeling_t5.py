@@ -58,7 +58,7 @@ from torch.nn.utils.rnn import pad_sequence
 # My utility function
 ############
 def normalize_scores(scores, method="soft", 
-        sel_thresh=None, gen_thresh=None, resample=False):
+        sel_thresh=None, gen_thresh_min=None, gen_thresh_max=None, resample=False):
     mylogs.bp("norm")
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=0.001, 
@@ -66,6 +66,13 @@ def normalize_scores(scores, method="soft",
 
     if sel_thresh is not None:
         scores[scores < sel_thresh] = -100
+
+    if gen_thresh_max is not None:
+        mylogs.bp("gmax")
+        scores[scores > gen_thresh_max] = gen_thresh_max
+
+    if gen_thresh_min is not None:
+        scores[scores < gen_thresh_min] = 0 if method == "nothing" else -100
 
     if method == "nothing":
        pass 
@@ -96,8 +103,6 @@ def normalize_scores(scores, method="soft",
         _max, _ = torch.max(scores, dim=-1, keepdim=True)
         scores = (scores - _min) / (_max - _min)
     
-    if gen_thresh is not None:
-        scores[scores < gen_thresh] = 0
 
     return scores
 
@@ -1066,6 +1071,7 @@ class T5Stack(T5PreTrainedModel):
         self.embedding_dim = self.config.hidden_size
         # all prompt ids for all tasks
         self.target_prompt_ids = []
+        self.common_prompt_ids = [] 
         self.task_prompt_ids = []
         self.router = None
         self.init_router = None
@@ -1085,6 +1091,7 @@ class T5Stack(T5PreTrainedModel):
         self.compose_method = config.compose_method
         self.select_method = config.select_method
         self.target_share_temperature = config.target_share_temperature
+        self.bias = config.bias
         self.anneal_min = config.anneal_min
         self.anneal_dir = config.anneal_dir
         self.anneal_rate = config.anneal_rate
@@ -1168,9 +1175,9 @@ class T5Stack(T5PreTrainedModel):
     def set_encoders(self, prompt_encoders, source_prompts, 
             src_prompt_dim, prompt_dim, tasks = None):
         self.task_names = tasks
+        mylogs.bp("set")
         self.prompt_encoders = torch.nn.ModuleList(prompt_encoders)
         src_tgt_encoders = [e for e in self.prompt_encoders if e.is_source or e.is_target]
-        mylogs.bp("set")
         self.prompt_dim = prompt_dim[0] if type(prompt_dim) == list else prompt_dim
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num =len(src_tgt_encoders) + 1 # one for input
@@ -1184,15 +1191,17 @@ class T5Stack(T5PreTrainedModel):
         if source_prompts:
             self.num_src_encoders = len(source_prompts) + 1 # one for input 
 
-
         target_prompt_ids = []
         task_prompt_ids = []
+        common_prompt_ids = []
         self.attn_mask = torch.ones(attend_num, attend_num, device=device)
         src_list = []
         tgt_list = []
         i = 1
         for encoder in self.prompt_encoders:
-            if encoder.is_target:
+            if encoder.is_common:
+                common_prompt_ids.extend(encoder.prompt_ids)
+            elif encoder.is_target:
                 target_prompt_ids.extend(encoder.prompt_ids)
             else:
                 task_prompt_ids.extend(encoder.prompt_ids)
@@ -1224,10 +1233,10 @@ class T5Stack(T5PreTrainedModel):
                         first = False
                     elif encoder.is_target:
                         if route_method == "biasx" or route_method == "biass":
-                            router[i, j] = 0.5 # self.target_share_temperature
+                            router[i, j] = self.bias
                             j += 1
                         if k > 1 and (route_method == "biasx" or route_method == "biasp"):
-                            router[i, k] = 0.5 #self.target_share_temperature
+                            router[i, k] = self.bias
                             k += 1
                     i += 1
                 mylogs.bp("bias")
@@ -1238,6 +1247,7 @@ class T5Stack(T5PreTrainedModel):
         self.target_encoders_idx = torch.tensor(tgt_list, device=device)
 
         self.target_prompt_ids = torch.tensor(target_prompt_ids, device=device)
+        self.common_prompt_ids = torch.tensor(common_prompt_ids, device=device)
         self.task_prompt_ids = torch.tensor(task_prompt_ids, device=device)
         intrinsic_dim = 200
         self.target_router = nn.Parameter(data=torch.empty((
@@ -1510,21 +1520,25 @@ class T5Stack(T5PreTrainedModel):
             pass
 
         if not self.training:
-            gen_thresh = None 
+            gen_thresh_min = None 
+            gen_thresh_max = None
             if self.gen_conf is not None and "gen_norm_method" in self.gen_conf:
                 gen_norm_method = self.gen_conf["gen_norm_method"] 
-            if self.gen_conf is not None and "gen_thresh" in self.gen_conf:
-                gen_thresh = self.gen_conf["gen_thresh"] 
+            if self.gen_conf is not None and "gen_thresh_min" in self.gen_conf:
+                gen_thresh_min = self.gen_conf["gen_thresh_min"] 
+            if self.gen_conf is not None and "gen_thresh_max" in self.gen_conf:
+                gen_thresh_max = self.gen_conf["gen_thresh_max"] 
             mylogs.bp("gn-"+ gen_norm_method)
             attn_sel_scores = normalize_scores(attn_sel_scores, 
                     gen_norm_method,
-                    gen_thresh=gen_thresh)
+                    gen_thresh_min=gen_thresh_min,
+                    gen_thresh_max=gen_thresh_max)
 
         mylogs.bp("norm")
         if self.training:
             method = self.norm_method.replace("after_","")
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
-                    sel_thresh=None)
+                    sel_thresh=self.sel_thresh)
 
         mylogs.bp("unif")
         if route_method == "unif":
@@ -1587,18 +1601,21 @@ class T5Stack(T5PreTrainedModel):
         return (ar1[..., None] == ar2).any(-1)
 
     @property
-    def get_target_prompt_ids_fn(self):
+    def get_target_prompt_ids_mask(self):
         return lambda x: self.isin(x, self.target_prompt_ids)
 
     @property
-    def get_task_prompt_ids_fn(self):
+    def get_common_prompt_ids_mask(self):
+        return lambda x: self.isin(x, self.common_prompt_ids)
+
+    @property
+    def get_task_prompt_ids_mask(self):
         return lambda x: self.isin(x, self.task_prompt_ids)
 
     # pppppppppp
     def prompt_encoders_forward(self, input_ids, inputs_embeds, task_ids, task, att_mask):
         if len(self.prompt_encoders) > 0:
             mylogs.bp("fwd")
-
             if not self.training:
                 mylogs.bp("fll")
             device=input_ids.device
@@ -1612,15 +1629,20 @@ class T5Stack(T5PreTrainedModel):
             num_prompt_encoders = len(self.prompt_encoders) + 1
             #num_source_encoders = len([e for e in self.prompt_encoders if e.is_source]) + 2
             # prompt masks for all prompt tokens
-            target_prompt_masks = self.get_target_prompt_ids_fn(input_ids)
+            target_prompt_masks = self.get_target_prompt_ids_mask(input_ids)
             self.adapter_config.prompt_masks = target_prompt_masks
             # exteract prompt ids of tasks in the batch
             target_prompt_ids = input_ids[target_prompt_masks].view(batch_size,-1) 
 
-            task_prompt_masks = self.get_task_prompt_ids_fn(input_ids)
+            common_prompt_masks = self.get_common_prompt_ids_mask(input_ids)
+            common_prompt_ids = input_ids[common_prompt_masks].view(batch_size,-1) 
+
+            task_prompt_masks = self.get_task_prompt_ids_mask(input_ids)
             sp_prompt_ids = input_ids[task_prompt_masks].view(batch_size,-1) 
             
             target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+                                          device=device) 
+            common_prompts = torch.zeros((*common_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             task_prompts = torch.zeros((*sp_prompt_ids.size(), self.model_dim), 
                                           device=device) 
@@ -1630,6 +1652,7 @@ class T5Stack(T5PreTrainedModel):
             target_idx_list = []
             target_prompts_list = []
             task_prompts_list = []
+            common_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
                  self.src_prompt_dim, self.model_dim), device=device) 
@@ -1641,8 +1664,20 @@ class T5Stack(T5PreTrainedModel):
                     src_prompts[encoder.src_idx, :] = emb
                     ii += 1
                     continue
-
+                
                 prompt_token_fn = encoder.get_prompt_token_fn()
+                if encoder.is_common:
+                    common_masks = prompt_token_fn(common_prompt_ids)
+                    if common_masks.any():
+                        prompt_input_ids = common_prompt_ids[common_masks]
+                        #call forwards on prompt encoder whose outputs are prompt embeddings
+                        out = encoder(prompt_input_ids, tids)
+                        prompt_embeds = out.to(device)
+                        common_prompts_clone = common_prompts.clone()
+                        common_prompts_clone[common_masks] = prompt_embeds
+                        common_prompts_list.append(common_prompts_clone)
+                        continue
+
                 target_masks = prompt_token_fn(target_prompt_ids)
                 if not target_masks.any():
                     task_masks = prompt_token_fn(sp_prompt_ids)
@@ -1669,6 +1704,12 @@ class T5Stack(T5PreTrainedModel):
                     target_idx_list.append(ii)
                     target_idx[target_masks] = ii
                     ii += 1
+            if common_prompts_list:
+                common_prompts = torch.stack(common_prompts_list) 
+                # averaging task prompts in the case that there are shared prompts
+                mask = common_prompts!=0
+                common_prompts = (common_prompts*mask).sum(dim=0)/mask.sum(dim=0)
+                inputs_embeds[common_prompt_masks]=common_prompts.view(-1, self.model_dim)
             if task_prompts_list:
                 task_prompts = torch.stack(task_prompts_list) 
                 # averaging task prompts in the case that there are shared prompts
@@ -1678,7 +1719,7 @@ class T5Stack(T5PreTrainedModel):
             if target_prompts_list:
                 target_prompts = torch.stack(target_prompts_list) 
                 mask = target_prompts != 0
-                # averaging target prompts in the case that there are shared prompts
+                # averaging target prompts in the case that there are shared prompt tokens
                 target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
                 if self.attn_prompt_tuning and not self.target_share == 1:
                     attn_mask = self.attn_mask
@@ -1743,7 +1784,7 @@ class T5Stack(T5PreTrainedModel):
                             if self.training: 
                                 thresh = self.sel_thresh 
                             else:
-                                thresh = self.gen_conf.get("gen_thresh", None)
+                                thresh = self.gen_conf.get("gen_thresh_min", None)
                             if thresh is not None:
                                 amask = attn_scores > thresh 
                                 if not torch.all(amask):

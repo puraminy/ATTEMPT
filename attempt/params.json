@@ -1,0 +1,10 @@
+{
+  "gmin":"gen_thresh_min",
+  "gmax":"gen_thresh_max",
+  "nm":"norm_method",
+  "gnm":"gen_norm_method",
+  "st":"sel_thresh",
+  "rm":"route_method",
+  "tmpr":"temperature",
+  "cmm":"compose_method"
+}

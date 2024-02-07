@@ -89,7 +89,7 @@
    "learn_loaded_prompts": true,
    "use_private_prompts": true,
    "load_private_prompts": true,
-   "sel_thresh": 0.1,
+   "sel_thresh": "0.5",
    "learn_source_prompts": true,
    "ignore_if_prompt_not_exists": false,
    "rels": null,
@@ -113,8 +113,11 @@
    "anneal_min": 0.001,
    "anneal_type": "linear",
    "anneal_rate": 0.02,
-   "norm_method": "nothing-0.5",
-   "gen_norm_method": "nothing-0",
+   "norm_method": "nothing",
+   "gen_norm_method": [
+      "nothing",
+      "soft"
+   ],
    "route_method": "direct",
    "use_saved_router": false,
    "init_from_words": false,
@@ -130,5 +133,8 @@
    "config": "base",
    "source_per_task": true,
    "private_prompt_encoder_type": "mlp",
-   "cross_prefix": false
+   "cross_prefix": false,
+   "bias": 0.0,
+   "gen_thresh_max": null,
+   "gen_thresh_min": 0.0
 }

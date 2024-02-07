@@ -94,6 +94,14 @@ global_x_labels = []
 from scipy.stats import entropy
 
 
+def map_param(param_map, x, key=False):
+    k, v = x.strip("--").split("=")
+    k = k.strip("@")
+    m = param_map[k] if k in param_map else k
+    if key is True: 
+        return m
+    else:
+        return "@" + m + "=" + v 
 
 def cosine_similarity(A, B, N):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -377,8 +385,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
 
-   mylogs.bp("run")
-   all_vars = [x.strip("--") for x in ctx.args]
+   mylogs.bp("start")
+   _dir = Path(__file__).parent
+   param_map = {}
+   param_file = os.path.join(_dir, "params.json")
+   if Path(param_file).is_file():
+       with open(param_file) as f:
+          param_map = json.load(f)
+
+   all_vars = [map_param(param_map, x) for x in ctx.args]
+   # all_vars = [x.strip("--") for x in ctx.args]
    var_names = [x.split("=")[0] for x in all_vars]
    values = []
    for x in all_vars:
@@ -389,13 +405,18 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
    _mvars = []
+   mylogs.bp("mvar")
    for var in main_vars.split("--"):
+       if not var: continue
+       var = map_param(param_map, var)
        if "=" in var:
-           var_name = var.split("=")[0]
+           var_name = var.split("=")[0].strip("@")
            assert var_name in exp_args, var_name +" must be in experiment variables (config)"
            var_item = var.split("=")[1].split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
+       else:
+           _mvars.append(var)
    if _mvars: main_vars = _mvars
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
@@ -415,11 +436,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    values = list(var_dict.values())
    inp_exp_vars = exp_vars
    mylogs.bp("start")
+   mylogs.bp("mvar")
    if not main_vars:
        main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
    if not main_vars:
-       main_vars = [x.split("=")[0].strip("--") for x in ctx.args if x.startswith("--")]
-       main_vars = "--".join([x.strip("@") for x in main_vars])
+       main_vars = [map_param(param_map,x,key=True) for x in ctx.args if x.startswith("--")]
+       # main_vars = "--".join([x.strip("@") for x in main_vars])
 
    if not exp_vars:
        #if main_vars:
@@ -1049,13 +1071,16 @@ def train(**kwargs):
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
+    config.bias = kwargs.setdefault("bias", 0.0)
+    if config.bias > 0:
+        assert config.route_method.startswith("bias"), "Route method must support bias"
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
     norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
     if "-" in norm_method:
         norm_method, sel_thresh = norm_method.split("-")
-        sel_thresh = float(sel_thresh)
+        sel_thresh = float(sel_thresh) if sel_thresh != 'none' else None
     else:
         sel_thresh = kwargs.setdefault("sel_thresh", None)
     config.norm_method = norm_method
@@ -1320,6 +1345,7 @@ def train(**kwargs):
             prompt_encoders.append(encoder)
 
         ############################ Create Target Prompt Encoders #############
+        mylogs.bp("mask")
         encoders_prompts = prompts
         # task prompts has one encoder per task where they could have shared tokens
         # shared encoders has one encoder per prompt ids. 
@@ -1331,7 +1357,6 @@ def train(**kwargs):
         attend_to_all = kwargs.setdefault("attend_to_all", False) 
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
         # create and load target prompts
-        mylogs.bp("mask")
         num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
@@ -1356,6 +1381,8 @@ def train(**kwargs):
                 encoder.is_target = True
                 nn = name.replace("tar-","")
                 encoder.attend_to.extend(["source_for_" +  nn])
+            elif prompt_tokens[0].startswith("<com_"):
+                encoder.is_common = True
             if False: #TODO router_dict and name in router_dict:
                 encoder.attend_to_mask = [1 if r > 0.1 else 0 for r in router_dict[name]] 
             else: 
@@ -2063,7 +2090,7 @@ def train(**kwargs):
             if not model_args.attn_tuning:
                 return
             targets = model.encoder.target_encoders_idx
-            mylogs.bp("pic")
+            mylogs.bp("save_image")
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
             p_labels = []
@@ -2078,34 +2105,35 @@ def train(**kwargs):
             tasks = data_args.task_name
             folder = os.path.join(folder, "img_logs")
             Path(folder).mkdir(parents=True, exist_ok=True)
-            title = list(score_dict.keys())[0]
+            title = "-".join(list(score_dict.keys()))
+            title = title.strip("-")
             fname = "pred@" + title + "@_" + str(exp_info["expid"]) + ".png"
             fpath = os.path.join(folder, fname)
-            img_list=[]
-            for ii, (title, score) in enumerate(score_dict.items()):
-                x_labels = y_labels
-                if not square:
-                    if p_labels: x_labels = p_labels 
-                img_buf = WBCallback.save_image(
-                    score=score, 
-                    cbar=False,
-                    vmin = vmin,
-                    vmax = vmax,
-                    annot=annot,
-                    y_labels=y_labels,
-                    x_labels=x_labels,
-                    title = title  
-                            + " | " + model_args.compose_method \
-                            + " | " + str(kwargs.norm_method) \
-                            + " | " + spec
-                )
-                if img_buf:
-                    im = Image.open(img_buf)
-                    new_im = trim_image(im) 
-                    img_list.append(im)
+            
+            x_labels = y_labels
+            if not square:
+                if p_labels: x_labels = p_labels 
+            img_buf = WBCallback.save_image(
+                scores=list(score_dict.values()), 
+                cbar=False,
+                vmin = vmin,
+                vmax = vmax,
+                annot=annot,
+                y_labels=y_labels,
+                x_labels=x_labels,
+                #title = title  
+                #        + " | " + model_args.compose_method \
+                #        + " | " + str(kwargs.norm_method) \
+                #        + " | " + spec
+            )
+            if img_buf:
+                im = Image.open(img_buf)
+                new_im = trim_image(im) 
+                new_im.save(fpath)
+                #img_list.append(im)
 
-            new_im = combine_x(img_list)
-            new_im.save(fpath)
+            #new_im = combine_y(img_list)
+            #new_im.save(fpath)
 
         ##################
         results = {}
@@ -2113,9 +2141,12 @@ def train(**kwargs):
         mylogs.bp("gen_conf")
         gnm = kwargs.setdefault("gen_norm_method",["soft"])
         if type(gnm) != list: gnm = [gnm] 
-        gen_thresh = kwargs.get("gen_thresh", [None])
-        if type(gen_thresh) != list: gen_thresh = [gen_thresh]
-        gen_thresh = [float(gg) if gg is not None else gg for gg in gen_thresh]
+        gen_thresh_min = kwargs.get("gen_thresh_min", [None])
+        gen_thresh_max = kwargs.get("gen_thresh_max", [None])
+        if type(gen_thresh_min) != list: gen_thresh_min = [gen_thresh_min]
+        if type(gen_thresh_max) != list: gen_thresh_max = [gen_thresh_max]
+        gen_thresh_min = [float(gg) if gg is not None else gg for gg in gen_thresh_min]
+        gen_thresh_max = [float(gg) if gg is not None else gg for gg in gen_thresh_max]
         gen_ntp = kwargs.setdefault("gen_ntp",[num_target_prompts])
         if type(gen_ntp) != list: gen_ntp = [gen_ntp] 
         gen_ntp = [gg for gg in gen_ntp if gg <= num_target_prompts]
@@ -2156,11 +2187,13 @@ def train(**kwargs):
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
-            gen_combs = itertools.product(gen_masks.items(),gnm, gen_thresh, gen_ntp)
-            for (rm,mask), norm_method, gt, gntp in gen_combs:
+            gen_combs = itertools.product(gen_masks.items(),gnm, 
+                    gen_thresh_min, gen_thresh_max, gen_ntp)
+            for (rm,mask), norm_method, gmin, gmax, gntp in gen_combs:
                 if "-" in norm_method:
-                    norm_method, gt = norm_method.split("-")
-                    gt = float(gt)
+                    norm_method, tmin, tmax = norm_method.split("-")
+                    gmin = float(tmin) if tmin != 'none' else None
+                    gmax = float(tmax) if tmax != 'none' else None
 
                 attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                 model.encoder.attn_scores = torch.zeros(
@@ -2170,7 +2203,7 @@ def train(**kwargs):
                 mylogs.bp("pic")
                 rv = "Eval" if not reval else "Reval"
                 eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                        + "_" + str(gt) + "_" + norm_method + "_trial-" \
+                        + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method + "_trial-" \
                         + str(kwargs.trial) + "_" + str(ii) 
                 eval_folder = os.path.join(exp_folder, eval_folder_name)
                 Path(eval_folder).mkdir(parents=True, exist_ok=True)
@@ -2180,7 +2213,8 @@ def train(**kwargs):
                 for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                     gen_conf["gen_norm_method"] = norm_method
                     gen_conf["mask_type"] = rm
-                    gen_conf["gen_thresh"] = gt
+                    gen_conf["gen_thresh_min"] = gmin
+                    gen_conf["gen_thresh_max"] = gmax
                     gen_conf["gen_ntp"] = gntp
                     for kk, vv in gen_conf.items():
                         if kk not in ["attn_mask"]:
@@ -2238,16 +2272,16 @@ def train(**kwargs):
                                 rsim[i][j] = cos(router_scores[i][:], 
                                         router_scores[j][:])
                     vmin = 0 if tlen <=3 else None
-                    save_image(eval_folder, model, {"a-sim":rsim}, 
+                    save_image(eval_folder, model, {"rsim":rsim}, 
                                 annot=True, square=True, vmin=vmin, vmax=1,
-                                spec = norm_method + "-" + str(gt) \
+                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
                                         + " | {:.2f}".format(mean_score))
                     tlen = router_scores.size(0)
                     if multi_tasking:
                         start = 0 if model_args.attend_input else 1 
                         router_scores = router_scores[:,start:slen+tlen + 1]
                     save_image(eval_folder, model, {"router":router_scores}, 
-                                spec = norm_method + "-" + str(gt) \
+                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
                                         + " | {:.2f}".format(mean_score))
                     if init_router is not None:
                         init_router_scores = init_router.index_select(0, targets)
@@ -2274,12 +2308,13 @@ def train(**kwargs):
                     if len(torch.nonzero(ss1)) < 1:
                         ss1 = torch.eye(tlen)
                     save_image(eval_folder, model, {"score":ss1}, 
-                                spec = norm_method + "-" + str(gt) \
+                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
                                         + " | {:.2f}".format(mean_score))
-                    #score_dict= {"sim-rsim":torch.cat([sim,rsim], dim=1)}
-                    #save_image(eval_folder, model, score_dict, 
-                    #        annot=False,
-                    #        spec = norm_method + " | {:.2f}".format(mean_score))
+                    score_dict= {"sim":sim, "rsim": rsim}
+                    save_image(eval_folder, model, score_dict, 
+                            annot=True,
+                            square=True,
+                            spec = norm_method + " | {:.2f}".format(mean_score))
 
                     if mask is not None:
                         ss3 = mask.index_select(0, targets)
@@ -2292,9 +2327,9 @@ def train(**kwargs):
                     save_image(eval_folder, model, {"mask": ss3}, spec=rm)
         ################
         sdf = pd.DataFrame(data=sdf_rows)
-        if img_list:
+        if False: #img_list:
             new_im = combine_y(img_list)
-            fname = "pred_" + str(exp_info["expid"]) 
+            fname = "pred_" + str(exp_info["expid"]) + ".png" 
             if use_wandb:
                 wandb.log({fname:wandb.Image(new_im)})
             else:
@@ -2322,7 +2357,7 @@ def train(**kwargs):
             global_y_labels.extend(y_labels)
             global_x_labels = model.encoder.prompt_names 
             for score in [ss1]: #[router_scores]
-                img_buf = WBCallback.save_image(score=score, 
+                img_buf = WBCallback.save_image(scores=[score], 
                    y_labels=y_labels,
                    x_labels=model.encoder.prompt_names, 
                    title = str(kwargs.expid) + str(_main_vars) \

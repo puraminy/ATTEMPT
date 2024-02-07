@@ -497,6 +497,21 @@ def show_df(df):
 
     back = []
     sels = []
+    back_df = None
+    context = "main"
+    contexts = []
+    def backit(df, sel_cols):
+        if len(sel_cols) < 2:
+            mbeep()
+            return
+        back_df = df
+        back.append(df)
+        contexts.append(context)
+        sels.append(sel_cols.copy())
+        back_rows.append(sel_row)
+        back_infos.append(info_cols.copy())
+
+
     filter_df = main_df
     tag_cols = []
     if "taginfo" in df:
@@ -529,7 +544,7 @@ def show_df(df):
 
     #wwwwwwwwww
     colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
-    contexts = {"g":"main", "G":"main", "X":"view", "r":"main"}
+    context_map = {"g":"main", "G":"main", "X":"view", "r":"main"}
     ax = None
     if "Z" in hotkey:
         df["m_score"] = df["rouge_score"]
@@ -767,14 +782,6 @@ def show_df(df):
             exprs.append(exp)
         return exprs, values 
 
-    def backit(df, sel_cols):
-        if len(sel_cols) < 2:
-            mbeep()
-            return
-        back.append(df)
-        sels.append(sel_cols.copy())
-        back_rows.append(sel_row)
-        back_infos.append(info_cols.copy())
 
     for _col in ["input_text","pred_text1","target_text"]:
         if _col in df:
@@ -841,7 +848,7 @@ def show_df(df):
             for key, img_dict in imgs.items():
                 #sorted_keys = (sorted(img_dict.keys()))
                 if not image_keys:
-                  image_keys = ["a-sim", "score", "init_router", "router", "mask"] 
+                  image_keys = ["sim-rsim", "score", "init_router", "router", "mask"] 
                 # TODO fixed
                 img_list = [img_dict[k] for k in image_keys if k in img_dict] 
                 max_width = 0
@@ -977,7 +984,8 @@ def show_df(df):
         vals = []
         get_cmd = False
         adjust = True
-        # context = contexts[char] if char in contexts else char
+        #if char in context_map:
+        #    context = contexts_map[char] 
         if ch == cur.KEY_NPAGE:
             left += 20
             adjust = False
@@ -1145,7 +1153,7 @@ def show_df(df):
                 #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
-        if char == "O" and prev_char == "x":
+        if char == "O":
             sel_exp=df.iloc[sel_row]["eid"]
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
@@ -1157,15 +1165,36 @@ def show_df(df):
             image_keys = "" if char == "o" else ["score", "a-sim"]
             experiment_images, fnames = get_images(df, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
+            dif_cols = sel_cols.copy()
+            for col in dif_cols:
+                if col in pcols:
+                    dif_cols.remove(col)
+                    continue
+                vals = []
+                for exp in exprs:
+                    v = df.loc[df.eid == exp, col].iloc[0]
+                    vals.append(v)
+                if all(str(x).strip() == str(vals[0]).strip() for x in vals):
+                    dif_cols.remove(col)
+
             capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
+            pic = None
             for key, img_list in experiment_images.items(): 
                 im = img_list[0]
-                if not capt_pos or capt_pos == "none" or char == "y":
-                    images.append(im)
-                else:
+                images.append(im)
+
+            if images:
+                pic = combine_x(images)
+                im = pic
+                if capt_pos and capt_pos != "none" and char != "y":
                     width, height = im.size
-                    if capt_pos == "below":
-                        _image = add_margin(im, 0, 5, 200, 5, (255, 255, 255))
+                    gap = 150*len(exprs)
+                    if capt_pos == "top":
+                        _image = add_margin(im, gap, 5, 0, 5, (255, 255, 255))
+                        xx = 10
+                        yy = 50 
+                    elif capt_pos == "below":
+                        _image = add_margin(im, 0, 5, gap, 5, (255, 255, 255))
                         xx = 10
                         yy = height + 50 
                     elif capt_pos == "left":
@@ -1173,36 +1202,42 @@ def show_df(df):
                         xx = 10
                         yy = 10
                     draw = ImageDraw.Draw(_image)
-                    caption_dict = {}
-                    if not df.loc[df['eid'] == key].empty:
-                        caption_dict = df.loc[df['eid'] == key, sel_cols].iloc[0].to_dict()
-                    for cc, value in caption_dict.items(): 
-                        if cc.endswith("score"):
-                            mm = map_cols[cc] if cc in map_cols else cc
-                            mm = "{}:".format(mm)
-                            draw.text((xx, yy),mm,(150,150,150),font=font)
-                            tw, th = draw.textsize(mm, font)
-                            mm = "{:.2f}".format(value)
-                            xx += tw + 10
-                            draw.text((xx, yy),mm,(250,5,5),font=font)
-                            tw, th = draw.textsize(mm, font)
-                        else:
-                            mm = map_cols[cc] if cc in map_cols else cc
-                            mm = "{}:".format(mm)
-                            draw.text((xx, yy),mm,(150,150,150),font=font)
-                            tw, th = draw.textsize(mm, font)
-                            mm = "{}".format(value)
-                            xx += tw + 10
-                            draw.text((xx, yy),mm,(20,25,255),font=font)
-                            tw, th = draw.textsize(mm, font)
-                        if capt_pos == "left":
+                    for col_set in [dif_cols, pcols]:
+                        for key in exprs:
+                            caption_dict = {}
+                            if not df.loc[df['eid'] == key].empty:
+                                caption_dict = df.loc[df['eid'] == key, 
+                                        col_set].iloc[0].to_dict()
+                            for cc, value in caption_dict.items(): 
+                                if cc.endswith("score"):
+                                    mm = map_cols[cc] if cc in map_cols else cc
+                                    mm = "{}:".format(mm)
+                                    draw.text((xx, yy),mm,(150,150,150),font=font)
+                                    tw, th = draw.textsize(mm, font)
+                                    mm = "{:.2f}".format(value)
+                                    xx += tw + 10
+                                    draw.text((xx, yy),mm,(250,5,5),font=font)
+                                    tw, th = draw.textsize(mm, font)
+                                else:
+                                    mm = map_cols[cc] if cc in map_cols else cc
+                                    mm = "{}:".format(mm)
+                                    draw.text((xx, yy),mm,(150,150,150),font=font)
+                                    tw, th = draw.textsize(mm, font)
+                                    mm = "{}".format(value)
+                                    xx += tw + 10
+                                    draw.text((xx, yy),mm,(20,25,255),font=font)
+                                    tw, th = draw.textsize(mm, font)
+                                if capt_pos == "left":
+                                    xx = 10
+                                    yy += 60
+                                else:
+                                    xx += tw + 10
+                            yy += 40
                             xx = 10
-                            yy += 60
-                        else:
-                            xx += tw + 10
-                    images.append(_image)
-            if images:
-                pic = combine_x(images)
+                        yy += 40
+                        xx = 10
+                    pic = _image
+            if pic is not None:
                 dest = os.path.join("routers.png")
                 pic.save(dest)
                 #pname=df.iloc[sel_row]["image"]
@@ -1965,14 +2000,15 @@ def show_df(df):
            df = df[df_cond]
            df_cond = True
         elif is_enter(ch) or char in ["f", "F"]:
-            backit(df, sel_cols)
+            if context != "filter" or char == "f":
+                backit(df, sel_cols)
+            else:
+                df = back[-1]
+            context = "filter"
             if is_enter(ch): char = "F"
             col = sel_cols[cur_col]
             if col == "fid": col = FID
-            if char == "f":
-                canceled, col, val = list_df_values(main_df, col, get_val=True)
-            else:
-                canceled, col, val = list_df_values(df, col, get_val=True)
+            canceled, col, val = list_df_values(df, col, get_val=True)
             cond = ""
             if not canceled:
                if type(val) == str:
@@ -1980,8 +2016,6 @@ def show_df(df):
                else:
                   cond = f"df['{col}'] == {val}"
             mlog.info("cond %s, ", cond)
-            if char == "f":
-               df = main_df
             if cond:
                df = df[eval(cond)]
                #df = df.reset_index()
@@ -2109,7 +2143,7 @@ def show_df(df):
                 info_cols.append(col)
         elif char == "m" and "cfg" in df:
             char = ""
-            _,files = get_sel_rows(df, col="cfg")
+            _,files = get_sel_rows(df, row_id="cfg", col="cfg", from_main=False)
             files = [os.path.join(home, "results", c + ".json") for c in files]
             files.insert(0, "meld")
             subprocess.run(files)
@@ -2669,6 +2703,7 @@ def show_df(df):
                 sel_cols = sels.pop() 
                 sel_row = back_rows.pop()
                 info_cols = back_infos.pop()
+                context = contexts.pop()
                 left = 0
             else:
                 mbeep()
