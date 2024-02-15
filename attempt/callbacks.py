@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import json, os
 import io
 from PIL import Image
-
+import torch
 import logging
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,9 @@ class AnnealCallback(TrainerCallback):
 
 class WBCallback(WandbCallback):
     cur_epoch = -1
-    def __init__(self, **kwargs):
+    def __init__(self, save_path, save_router_image=False, **kwargs):
+        self.save_path = save_path
+        self.save_router_image = save_router_image
         super().__init__()
 
     @staticmethod
@@ -99,7 +101,7 @@ class WBCallback(WandbCallback):
     @staticmethod
     def save_image(scores, x_labels, y_labels, fpath="", 
             annot=True,title="", df=None, img_h=6.5, cbar=True, vmin=None, vmax=None):
-        if not title: title = fpath
+        # if not title: title = fpath
         mylogs.bp("save_image")
         if len(scores) == 2:
             fig, axes = plt.subplot_mosaic("AB")
@@ -132,6 +134,42 @@ class WBCallback(WandbCallback):
         plt.savefig(img_buf, format='png')
         plt.close("all")
         return img_buf
+
+    def on_epoch_begin(self, args, state, control, **kwargs):
+        if not self.save_router_image:
+            return
+        mylogs.bp("save_router")
+        model = kwargs.pop("model", None)
+        targets = model.encoder.target_encoders_idx
+        y_labels = [model.encoder.prompt_names[i] for i in targets]
+        y_labels = [y.replace("tar-","") for y in y_labels]
+        p_labels = []
+        for pl in model.encoder.prompt_names:
+            if not "tar" in pl and not "input" in pl:
+                pl = pl.replace("source_for_","") 
+                pl = pl.replace("source_","") 
+                pl = pl.replace("superglue-","") 
+                pl = pl.replace("com","src") 
+                p_labels.append(pl)
+        router_scores = model.encoder.router.index_select(0, targets)
+        square = False
+        x_labels = y_labels
+        if not square:
+            if p_labels: x_labels = p_labels 
+        tlen = router_scores.size(0)
+       # rsim = torch.eye(tlen)
+       # cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+       # for i in range(tlen):
+       #     for j in range(tlen):
+       #         if i != j:
+       #             rsim[i][j] = cos(router_scores[i][:], 
+       #                     router_scores[j][:])
+
+        vmin = 0 if tlen <=3 else None
+        fname = "pred@router@router_" + str(state.epoch)  + ".png"
+        fpath = os.path.join(self.save_path, fname)
+        self.save_image(router_scores, x_labels, y_labels, fpath,
+                    annot=True,  vmin=vmin, vmax=1)
 
     def setup(self, args, state, model, **kwargs):
         epoch = floor(state.epoch)

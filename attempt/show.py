@@ -30,6 +30,7 @@ import pandas as pd
 from attempt.win import *
 from mylogs import * 
 from datetime import datetime, timedelta
+import time
 import json
 from tqdm import tqdm
 # from comet.utils.myutils import *
@@ -552,6 +553,7 @@ def show_df(df):
     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 36)
     seq = ""
     reset = False
+    prev_idea = ""
     pcols = [] #pivot unique cols
     cond_colors = {} # a dictionary of functions
     back_sel_cols = []
@@ -724,7 +726,10 @@ def show_df(df):
                    col_widths[sel_col] = len(content) + 2
                col_title = map_cols[sel_col] if sel_col in map_cols else sel_col
                min_width = max(5, len(col_title) + 1)
-               col_widths[sel_col] = max(col_widths[sel_col], min_width)
+               max_width = 26
+               _width = max(col_widths[sel_col], min_width)
+               _width = min(_width, max_width)
+               col_widths[sel_col] = _width 
                _w = col_widths[sel_col] 
                if sel_col in sel_cols:
                    if (cur_col >=0 and cur_col < len(sel_cols) 
@@ -750,7 +755,7 @@ def show_df(df):
                           cell_color = g_color
                        else:
                           cell_color = row_color
-                   text = textwrap.shorten(text, width=36, placeholder="...")
+                   content = textwrap.shorten(content, width=max_width, placeholder="...")
                    text = "{:<{x}}".format(content, x= _w)
                    if _print:
                        mprint(text, text_win, color = cell_color, end="") 
@@ -1078,10 +1083,10 @@ def show_df(df):
             seq = ""
         elif char == "s":
             col = sel_cols[cur_col]
+            df = df.sort_values(by=col, ascending=asc)
+            asc = not asc
+        elif char == "\"":
             if col in selected_cols:
-                if len(selected_cols) == 1:
-                    df = df.sort_values(by=col, ascending=asc)
-                    asc = not asc
                 selected_cols.remove(col)
             else:
                 selected_cols.append(col)
@@ -1132,7 +1137,7 @@ def show_df(df):
                     save_obj(sel_cols, "sel_cols", context)
         elif char in ["W"] and prev_char == "x":
             save_df(df)
-        elif char == "B":
+        elif char == "B" and prev_char == "x":
             s_rows = sel_rows
             if not s_rows:
                 s_rows = [sel_row]
@@ -1165,17 +1170,18 @@ def show_df(df):
             image_keys = "" if char == "o" else ["score", "a-sim"]
             experiment_images, fnames = get_images(df, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
-            dif_cols = sel_cols.copy()
-            for col in dif_cols:
-                if col in pcols:
-                    dif_cols.remove(col)
+            dif_cols = ["expid"]
+            for col in sel_cols:
+                if col in pcols or col in ["eid"]:
                     continue
                 vals = []
                 for exp in exprs:
                     v = df.loc[df.eid == exp, col].iloc[0]
                     vals.append(v)
                 if all(str(x).strip() == str(vals[0]).strip() for x in vals):
-                    dif_cols.remove(col)
+                    continue
+                else:
+                    dif_cols.append(col)
 
             capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
             pic = None
@@ -1311,7 +1317,7 @@ def show_df(df):
             unique_cols = info_cols.copy()
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
-        elif char == "I" or ch == cur.KEY_IC:
+        elif char == "I" or (ch == cur.KEY_IC and context != "notes"):
             canceled, col, val = list_df_values(df, get_val=False)
             if not canceled:
                 if col in sel_cols: 
@@ -1565,7 +1571,7 @@ def show_df(df):
                 sel_rows.append(sel_row)
             sel_rows = sorted(sel_rows)
             adjust = False
-        elif char == "!": 
+        elif char == "#": 
             if not sel_rows:
                 tinfo=df.iloc[sel_row]["ftag"]
                 infos = tinfo.split(",")
@@ -1698,6 +1704,19 @@ def show_df(df):
                     conf = os.path.join(home, "results", conf + ".json")
                 meld.append(conf)
             subprocess.run(meld)
+        elif char == "B":
+            if "cfg" in df:
+                _,files = get_sel_rows(df, row_id="cfg", col="cfg", from_main=False)
+                files = [os.path.join(home, "results", c + ".json") for c in files]
+                consts["base"] = files[0]
+            else:
+                _,dirs = get_sel_rows(df, col="output_dir")
+                exp_files = [os.path.join(d, "exp.json") for d in dirs]
+                exp_file = exp_files[0]
+                if "base" in consts:
+                    base_file = consts["base"]
+                    arr = ["meld", base_file, exp_file]
+                    subprocess.run(arr)
         elif char == "t":
             backit(df, sel_cols)
             mode = "cfg"
@@ -1705,8 +1724,19 @@ def show_df(df):
             #for f in files:
             # clean_file(f)
             fnames = [Path(f).stem for f in files]
-            df = pd.DataFrame(fnames, columns=['cfg'])
-            sel_cols = ["cfg"]
+            rows = []
+            for fname,_file in zip(fnames, files):
+                ts = os.path.getmtime(_file)
+                ctime = datetime.utcfromtimestamp(ts).strftime('%m-%d %H:%M:%S')
+                rest, score = fname.split("@")
+                score = score.replace(".json","")
+                score = float(score)
+                method, cmm, ep, tn = rest.split("_")
+                rows.append({"cfg":fname, "score":score, 
+                    "method": method, "at":ctime, "cmm":cmm, "ep":ep, "tn":tn})
+            df = pd.DataFrame(data=rows)
+            sel_cols = df.columns
+            df = df.sort_values("at", ascending=False)
             #with open(, 'r') as f:
             #    lines = f.readlines()
             #subwin(lines)                
@@ -1728,15 +1758,21 @@ def show_df(df):
                 expid=tdf.iloc[0]["expid"]
                 compose=tdf.iloc[0]["compose_method"]
                 epc=tdf.iloc[0]["num_train_epochs"]
+                tn=tdf.iloc[0]["max_train_samples"]
                 path=tdf.iloc[0]["output_dir"]
                 js = os.path.join(path, "exp.json")
                 score = str(round(score,2)) if score else "noscore" 
-                fname = prefix + "_" + compose + "_" + str(epc) + "_" + score + ".json"
+                fname = prefix + "_" + compose + "_" + str(epc) \
+                        + "_" + str(tn) + "@" + score + ".json"
                 fname = rowinput("prefix:", default=fname)
                 if fname:
                     dest = os.path.join(home, "results", fname)
                     shutil.copyfile(js, dest)
                     clean_file(dest)
+                    to = "ahmad@10.42.0.2:" + dest 
+                    cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{dest}" "{to}"'
+                    os.system(cmd)
+                    # subprocess.run(cmd.split())
 
         elif char == "p":
             pivot_cols = sel_cols[cur_col]
@@ -2109,10 +2145,16 @@ def show_df(df):
                 tag_cols.remove(col)
             sel_cols.remove(col)
             save_obj(sel_cols, "sel_cols", context)
+        elif ch == cur.KEY_SDC and context == "notes":
+            df = df.drop(df.iloc[sel_row].name)
+            doc_dir = "/home/ahmad/findings" #os.getcwd() 
+            note_file = os.path.join(doc_dir, "notes.csv")
+            df.to_csv(note_file, index=False)
         elif ch == cur.KEY_SDC:
             #col = sel_cols[cur_col]
             #sel_cols.remove(col)
-            col = info_cols.pop()
+            if info_cols:
+                col = info_cols.pop()
             #save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
         elif ch == cur.KEY_SDC and prev_char == 'x':
@@ -2305,7 +2347,61 @@ def show_df(df):
                             sel_cols.append(col)
                     avg_col = score_col[0] + "-All"
                 df = df.sort_values(by=avg_col, ascending=False)
-
+        if cmd.startswith("cat"):
+            doc_dir = "/home/ahmad/findings" #os.getcwd() 
+            note_file = os.path.join(doc_dir, "notes.csv")
+            _,cat = cmd.split("=")
+            context = "notes"
+            if not "comment" in df:
+                backit(df, sel_cols)
+                if Path(note_file).is_file():
+                    df = pd.read_csv(note_file)
+                else:
+                    df = pd.DataFrame(columns=["date","cat","comment"])
+                sel_cols = df.columns 
+                info_cols = ["comment"]
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+            new_note = {"date":now, "cat":cat,"comment":""}
+            df = pd.concat([df, pd.DataFrame([new_note])], ignore_index=True)
+            df.to_csv(note_file, index=False)
+            df = df.sort_values(by=["date","cat"], ascending=False) 
+        if char == "!":
+            doc_dir = "/home/ahmad/findings" #os.getcwd() 
+            note_file = os.path.join(doc_dir, "notes.csv")
+            context = "notes"
+            if not "comment" in df:
+                backit(df, sel_cols)
+                if Path(note_file).is_file():
+                    df = pd.read_csv(note_file)
+                else:
+                    df = pd.DataFrame(columns=["date","cat","comment"])
+                df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+                sel_cols = df.columns 
+                info_cols = ["comment"]
+        elif ch == cur.KEY_IC and context == "notes":
+            cat = "uncat"
+            if len(df) > 0:
+               cat = df.iloc[sel_row]["cat"] 
+            bg_color = HL_COLOR
+            win_height = 8
+            note_title = ""
+            _default = prev_idea
+            _comment, ret_ch = biginput("", default=_default)
+            if _comment:
+                if ret_ch != "|":
+                    _idea = _comment
+                if ret_ch == "=" or ret_ch == "|":
+                    prev_idea = _idea
+                else:
+                    prev_idea = ""
+        
+                new_note = {}
+                new_note["date"] = now
+                new_note["comment"] = _comment
+                new_note["cat"] = cat
+                df = pd.concat([df, pd.DataFrame([new_note])], ignore_index=True)
+                df.to_csv(note_file)
+            df = df.sort_values(by=["date","cat"], ascending=False) 
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df
@@ -2761,10 +2857,10 @@ def biginput(prompt=":", default=""):
     _default = ""
     win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
     _comment, ret_ch = minput(win, 0, 0, "Enter text", 
-            default=_default, mode =MULTI_LINE)
+            default=_default, mode =MULTI_LINE, rtl=False)
     if _comment == "<ESC>":
         _comment = ""
-    return _comment
+    return _comment, ret_ch
 
 def rowinput(prompt=":", default=""):
     prompt = str(prompt)
@@ -2857,7 +2953,7 @@ def change_info(infos):
     info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 2)
 si_hash = {}
 
-def list_values(vals,si=0, sels=[]):
+def list_values(vals,si=0, sels=[], is_combo=False):
     tag_win = cur.newwin(15, 70, 3, 5)
     tag_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     tag_win.border()
@@ -2867,9 +2963,10 @@ def list_values(vals,si=0, sels=[]):
         if key in si_hash:
             si = si_hash[key]
     opts = {"items":{"sels":sels, "range":["Done!"] + vals}}
+    if is_combo: opts["items"]["type"] = "combo-box"
     is_cancled = True
-    si,canceled, _ = open_submenu(tag_win, opts, "items", si, "Select a value", std)
-    val = ""
+    si,canceled, st = open_submenu(tag_win, opts, "items", si, "Select a value", std)
+    val = st
     if not canceled and si > 0: 
         val = vals[si - 1]
         si_hash[key] = si
@@ -2895,47 +2992,15 @@ cmd_win = None
 main_win = None
 text_width = 60
 std = None
-limit = -1
-dfname = ""
-dfpath = ""
-dftype = "tsv"
+check_time = False
 hotkey = ""
+dfname = ""
 global_cmd = ""
 global_search = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
-def start(stdscr):
-    global info_bar, text_win, cmd_win, std, main_win, colors, dfname, STD_ROWS, STD_COLS
-    stdscr.refresh()
-    std = stdscr
-    now = datetime.now()
-    rows, cols = std.getmaxyx()
-    set_max_rows_cols(rows, cols) 
-    height = rows - 1
-    width = cols
-    # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
-    text_win = cur.newpad(rows * 50, cols * 20)
-    text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
-    cmd_win = cur.newwin(1, cols, rows - 1, 0)
+data_frame = None
 
-    info_bar = cur.newpad(rows*10, cols*20)
-    info_bar.bkgd(' ', cur.color_pair(HL_COLOR)) # | cur.A_REVERSE)
-
-    cur.start_color()
-    cur.curs_set(0)
-    # std.keypad(1)
-    cur.use_default_colors()
-
-    colors = [str(y) for y in range(-1, cur.COLORS)]
-    if cur.COLORS > 100:
-        colors = [str(y) for y in range(-1, 100)] + [str(y) for y in range(107, cur.COLORS)]
-
-
-    theme = {'preset': 'default', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71','cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",           "dim-color": '241', 'bright-color':"251", "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True", "bold-highlight": "True", "bold-text": "False", "input-color":"234", "sep5": "Feedback Colors"}
-
-    reset_colors(theme)
-    #if not dfname:
-    #    fname = load_obj("dfname","","")
-    #    dfname = fname + ".tsv"
+def get_files(dfpath, dfname, dftype, limit, file_id):
     if not dfname:
         mlog.info("No file name provided")
     else:
@@ -2950,6 +3015,11 @@ def start(stdscr):
                 for _file in _files:
                     root_file = os.path.join(root,_file)
                     cond = all(s.strip() in root_file for s in dfname)
+                    if check_time:
+                        ts = os.path.getctime(root_file)
+                        ctime = datetime.fromtimestamp(ts)
+                        last_hour = datetime.now() - timedelta(hours = 5)
+                        cond = cond and ctime > last_hour
                     if dftype in _file and cond: 
                         files.append(root_file)
                         ii += 1
@@ -3014,11 +3084,41 @@ def start(stdscr):
             ii += 1
         if len(dfs) > 1:
             df = pd.concat(dfs, ignore_index=True)
-        if files:
-            dfname = "merged"
-            show_df(df)
-        else:
-            mlog.info("No tsv or json file was found")
+            return df
+        return None
+
+def start(stdscr):
+    global info_bar, text_win, cmd_win, std, main_win, colors, dfname, STD_ROWS, STD_COLS
+    stdscr.refresh()
+    std = stdscr
+    now = datetime.now()
+    rows, cols = std.getmaxyx()
+    set_max_rows_cols(rows, cols) 
+    height = rows - 1
+    width = cols
+    # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
+    text_win = cur.newpad(rows * 50, cols * 20)
+    text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
+    cmd_win = cur.newwin(1, cols, rows - 1, 0)
+
+    info_bar = cur.newpad(rows*10, cols*20)
+    info_bar.bkgd(' ', cur.color_pair(HL_COLOR)) # | cur.A_REVERSE)
+
+    cur.start_color()
+    cur.curs_set(0)
+    # std.keypad(1)
+    cur.use_default_colors()
+
+    colors = [str(y) for y in range(-1, cur.COLORS)]
+    if cur.COLORS > 100:
+        colors = [str(y) for y in range(-1, 100)] + [str(y) for y in range(107, cur.COLORS)]
+
+
+    theme = {'preset': 'default', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71','cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",           "dim-color": '241', 'bright-color':"251", "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True", "bold-highlight": "True", "bold-text": "False", "input-color":"234", "sep5": "Feedback Colors"}
+
+    reset_colors(theme)
+    show_df(data_frame)
+
 
 @click.command(context_settings=dict(
             ignore_unknown_options=True,
@@ -3052,6 +3152,12 @@ def start(stdscr):
     help=""
 )
 @click.option(
+    "--chk_time",
+    "-t",
+    is_flag=True,
+    help=""
+)
+@click.option(
     "--hkey",
     "-h",
     default="CG",
@@ -3073,33 +3179,34 @@ def start(stdscr):
     help=""
 )
 @click.option(
-    "--df_limit",
+    "--limit",
     "-l",
     default=-1,
     type=int,
     help="Limit of datasets to load"
 )
 @click.pass_context
-def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, df_limit):
+def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, limit, chk_time):
     if dpy:
         port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname,dfpath,file_id,dftype,hotkey, global_cmd, global_search, limit
-    file_id = fid
-    limit = df_limit
+    global dfname, hotkey, global_cmd, global_search,check_time, data_frame
+    check_time = chk_time
     global_search = search
     hotkey = hkey 
     global_cmd = cmd
+    dfname = fname
     if not fname:
-        fname = [dftype]
-    if fname != "last":
-        dfname = fname 
-        dfpath = path
-    dftype= ftype
+        fname = [ftype]
     set_app("showdf")
-    wrapper(start)
+    data_frame = get_files(path, fname, ftype, limit=limit, file_id= fid)
+    if data_frame is not None:
+        dfname = "merged"
+        wrapper(start)
+    else:
+        mlog.info("No tsv or json file was found")
 
 if __name__ == "__main__":
     main()

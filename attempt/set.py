@@ -35,7 +35,8 @@ def main(ctx, fname):
             mylogs.success(k + ":" + (str(d[k]) if k in d else "()") + " ===> " + v)
             if v.lower() == "true": v = True
             elif v.lower() == "false": v = False
-            elif v.isnumeric(): v = float(v)
+            elif v.isnumeric() and "." in v: v = float(v)
+            elif v.isnumeric(): v = int(v)
             elif "@" in v: v = [val for val in v.split("@") if val]
             elif v == "none": v = None
             d[k] = v

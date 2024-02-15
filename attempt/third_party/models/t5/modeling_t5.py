@@ -1227,13 +1227,22 @@ class T5Stack(T5PreTrainedModel):
                 i,j,k = 1,1,1
                 first = True
                 mylogs.bp("bias")
+                if type(self.bias) == list:
+                    names = [x.split("-")[0] for x in self.bias]
+                    values = [x.split("-")[1] for x in self.bias]
                 for encoder in self.prompt_encoders:
                     if encoder.is_private and first:
                         k = i
                         first = False
                     elif encoder.is_target:
                         if route_method == "biasx" or route_method == "biass":
-                            router[i, j] = self.bias
+                            if type(self.bias) == list:
+                                encname = encoder.name.split("-")[1]
+                                if encname in names: 
+                                    index = names.index(encname)
+                                    router[i, j] = float(values[index])
+                            else:
+                                router[i, j] = self.bias
                             j += 1
                         if k > 1 and (route_method == "biasx" or route_method == "biasp"):
                             router[i, k] = self.bias
@@ -1394,7 +1403,7 @@ class T5Stack(T5PreTrainedModel):
                 mylogs.bp("rbsample")
                 rb_scores = RelaxedBernoulli(temperature=self.temperature, 
                     logits=logits).rsample()            
-                if route_method == "unif":
+                if route_method == "params":
                     attn_scores = router
                 elif route_method == "const":
                     attn_scores  = attn_dist
@@ -1496,9 +1505,9 @@ class T5Stack(T5PreTrainedModel):
         if not self.attend_input:
             attend_to_sel_idx = attend_to_sel_idx + 1
 
-        mylogs.bp("unif")
+        mylogs.bp("params")
         # Create a binary mask for the top k indices
-        if route_method == "unif":
+        if route_method == "params":
             # top_k_mask = torch.zeros_like(attn_scores)
             # top_k_mask.scatter_(-1, attend_to_sel_idx, 1)
             # attn_sel_scores = attn_score * top_k_mask
@@ -1514,7 +1523,7 @@ class T5Stack(T5PreTrainedModel):
         attend_to_x = batched_index_select(src_prompts, 1, attend_to_sel_idx)
         attend_to_x = attend_to_x.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
-        if route_method == "unif":
+        if route_method == "params":
             # attend_to_x = attend_to
             # attend_to_x = attend_to_x.unsqueeze(1)
             pass
@@ -1540,8 +1549,8 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
                     sel_thresh=self.sel_thresh)
 
-        mylogs.bp("unif")
-        if route_method == "unif":
+        mylogs.bp("params")
+        if route_method == "params":
             # attn_sel_scores = attn_sel_scores.new_ones(attn_sel_scores.shape)
             # attn_sel_scores = torch.ones_like(attn_sel_scores, requires_grad=True)
             pass
@@ -1804,14 +1813,17 @@ class T5Stack(T5PreTrainedModel):
                         num_true = [0]*batch_size
                         alen = amask.size(1)
                         for i in range(batch_size):
+                            k = 0
                             for j in sequence_range: 
-                                if (tmask[i, j] and j < alen and amask[i, j] 
+                                if (tmask[i, j] and k < alen and amask[i, k] 
                                     and num_true[i] < number_to_keep_per_batch[i]):
                                     num_true[i] += 1
+                                    k += 1
                                 elif tmask[i, j]:
                                     tmask[i, j] = False
                                     att_mask[i, j] = 0
                                     input_ids[i, j] = 0
+                                    k += 1
 
                         inputs_embeds[tmask]= masked_prompts.view(-1, self.model_dim)
                         if not self.training: # or mylogs.is_debug(): 

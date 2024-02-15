@@ -54,14 +54,13 @@
    "warmup_steps": "none",
    "num_beams": "1",
    "prompt_tuning": true,
+   "attn_tuning": false,
    "use_optimizer": true,
    "opt_type": "regular",
    "load_prompts": true,
    "ignore_train_if_prompt_exists": true,
    "prompt_encoders_dir": "prompts",
    "skip_if_prompt_exists": true,
-   "prompts_prefix": "2020",
-   "output_prompts_prefix": "2020",
    "prompt_learning_rate": "0.05",
    "num_prompt_tokens": "50",
    "prompt_encoder_type": "mlp",
@@ -84,5 +83,6 @@
    },
    "cat": "P",
    "output_dir": "%/home/ahmad/logs/ppp/cat--0-seed-123-1-50/P",
-   "private_prompt_encoder_type": "mlp"
+   "private_prompt_encoder_type": "mlp",
+   "save_to_prompts_dir": false
 }

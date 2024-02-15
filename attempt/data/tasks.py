@@ -348,7 +348,7 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
+        src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
         target = "(mask) (prefix) (nat) {target}" # {end}"
         return src, target
 
@@ -358,49 +358,58 @@ class AbstractTask(abc.ABC):
         pcom = 0 # number of shared prompts among all tasks
         mylogs.bp("template")
         for part in parts:
-            if part == "unsup": 
+            if part == "mask": 
+               src = src.replace("(mask)", "{mask} (mask)")
+               target = target.replace("(mask)","{mask} (mask)")
+            elif part == "unsup": 
                src = src.replace("(mask)", "{mask}")
                target = target.replace("(mask)","{mask}")
-            if part == "unsupnat": 
+            elif part == "unsupnat": 
                target = target.replace("(mask)","{mask}")
-            if part == "sup":
+            elif part == "sup":
                src = src.replace("(mask)", "")
                target = target.replace("(mask)","")
-            if part == "pcom":
+            elif part == "pcom":
                src = src.replace("(prompt)", "[com_i] (prompt) ",1)
                pcom += 1
-            if part == "ptar":
+            elif part == "pmask":
+               src = src.replace("(prompt)", "[tar-task_k] {mask} (prompt) ",1)
+            elif part == "ptar":
                src = src.replace("(prompt)", "[tar-task_k] (prompt) ",1)
-            if part == "p0" or part == "0":
+            elif part == "p0" or part == "0":
                src = src.replace("(prompt)", "",1)
-            if part == "px0" or part == "0":
+            elif part == "px0" or part == "0":
                src = src.replace("(prefix)", "",1)
-            if part == "px":
+            elif part == "px":
                src = src.replace("(prefix)", "{prefix}",1)
-            if part == "pt":
+            elif part == "pt":
                src = src.replace("(prompt)", "[task_i] (prompt) ",1)
-            if part == "pnat":
+            elif part == "pnat":
                src = src.replace("(prompt)", "{prompt_from_nat} (prompt) ",1)
-            if part == "pn":
+            elif part == "pn":
                src = src.replace("(prompt)", "{prompt_n} (prompt) ",1)
-            if part == "pnt":
+            elif part == "pnt":
                src = src.replace("(prompt)", "{prompt_nt} (prompt) ",1)
-            if part == "pnr":
+            elif part == "pnr":
                src = src.replace("(prompt)", "{prompt_nr} (prompt) ",1)
-            if part == "psh":
+            elif part == "psh":
                src = src.replace("(prompt)", "{prompt_shared_tokens} (prompt) ",1)
-            if part == "psht":
+            elif part == "psht":
                src = src.replace("(prompt)", "{prompt_task_eq_shared} (prompt) ",1)
-            if part == "pshr":
+            elif part == "pshr":
                src = src.replace("(prompt)", "{prompt_shared_random} (prompt) ",1)
-            if part == "nat_input" or part == "nat": 
+            elif part == "nat_prefix":
+               src = src.replace("(nat_prefix)", "{rel_nat}", 1)
+            elif part == "nat_input" or part == "nat": 
                src = src.replace("(nat)", "{rel_nat}", 1)
-            if part == "input_shared_words":
+            elif part == "input_shared_words":
                src = src.replace("(prefix)", "{rel_shared_words}:", 1)
-            if part == "nat_target": 
+            elif part == "nat_target": 
                target = target.replace("(nat)", "{rel_nat}", 1)
-            if part == "target_shared_words": 
+            elif part == "target_shared_words": 
                target = target.replace("(prefix)", "{rel_shared_words}:", 1)
+            else:
+                raise ValueError("Invalid part in template:" + part)
 
         # remove unused place holders
         src = re.sub(r'\(.*?\)','',src)
@@ -496,10 +505,10 @@ class AbstractTask(abc.ABC):
         # fill the templates with data
 
         # Replace masks in src and tgt
+        # src_texts = src_texts.replace("{mask}", mask)
         src_texts = self.replace_mask(src).format_map(data)
         tgt_texts = self.replace_mask(tgt).format_map(data)
 
-        src_texts = src_texts.replace("{mask}", mask)
         src_texts = self.insert_prompts(src_texts)
         return src_texts, tgt_texts 
 
@@ -553,6 +562,8 @@ class AbstractTask(abc.ABC):
 
         if self.multi_choice:
             src = src + " options:" + ",".join(labels_list)
+
+        # src = src[:max_input_len]
 
         data = {'source': src,
                 'target': tgt,
@@ -945,20 +956,22 @@ class Atomic(AbstractTask):
     def preproc_df(self, df, split):
         mylogs.bp("filter")
         df["freqs"] = df.groupby(['input_text'])['input_text'].transform('count')
+        df['px'] = df[['input_text','prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
+        df['px_count'] = df[['input_text','prefix']].groupby(['input_text'])['prefix'].transform('nunique')
         print("len df:", len(df))
         # df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         print("len new df:", len(df))
-        sort_by = ["freqs","input_text", "prefix"] 
+        sort_by = ["px_count","freqs","input_text", "prefix"] 
         if "sel" in df:
             sort_by = ["sel", "freqs","input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
-        #i = 0
-        #for idx, row in df.iterrows():
-        #    text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
-        #    mylogs.success(text, log=False)
-        #    i += 1
-        #    if i > 30:
-        #        break;
+        i = 0
+        for idx, row in df.iterrows():
+            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+            mylogs.success(text, log=False)
+            i += 1
+            if i > 100:
+                break;
         return df
 
 

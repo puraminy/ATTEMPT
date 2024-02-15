@@ -37,8 +37,8 @@ from rouge import Rouge
 from utils import get_adapter_config
 from attempt.utils.utils import combine_x,combine_y
 from transformers.trainer_utils import is_main_process, get_last_checkpoint
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers import (
-    AutoTokenizer,
     MT5TokenizerFast,
     T5TokenizerFast,
     HfArgumentParser,
@@ -95,10 +95,13 @@ from scipy.stats import entropy
 
 
 def map_param(param_map, x, key=False):
-    k, v = x.strip("--").split("=")
+    k, v = x, ""
+    if "=" in x:
+        k, v = x.split("=")
+    k = k.strip("--")
     k = k.strip("@")
     m = param_map[k] if k in param_map else k
-    if key is True: 
+    if key is True or not v: 
         return m
     else:
         return "@" + m + "=" + v 
@@ -401,7 +404,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        _vv = x.split("=")
        if len(_vv) < 2:
            assert False, "invalid argument " + str(x) + "|" + str(_vv)
-       _vvv = _vv[1].split("#")
+       _vv = _vv[1].strip("#")
+       _vvv = _vv.split("#")
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
    _mvars = []
@@ -411,8 +415,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        var = map_param(param_map, var)
        if "=" in var:
            var_name = var.split("=")[0].strip("@")
-           assert var_name in exp_args, var_name +" must be in experiment variables (config)"
-           var_item = var.split("=")[1].split("#")
+           if False: #TODO temporary 
+               assert var_name in exp_args, var_name +" must be in experiment variables (config)"
+           var_item = var.split("=")[1]
+           var_item = var_item.strip("#").split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
        else:
@@ -450,8 +456,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
        exp_vars = inp_exp_vars = [exp_vars]
-   if exp_vars and not log_var:
-       log_var = exp_vars[0]
    full_tags.extend([x for x in exp_vars if not "^" in x])
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
@@ -498,6 +502,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        old_comb = comb.copy()
 
    args["tag"] = ctags 
+   args["merge"] = merge
    y_labels = []
    for comb in tot_comb:
        _output_dir = []
@@ -538,7 +543,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        elif merge: 
            args["expid"] = str(exp_args["expid"]) 
        elif "-" in str(exp_args["expid"]):
-           args["expid"] = str(exp_args["expid"]).split("-")[-1]
+           args["expid"] = str(exp_args["expid"]).split("-")[-1] + "." + str(ii)
        else:
            args["expid"] = ii 
 
@@ -550,7 +555,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        #if exp_conf:
        #    output_dir = exp_args["output_dir"]
        if not merge:
-           ee = int(args["expid"]) 
+           ee = round(float(args["expid"]))
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
            if not reval:
@@ -682,6 +687,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 # m3
 @cli.command()
 def train(**kwargs):
+    seed = kwargs.get("seed", 123)
+    set_seed(seed)
     global global_x_labels
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
@@ -745,8 +752,11 @@ def train(**kwargs):
     print("============ CONF ===========")
     print(exp_conf)
     Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
+    merge = kwargs.get("merge", False)
     if not reval:
-        with open(op.join(training_args.output_dir,"exp.json"), "w") as f:
+        expid = kwargs.get("expid", 1)
+        exp_conf_name = "exp.json" if not merge else "exp_" + expid + ".json"
+        with open(op.join(training_args.output_dir, exp_conf_name), "w") as f:
             print(exp_conf, file=f)
     mylogs.bp("conf")
 
@@ -805,14 +815,13 @@ def train(**kwargs):
     nsp = 0
     inp_nsp = kwargs.setdefault("num_source_prompts", nsp) 
     source_per_task = kwargs.setdefault("source_per_task", False) 
-    if source_per_task or inp_nsp == 0:
+    if source_per_task and inp_nsp == 0:
         nsp = len(tasks)
-    if use_source_set:
-        nsp = max([len(s) for s in task_source_prompts_set.values()])
-    if data_args.source_prompts is not None and len(data_args.source_prompts) > 0:
-        nsp = len(data_args.source_prompts) 
-    elif source_per_task:
         data_args.source_prompts = tasks # source are the same target tasks
+    elif use_source_set:
+        nsp = max([len(s) for s in task_source_prompts_set.values()])
+    elif data_args.source_prompts is not None and len(data_args.source_prompts) > 0:
+        nsp = len(data_args.source_prompts) 
 
     nsp += inp_nsp 
     num_source_prompts = nsp 
@@ -871,7 +880,7 @@ def train(**kwargs):
     task_args["template"] = data_args.template
     task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
-    task_args["rels"] = data_args.task_name if kwargs.rels == "tasks" else kwargs.rels
+    task_args["rels"] = data_args.task_name # if kwargs.rels == "tasks" else kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
     task_args["id"] = kwargs["expid"]
 
@@ -938,7 +947,8 @@ def train(**kwargs):
 
     if log_var:
        mylogs.plog.handlers.clear()
-       mylogs.add_handler(mylogs.plog, log_var + "_" + str(kwargs[log_var]))
+       mylogs.add_handler(mylogs.plog, log_var + "_" + str(kwargs[log_var]), 
+               base_folder=kwargs.save_path)
        mylogs.plog.info(exp_conf)
     ###### Collect experiment infos
     exp_info = {}
@@ -1018,7 +1028,6 @@ def train(**kwargs):
     logger.info("Training/evaluation parameters %s", training_args)
 
     # Set seed before initializing model.
-    set_seed(training_args.seed)
     tasks = data_args.task_name
     mylogs.bp("steps")
     total_samples = 0
@@ -1072,8 +1081,9 @@ def train(**kwargs):
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
     config.bias = kwargs.setdefault("bias", 0.0)
-    if config.bias > 0:
-        assert config.route_method.startswith("bias"), "Route method must support bias"
+    if type(config.bias) == list or config.bias > 0:
+        if not config.route_method.startswith("bias"):
+            config.route_method = "biass" 
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
@@ -1103,6 +1113,7 @@ def train(**kwargs):
         adapter_args, data_args, training_args, config)
 
     # Set tokenizer
+    #tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     if "mt5" in model_name_or_path:
         tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
     elif "pars" in model_name_or_path:
@@ -1126,6 +1137,7 @@ def train(**kwargs):
         use_auth_token=True if model_args.use_auth_token else None,
         adapter_config=adapter_config
     )
+    #model = AutoModelForSeq2SeqLM.from_pretrained(model_name_or_path)
 
     mapl=torch.device('cpu')
     if model_args.load_prefix_embeddings is True:
@@ -1222,12 +1234,15 @@ def train(**kwargs):
 
     mylogs.bp("penc")
     prompts_prefix = kwargs.setdefault("prompts_prefix", None) 
-    prompts_prefix = str(prompts_prefix)
-    load_private_prompts = kwargs.setdefault("load_private_prompts", False)
-    exp_info["load_private_prompts"] = load_private_prompts
+    if prompts_prefix is not None:
+        prompts_prefix = str(prompts_prefix)
     #prompts_prefix = prompts_prefix + "_" + str(data_args.template)
     if prompts_prefix is None or prompts_prefix == "1":
-        prompts_prefix = str(data_args.max_train_samples)
+        prompts_prefix = str(training_args.num_train_epochs) + \
+                str(data_args.max_train_samples)
+
+    load_private_prompts = kwargs.setdefault("load_private_prompts", False)
+    exp_info["load_private_prompts"] = load_private_prompts
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix 
                 # + "_" \
@@ -1364,7 +1379,10 @@ def train(**kwargs):
                     encoder_type=adapter_args.prompt_encoder_type, 
                     shared_mat= shared_mat) 
 
-            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
+            opp = kwargs.setdefault("output_prompts_prefix", None) 
+            if opp is None:
+                opp = str(training_args.num_train_epochs) + \
+                    str(data_args.max_train_samples)
             skip_if_prompt_exists = kwargs.setdefault("skip_if_prompt_exists", True) 
             prompt_exists, prompt_fname = encoder.exists(prompts_dir, 
                 prefix=str(opp),
@@ -1494,8 +1512,8 @@ def train(**kwargs):
                                  padding=padding, truncation=True)
         mylogs.bp("data")
         if preview == "data":
-            mylogs.plog.info("sourece: %s", examples["source"][:hit_count])
-            mylogs.plog.info("target: %s", examples["target"][:hit_count])
+            print("sourece: %s", examples["source"][:hit_count])
+            print("target: %s", examples["target"][:hit_count])
 
         if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])
@@ -1728,7 +1746,11 @@ def train(**kwargs):
         eval_ds = my_interleave_datasets(list(eval_datasets.values()), batch_size=2)
     else: 
         eval_ds = None
-    wb_callback = WBCallback()
+    image_folder = op.join(training_args.output_dir,"router_images")
+    Path(image_folder).mkdir(parents=True, exist_ok = True)
+    save_router_image = kwargs.get("save_router_image", False)
+    wb_callback = WBCallback(save_path = image_folder, 
+            save_router_image=save_router_image)
     anneal_callback = AnnealCallback() 
     ptlr_callback = PTLearningRateCallback()
     callbacks = []
@@ -1778,14 +1800,13 @@ def train(**kwargs):
         os.makedirs(training_args.output_dir, exist_ok=True)
         save_training_config(config_file, training_args.output_dir)
 
-
-    def load_model(load_path, 
-            lsp=False, 
-            prompts_prefix="pat"):
+    def load_model(load_path, lsp=False):
         #model.load_encoders(load_path, load_source_prompts=lsp)
         mylogs.bp("load_model")
         dpath = os.path.join(load_path, "attn_W_down.pt")
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        saved_prompts_prefix = kwargs.get("saved_prompts_prefix", prompts_prefix)
+        saved_prompts_prefix = str(saved_prompts_prefix)
         attention_paths = [dpath, 
                 os.path.join(load_path, "attn_W_up.pt")]
         if model_args.attn_tuning is True and Path(dpath).is_file():
@@ -1796,7 +1817,7 @@ def train(**kwargs):
             for encoder in model.prompt_encoders:
                 plen = encoder.length
                 encoder.load(load_path, 
-                        prefix=prompts_prefix,
+                        prefix = saved_prompts_prefix,
                         ignore_if_prompt_not_exists=False,
                         length = plen) 
                 encoder.to(device)
@@ -1846,7 +1867,7 @@ def train(**kwargs):
         if trainer.best_prompt_checkpoint is not None:
             best_chk_path = trainer.best_prompt_checkpoint
             lsp = kwargs.setdefault("load_source_prompts", False)
-            load_model(best_chk_path, lsp, prompts_prefix)
+            load_model(best_chk_path, lsp)
 
         # Save prompts
         if adapter_args.prompt_tuning:
@@ -1859,7 +1880,10 @@ def train(**kwargs):
             prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
             save_all_prompts = kwargs.setdefault("save_all_prompts", True) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
-            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
+            opp = kwargs.setdefault("output_prompts_prefix", None) 
+            if opp is None:
+                opp = str(training_args.num_train_epochs) + \
+                    str(data_args.max_train_samples)
             if not prompts_to_save:
                 prompts_to_save = "all" if save_all_prompts else None
             model.store_encoders(output_dir = training_args.output_dir,
@@ -1871,11 +1895,13 @@ def train(**kwargs):
                                  router_prefix=router_prefix)
 
             save_router = kwargs.setdefault("save_router", False) 
-            if prompts_to_save or save_router:
+            save_to_prompts_dir = kwargs.get("save_to_prompts_dir", False) 
+            mylogs.bp("store")
+            if save_to_prompts_dir or save_router:
                 Path(prompts_dir).mkdir(parents = True, exist_ok=True)
                 model.store_encoders(output_dir = prompts_dir, 
                         prompts_and_router_only=model_args.attn_tuning, 
-                        prompts_to_save = prompts_to_save, 
+                        prompts_to_save = prompts_to_save or "all", 
                         save_source_prompts = ssp,
                         save_router = save_router,
                         prefix=str(opp),
@@ -1916,9 +1942,7 @@ def train(**kwargs):
         logger.info("*** Evaluate ***")
         if model_args.attn_tuning is True:
             load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
-            load_model(load_model_dir,
-                    lsp=True, 
-                    prompts_prefix=prompts_prefix)
+            load_model(load_model_dir, lsp=True) 
 
         if  model_args.shared_attn is False:
             for task, eval_dataset in eval_datasets.items():
@@ -1942,8 +1966,7 @@ def train(**kwargs):
     load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
     if reval: 
         load_model(load_model_dir, 
-                lsp=model_args.attn_tuning,
-                prompts_prefix=prompts_prefix)
+                lsp=model_args.attn_tuning)
     for k,v in kwargs.items():
         if not k in exp_info:
             exp_info[k] = v
@@ -2157,7 +2180,10 @@ def train(**kwargs):
         if masking == "none" or masking is None: masking = "0-col-0"
         nn, mask_type, mm = masking.split("-") 
         num_masks, num_masked_prompts =int(nn), int(mm) 
-        if num_masks == 0: num_masks = num_source_prompts
+        if num_masks == 0: 
+            num_masks = num_source_prompts
+            if use_private_prompts:
+                num_masks += len(data_args.task_name)
         mylogs.bp("nrp")
         gen_masks["no-mask"] = None
         if num_masked_prompts > 0:
@@ -2187,6 +2213,10 @@ def train(**kwargs):
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
+            attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
+            task_scores = {}
+            effect_scores = {}
+            eval_folders = {}
             gen_combs = itertools.product(gen_masks.items(),gnm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             for (rm,mask), norm_method, gmin, gmax, gntp in gen_combs:
@@ -2195,7 +2225,6 @@ def train(**kwargs):
                     gmin = float(tmin) if tmin != 'none' else None
                     gmax = float(tmax) if tmax != 'none' else None
 
-                attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
                 model.encoder.attn_scores = torch.zeros(
                     (attend_num, attend_num), device=device) 
                 model.encoder.attn_mask_learned = torch.zeros(
@@ -2209,17 +2238,27 @@ def train(**kwargs):
                 Path(eval_folder).mkdir(parents=True, exist_ok=True)
                 counter = 0
                 total_score = 0
+                if not rm in task_scores:
+                    task_scores[rm] = {}
                 gen_conf = {"rep_penalty":2.0}
+                gen_conf["gen_norm_method"] = norm_method
+                gen_conf["mask_type"] = rm
+                gen_conf["gen_thresh_min"] = gmin
+                gen_conf["gen_thresh_max"] = gmax
+                gen_conf["gen_ntp"] = gntp
+                test_key = ""
+                for kk, vv in gen_conf.items():
+                    if kk not in ["attn_mask"]:
+                        exp_info[kk] = vv
+                        if kk != "mask_type":
+                            test_key += str(vv) + "-"
+                test_key = test_key.strip("-")
+                if not test_key in eval_folders:
+                    eval_folders[test_key] = []
+                eval_folders[test_key].append(eval_folder_name)
+                if not test_key in task_scores[rm]:
+                    task_scores[rm][test_key] = {}
                 for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                    gen_conf["gen_norm_method"] = norm_method
-                    gen_conf["mask_type"] = rm
-                    gen_conf["gen_thresh_min"] = gmin
-                    gen_conf["gen_thresh_max"] = gmax
-                    gen_conf["gen_ntp"] = gntp
-                    for kk, vv in gen_conf.items():
-                        if kk not in ["attn_mask"]:
-                            exp_info[kk] = vv
-
                     if mask is not None: 
                        gen_conf["attn_mask"] = mask 
                     else:
@@ -2243,7 +2282,9 @@ def train(**kwargs):
                     df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                             ds_conf,"test.tsv")
                     mylogs.bp("test")
-                    total_score += df["m_score"].mean() 
+                    task_score = df["m_score"].mean() 
+                    task_scores[rm][test_key][task] = task_score
+                    total_score += task_score 
                     da = {}
                     if use_wandb:
                         test_rouge = wandb.run.summary["test_rouge"]
@@ -2262,6 +2303,8 @@ def train(**kwargs):
                 mean_score = total_score / counter
                 if adapter_args.prompt_tuning:
                     targets = model.encoder.target_encoders_idx
+                    y_labels = [model.encoder.prompt_names[i] for i in targets]
+                    y_labels = [y.replace("tar-","") for y in y_labels]
                     router_scores = model.encoder.router.index_select(0, targets)
                     tlen = router_scores.size(0)
                     rsim = torch.eye(tlen)
@@ -2310,7 +2353,7 @@ def train(**kwargs):
                     save_image(eval_folder, model, {"score":ss1}, 
                                 spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
                                         + " | {:.2f}".format(mean_score))
-                    score_dict= {"sim":sim, "rsim": rsim}
+                    score_dict= {"sim":sim.round(decimals=2)} #, "rsim": rsim}
                     save_image(eval_folder, model, score_dict, 
                             annot=True,
                             square=True,
@@ -2325,7 +2368,34 @@ def train(**kwargs):
                         start = 0 if model_args.attend_input else 1 
                         ss3 = ss3[:,start:slen+tlen + 1]
                     save_image(eval_folder, model, {"mask": ss3}, spec=rm)
-        ################
+                    if "col" in rm:
+                        if not test_key in effect_scores:
+                            effect_scores[test_key] = torch.zeros(
+                                (tlen, slen + tlen), device=device) 
+
+                        col,_,_ = rm.split("-")
+                        col = int(col) - 1
+                        base_scores = task_scores["no-mask"][test_key]
+                        mask_scores = task_scores[rm][test_key]
+                        for _task, _score in mask_scores.items():
+                            base_score = float(base_scores[_task])
+                            if base_score == 0:
+                                effect = 0
+                            else:
+                                effect = ((float(_score) - base_score) / base_score) #*100
+                            effect = -1*effect
+                            task_index = y_labels.index(_task) 
+                            effect_scores[test_key][task_index, col] = effect
+        #### end of for
+            mylogs.bp("effect")
+            for test_key, effect_score in effect_scores.items(): 
+                for eval_folder_name in eval_folders[test_key]:
+                    eval_folder = os.path.join(exp_folder, eval_folder_name)
+                    save_image(eval_folder, model, 
+                            {"effect": effect_score.round(decimals=2)}, 
+                            spec=eval_folder_name)
+            
+        ########
         sdf = pd.DataFrame(data=sdf_rows)
         if False: #img_list:
             new_im = combine_y(img_list)
@@ -2336,7 +2406,7 @@ def train(**kwargs):
                 new_im.save(os.path.join(training_args.output_dir, "images", fname))
 
 
-        if adapter_args.prompt_tuning:
+        if model_args.attn_tuning:
             targets = model.encoder.target_encoders_idx
             ss1 = model.encoder.attn_scores.index_select(0, targets)
             router_scores = model.encoder.router.index_select(0, targets)
@@ -2410,8 +2480,9 @@ def train(**kwargs):
                      attn_tuning=model_args.attn_tuning,
                      shared_attn=model_args.shared_attn, num_target=config.num_target, task_name=data_args.task_name)
             if adapter_args.prompt_tuning:
-                save_prompts_flag = kwargs.setdefault("save_prompts", False) 
-                if save_prompts_flag:
+                save_to_prompts_dir = kwargs.setdefault("save_to_prompts_dir", False) 
+                mylogs.bp("store")
+                if save_to_prompts_dir:
                     Path(op.join(new_dir, "prompts")).mkdir(parents = True, exist_ok=True)
                     model.store_encoders(output_dir = prompts_dir, prompts_only=True)
 

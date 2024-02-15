@@ -68,7 +68,7 @@
    "load_prompts": true,
    "ignore_train_if_prompt_exists": true,
    "skip_if_prompt_exists": false,
-   "prompts_prefix": 2020.0,
+   "prompts_prefix": 2020,
    "output_prompts_prefix": 2020,
    "prompt_encoder_type": "mlp",
    "load_source_prompts": true,
@@ -89,14 +89,14 @@
    "learn_loaded_prompts": true,
    "use_private_prompts": true,
    "load_private_prompts": true,
-   "sel_thresh": 0.0,
+   "sel_thresh": "0.1",
    "learn_source_prompts": true,
    "ignore_if_prompt_not_exists": false,
    "rels": null,
    "source_prompts_order": "rand",
    "prompt_masking": null,
    "compose_method": "wavg",
-   "template": "ptar",
+   "template": "0-ptar",
    "attn_tuning": true,
    "attend_input": false,
    "attend_for": null,
@@ -113,7 +113,7 @@
    "anneal_min": 0.001,
    "anneal_type": "linear",
    "anneal_rate": 0.02,
-   "norm_method": "nothing",
+   "norm_method": "soft",
    "gen_norm_method": [
       "nothing",
       "soft"
@@ -136,5 +136,6 @@
    "cross_prefix": false,
    "bias": 0.0,
    "gen_thresh_max": null,
-   "gen_thresh_min": 0.0
+   "gen_thresh_min": 0.0,
+   "save_to_prompts_dir": false
 }

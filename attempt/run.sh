@@ -6,7 +6,7 @@ vars=""
 flags=""
 others=""
 onError="continue"
-main_vars=""
+main_vars="task_name"
 g=0
 for i in $@
 do
@@ -46,9 +46,7 @@ done
 eval "${flags}"
 eval "${vars}"
 
-if [ -n "$mvar" ]; then
-   main_vars="-mv ${main_vars}"
-fi
+main_vars="-mv ${main_vars}"
 onError=break
 echo ""
 echo "==================== Parameters: ======================"
@@ -83,13 +81,19 @@ else
 fi
 ######################################## Task flags:
 if [ -n "$_gst" ]; then
-   _tasks="${_tasks}#mnli#qnli#mrpc"
+   _tasks="${_tasks}#mnli#qnli#rte#stsb"
+fi
+if [ -n "$_ast" ]; then
+   _tasks="xAttr#xReact#xIntent#xWant#oWant"
+fi
+if [ -n "$_as2t" ]; then
+   _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
 fi
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"
 fi
 if [ -n "$_gft" ]; then
-   _tasks="${_tasks}cola#qqp#mrpc#mnli#qnli#rte#stsb#sst2"
+   _tasks="${_tasks}cola#mnli#rte#qnli#stsb#qqp#mrpc#sst2"
 fi
 if [ -n "$_lt" ]; then
    _tasks="mnli#wnli#paws#mrpc#imdb#sst2"
@@ -103,7 +107,7 @@ if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_at" ]; then
-   _tasks="${_tasks}#xAttr#xReact#oReact#oWant#xWant#xIntent"
+   _tasks="${_tasks}#xAttr#xReact#oReact#oWant#xWant#xIntent#isAfter#isBefore"
 fi
 if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
@@ -163,30 +167,10 @@ if [ -z "$_exp" ]; then _exp=self; fi # Experiment name
 if [ -z "$_seed" ]; then _seed=123; fi # Experiment seed
 if [ -z "$_json" ]; then  _json="exp.json"; fi  # The base config file
 if [ -n "$_all" ]; then _json="json"; fi
-
 if [ -z $_bs ]; then _bs=12; fi  # batch size
-if [ -z $_ep ]; then _ep=10; fi  # epochs
-if [ -z $_tn ]; then _tn=10; fi  # train number
-if [ -n "$_all_test" ]; then _tsn=-1; fi  # number of test dataset
-if [ -z "$_tsn" ]; then _tsn=100; fi
-
 if [ -n "$_debug" ]; then
    _ep=5
 fi
-
-if [ "$_nsp" = "all" ]; then _nsp=${#_tasks[@]}; fi
-if [ -z "$_nsp" ]; then  _nsp=0; fi # Number of source prompts
-
-if [ -z "$_sp" ]; then  _sp=True; fi # save prompts
-if [ -z "$_rpx" ]; then  _rpx="${_ep}${_tn}"; fi # router prefix
-if [ -z "$_skip" ]; then  _skip=False; fi #skip generation prompt if it exists
-if [ -z "$_lp" ]; then  _lp=True; fi  #load prompts
-if [ -z "$_pdir" ]; then  _pdir=prompts; fi # directory to save prompts
-if [ -z "$_ppx" ]; then  _ppx="${_ep}${_tn}"; fi # prefix for prompts to load
-if [ -z "$_opx" ]; then  _opx="${_ppx}"; fi # prefix for prompts to save
-
-if [ -z "$_sr" ]; then  _sr=False; fi # save router
-if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 
 #if [ -z "$_upp" ]; then  _upp=False; fi # use private prompts 
 #if [ -z "$_lpp" ]; then  _lpp=False; fi # load private prompts 
@@ -196,44 +180,11 @@ if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
 ###################################
 params=""
 if [ -z "$_re" ]; then
-   params="${params} --prompt_encoders_dir=$_pdir"
-   params="${params} --skip_if_prompt_exists=$_skip"
-   params="${params} --prompts_prefix=$_ppx"
-   params="${params} --output_prompts_prefix=$_opx"
-   params="${params} --load_prompts=$_lp"
-   params="${params} --ignore_train_if_prompt_exists=True"
-   params="${params} --prompts_to_save=none"
-   params="${params} --save_router=$_sr"
-   params="${params} --save_source_prompts=True"
-   params="${params} --save_all_prompts=$_sp"
-   params="${params} --router_prefix=$_rpx"
-   params="${params} --use_saved_router=$_usr"
-   ###################################
-   # Setting task Parameters
-   params="${params} --per_device_train_batch_size=$_bs"
-   params="${params} --per_device_eval_batch_size=$_bs"
-   params="${params} --@num_train_epochs=$_ep"
-
-   params="${params} --@max_train_samples=$_tn"
-   params="${params} --max_test_samples=$_tsn"
-
    if [ -n "$_tasks" ]; then
       params="${params} --@task_name=$_tasks"
    fi
-   params="${params} --@num_source_prompts=$_nsp"
-   params="${params} --@source_prompts=$_src"
-
-   if [ -n "$_cmm" ]; then
-      if [ $_cmm = "cat" ]; then
-         if [ -z "$_numt" ]; then  _numt=10; fi
-         if [ -z "$_ntp" ]; then  _ntp=auto; fi # number of target prompts
-      else
-         if [ -z "$_numt" ]; then  _numt=50; fi
-         if [ -z "$_ntp" ]; then  _ntp=0; fi 
-      fi
-      params="${params} --@compose_method=$_cmm"
-      params="${params} --@num_prompt_tokens=$_numt"
-      params="${params} --@num_target_prompts=$_ntp"
+   if [ -n "$_src" ]; then
+      params="${params} --@source_prompts=$_src"
    fi
 fi
 if [ -n "$_reval" ]; then
