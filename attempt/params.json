@@ -7,6 +7,7 @@
   "st":"sel_thresh",
   "rm":"route_method",
   "tmpr":"temperature",
+  "alr":"attn_learning_rate",
   "cmm":"compose_method",
   "upp":"use_private_prompts",
   "lpp":"load_private_prompts",

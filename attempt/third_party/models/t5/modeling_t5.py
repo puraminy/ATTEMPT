@@ -65,7 +65,10 @@ def normalize_scores(scores, method="soft",
             logits=scores).rsample()  
 
     if sel_thresh is not None:
-        scores[scores < sel_thresh] = -100
+        if method == "soft" or method == "direct":
+            scores[scores < sel_thresh] = -100
+        else:
+            scores[scores < sel_thresh] = 0
 
     if gen_thresh_max is not None:
         mylogs.bp("gmax")
@@ -1147,13 +1150,13 @@ class T5Stack(T5PreTrainedModel):
         if self.prefix_tuning:
             self.prefix_dim = adapter_config.prefix_dim
         if self.append_attn_prefix or self.prompt_tuning:
-            if self.attn_method == "linear":
+            if self.attn_method == "linear" or self.compose_method == "lin":
                 self.attn_Wa = nn.Linear(
                     self.model_dim, self.model_dim, bias=False)
                 self.layer_norm = nn.LayerNorm(self.model_dim)
-            if self.attn_method == "sub":
-                self.attn_W_down = nn.Linear(self.model_dim, 100, bias=False)
-                self.attn_W_up = nn.Linear(100, self.model_dim, bias=False)
+            if self.attn_method == "sub" or self.compose_method == "sub":
+                self.attn_W_down = nn.Linear(self.model_dim, 300, bias=False)
+                self.attn_W_up = nn.Linear(300, self.model_dim, bias=False)
                 self.attn_non_linear = nn.SiLU()
                 self.layer_norm = nn.LayerNorm(self.model_dim)
         #######################################
@@ -1264,6 +1267,24 @@ class T5Stack(T5PreTrainedModel):
         ), device=device).uniform_(0, 0))
 
 
+        if self.prompt_tuning:
+            mylogs.bp("sub")
+            mylogs.bp("lin")
+            # inp_dim = len(source_prompts) * self.src_prompt_dim * self.model_dim 
+            inp_dim = self.model_dim 
+            # out_dim = self.src_prompt_dim * self.model_dim 
+            out_dim = self.model_dim 
+            self.conv_layer = nn.Conv1d(in_channels=len(source_prompts), 
+                    out_channels=4, kernel_size=len(source_prompts)*self.model_dim)
+            if self.compose_method == "lin":
+                self.attn_Wa = nn.Linear(
+                    inp_dim, out_dim, bias=False)
+                self.layer_norm = nn.LayerNorm(inp_dim)
+            if self.compose_method == "sub":
+                self.attn_W_down = nn.Linear(inp_dim, 1000, bias=False)
+                self.attn_W_up = nn.Linear(1000, inp_dim, bias=False)
+                self.attn_non_linear = nn.SiLU()
+                self.layer_norm = nn.LayerNorm(inp_dim)
 #        self.z = nn.Parameter(data=torch.empty((
 #            attend_num, 
 #            intrinsic_dim
@@ -1280,10 +1301,14 @@ class T5Stack(T5PreTrainedModel):
         attend_num =len(self.prompt_encoders) + 1 # one for input
         base = num_masked_prompts / attend_num
         nse = sum(1 for enc in self.prompt_encoders 
-                if enc.is_source and not enc.is_private and not enc.is_target)
+                # if enc.is_source and not enc.is_private and not enc.is_target)
+                if enc.is_source and not enc.is_target)
         mylogs.bp("nrp")
         attn_mask = self.attn_mask_orig.clone() 
         k = num_masked_prompts
+        targets = self.target_encoders_idx
+        attn_scores = self.router #.index_select(0, targets)
+        positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in attn_scores]
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if encoder.is_target:
                 if mask_type == "rand" or mask_type == "random":
@@ -1291,8 +1316,22 @@ class T5Stack(T5PreTrainedModel):
                     k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
                     mask = r <= k_th_quant
                     attn_mask[i, 1:nse] = mask.long()
+                elif mask_type == "pos":
+                    if index <=  len(positive_indices_per_row[i]):
+                        to = min(nse + 1, (index -1) + num_masked_prompts)
+                        to = min(to, len(positive_indices_per_row[i]) - 1)
+                        idx = min(index -1, to) 
+                        indices = positive_indices_per_row[i][idx:to]
+                        attn_mask[i, indices] = 0 
+                elif mask_type == "else":
+                    if index <=  len(positive_indices_per_row[i]):
+                        idx = index - 1 
+                        positive_indices = positive_indices_per_row[i]
+                        other_positive_indices = [val
+                                for ii, val in enumerate(positive_indices) if ii != idx]
+                        attn_mask[i, other_positive_indices] = 0 
                 else:
-                    to = min(nse, index + num_masked_prompts)
+                    to = min(nse + 1, index + num_masked_prompts)
                     attn_mask[i, index:to] = 0 
         return attn_mask
 
@@ -1592,6 +1631,25 @@ class T5Stack(T5PreTrainedModel):
             last_prompt = attend_to_x[:,:,-1,:,:]
             soft_prompts = torch.cat(
                    [avg_prompts, last_prompt], dim=2)
+        elif self.compose_method == "lin":
+            mylogs.bp("lin")
+            x = attend_to_x
+            x = self.attn_Wa(x)
+            x = torch.einsum(
+                'bts, btsld -> btld', attn_sel_scores, x)
+            # x = x.reshape(batch_size, num_targets,-1)
+            # x = self.attn_Wa(x)
+            # x = self.layer_norm(x)
+            soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
+        elif self.compose_method == "sub":
+            mylogs.bp("sub")
+            x = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
+            x = self.attn_W_down(x)
+            # x = self.attn_non_linear(x)
+            x = self.attn_W_up(x)
+            # x = self.layer_norm(x)
+            soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
            if self.target_share == 1:

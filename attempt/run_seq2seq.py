@@ -309,6 +309,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    exclude_list = []
    exp_args = {}
    save_path = ""
+   prev_exp_folder = ""
    if not log_path:
        log_path = mylogs.logPath 
    if not log_path.startswith("/"):
@@ -322,7 +323,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
         if reval:
-            exp_args["load_model_dir"] = exp_args["output_dir"]
+            prev_exp_folder = exp_args["output_dir"]
+            exp_args["load_model_dir"] = prev_exp_folder 
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
             exp_args["reval"] = True
@@ -372,6 +374,22 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args = {}
    args["conf"] = exp_conf
    args["save_path"] = save_path
+
+   if prev_exp_folder:
+       prev_exp_id = Path(prev_exp_folder).name
+       eval_folders = glob.glob("Eval-" + prev_exp_id + "*")
+       try:
+           shutil.copytree(prev_exp_folder, 
+                   os.path.join(save_path, Path(prev_exp_folder).name))
+       except FileExistsError:
+           pass
+       for folder in eval_folders:
+           try:
+               shutil.copytree(folder, os.path.join(save_path, Path(folder).name))
+           except FileExistsError:
+               pass
+
+   args["new_exp_folder"] = new_exp_folder
    args["load_path"] = "" 
    args["is_debug"] = debug
    if not reval:
@@ -740,10 +758,11 @@ def train(**kwargs):
     torch.autograd.set_detect_anomaly(True)
     training_args.report_to = kwargs.get("report_to", "wandb")
 
+    new_exp_folder = kwargs.get("new_exp_folder","")
     kwargs = overwrite_conf(kwargs)
     kwargs = dotdict(kwargs)
     _dict = kwargs.copy()
-    for c in ["tag","log_var","main_vars","full_tag", 
+    for c in ["tag","log_var","main_vars","full_tag","new_exp_folder", 
             "total_exp", "break_point", "repeat"]:
         if c in _dict:
             del _dict[c]
@@ -753,7 +772,7 @@ def train(**kwargs):
     print(exp_conf)
     Path(training_args.output_dir).mkdir(exist_ok=True, parents=True)
     merge = kwargs.get("merge", False)
-    if not reval:
+    if not reval or new_exp_folder:
         expid = kwargs.get("expid", 1)
         exp_conf_name = "exp.json" if not merge else "exp_" + expid + ".json"
         with open(op.join(training_args.output_dir, exp_conf_name), "w") as f:
@@ -1664,6 +1683,7 @@ def train(**kwargs):
     all_parameters = set([p for p in model.parameters() if p.requires_grad])
     attn_params = []
     prompt_params = []
+    mylogs.bp("lr")
     if model_args.attn_learning_rate is not None and model_args.learn_attention:
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
@@ -1805,7 +1825,7 @@ def train(**kwargs):
         mylogs.bp("load_model")
         dpath = os.path.join(load_path, "attn_W_down.pt")
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        saved_prompts_prefix = kwargs.get("saved_prompts_prefix", prompts_prefix)
+        saved_prompts_prefix = kwargs.get("saved_prompts_prefix", "*")
         saved_prompts_prefix = str(saved_prompts_prefix)
         attention_paths = [dpath, 
                 os.path.join(load_path, "attn_W_up.pt")]
@@ -2009,16 +2029,23 @@ def train(**kwargs):
             data_info["test"] = test_datasets[first_ds]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
-
+        no_mask_preds = {}
         # multi-task evaluations
-        def evaluate_test(task, test_dataset, save_to, ds_name, gen_conf = {}):
+        def evaluate_test(task, test_dataset, save_to, ds_name, 
+                gen_conf = {}, use_cache=False):
             mylogs.bp("ttt")
-            predictions, labels, metrics = trainer.predict(
+            if use_cache and task in no_mask_preds:
+                predictions, labels, metrics = no_mask_preds[task] 
+            else:
+                predictions, labels, metrics = trainer.predict(
                     gen_conf = gen_conf,
                     test_dataset=test_dataset,
                     max_length=data_args.test_max_target_length, 
                     num_beams=data_args.num_beams,
                     metric_key_prefix="test", task=task)
+
+            if gen_conf["mask_type"] == "no-mask":
+                no_mask_preds[task] = (predictions, labels, metrics)
             
             mylogs.bp("gen")
             trainer.log_metrics("test", metrics)
@@ -2180,11 +2207,20 @@ def train(**kwargs):
         if masking == "none" or masking is None: masking = "0-col-0"
         nn, mask_type, mm = masking.split("-") 
         num_masks, num_masked_prompts =int(nn), int(mm) 
-        if num_masks == 0: 
-            num_masks = num_source_prompts
-            if use_private_prompts:
-                num_masks += len(data_args.task_name)
         mylogs.bp("nrp")
+        if num_masks == 0: 
+            if mask_type == "pos" or mask_type == "else":
+                router = model.encoder.router
+                positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in router]
+                max_length_index = max(range(len(positive_indices_per_row)), 
+                        key=lambda i: len(positive_indices_per_row[i]))
+                # Access the maximum length and indices
+                max_length = len(positive_indices_per_row[max_length_index])
+                num_masks = max_length
+            else:
+                num_masks = num_source_prompts
+                if use_private_prompts:
+                    num_masks += len(data_args.task_name)
         gen_masks["no-mask"] = None
         if num_masked_prompts > 0:
             for rm in range(num_masks):
@@ -2217,175 +2253,209 @@ def train(**kwargs):
             task_scores = {}
             effect_scores = {}
             eval_folders = {}
-            gen_combs = itertools.product(gen_masks.items(),gnm, 
+            no_mask_test_files = {}
+            gen_combs = itertools.product(gnm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
-            for (rm,mask), norm_method, gmin, gmax, gntp in gen_combs:
-                if "-" in norm_method:
-                    norm_method, tmin, tmax = norm_method.split("-")
-                    gmin = float(tmin) if tmin != 'none' else None
-                    gmax = float(tmax) if tmax != 'none' else None
+            for norm_method, gmin, gmax, gntp in gen_combs:
+                for rm, mask in gen_masks.items():
+                    if "-" in norm_method:
+                        norm_method, tmin, tmax = norm_method.split("-")
+                        gmin = float(tmin) if tmin != 'none' else None
+                        gmax = float(tmax) if tmax != 'none' else None
 
-                model.encoder.attn_scores = torch.zeros(
-                    (attend_num, attend_num), device=device) 
-                model.encoder.attn_mask_learned = torch.zeros(
-                    (attend_num, attend_num), device=device) 
-                mylogs.bp("pic")
-                rv = "Eval" if not reval else "Reval"
-                eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                        + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method + "_trial-" \
-                        + str(kwargs.trial) + "_" + str(ii) 
-                eval_folder = os.path.join(exp_folder, eval_folder_name)
-                Path(eval_folder).mkdir(parents=True, exist_ok=True)
-                counter = 0
-                total_score = 0
-                if not rm in task_scores:
-                    task_scores[rm] = {}
-                gen_conf = {"rep_penalty":2.0}
-                gen_conf["gen_norm_method"] = norm_method
-                gen_conf["mask_type"] = rm
-                gen_conf["gen_thresh_min"] = gmin
-                gen_conf["gen_thresh_max"] = gmax
-                gen_conf["gen_ntp"] = gntp
-                test_key = ""
-                for kk, vv in gen_conf.items():
-                    if kk not in ["attn_mask"]:
-                        exp_info[kk] = vv
-                        if kk != "mask_type":
-                            test_key += str(vv) + "-"
-                test_key = test_key.strip("-")
-                if not test_key in eval_folders:
-                    eval_folders[test_key] = []
-                eval_folders[test_key].append(eval_folder_name)
-                if not test_key in task_scores[rm]:
-                    task_scores[rm][test_key] = {}
-                for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                    if mask is not None: 
-                       gen_conf["attn_mask"] = mask 
-                    else:
-                       gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
+                    model.encoder.attn_scores = torch.zeros(
+                        (attend_num, attend_num), device=device) 
+                    model.encoder.attn_mask_learned = torch.zeros(
+                        (attend_num, attend_num), device=device) 
+                    mylogs.bp("pic")
+                    rv = "Eval" if not reval else "Reval"
+                    eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
+                            + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
+                            + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
+                    eval_folder = os.path.join(exp_folder, eval_folder_name)
+                    Path(eval_folder).mkdir(parents=True, exist_ok=True)
+                    counter = 0
+                    total_score = 0
+                    if not rm in task_scores:
+                        task_scores[rm] = {}
+                    gen_conf = {"rep_penalty":2.0}
+                    gen_conf["gen_norm_method"] = norm_method
+                    gen_conf["mask_type"] = rm
+                    gen_conf["gen_thresh_min"] = gmin
+                    gen_conf["gen_thresh_max"] = gmax
+                    gen_conf["gen_ntp"] = gntp
+                    test_key = ""
+                    for kk, vv in gen_conf.items():
+                        if kk not in ["attn_mask"]:
+                            exp_info[kk] = vv
+                            if kk != "mask_type":
+                                test_key += str(vv) + "-"
+                    test_key = test_key.strip("-")
+                    if not test_key in eval_folders:
+                        eval_folders[test_key] = []
+                    eval_folders[test_key].append(eval_folder_name)
+                    if not test_key in task_scores[rm]:
+                        task_scores[rm][test_key] = {}
+                    if adapter_args.prompt_tuning:
+                        targets = model.encoder.target_encoders_idx
+                        y_labels = [model.encoder.prompt_names[i] for i in targets]
+                        y_labels = [y.replace("tar-","") for y in y_labels]
+                        if mask is not None:
+                            mask_matrix = mask.index_select(0, targets)
+                        orig_mask = model.encoder.attn_mask_orig 
+                        orig_mask_matrix = orig_mask.index_select(0, targets)
+                    for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                        if mask is not None: 
+                           gen_conf["attn_mask"] = mask 
+                        else:
+                           gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
 
-                    mylogs.bp("test")
-                    ds_conf = task #data_args.test_dataset_config_name[idx]
-                    ds_name = task #data_args.test_dataset_name[idx]
-                    
-                    task = task.split("_")[0]
-                    
-                    ds_name = "none" if not ds_name else ds_name
-                    ds_conf = "none" if not ds_conf else ds_conf
-                    is_train = "train" if training_args.do_train else "eval"
-                    save_to = os.path.join(eval_folder,
-                        ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
+                        mylogs.bp("testmask")
+                        task = task.split("_")[0]
+                        ds_conf = task #data_args.test_dataset_config_name[idx]
+                        ds_name = task #data_args.test_dataset_name[idx]
+                        
+                        ds_name = "none" if not ds_name else ds_name
+                        ds_conf = "none" if not ds_conf else ds_conf
+                        is_train = "train" if training_args.do_train else "eval"
+                        save_to = os.path.join(eval_folder,
+                            ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
+                        use_cache = False
+                        if adapter_args.prompt_tuning: 
+                            if rm != "no-mask" and mask is not None: 
+                                mylogs.bp("cache")
+                                task_index = y_labels.index(task)
+                                task_mask = mask_matrix[task_index]
+                                orig_task_mask = orig_mask_matrix[task_index]
+                                if torch.equal(task_mask,orig_task_mask):
+                                    use_cache = True
+                                    mylogs.minfo("Using cached predictions for " + task)
 
-                    df, scores, preds, golds = evaluate_test(task, test_dataset, 
-                            save_to, ds_name, gen_conf)
+                        df, scores, preds, golds = evaluate_test(task, test_dataset, 
+                                save_to, ds_name, gen_conf, use_cache = use_cache)
 
-                    df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                            ds_conf,"test.tsv")
-                    mylogs.bp("test")
-                    task_score = df["m_score"].mean() 
-                    task_scores[rm][test_key][task] = task_score
-                    total_score += task_score 
-                    da = {}
-                    if use_wandb:
-                        test_rouge = wandb.run.summary["test_rouge"]
-                        test_bert = wandb.run.summary["test_bert"]
-                        num_preds = wandb.run.summary["num_preds"]
-                        da["test_rouge"] = test_rouge
-                        da["test_bert"] = test_bert
-                        da["num_preds"] = num_preds
-                    da["task"] = task
-                    da["norm_method"] = norm_method
-                    sdf_rows.append(da)
-                    ii += 1
-                    counter += 1
+                        if rm == "no-mask":
+                            no_mask_test_files[task] = save_to
+
+                        df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                                ds_conf,"test.tsv")
+                        mylogs.bp("test")
+                        task_score = df["m_score"].mean() 
+                        task_scores[rm][test_key][task] = task_score
+                        total_score += task_score 
+                        da = {}
+                        if use_wandb:
+                            test_rouge = wandb.run.summary["test_rouge"]
+                            test_bert = wandb.run.summary["test_bert"]
+                            num_preds = wandb.run.summary["num_preds"]
+                            da["test_rouge"] = test_rouge
+                            da["test_bert"] = test_bert
+                            da["num_preds"] = num_preds
+                        da["task"] = task
+                        da["norm_method"] = norm_method
+                        sdf_rows.append(da)
+                        ii += 1
+                        counter += 1
 #################
-                mylogs.bp("pic")
-                mean_score = total_score / counter
-                if adapter_args.prompt_tuning:
-                    targets = model.encoder.target_encoders_idx
-                    y_labels = [model.encoder.prompt_names[i] for i in targets]
-                    y_labels = [y.replace("tar-","") for y in y_labels]
-                    router_scores = model.encoder.router.index_select(0, targets)
-                    tlen = router_scores.size(0)
-                    rsim = torch.eye(tlen)
-                    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                    for i in range(tlen):
-                        for j in range(tlen):
-                            if i != j:
-                                rsim[i][j] = cos(router_scores[i][:], 
-                                        router_scores[j][:])
-                    vmin = 0 if tlen <=3 else None
-                    save_image(eval_folder, model, {"rsim":rsim}, 
-                                annot=True, square=True, vmin=vmin, vmax=1,
-                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                        + " | {:.2f}".format(mean_score))
-                    tlen = router_scores.size(0)
-                    if multi_tasking:
-                        start = 0 if model_args.attend_input else 1 
-                        router_scores = router_scores[:,start:slen+tlen + 1]
-                    save_image(eval_folder, model, {"router":router_scores}, 
-                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                        + " | {:.2f}".format(mean_score))
-                    if init_router is not None:
-                        init_router_scores = init_router.index_select(0, targets)
-                        init_router_scores = init_router_scores[:,start:slen+tlen + 1]
-                        save_image(eval_folder, model, 
-                                {"init_router":init_router_scores}, spec=rm)
+                    mylogs.bp("pic")
+                    mean_score = total_score / counter
+                    if adapter_args.prompt_tuning:
+                        targets = model.encoder.target_encoders_idx
+                        router_scores = model.encoder.router.index_select(0, targets)
+                        tlen = router_scores.size(0)
+                        rsim = torch.eye(tlen)
+                        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    rsim[i][j] = cos(router_scores[i][:], 
+                                            router_scores[j][:])
+                        vmin = 0 if tlen <=3 else None
+                        save_image(eval_folder, model, {"rsim":rsim}, 
+                                    annot=True, square=True, vmin=vmin, vmax=1,
+                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
+                                            + " | {:.2f}".format(mean_score))
+                        tlen = router_scores.size(0)
+                        if multi_tasking:
+                            start = 0 if model_args.attend_input else 1 
+                            router_scores = router_scores[:,start:slen+tlen + 1]
+                        save_image(eval_folder, model, {"router":router_scores}, 
+                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
+                                            + " | {:.2f}".format(mean_score))
+                        if init_router is not None:
+                            init_router_scores = init_router.index_select(0, targets)
+                            init_router_scores = init_router_scores[:,start:slen+tlen + 1]
+                            save_image(eval_folder, model, 
+                                    {"init_router":init_router_scores}, spec=rm)
 
-                    ss1 = model.encoder.attn_scores.index_select(0, targets)
-                    mylogs.bp("ss1")
-                    tlen = ss1.size(0)
-                    all_len = ss1.size(1)
-                    sim = torch.eye(tlen)
-                    cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                    for i in range(tlen):
-                        for j in range(tlen):
-                            if i != j:
-                                sim[i][j] = cos(ss1[i][:], ss1[j][:]) #, slen) 
+                        scores_matrix = model.encoder.attn_scores.index_select(0, targets)
+                        mylogs.bp("scores_matrix")
+                        tlen = scores_matrix.size(0)
+                        all_len = scores_matrix.size(1)
+                        sim = torch.eye(tlen)
+                        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                        for i in range(tlen):
+                            for j in range(tlen):
+                                if i != j:
+                                    sim[i][j] = cos(scores_matrix[i][:], scores_matrix[j][:])
 
-                    ss1 = torch.round(ss1*100)/100
-                    if multi_tasking:
-                        start = 0 if model_args.attend_input else 1 
-                        ss1 = ss1[:,start:slen+tlen + 1]
+                        scores_matrix = torch.round(scores_matrix*100)/100
+                        if multi_tasking:
+                            start = 0 if model_args.attend_input else 1 
+                            scores_matrix = scores_matrix[:,start:slen+tlen + 1]
 
-                    if len(torch.nonzero(ss1)) < 1:
-                        ss1 = torch.eye(tlen)
-                    save_image(eval_folder, model, {"score":ss1}, 
-                                spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                        + " | {:.2f}".format(mean_score))
-                    score_dict= {"sim":sim.round(decimals=2)} #, "rsim": rsim}
-                    save_image(eval_folder, model, score_dict, 
-                            annot=True,
-                            square=True,
-                            spec = norm_method + " | {:.2f}".format(mean_score))
+                        if len(torch.nonzero(scores_matrix)) < 1:
+                            scores_matrix = torch.eye(tlen)
+                        save_image(eval_folder, model, {"score":scores_matrix}, 
+                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
+                                            + " | {:.2f}".format(mean_score))
+                        score_dict= {"sim":sim.round(decimals=2)} #, "rsim": rsim}
+                        save_image(eval_folder, model, score_dict, 
+                                annot=True,
+                                square=True,
+                                spec = norm_method + " | {:.2f}".format(mean_score))
 
-                    if mask is not None:
-                        ss3 = mask.index_select(0, targets)
-                    else:
-                        learned_mask = model.encoder.attn_mask_learned 
-                        ss3 = learned_mask.index_select(0, targets)
-                    if multi_tasking:
-                        start = 0 if model_args.attend_input else 1 
-                        ss3 = ss3[:,start:slen+tlen + 1]
-                    save_image(eval_folder, model, {"mask": ss3}, spec=rm)
-                    if "col" in rm:
-                        if not test_key in effect_scores:
-                            effect_scores[test_key] = torch.zeros(
-                                (tlen, slen + tlen), device=device) 
+                        if mask is not None:
+                            mask_matrix = mask.index_select(0, targets)
+                        else:
+                            learned_mask = model.encoder.attn_mask_learned 
+                            mask_matrix = learned_mask.index_select(0, targets)
+                        if multi_tasking:
+                            start = 0 if model_args.attend_input else 1 
+                            mask_matrix = mask_matrix[:,start:slen+tlen + 1]
+                        save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
+                        if "col" in rm or "pos" in rm or "else" in rm:
+                            if not test_key in effect_scores:
+                                effect_scores[test_key] = torch.zeros(
+                                    (tlen, slen + tlen +1), device=device) 
 
-                        col,_,_ = rm.split("-")
-                        col = int(col) - 1
-                        base_scores = task_scores["no-mask"][test_key]
-                        mask_scores = task_scores[rm][test_key]
-                        for _task, _score in mask_scores.items():
-                            base_score = float(base_scores[_task])
-                            if base_score == 0:
-                                effect = 0
-                            else:
-                                effect = ((float(_score) - base_score) / base_score) #*100
-                            effect = -1*effect
-                            task_index = y_labels.index(_task) 
-                            effect_scores[test_key][task_index, col] = effect
+                            col,_,_ = rm.split("-")
+                            col = int(col) - 1
+                            if col == 1:
+                                mylogs.bp("effect")
+                            positive_idx = [torch.nonzero(row > 0)[:, -1] 
+                                    for row in router_scores]
+                            base_scores = task_scores["no-mask"][test_key]
+                            mask_scores = task_scores[rm][test_key]
+                            for _task, _score in mask_scores.items():
+                                base_score = float(base_scores[_task])
+                                score = float(_score) 
+                                if base_score == 0:
+                                    effect = 0
+                                else:
+                                    effect = (score- base_score) # / base_score) #*100
+                                if "else" in rm:
+                                    effect = score if score > 0 else -10
+                                else:
+                                    effect = -1*effect
+                                    effect = min(effect, 50)
+                                effect = max(effect, -50)
+                                task_index = y_labels.index(_task) 
+                                if col < len(positive_idx[task_index]):  
+                                    col_index = positive_idx[task_index][col]
+                                    effect_scores[test_key][task_index, col_index] = effect
+                                if "else" in rm:
+                                    effect_scores[test_key][task_index, -1] = base_score 
         #### end of for
             mylogs.bp("effect")
             for test_key, effect_score in effect_scores.items(): 
@@ -2408,7 +2478,7 @@ def train(**kwargs):
 
         if model_args.attn_tuning:
             targets = model.encoder.target_encoders_idx
-            ss1 = model.encoder.attn_scores.index_select(0, targets)
+            scores_matrix = model.encoder.attn_scores.index_select(0, targets)
             router_scores = model.encoder.router.index_select(0, targets)
             _tag = kwargs.setdefault("tag",[])
             #if diff_args:
@@ -2420,13 +2490,13 @@ def train(**kwargs):
             if "task_name" in _main_vars:
                 del _main_vars["task_name"]
 
-            global_scores.append(ss1)
+            global_scores.append(scores_matrix)
             targets = model.encoder.target_encoders_idx
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
             global_y_labels.extend(y_labels)
             global_x_labels = model.encoder.prompt_names 
-            for score in [ss1]: #[router_scores]
+            for score in [scores_matrix]: #[router_scores]
                 img_buf = WBCallback.save_image(scores=[score], 
                    y_labels=y_labels,
                    x_labels=model.encoder.prompt_names, 

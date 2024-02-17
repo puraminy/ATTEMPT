@@ -563,7 +563,7 @@ class AbstractTask(abc.ABC):
         if self.multi_choice:
             src = src + " options:" + ",".join(labels_list)
 
-        # src = src[:max_input_len]
+        src = src[:max_input_len]
 
         data = {'source': src,
                 'target': tgt,
