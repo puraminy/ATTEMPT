@@ -44,9 +44,9 @@ from transformers import (
     HfArgumentParser,
     default_data_collator,
     set_seed,
-    AdamW,
     get_linear_schedule_with_warmup
 )
+from torch.optim import AdamW
 import transformers
 from datasets import concatenate_datasets
 from typing import Optional, List
@@ -1102,7 +1102,8 @@ def train(**kwargs):
     config.bias = kwargs.setdefault("bias", 0.0)
     if type(config.bias) == list or config.bias > 0:
         if not config.route_method.startswith("bias"):
-            config.route_method = "biass" 
+            # config.route_method = "biass" 
+            raise ValueError("To use bias set routmethod to biass, or biasp or biasx")
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option

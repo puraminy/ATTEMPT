@@ -1,4 +1,6 @@
 {
+  "tasks":"task_name",
+  "bs":"per_device_train_batch_size",
   "gmin":"gen_thresh_min",
   "gmax":"gen_thresh_max",
   "nm":"norm_method",
@@ -23,9 +25,12 @@
   "nsp":"num_source_prompts",
   "ntp":"num_target_prompts",
   "src":"source_prompts",
-  "save_ri":"save_router_image",
+  "sri":"save_router_image",
+  "slr":"source_prompt_learning_rate",
+  "plr":"private_prompt_learning_rate",
   "order":"source_prompts_order",
   "masking":"prompt_masking",
   "sr":"save_router",
-  "usr":"use_saved_router"
+  "usr":"use_saved_router",
+  "ignore":"ignore_if_prompt_not_exists"
 }

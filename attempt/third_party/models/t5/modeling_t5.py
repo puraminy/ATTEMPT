@@ -333,11 +333,16 @@ DEPARALLELIZE_DOCSTRING = r"""
 """
 
 class Anneal:
-    def __init__(self, temperature, anneal_dir, anneal_rate, anneal_point, anneal_type="exp"):
-        self.anneal_point = anneal_point
+    def __init__(self, temperature, anneal_dir, anneal_rate, anneal_min, anneal_type="exp"):
         self.cur_step = 0
-        self.start_val = temperature
-        self.cur_val = temperature
+        if anneal_dir == 1:
+            self.start_val = anneal_min
+            self.anneal_point = temperature
+        elif anneal_dir == -1:
+            self.start_val = temperature
+            self.anneal_point = anneal_min
+
+        self.cur_val = self.start_val
         self.anneal_dir = anneal_dir
         self.anneal_rate = anneal_rate
         self.anneal_type = anneal_type
@@ -1104,22 +1109,23 @@ class T5Stack(T5PreTrainedModel):
         self.anneal_router = Anneal(self.temperature, 
                 anneal_dir = self.anneal_dir, 
                 anneal_rate = self.anneal_rate, 
-                anneal_point = self.anneal_min, 
+                anneal_min = self.anneal_min, 
                 anneal_type=self.anneal_type)
 
         self.sel_thresh = config.sel_thresh
         self.thresh_anneal_dir = 1
         self.thresh_anneal_type = "linear"
         self.thresh_anneal_rate = 0.002
-        self.thresh_anneal_max = 0.5
+        self.thresh_anneal_min = 0.1
         self.do_anneal_thresh = False
         self.anneal_thresh = Anneal(self.sel_thresh, 
                 anneal_dir = self.thresh_anneal_dir, 
                 anneal_rate = self.thresh_anneal_rate, 
-                anneal_point = self.thresh_anneal_max, 
+                anneal_min = self.thresh_anneal_min, 
                 anneal_type=self.thresh_anneal_type)
         self.anneal_ts = Anneal(self.target_share_temperature, 
-                anneal_dir = -1, anneal_rate = 0.05, anneal_point = 0, anneal_type="linear")
+                anneal_dir = -1, anneal_rate = 0.05, 
+                anneal_min = 0, anneal_type="linear")
         self.norm_method = config.norm_method
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
@@ -1319,16 +1325,29 @@ class T5Stack(T5PreTrainedModel):
                 elif mask_type == "pos":
                     if index <=  len(positive_indices_per_row[i]):
                         to = min(nse + 1, (index -1) + num_masked_prompts)
-                        to = min(to, len(positive_indices_per_row[i]) - 1)
+                        to = min(to, len(positive_indices_per_row[i]))
                         idx = min(index -1, to) 
                         indices = positive_indices_per_row[i][idx:to]
                         attn_mask[i, indices] = 0 
                 elif mask_type == "else":
+                    mylogs.bp("else")
+                    if index <=  len(positive_indices_per_row[i]):
+                        to = min(nse + 1, (index -1) + num_masked_prompts)
+                        to = min(to, len(positive_indices_per_row[i]))
+                        idx = min(index -1, to) 
+                        positive_indices = positive_indices_per_row[i]
+                        indices = range(idx,to)
+                        other_positive_indices = [val
+                                for ii, val in enumerate(positive_indices) 
+                                if ii not in indices]
+                        attn_mask[i, other_positive_indices] = 0 
+                elif mask_type == "olse":
                     if index <=  len(positive_indices_per_row[i]):
                         idx = index - 1 
                         positive_indices = positive_indices_per_row[i]
                         other_positive_indices = [val
-                                for ii, val in enumerate(positive_indices) if ii != idx]
+                                for ii, val in enumerate(positive_indices) 
+                                if ii != idx]
                         attn_mask[i, other_positive_indices] = 0 
                 else:
                     to = min(nse + 1, index + num_masked_prompts)
@@ -1413,7 +1432,7 @@ class T5Stack(T5PreTrainedModel):
             router = router.repeat(batch_size, 1, 1)
             attn_scores = router
         elif self.attn_method == "rb":
-            mylogs.bp("bias")
+            mylogs.bp("rmconst")
             route_idx = attend_to_idx
             router = torch.zeros(target_idx.size()[1],
                     route_idx.size()[1], 

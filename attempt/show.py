@@ -166,6 +166,19 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
         table = table.format(head, cont, capt, label)
     return table
 
+
+def create_label(row):
+    label = 'S'
+    if row['load_source_prompts']:
+        label += 'I'
+    if row['learn_source_prompts']:
+        label += 'L'
+    if row['use_private_prompts']:
+        label += 'P'
+    if row['load_private_prompts']:
+        label += 'I'
+    return label
+
 def save_df_as_image(df, path):
     # Set background to white
     norm = matplotlib.colors.Normalize(-1,1)
@@ -213,11 +226,20 @@ def plot_bar(rep, folder, sel_col):
     plt.savefig(pname)
     return pname
 
+def score_colors(df,row,col, default=None):
+    max_val = df[col].max()
+    if df.iloc[row][col] == max_val:
+        return 136
+    return 247
+
 def pivot_colors(df,row,col, default=None):
     rel_col = "n-" + col
+    max_val = df[col].max()
     if rel_col in df:
         if df.iloc[row][rel_col] <= 1:
             return 91
+        if df.iloc[row][col] == max_val:
+            return 136
     return default if default is not None else TEXT_COLOR 
 
 def time_colors(df,row,col, default=None):
@@ -487,7 +509,7 @@ def show_df(df):
         fav_df = pd.read_table(fav_path)
     else:
         fav_df = pd.DataFrame(columns = df.columns)
-    sel_path = os.path.join(home, "atomic2020", "sel-test", "test.tsv")
+    sel_path = os.path.join(home, "atomic2020", "sel-test", "new_test.tsv")
     if Path(sel_path).exists():
         sel_df = pd.read_table(sel_path)
         if not "sel" in sel_df:
@@ -499,6 +521,7 @@ def show_df(df):
     back = []
     sels = []
     back_df = None
+    back_cols = []
     context = "main"
     contexts = []
     def backit(df, sel_cols):
@@ -510,6 +533,7 @@ def show_df(df):
         contexts.append(context)
         sels.append(sel_cols.copy())
         back_rows.append(sel_row)
+        back_cols.append(cur_col)
         back_infos.append(info_cols.copy())
 
 
@@ -523,9 +547,11 @@ def show_df(df):
     if "expid" in tag_cols:
         tag_cols.remove("expid")
     if "expid" in df:
+        df["fexpid"] = df["expid"]
         df["expname"] = df["expid"].str.split("-").str[0]
         df["expname"] = df["expname"].str.split("_").str[0]
         df["expid"] = df["expid"].str.split("-").str[1]
+        df["expid"] = df["expid"].str.split(".").str[0]
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
@@ -550,7 +576,7 @@ def show_df(df):
     if "Z" in hotkey:
         df["m_score"] = df["rouge_score"]
     context = dfname
-    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 36)
+    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 30)
     seq = ""
     reset = False
     prev_idea = ""
@@ -567,7 +593,9 @@ def show_df(df):
     unique_cols = []
     group_sel_cols = []
     group_df = None
+    pivot_df = None
     rep_cols = []
+    index_cols = []
     dfs = []
     pivot_cols = ['prefix']
     experiment_images = {}
@@ -583,6 +611,7 @@ def show_df(df):
         sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
         rep_cols = all_cols['rep_cols']
+        index_cols = all_cols['index_cols']
 
     main_sel_cols = sel_cols.copy()
 
@@ -642,9 +671,9 @@ def show_df(df):
         g = 0
         g_start = -1
         row_color = TEXT_COLOR
-        sel_col_color = TITLE_COLOR
-        cross_color = HL_COLOR   
-        sel_row_color = SEL_COLOR
+        sel_col_color = 102 # HL_COLOR #TITLE_COLOR
+        cross_color = SEL_COLOR # WARNING_COLOR # HL_COLOR   
+        sel_row_color = HL_COLOR # SEL_COLOR
         g_color = row_color
         group_mode = group_col and group_col in sel_cols 
         _sel_row = -1 if group_mode else sel_row 
@@ -726,7 +755,9 @@ def show_df(df):
                    col_widths[sel_col] = len(content) + 2
                col_title = map_cols[sel_col] if sel_col in map_cols else sel_col
                min_width = max(5, len(col_title) + 1)
-               max_width = 26
+               max_width = 100
+               if len(sel_cols) > 2:
+                   max_width = int(settings["max_width"]) if "max_width" in settings else 36
                _width = max(col_widths[sel_col], min_width)
                _width = min(_width, max_width)
                col_widths[sel_col] = _width 
@@ -734,11 +765,11 @@ def show_df(df):
                if sel_col in sel_cols:
                    if (cur_col >=0 and cur_col < len(sel_cols) 
                           and sel_col == sel_cols[cur_col]):
-                       if sel_col in cond_colors:
-                           cell_color = cond_colors[sel_col](df, ii, sel_col, 
-                                   default = sel_col_color)
-                       elif ii == _sel_row: 
+                       if ii == _sel_row: 
                           cell_color = cross_color 
+                       #elif sel_col in cond_colors:
+                       #    cell_color = cond_colors[sel_col](df, ii, sel_col, 
+                       #            default = sel_col_color)
                        else:
                           cell_color = sel_col_color
                    else:
@@ -853,12 +884,14 @@ def show_df(df):
             for key, img_dict in imgs.items():
                 #sorted_keys = (sorted(img_dict.keys()))
                 if not image_keys:
-                  image_keys = ["sim-rsim", "score", "init_router", "router", "mask"] 
+                  image_keys = ["sim", "sim-rsim", "score", 
+                                "effect", "init_router", "router", "mask"] 
+                  # image_keys = ["score", "router"] 
                 # TODO fixed
                 img_list = [img_dict[k] for k in image_keys if k in img_dict] 
                 max_width = 0
                 if len(img_list) > 1:
-                    if len(img_list) > 2 and merge == "vert":
+                    if len(img_list) > 1 and merge == "vert":
                         new_im = combine_y(img_list)
                     else:
                         new_im = combine_x(img_list)
@@ -938,14 +971,20 @@ def show_df(df):
                if sel_col in col_widths and len(head) > col_widths[sel_col]:
                    col_widths[sel_col] = len(head) 
                _w = col_widths[sel_col] if sel_col in col_widths else 5
-               text += "{:<{x}}".format(head, x=_w) 
+               if i == cur_col:
+                  #head = inline_colors.INFO2 + head + inline_colors.ENDC 
+                  head = head + "*"
+                  text += "{:<{x}}".format(head, x=_w) 
+               else:
+                  text += "{:<{x}}".format(head, x=_w) 
             mprint(text, text_win) 
             #fffff
             infos,_ = row_print(df, col_widths, True)
             refresh()
         if cur_col < len(sel_cols) and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
-            infos.append(_sel_col)
+            _sel_val = df.iloc[sel_row][_sel_col]
+            infos.append("{}:{}".format(_sel_col, _sel_val))
         for c in info_cols:
             if not c in df:
                 continue
@@ -1004,13 +1043,24 @@ def show_df(df):
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
-        if ch == SUP:
-            info_cols = info_cols_back.copy()
+        if char == "f":
+            # info_cols = info_cols_back.copy()
+            backit(df, sel_cols)
+            max_width = 100
+            infos = []
+            for c in df.columns:
+                value = df.iloc[sel_row][c]
+                _info = {"col":c, "val":value}
+                infos.append(_info)
+            df = pd.DataFrame(data=infos)
+            df = df.sort_values(by="col", ascending=True)
+            sel_cols = ["col","val"]
         if ch == LEFT:
             cur_col -= 1
             cur_col = max(-1, cur_col)
-            if cur_col < 15 and all_sel_cols:
-                sel_cols = all_sel_cols[:20]
+            #if cur_col < 15 and all_sel_cols:
+            #    sel_cols = all_sel_cols[:20]
+            cur_col = min(len(sel_cols)-1, cur_col)
             cur_sel_col = sel_cols[cur_col]
             width = len(cur_sel_col) + 2
             if cur_sel_col in col_widths:
@@ -1022,9 +1072,10 @@ def show_df(df):
             adjust = False
         if ch == RIGHT:
             cur_col += 1
-            if cur_col > 15 and all_sel_cols:
-                sel_cols = all_sel_cols[10:30]
+            #if cur_col > 15 and len(all_sel_cols) > 10:
+            #    sel_cols = all_sel_cols[10:30]
             cur_col = min(len(sel_cols)-1, cur_col)
+            cur_col = max(0,cur_col)
             cur_sel_col = sel_cols[cur_col]
             width = len(cur_sel_col) + 2
             if cur_sel_col in col_widths:
@@ -1090,6 +1141,15 @@ def show_df(df):
                 selected_cols.remove(col)
             else:
                 selected_cols.append(col)
+        elif char == "-":
+            backit(df, sel_cols)
+            col = sel_cols[cur_col]
+            val=df.iloc[sel_row][col]
+            cond = True
+            for o in ["gen_norm_method","norm_method"]:
+                vo=df.iloc[sel_row][o]
+                cond = cond & (df[o] == vo)
+            df = df[cond]
         elif char == ".":
             col = sel_cols[cur_col]
             val=df.iloc[sel_row][col]
@@ -1164,11 +1224,12 @@ def show_df(df):
             spath = tdf.iloc[0]["path"]
             subprocess.run(["nautilus", spath])
         if char in ["o","y"]:
+            tdf = pivot_df if pivot_df is not None else df
             images = []
-            exprs, _ = get_sel_rows(df)
+            exprs, _ = get_sel_rows(tdf)
             merge = "vert" if char == "o" else "horiz"
-            image_keys = "" if char == "o" else ["score", "a-sim"]
-            experiment_images, fnames = get_images(df, exprs, 'eid', 
+            image_keys = "" if char == "o" else ["score", "sim"]
+            experiment_images, fnames = get_images(tdf, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
             dif_cols = ["expid"]
             for col in sel_cols:
@@ -1176,8 +1237,9 @@ def show_df(df):
                     continue
                 vals = []
                 for exp in exprs:
-                    v = df.loc[df.eid == exp, col].iloc[0]
-                    vals.append(v)
+                    if col in tdf:
+                        v = tdf.loc[tdf.eid == exp, col].iloc[0]
+                        vals.append(v)
                 if all(str(x).strip() == str(vals[0]).strip() for x in vals):
                     continue
                 else:
@@ -1190,15 +1252,19 @@ def show_df(df):
                 images.append(im)
 
             if images:
-                pic = combine_x(images)
+                pic = combine_x(images) if char =="o" else combine_y(images)
+                if len(images) > 1:
+                    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 30)
+                else:
+                    font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 20)
                 im = pic
                 if capt_pos and capt_pos != "none" and char != "y":
                     width, height = im.size
-                    gap = 150*len(exprs)
+                    gap = 150*len(exprs) + 50
                     if capt_pos == "top":
                         _image = add_margin(im, gap, 5, 0, 5, (255, 255, 255))
                         xx = 10
-                        yy = 50 
+                        yy = 30 
                     elif capt_pos == "below":
                         _image = add_margin(im, 0, 5, gap, 5, (255, 255, 255))
                         xx = 10
@@ -1211,10 +1277,12 @@ def show_df(df):
                     for col_set in [dif_cols, pcols]:
                         for key in exprs:
                             caption_dict = {}
-                            if not df.loc[df['eid'] == key].empty:
-                                caption_dict = df.loc[df['eid'] == key, 
+                            if not tdf.loc[tdf['eid'] == key].empty:
+                                caption_dict = tdf.loc[tdf['eid'] == key, 
                                         col_set].iloc[0].to_dict()
                             for cc, value in caption_dict.items(): 
+                                if cc in pcols:
+                                    cc = cc.split("_")[0]
                                 if cc.endswith("score"):
                                     mm = map_cols[cc] if cc in map_cols else cc
                                     mm = "{}:".format(mm)
@@ -1246,7 +1314,7 @@ def show_df(df):
             if pic is not None:
                 dest = os.path.join("routers.png")
                 pic.save(dest)
-                #pname=df.iloc[sel_row]["image"]
+                #pname=tdf.iloc[sel_row]["image"]
                 subprocess.run(["eog", dest])
         elif char == "L":
             s_rows = sel_rows
@@ -1317,18 +1385,21 @@ def show_df(df):
             unique_cols = info_cols.copy()
             df = df[sel_cols]
             df = df.sort_values(by="input_text", ascending=False)
-        elif char == "I" or (ch == cur.KEY_IC and context != "notes"):
-            canceled, col, val = list_df_values(df, get_val=False)
+        elif char == "I" or char == "#" or char == "3":
+            canceled, col, val = list_df_values(df, get_val=False, extra=["All"])
             if not canceled:
-                if col in sel_cols: 
-                    sel_cols.remove(col)
-                if col in info_cols:
-                    info_cols.remove(col)
-                if ch == cur.KEY_IC:
-                    sel_cols.insert(cur_col, col)
+                if col == "All":
+                    sel_cols = list(df.columns)
                 else:
-                    info_cols.append(col)
-                orig_tag_cols.append(col)
+                    if col in sel_cols: 
+                        sel_cols.remove(col)
+                    if col in info_cols:
+                        info_cols.remove(col)
+                    if char == "#" or char == "3": 
+                        sel_cols.insert(cur_col, col)
+                    else:
+                        info_cols.append(col)
+                    orig_tag_cols.append(col)
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
         elif char in ["o","O"] and prev_char == "x":
@@ -1420,7 +1491,7 @@ def show_df(df):
                     sel_cols = ["name"]
                 else:
                     show_msg("No select")
-        elif char == "x" and prev_char == "x":
+        elif char == "x" and prev_char == "b" and context == "":
             backit(df, sel_cols)
             df = sel_df
         # png files
@@ -1571,7 +1642,7 @@ def show_df(df):
                 sel_rows.append(sel_row)
             sel_rows = sorted(sel_rows)
             adjust = False
-        elif char == "#": 
+        elif char == "#" and prev_char == "x": 
             if not sel_rows:
                 tinfo=df.iloc[sel_row]["ftag"]
                 infos = tinfo.split(",")
@@ -1711,12 +1782,18 @@ def show_df(df):
                 consts["base"] = files[0]
             else:
                 _,dirs = get_sel_rows(df, col="output_dir")
+                out_dir = dirs[0]
                 exp_files = [os.path.join(d, "exp.json") for d in dirs]
                 exp_file = exp_files[0]
                 if "base" in consts:
                     base_file = consts["base"]
-                    arr = ["meld", base_file, exp_file]
-                    subprocess.run(arr)
+                    src = os.path.join(Path(base_file).parent, Path(base_file).stem)
+                    dst = os.path.join(Path(exp_file).parent.parent, 
+                            Path(base_file).stem + "_base")
+                    shutil.copytree(src, dst)
+                    mbeep()
+                    #arr = ["meld", base_file, exp_file]
+                    #subprocess.run(arr)
         elif char == "t":
             backit(df, sel_cols)
             mode = "cfg"
@@ -1728,7 +1805,12 @@ def show_df(df):
             for fname,_file in zip(fnames, files):
                 ts = os.path.getmtime(_file)
                 ctime = datetime.utcfromtimestamp(ts).strftime('%m-%d %H:%M:%S')
-                rest, score = fname.split("@")
+                parts = fname.split("@")
+                rest = parts
+                score = ""
+                if len(parts) > 1:
+                    rest = parts[0]
+                    score = parts[1][:4]
                 score = score.replace(".json","")
                 score = float(score)
                 method, cmm, ep, tn = rest.split("_")
@@ -1763,14 +1845,25 @@ def show_df(df):
                 js = os.path.join(path, "exp.json")
                 score = str(round(score,2)) if score else "noscore" 
                 fname = prefix + "_" + compose + "_" + str(epc) \
-                        + "_" + str(tn) + "@" + score + ".json"
+                        + "_" + str(tn) + "@" + score + "@.json"
                 fname = rowinput("prefix:", default=fname)
                 if fname:
-                    dest = os.path.join(home, "results", fname)
-                    shutil.copyfile(js, dest)
-                    clean_file(dest)
+                    parent = Path(path).parent
+                    pname = Path(path).parent.name
+                    expid = Path(path).name
+                    if "reval" in fname:
+                        dest = os.path.join(home, "reval", fname)
+                    else:
+                        folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
+                        results_folder = os.path.join(home,"results",
+                                fname.replace(".json",""))
+                        for folder in folders:
+                            shutil.copytree(folder, results_folder + "/" + Path(folder).name)
+                        dest = os.path.join(home, "results", fname)
+                        shutil.copyfile(js, dest)
+                        clean_file(dest)
                     to = "ahmad@10.42.0.2:" + dest 
-                    cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{dest}" "{to}"'
+                    cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
                     os.system(cmd)
                     # subprocess.run(cmd.split())
 
@@ -1803,6 +1896,7 @@ def show_df(df):
                 sort = "All"
         elif char == "i" and pcols and pcols[0] in df:
             backit(df, sel_cols)
+            context = "prefix"
             sel_exp=df.iloc[sel_row]["eid"]
             df = group_df[group_df['eid'] == sel_exp]
             sel_cols = group_sel_cols.copy()
@@ -2035,7 +2129,7 @@ def show_df(df):
            backit(df, sel_cols)
            df = df[df_cond]
            df_cond = True
-        elif is_enter(ch) or char in ["f", "F"]:
+        elif is_enter(ch) or char in ["F"]:
             if context != "filter" or char == "f":
                 backit(df, sel_cols)
             else:
@@ -2137,7 +2231,7 @@ def show_df(df):
                 info_cols = []
                 if col in df:
                     df = df.drop(df[df[col] == val].index)
-        elif ch == cur.KEY_DC or char == "d":
+        elif (ch == cur.KEY_DC and context != "notes"): 
             col = sel_cols[cur_col]
             if col in orig_tag_cols:
                 orig_tag_cols.remove(col)
@@ -2145,7 +2239,7 @@ def show_df(df):
                 tag_cols.remove(col)
             sel_cols.remove(col)
             save_obj(sel_cols, "sel_cols", context)
-        elif ch == cur.KEY_SDC and context == "notes":
+        elif ch == cur.KEY_DC and context == "notes":
             df = df.drop(df.iloc[sel_row].name)
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
@@ -2285,20 +2379,24 @@ def show_df(df):
         if char == "x" or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
-            prefix = df.iloc[sel_row]['prefix'] 
+            if context == "pivot":
+                prefix = sel_cols[cur_col]
+            else:
+                prefix = df.iloc[sel_row]['prefix'] 
             info_cols.append(prefix)
             consts["prefix"] = prefix
             _cols = ["pred_text1", "target_text"]
-            df = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
+            tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
             canceled, val = False, "pred_text1" # list_values(sel_cols)
             if not canceled:
                 treatment = 'target_text' #sel_cols[cur_col]
-                df = pd.crosstab(df[val], df[treatment])
-            df["preds"] = list(df.axes[0])
-            all_sel_cols = ["preds"] + list(df.columns)
+                tdf = pd.crosstab(tdf[val], tdf[treatment])
+            tdf["preds"] = list(tdf.axes[0])
+            all_sel_cols = ["preds"] + list(tdf.columns)
+            df = tdf
             sel_cols = all_sel_cols[:20] 
             for col in sel_cols:
-                col_widths[col] = len(col) + 2
+               col_widths[col] = len(col) + 2
             #adjust = False
         if cmd.startswith("anova"):
             to = ""
@@ -2335,23 +2433,27 @@ def show_df(df):
                     ss = int(char) - 1
                     if ss < len(score_cols):
                         score_col = score_cols[ss]
-                sel_cols = info_cols.copy() # + main_vars
-                avg_col = "All"
+                sel_cols = index_cols.copy() + ["All"] # + main_vars
+                sort_col = sort if sort else "All"
                 if score_col == score_cols[0]:
                     for col in df.columns:
-                        if col in pcols or col == "All":
+                        if col in pcols:
                             sel_cols.append(col)
                 else:
                     for col in df.columns:
                         if col.startswith(score_col[0] + "-"):
                             sel_cols.append(col)
-                    avg_col = score_col[0] + "-All"
-                df = df.sort_values(by=avg_col, ascending=False)
+                    sort_col = score_col[0] + "-All"
+                    if sort_col in sel_cols:
+                        sel_cols.remove(sort_col)
+                        sel_cols.insert(len(index_cols), sort_col)
+                sort = sort_col
+                # df = df.sort_values(by=sort_col, ascending=False)
         if cmd.startswith("cat"):
-            doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
             _,cat = cmd.split("=")
             context = "notes"
+            doc_dir = "/home/ahmad/findings" #os.getcwd() 
             if not "comment" in df:
                 backit(df, sel_cols)
                 if Path(note_file).is_file():
@@ -2378,35 +2480,50 @@ def show_df(df):
                 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 sel_cols = df.columns 
                 info_cols = ["comment"]
-        elif ch == cur.KEY_IC and context == "notes":
+        if ch == cur.KEY_IC:
+            doc_dir = "/home/ahmad/findings" #os.getcwd() 
+            note_file = os.path.join(doc_dir, "notes.csv")
+            if Path(note_file).is_file():
+                tdf = pd.read_csv(note_file)
+            else:
+                tdf = pd.DataFrame(columns=["date","cat","comment"])
+            tdf = tdf.loc[:, ~tdf.columns.str.contains('^Unnamed')]
             cat = "uncat"
-            if len(df) > 0:
+            if len(df) > 0 and "cat" in df:
                cat = df.iloc[sel_row]["cat"] 
             bg_color = HL_COLOR
             win_height = 8
             note_title = ""
-            _default = prev_idea
+            if prev_idea:
+                _default = prev_idea
+            else:
+                _default = cat + "\n"
             _comment, ret_ch = biginput("", default=_default)
             if _comment:
-                if ret_ch != "|":
-                    _idea = _comment
                 if ret_ch == "=" or ret_ch == "|":
-                    prev_idea = _idea
+                    prev_idea = _comment
                 else:
                     prev_idea = ""
-        
+                lines = _comment.split("\n")
+                comment = _comment
+                if len(lines) > 1:
+                    cat = lines[0]
+                    comment = "\n".join(lines[1:]) 
                 new_note = {}
                 new_note["date"] = now
-                new_note["comment"] = _comment
+                new_note["comment"] = comment
                 new_note["cat"] = cat
-                df = pd.concat([df, pd.DataFrame([new_note])], ignore_index=True)
-                df.to_csv(note_file)
-            df = df.sort_values(by=["date","cat"], ascending=False) 
+                tdf = pd.concat([tdf, pd.DataFrame([new_note])], ignore_index=True)
+                tdf.to_csv(note_file)
+            if "comment" in df:
+                df = tdf
+                df = df.sort_values(by=["date","cat"], ascending=False) 
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df
             _agg = {}
             _rep_cols = []
+            context = "pivot"
             for c in rep_cols: 
                 if c in score_cols: 
                     _agg[c] = "mean"
@@ -2434,6 +2551,7 @@ def show_df(df):
                     else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
                     for col in pdf.columns]
             # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+            pdf['label'] = pdf.apply(create_label, axis=1)
             pdf['ref'] = pdf.apply(
                     lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
             pdf = pdf.round(2)
@@ -2447,6 +2565,7 @@ def show_df(df):
             score_col = score_cols[0]
             pcols = []
             cond_colors["eid"] = time_colors
+            cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
             cond_colors["expid"] = time_colors
             for col in pivot_cols:
@@ -2466,8 +2585,8 @@ def show_df(df):
                     if col in df or col.startswith(score_col[0] + "-"):
                         _sel_cols.append(col)
             df = pdf.iloc[:-1]
-            df = df.sort_values(by=avg_col, ascending=False)
-
+            df = df.sort_values(by="time", ascending=False)
+            sort = "time"
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             if len(df) > 1:
                 sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
@@ -2486,6 +2605,7 @@ def show_df(df):
                 sel_cols.remove("time")
                 sel_cols.append("time")
 
+            pivot_df = df
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
         if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
@@ -2800,6 +2920,7 @@ def show_df(df):
                 sel_row = back_rows.pop()
                 info_cols = back_infos.pop()
                 context = contexts.pop()
+                cur_col = back_cols.pop()
                 left = 0
             else:
                 mbeep()
@@ -2853,7 +2974,7 @@ def get_cols(df, num = 1):
 
 def biginput(prompt=":", default=""):
     rows, cols = std.getmaxyx()
-    win = cur.newwin(12, cols - 10, 5, 5)
+    win = cur.newwin(12, cols, 5, 0)
     _default = ""
     win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
     _comment, ret_ch = minput(win, 0, 0, "Enter text", 
@@ -2973,10 +3094,10 @@ def list_values(vals,si=0, sels=[], is_combo=False):
         is_cancled = False
     return is_cancled, val
 
-def list_df_values(df, col ="", get_val=True,si=0,vi=0, sels=[]):
+def list_df_values(df, col ="", get_val=True,si=0,vi=0, sels=[], extra=[]):
     is_cancled = False
     if not col:
-        cols = list(df.columns)
+        cols = extra + list(df.columns) 
         is_cancled, col = list_values(cols,si, sels)
     val = ""
     if col in df and col and get_val and not is_cancled:

@@ -438,8 +438,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             pos = 0
         elif not all_chars and (ch == '=' or ch == "|"):
             mbeep()
-            if pyperclip_imported:
-                pyperclip.copy(inp)
+            #if pyperclip_imported:
+            #    pyperclip.copy(inp)
             break
         elif ch == cur.KEY_SLEFT:
             if len(inp) > 0:
@@ -506,8 +506,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             cur.noecho()
             return "<ESC>",ch
         elif ch == cur.KEY_IC or ch == "\\":
-            if pyperclip_imported:
-                pyperclip.copy(inp)
+            #if pyperclip_imported:
+            #    pyperclip.copy(inp)
             break
         else:
             letter = ch
