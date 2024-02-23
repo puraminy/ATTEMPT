@@ -1222,7 +1222,7 @@ def show_df(df):
             sel_exp=df.iloc[sel_row]["eid"]
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
-            subprocess.run(["nautilus", spath])
+            subprocess.Popen(["nautilus", spath])
         if char in ["o","y"]:
             tdf = pivot_df if pivot_df is not None else df
             images = []
@@ -1762,7 +1762,7 @@ def show_df(df):
             info_cols = []
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
-        elif char == "O":
+        elif char == "M":
             exp=df.iloc[sel_row]["eid"]
             cond = f"(main_df['eid'] == '{exp}')"
             tdf = main_df[main_df.eid == exp]
@@ -1989,7 +1989,7 @@ def show_df(df):
                 info_cols_back = info_cols.copy()
                 info_cols = []
 
-        elif char == "M" and prev_char != "x":
+        elif char == "M" and prev_char == "l":
             left = 0
             if sel_exp and on_col_list:
                 backit(df, sel_cols)

@@ -19,9 +19,12 @@
   "tn":"max_train_samples",
   "prompts":"save_to_prompts_dir",
   "numt":"num_prompt_tokens",
+  "alr":"attn_learning_rate",
+  "attn":"attn_method",
   "ppx":"prompts_prefix",
   "spx":"saved_prompts_prefix",
   "seqt":"source_per_task",
+  "skip":"skip_if_prompt_exists",
   "nsp":"num_source_prompts",
   "ntp":"num_target_prompts",
   "src":"source_prompts",
@@ -32,5 +35,6 @@
   "masking":"prompt_masking",
   "sr":"save_router",
   "usr":"use_saved_router",
-  "ignore":"ignore_if_prompt_not_exists"
+  "ignore":"ignore_if_prompt_not_exists",
+  "enctype":"prompt_encoder_type"
 }

@@ -729,8 +729,8 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0":"unequal","1":"duplicate"}
-    # labels_map = {"0":"not_equivalent","1":"equivalent"}
+    #labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"not_equivalent","1":"equivalent"}
     #labels_map = {"0":"F","1":"G"}
 
     def load_dataset(self, split):
@@ -751,7 +751,8 @@ class COLA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"0": "inadmissible", "1":"acceptable"}
+    #labels_map = {"0": "inadmissible", "1":"acceptable"}
+    labels_map = {"0": "unacceptable", "1":"acceptable"}
     #labels_map = {"0": "A", "1":"B"}
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
@@ -1154,8 +1155,8 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    #labels_map = {"0":"not_duplicate","1":"duplicate"}
-    labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"not_duplicate","1":"duplicate"}
+    #labels_map = {"0":"unequal","1":"duplicate"}
     #labels_map = {"0":"different","1":"identical"}
     #labels_map = {"0":"F","1":"G"}
     split_to_data_split = {"train": "train",
@@ -1182,7 +1183,7 @@ class MNLI(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     # labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
-    labels_map = {"0":"entailment", "1":"neutral", "2": "contradicts"}
+    labels_map = {"0":"entailment", "1":"neutral", "2": "contradiction"}
     # labels_map = {"0":"C", "1":"D", "2": "E"}
     rel_nat = "The logical relation between premise and hypothesis is " 
 

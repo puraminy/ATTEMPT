@@ -60,7 +60,7 @@ if [ -n "$_re" ]; then
    _cur=True
 fi
 
-if [ -z "$_reval" ]; then
+if [ -z "$_reval" ] && [ -z "$_re" ]; then
    if [ ${#arr[@]} -lt 2 ]; then 
       echo "Output folder and config file or patterns are required (eg. bash eval.sh out1 pat1 pat2 )"
       exit

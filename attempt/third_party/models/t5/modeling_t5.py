@@ -1155,7 +1155,7 @@ class T5Stack(T5PreTrainedModel):
         self.append_attn_prefix = self.prefix_tuning and not self.is_decoder and self.attn_tuning
         if self.prefix_tuning:
             self.prefix_dim = adapter_config.prefix_dim
-        if self.append_attn_prefix or self.prompt_tuning:
+        if self.append_attn_prefix: # or self.prompt_tuning:
             if self.attn_method == "linear" or self.compose_method == "lin":
                 self.attn_Wa = nn.Linear(
                     self.model_dim, self.model_dim, bias=False)
@@ -1232,30 +1232,41 @@ class T5Stack(T5PreTrainedModel):
             #    ), device=device).uniform_(-1e-3, 1e-3))
             router = torch.zeros((attend_num, attend_num), device=device)
             route_method = self.route_method
-            if route_method is not None and route_method.startswith("bias"):
+            if self.bias is not None:
                 i,j,k = 1,1,1
                 first = True
                 mylogs.bp("bias")
                 if type(self.bias) == list:
                     names = [x.split("-")[0] for x in self.bias]
-                    values = [x.split("-")[1] for x in self.bias]
+                    pos = [x.split("-")[1] for x in self.bias]
+                    values = [x.split("-")[2] for x in self.bias]
                 for encoder in self.prompt_encoders:
                     if encoder.is_private and first:
                         k = i
                         first = False
                     elif encoder.is_target:
-                        if route_method == "biasx" or route_method == "biass":
-                            if type(self.bias) == list:
-                                encname = encoder.name.split("-")[1]
-                                if encname in names: 
-                                    index = names.index(encname)
+                        if type(self.bias) == list:
+                            encname = encoder.name.split("-")[1]
+                            if encname in names: 
+                                index = names.index(encname)
+                                _pos = pos[inex]
+                                if _pos == "s":
                                     router[i, j] = float(values[index])
-                            else:
-                                router[i, j] = self.bias
-                            j += 1
-                        if k > 1 and (route_method == "biasx" or route_method == "biasp"):
-                            router[i, k] = self.bias
-                            k += 1
+                                    j += 1
+                        else:
+                            _pos, b = "s", self.bias
+                            if type(self.bias) == str and "-" in self.bias:
+                                _pos, b = self.bias.split("-")
+                            if _pos == "x" or _pos == "s":
+                                router[i, j] = float(b)
+                                j += 1
+                        if k > 1:
+                            _pos, b = "s", self.bias
+                            if type(self.bias) == str and "-" in self.bias:
+                                _pos, b = self.bias.split("-")
+                            if _pos == "x" or _pos == "s":
+                                router[i, k] = float(b) 
+                                k += 1
                     i += 1
                 mylogs.bp("bias")
             self.router = nn.Parameter(data=router)
@@ -1280,9 +1291,22 @@ class T5Stack(T5PreTrainedModel):
             inp_dim = self.model_dim 
             # out_dim = self.src_prompt_dim * self.model_dim 
             out_dim = self.model_dim 
-            self.conv_layer = nn.Conv1d(in_channels=len(source_prompts), 
-                    out_channels=4, kernel_size=len(source_prompts)*self.model_dim)
+            embedding_size = self.model_dim
+            num_source_prompts = len(source_prompts)
+            hidden_size = num_source_prompts * self.src_prompt_dim * 200 
+            # self.conv_layer = nn.Conv1d(in_channels=num_source_prompts, 
+            #        out_channels=4, kernel_size=len(source_prompts)*self.model_dim)
             if self.compose_method == "lin":
+                # Embedding layers for source prompts
+                # self.source_embedding = nn.Embedding(num_source_prompts, embedding_size)
+                # Neural network for parameterizing the combination function
+                self.comp_linear = nn.Sequential(
+                    nn.Linear(
+                    num_source_prompts * self.src_prompt_dim * embedding_size, hidden_size),
+                    nn.ReLU(),
+                    nn.Linear(hidden_size, 
+                        self.num_target_prompts * self.src_prompt_dim * embedding_size)
+                )
                 self.attn_Wa = nn.Linear(
                     inp_dim, out_dim, bias=False)
                 self.layer_norm = nn.LayerNorm(inp_dim)
@@ -1407,6 +1431,8 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
+        if self.compose_method == "wcat":
+            attend_to_idx = attend_to_idx[:,:-1] # skip target
 
         if self.add_target:
             if self.target_share == -1:
@@ -1524,7 +1550,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = normalize_scores(attn_scores, method) 
 
         num_targets = attend_for.size(1) 
-        if self.compose_method == "cat" or self.compose_method == "concat":
+        if self.compose_method in ["cat","concat","pool","mpool"]:
             num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
@@ -1542,9 +1568,14 @@ class T5Stack(T5PreTrainedModel):
             mylogs.bp("tk2")
             mylogs.bp(task + "2")
 
+        if not "pool" in self.compose_method and not "lin" in self.compose_method:
+            num_select = num_attend_to
+        else:
+            num_select = attn_scores.size(-1) # select all
+
         attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
                 attn_scores, 
-                num_attend_to, 
+                num_select, 
                 sorted="sorted" in self.source_prompts_order,
                 threshold=None) #  self.sel_thresh)
         if torch.any(attend_to_sel_idx == -1):
@@ -1650,7 +1681,41 @@ class T5Stack(T5PreTrainedModel):
             last_prompt = attend_to_x[:,:,-1,:,:]
             soft_prompts = torch.cat(
                    [avg_prompts, last_prompt], dim=2)
+
+        elif  "pool" in self.compose_method:
+            mylogs.bp("pool")
+            # b t s l d > b t l d
+            # 12 1 4 10 768 > 12 1 10 768
+            # 12 1 4 7680
+            # 12 7680 4 pooling
+            # 12 7680 1
+            # 12 7680
+            # 12 1 10 780
+            if self.compose_method == "pool":
+                pool = torch.nn.AdaptiveAvgPool1d(num_attend_to)
+            else:
+                pool = torch.nn.AdaptiveMaxPool1d(num_attend_to)
+            inp = attend_to_x
+            # inp = torch.einsum(
+            #    'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
+            x = inp.view(inp.size(0), inp.size(1), inp.size(2), -1)
+            x = x.permute(0, 1, 3, 2)
+            x = x.view(-1, x.size(2), x.size(3))
+            x = pool(x)
+            x = x.squeeze(dim=-1)
+            soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
         elif self.compose_method == "lin":
+            mylogs.bp("lin")
+            # inp = attend_to_x
+            inp = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
+            # Flatten the source prompts along the second and third dimensions
+            x = inp.view(inp.size(0), -1)
+            # Pass the flattened source prompts through the neural network
+            x = self.comp_linear(x)
+            soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
+            # attn_sel_scores = F.softmax(soft_prompts, dim=1)
+        elif self.compose_method == "lin2":
             mylogs.bp("lin")
             x = attend_to_x
             x = self.attn_Wa(x)
@@ -1864,9 +1929,10 @@ class T5Stack(T5PreTrainedModel):
                         mylogs.bp("pred1")
                         # amask = amask.squeeze(1)
                         masked_prompts = soft_prompts
+                        tmask = target_prompt_masks.clone()
                         amask = torch.ones((batch_size, 
                             attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
-                        if self.compose_method == "cat" or self.compose_method == "concat":
+                        if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
                             if self.training: 
                                 thresh = self.sel_thresh 
                             else:
@@ -1880,27 +1946,26 @@ class T5Stack(T5PreTrainedModel):
                                 _amask = amask.unsqueeze(1)
                                 masked_prompts = soft_prompts[_amask]
 
-                        tmask = target_prompt_masks.clone()
-                        number_to_keep_per_batch = torch.sum(amask, dim=-1) 
-                        sequence_length = tmask.size(1)
-                        if True: #self.padding_pos == "end":
-                            sequence_range = range(sequence_length)
-                        else:
-                            sequence_range = range(sequence_length -1, -1, -1)
-                        num_true = [0]*batch_size
-                        alen = amask.size(1)
-                        for i in range(batch_size):
-                            k = 0
-                            for j in sequence_range: 
-                                if (tmask[i, j] and k < alen and amask[i, k] 
-                                    and num_true[i] < number_to_keep_per_batch[i]):
-                                    num_true[i] += 1
-                                    k += 1
-                                elif tmask[i, j]:
-                                    tmask[i, j] = False
-                                    att_mask[i, j] = 0
-                                    input_ids[i, j] = 0
-                                    k += 1
+                            number_to_keep_per_batch = torch.sum(amask, dim=-1) 
+                            sequence_length = tmask.size(1)
+                            if True: #self.padding_pos == "end":
+                                sequence_range = range(sequence_length)
+                            else:
+                                sequence_range = range(sequence_length -1, -1, -1)
+                            num_true = [0]*batch_size
+                            alen = amask.size(1)
+                            for i in range(batch_size):
+                                k = 0
+                                for j in sequence_range: 
+                                    if (tmask[i, j] and k < alen and amask[i, k] 
+                                        and num_true[i] < number_to_keep_per_batch[i]):
+                                        num_true[i] += 1
+                                        k += 1
+                                    elif tmask[i, j]:
+                                        tmask[i, j] = False
+                                        att_mask[i, j] = 0
+                                        input_ids[i, j] = 0
+                                        k += 1
 
                         inputs_embeds[tmask]= masked_prompts.view(-1, self.model_dim)
                         if not self.training: # or mylogs.is_debug(): 

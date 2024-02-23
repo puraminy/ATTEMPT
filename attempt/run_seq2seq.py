@@ -288,7 +288,7 @@ def cli():
     help="The name of a new directory for experiment when loading an existing config file"
 )
 @click.option(
-    "--log_path",
+    "--inp_log_path",
     "-lp",
     default="",
     type=str,
@@ -297,7 +297,7 @@ def cli():
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
         debug, version, trial, rem, repeat, deep_check, merge, 
-        reval, test, use_wandb, download_model, max_exp, new_exp_folder, log_path):
+        reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -310,6 +310,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    exp_args = {}
    save_path = ""
    prev_exp_folder = ""
+   log_path = inp_log_path
    if not log_path:
        log_path = mylogs.logPath 
    if not log_path.startswith("/"):
@@ -318,7 +319,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
-        experiment = exp_args["experiment"] if experiment == "exp" else experiment
+        if experiment == "exp":
+            experiment = exp_args["experiment"] + "_" + mylogs.now 
         if test:
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
@@ -334,7 +336,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    experiment = experiment.replace("#","-").replace("@","-")
    if exp_conf and reval and not new_exp_folder: 
       save_path = exp_args["save_path"]
-   
+   mylogs.bp("start") 
    if experiment == "self":
        save_path = os.path.join(os.getcwd(), "output")
    if not reval or new_exp_folder:
@@ -362,10 +364,18 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                       experiment = ans
                       save_path = os.path.join(log_path, experiment)
           if rem:
-               save_path = save_path.rstrip("/")
-               dirs = glob.glob(save_path + '/*/')
-               for d in dirs:
-                    shutil.rmtree(d)
+               if inp_log_path:
+                   main_folder = inp_log_path
+               elif new_exp_folder:
+                   main_folder = new_exp_folder
+               else:
+                   main_folder = save_path
+               ans = input("Do you want to remove " + main_folder + ":")
+               if ans == "yes":
+                   main_folder = main_folder.rstrip("/")
+                   dirs = glob.glob(main_folder + '/*/')
+                   for d in dirs:
+                        shutil.rmtree(d)
 
        if Path(save_path).is_file():
            os.remove(save_path)
@@ -649,7 +659,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            if not preview and not repeat:
               continue 
        # preview existing experiments 
-       if preview == "ex" or preview == "ex-why" or preview == "exists": #
+       if preview in ["ex","ex-why","exists","run"]: #
            #print(f"========== Experiment {ii} pf {total},  Input Vars: ===============")
            #all_var_str = json.dumps(var_dict, indent=2)
            #print(all_var_str)
@@ -657,17 +667,29 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            main_var_str = json.dumps(mvars, indent=2)
            print(main_var_str)
            print("==================================================================")
-           ans = input("Continue preview? [yes]:")
-           if not ans or ans == "yes":
-               continue
-           else:
-               return
+           if preview != "run":
+               ans = input("Continue preview? [yes]:")
+               if not ans or ans == "yes":
+                   continue
+               else:
+                   print("Stop!")
+                   return
        done = "na"
        if debug:
            ctx.invoke(train, **args)
        else:
            try:
-               done = ctx.invoke(train, **args)
+               if preview == "run":
+                   ans = input("Run this? [yes/stop/next] [yes]:")
+                   if not ans or ans == "yes":
+                       done = ctx.invoke(train, **args)
+                   elif ans == "stop":
+                       print("Stop!")
+                       return
+                   else:
+                       continue
+               else:
+                   done = ctx.invoke(train, **args)
                y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
                    with open(conf_fname, "w") as f:
@@ -681,6 +703,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                print(_conf)
                raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
+           print("return due preview:", preview, " done:",  done)
            return
 
    if False: #global_scores:
@@ -863,7 +886,7 @@ def train(**kwargs):
         if use_private_prompts and ntp == 0:
             num_target_prompts += 1
         num_target_prompts = max(num_target_prompts, 1)
-        if model_args.compose_method == "cat" or model_args.compose_method == "concat":
+        if model_args.compose_method in ["cat", "concat", "pool", "mpool","lin"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
@@ -948,20 +971,22 @@ def train(**kwargs):
         mylogs.dlog.info("-------------------------------------")
         if not resolved:
             shutil.rmtree(training_args.output_dir)
-            return "has_conflict"
+            assert False, "has_conflict"
 
-    if main_vars:
+    if False: #main_vars: #TODO it must be checked in run not here
         x = main_vars
         y = mylogs.prev_main_vars
         repeated_items = {k: x[k] for k in x if k in y and x[k] in y[k]}
         if len(repeated_items) == len(main_vars):
             shutil.rmtree(training_args.output_dir)
+            print("return, is repeated!")
             return "is_repeated"
         for k,v in main_vars.items():
             if not k in mylogs.prev_main_vars:
                 mylogs.prev_main_vars[k] = []
             mylogs.prev_main_vars[k].append(v)
         if preview == "mavar":
+            print("preview is mvar")
             return 
 
     if log_var:
@@ -1099,11 +1124,7 @@ def train(**kwargs):
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
-    config.bias = kwargs.setdefault("bias", 0.0)
-    if type(config.bias) == list or config.bias > 0:
-        if not config.route_method.startswith("bias"):
-            # config.route_method = "biass" 
-            raise ValueError("To use bias set routmethod to biass, or biasp or biasx")
+    config.bias = kwargs.setdefault("bias", None)
     config.add_target = model_args.add_target #my option
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
@@ -1471,6 +1492,7 @@ def train(**kwargs):
             mylogs.plog.info("Tokens:%s", e.prompt_tokens)
             mylogs.plog.info("Ids:%s ", e.prompt_ids)
             mylogs.plog.info(e)
+        print("preview is encoders")
         return 
 
     mylogs.bp("freeze")
@@ -1610,6 +1632,7 @@ def train(**kwargs):
             train_dataset = my_interleave_datasets(train_datasets, 
                 batch_size=training_args.per_device_train_batch_size)
     if preview == "data":
+       print("preview is data")
        return "data_preview" 
     if training_args.do_eval:
         eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
@@ -1638,6 +1661,7 @@ def train(**kwargs):
             )
 
     if preview == "template":
+        print("preview is template")
         return
     # Data collator
     label_pad_token_id = - \
@@ -1689,10 +1713,10 @@ def train(**kwargs):
         for name, param in model.named_parameters():
             if (name == "encoder.attn_W_up.weight" 
                 or name == "encoder.attn_W_down.weight" 
-                or name == "encoder.layer_norm.weight"):
-                attn_params.append(param)
-            if name == "encoder.router" or name == "encoder.target_router":
-                attn_params.append(param)
+                or name == "encoder.layer_norm.weight"
+                or name == "encoder.router" 
+                or name == "encoder.target_router"):
+                   attn_params.append(param)
 
         attn_params = set(attn_params)
         grouped_params.append({'params': list(attn_params), 
@@ -1814,7 +1838,8 @@ def train(**kwargs):
             shared=model_args.shared_attn)
 
     # Exit program if user wants to check some settings 
-    if preview and preview != "one":
+    if preview and preview != "one" and preview != "run":
+        print("preview is ", preview)
         return
     # Saves training config.
     if trainer.is_world_process_zero():
@@ -2428,7 +2453,7 @@ def train(**kwargs):
                         if "col" in rm or "pos" in rm or "else" in rm:
                             if not test_key in effect_scores:
                                 effect_scores[test_key] = torch.zeros(
-                                    (tlen, slen + tlen +1), device=device) 
+                                    (tlen, slen + tlen + 2), device=device) 
 
                             col,_,_ = rm.split("-")
                             col = int(col) - 1
@@ -2455,8 +2480,9 @@ def train(**kwargs):
                                 if col < len(positive_idx[task_index]):  
                                     col_index = positive_idx[task_index][col]
                                     effect_scores[test_key][task_index, col_index] = effect
-                                if "else" in rm:
-                                    effect_scores[test_key][task_index, -1] = base_score 
+                                # elif not "else" in rm:
+                                #    effect_scores[test_key][task_index, col] = score 
+                                effect_scores[test_key][task_index, -1] = base_score 
         #### end of for
             mylogs.bp("effect")
             for test_key, effect_score in effect_scores.items(): 
