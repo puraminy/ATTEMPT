@@ -396,7 +396,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
        eval_folders = glob.glob(
-               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*"))
+               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*no-mask*"))
        try:
            shutil.copytree(prev_exp_folder, 
                    os.path.join(save_path, Path(prev_exp_folder).name))
@@ -2245,7 +2245,9 @@ def train(**kwargs):
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         gen_masks = {}
-        masking = kwargs.setdefault("prompt_masking","0-col-0")
+        masking = None
+        if "prompt_masking" in main_vars:
+            masking = kwargs.setdefault("prompt_masking","0-col-0")
         if masking == "none" or masking is None: masking = "0-col-0"
         nn, mask_type, mm = masking.split("-") 
         num_masks, num_masked_prompts =int(nn), int(mm) 

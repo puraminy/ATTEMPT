@@ -244,6 +244,10 @@ def pivot_colors(df,row,col, default=None):
             return 136
     return default if default is not None else TEXT_COLOR 
 
+def index_colors(df,row,col, default=None):
+    index = df.iloc[row][col]
+    return index
+
 def time_colors(df,row,col, default=None):
     rel_col = "time" 
     last_hour = datetime.now() - timedelta(hours = 1)
@@ -347,7 +351,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
     if ii > 1:
         intersect = reduce(lambda  left,right: pd.merge(left,right,on=on_col_list,
                                     how='inner'), dfs)
-        if char == "n":
+        if char == "k":
             union = reduce(lambda  left,right: pd.merge(left,right,on=on_col_list,
                                     how='outer'), dfs)
             dfs_val["union"] = str(len(union))
@@ -524,19 +528,25 @@ def show_df(df):
     sels = []
     back_df = None
     back_cols = []
+    back_left = []
+    back_group_col = []
+    back_sel_rows = []
     context = "main"
-    contexts = []
+    back_context = []
     def backit(df, sel_cols):
         if len(sel_cols) < 2:
             mbeep()
             return
         back_df = df
         back.append(df)
-        contexts.append(context)
+        back_context.append(context)
         sels.append(sel_cols.copy())
         back_rows.append(sel_row)
         back_cols.append(cur_col)
+        back_left.append(left)
         back_infos.append(info_cols.copy())
+        back_group_col.append(group_col)
+        back_sel_rows.append(sel_rows)
 
 
     filter_df = main_df
@@ -1048,7 +1058,7 @@ def show_df(df):
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
-        if char == "f":
+        if char == "n":
             # info_cols = info_cols_back.copy()
             backit(df, sel_cols)
             max_width = 100
@@ -1282,7 +1292,7 @@ def show_df(df):
                     for col_set in [dif_cols, pcols]:
                         for key in exprs:
                             caption_dict = {}
-                            if not tdf.loc[tdf['eid'] == key].empty:
+                            if context == "pivot" and not tdf.loc[tdf['eid'] == key].empty:
                                 caption_dict = tdf.loc[tdf['eid'] == key, 
                                         col_set].iloc[0].to_dict()
                             for cc, value in caption_dict.items(): 
@@ -1320,7 +1330,7 @@ def show_df(df):
                 dest = os.path.join("routers.png")
                 pic.save(dest)
                 #pname=tdf.iloc[sel_row]["image"]
-                subprocess.run(["eog", dest])
+                subprocess.Popen(["eog", dest])
         elif char == "L":
             s_rows = sel_rows
             if not sel_rows:
@@ -1906,7 +1916,7 @@ def show_df(df):
             df = group_df[group_df['eid'] == sel_exp]
             sel_cols = group_sel_cols.copy()
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
-        elif char in ["n", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+        elif char in ["k", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
             left = 0
             context= "comp"
             cur_col = -1
@@ -1935,7 +1945,7 @@ def show_df(df):
             on_col_list.extend(["prefix"])
             g_cols = []
             _rows = s_rows
-            if char == "n":
+            if char == "k":
                 dfs = []
                 all_rows = range(len(df))
                 for r1 in all_rows:
@@ -2134,7 +2144,7 @@ def show_df(df):
            backit(df, sel_cols)
            df = df[df_cond]
            df_cond = True
-        elif is_enter(ch) or char in ["F"]:
+        elif is_enter(ch) or char in ["f"]:
             if context != "filter" or char == "f":
                 backit(df, sel_cols)
             else:
@@ -2160,7 +2170,6 @@ def show_df(df):
                extra["filter"].append(cond)
                sel_row = 0
             if char == "f":
-               hotkey = hk
                keep_cols.append(col)
         if char == "V":
             backit(df, sel_cols)
@@ -2384,25 +2393,39 @@ def show_df(df):
         if char == "x" or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
-            if context == "pivot":
+
+            if context == "pivot" or len(sel_rows) > 1:
                 prefix = sel_cols[cur_col]
+                exprs, prefixes = get_sel_rows(df, col=prefix, from_main=False) 
             else:
                 prefix = df.iloc[sel_row]['prefix'] 
+                exprs = [eid]
+                prefixes = [prefix]
+
             info_cols.append(prefix)
             consts["prefix"] = prefix
             _cols = ["pred_text1", "target_text"]
-            tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
-            canceled, val = False, "pred_text1" # list_values(sel_cols)
-            if not canceled:
-                treatment = 'target_text' #sel_cols[cur_col]
-                tdf = pd.crosstab(tdf[val], tdf[treatment])
-            tdf["preds"] = list(tdf.axes[0])
-            all_sel_cols = ["preds"] + list(tdf.columns)
-            df = tdf
+            dfs = []
+            for eid, acc in zip(exprs, prefixes):
+                tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
+                canceled, val = False, "pred_text1" # list_values(sel_cols)
+                if not canceled:
+                    treatment = 'target_text' #sel_cols[cur_col]
+                    tdf = pd.crosstab(tdf[val], tdf[treatment])
+                tdf["preds"] = list(tdf.axes[0])
+                tdf["acc"] = acc
+                tdf["eid"] = eid
+                dfs.append(tdf)
+            df = pd.concat(dfs, ignore_index=True)
+            all_sel_cols = ["preds"] + list(df.columns)
             sel_cols = all_sel_cols[:20] 
             for col in sel_cols:
                col_widths[col] = len(col) + 2
             #adjust = False
+            left = 0
+            sel_rows= []
+            context = "cross"
+            group_col = "eid"
         if cmd.startswith("anova"):
             to = ""
             canceled, val = False, "pred_text1" # list_values(sel_cols)
@@ -2573,6 +2596,7 @@ def show_df(df):
             cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
             cond_colors["expid"] = time_colors
+            cond_colors["eid"] = index_colors
             for col in pivot_cols:
                 pcols.extend(df[col].unique())
             for col in pcols:
@@ -2924,10 +2948,12 @@ def show_df(df):
                 df = back.pop()
                 sel_cols = sels.pop() 
                 sel_row = back_rows.pop()
+                sel_rows = back_sel_rows.pop()
                 info_cols = back_infos.pop()
-                context = contexts.pop()
+                context = back_context.pop()
                 cur_col = back_cols.pop()
-                left = 0
+                left = back_left.pop()
+                group_col = back_group_col.pop()
             else:
                 mbeep()
             if extra["filter"]:

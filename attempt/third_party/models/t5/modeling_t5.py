@@ -75,8 +75,10 @@ def normalize_scores(scores, method="soft",
         scores[scores > gen_thresh_max] = gen_thresh_max
 
     if gen_thresh_min is not None:
-        scores[scores < gen_thresh_min] = 0 # if method == "nothing" else -100
-        pass
+        if method == "soft" or method == "direct":
+            scores[scores < gen_thresh_min] = -100
+        else:
+            scores[scores < gen_thresh_min] = 0
 
     mylogs.bp("col_sums")
     col_sums = torch.sum((scores > 0)*scores, dim=0)
@@ -1277,7 +1279,7 @@ class T5Stack(T5PreTrainedModel):
                             _pos, b = "s", self.bias
                             if type(self.bias) == str and "-" in self.bias:
                                 _pos, b = self.bias.split("-")
-                            if _pos == "x" or _pos == "s":
+                            if _pos == "x" or _pos == "p":
                                 router[i, k] = float(b) 
                                 k += 1
                     i += 1
