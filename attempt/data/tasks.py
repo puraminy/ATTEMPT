@@ -23,7 +23,7 @@ from random import shuffle
 
 logger = logging.getLogger(__name__)
 
-super_glue = mylogs.home + "/sg/super_glue.py"
+super_glue = mylogs.home + "/datasets/super_glue.py"
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
@@ -1223,6 +1223,7 @@ class PAWS(AbstractTask):
     labels_map = {"0":"unequal","1":"duplicate"}
 
     def load_dataset(self, split):
+        return datasets.load_dataset("paws", "labeled_final", split=split)
         return datasets.load_dataset(mylogs.home + '/paws/paws.py', 
                 'labeled_final', split=split)
         path = op.join(mylogs.home,"paws", "final", split + ".tsv") 

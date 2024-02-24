@@ -899,7 +899,7 @@ def show_df(df):
             for key, img_dict in imgs.items():
                 #sorted_keys = (sorted(img_dict.keys()))
                 if not image_keys:
-                  image_keys = ["sim", "sim-rsim", "score", 
+                  image_keys = ["sim", "rsim", "score", 
                                 "effect", "init_router", "router", "mask"] 
                   # image_keys = ["score", "router"] 
                 # TODO fixed
@@ -1916,7 +1916,9 @@ def show_df(df):
             df = group_df[group_df['eid'] == sel_exp]
             sel_cols = group_sel_cols.copy()
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
+            left = 0
         elif char in ["k", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+            backit(df, sel_cols)
             left = 0
             context= "comp"
             cur_col = -1
@@ -1929,7 +1931,6 @@ def show_df(df):
             sel_rows = sorted(sel_rows)
             if sel_rows:
                 sel_row = sel_rows[-1]
-            backit(df, sel_cols)
             sel_rows = []
             on_col_list = ["pred_text1"]
             other_col = "target_text"
@@ -2149,7 +2150,7 @@ def show_df(df):
                 backit(df, sel_cols)
             else:
                 df = back[-1]
-            context = "filter"
+            is_filtered = True
             if is_enter(ch): char = "F"
             col = sel_cols[cur_col]
             if col == "fid": col = FID
@@ -2431,6 +2432,20 @@ def show_df(df):
             canceled, val = False, "pred_text1" # list_values(sel_cols)
             if not canceled:
                 treatment = 'target_text' #sel_cols[cur_col]
+                df[val] = df[val].astype(float)
+                ax = sns.boxplot(x=treatment, y=val, data=df, color='#99c2a2')
+                ax = sns.swarmplot(x=treatment, y=val, data=df, color='#7d0013')
+                plt.show()
+                # Ordinary Least Squares (OLS) model
+                model = ols(f'{val} ~ C({treatment})', data=df).fit()
+                backit(df, sel_cols)
+                sel_cols = ["sum_sq","df","F","PR(>F)"]
+                df = sm.stats.anova_lm(model, typ=2)
+        if cmd.startswith("banova"):
+            to = ""
+            canceled, val = False, "target_text" # list_values(sel_cols)
+            if not canceled:
+                treatment = 'pred_text1' #sel_cols[cur_col]
                 df[val] = df[val].astype(float)
                 ax = sns.boxplot(x=treatment, y=val, data=df, color='#99c2a2')
                 ax = sns.swarmplot(x=treatment, y=val, data=df, color='#7d0013')

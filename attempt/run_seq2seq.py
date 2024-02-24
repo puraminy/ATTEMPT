@@ -400,12 +400,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        try:
            shutil.copytree(prev_exp_folder, 
                    os.path.join(save_path, Path(prev_exp_folder).name))
-       except FileExistsError:
+       except (FileNotFoundError, FileExistsError):
            pass
        for folder in eval_folders:
            try:
                shutil.copytree(folder, os.path.join(save_path, Path(folder).name))
-           except FileExistsError:
+           except (FileNotFoundError, FileExistsError):
                pass
 
    args["new_exp_folder"] = new_exp_folder
@@ -2245,33 +2245,37 @@ def train(**kwargs):
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         gen_masks = {}
-        masking = None
-        if "prompt_masking" in main_vars:
-            masking = kwargs.setdefault("prompt_masking","0-col-0")
-        if masking == "none" or masking is None: masking = "0-col-0"
-        nn, mask_type, mm = masking.split("-") 
-        num_masks, num_masked_prompts =int(nn), int(mm) 
-        mylogs.bp("nrp")
-        if num_masks == 0: 
-            if mask_type == "pos" or mask_type == "else":
-                router = model.encoder.router
-                positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in router]
-                max_length_index = max(range(len(positive_indices_per_row)), 
-                        key=lambda i: len(positive_indices_per_row[i]))
-                # Access the maximum length and indices
-                max_length = len(positive_indices_per_row[max_length_index])
-                num_masks = max_length
-            else:
-                num_masks = num_source_prompts
-                if use_private_prompts:
-                    num_masks += len(data_args.task_name)
         gen_masks["no-mask"] = None
-        if num_masked_prompts > 0:
-            for rm in range(num_masks):
-                col = rm + 1
-                mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
-                mkey = str(col) + "-" + mask_type + "-" + str(mm)
-                gen_masks[mkey] = mask
+        masking_list = []
+        if "prompt_masking" in main_vars:
+            masking_list = kwargs.setdefault("prompt_masking",["0-col-0"])
+        if masking_list == "none" or masking_list is None: 
+            maskingi_list = ["0-col-0"]
+        if type(masking_list) != list:
+            masking_list = [masking_list]
+        for masking in masking_list:
+            nn, mask_type, mm = masking.split("-") 
+            num_masks, num_masked_prompts =int(nn), int(mm) 
+            mylogs.bp("nrp")
+            if num_masks == 0: 
+                if mask_type == "pos" or mask_type == "else":
+                    router = model.encoder.router
+                    positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in router]
+                    max_length_index = max(range(len(positive_indices_per_row)), 
+                            key=lambda i: len(positive_indices_per_row[i]))
+                    # Access the maximum length and indices
+                    max_length = len(positive_indices_per_row[max_length_index])
+                    num_masks = max_length
+                else:
+                    num_masks = num_source_prompts
+                    if use_private_prompts:
+                        num_masks += len(data_args.task_name)
+            if num_masked_prompts > 0:
+                for rm in range(num_masks):
+                    col = rm + 1
+                    mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
+                    mkey = str(col) + "-" + mask_type + "-" + str(mm)
+                    gen_masks[mkey] = mask
         ii = 0
         kk = 0
         sdf_rows = []
