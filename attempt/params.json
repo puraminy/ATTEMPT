@@ -12,6 +12,7 @@
   "alr":"attn_learning_rate",
   "cmm":"compose_method",
   "upp":"use_private_prompts",
+  "usp":"use_source_prompts",
   "lpp":"load_private_prompts",
   "lsp":"load_source_prompts",
   "learn_sp":"learn_source_prompts",

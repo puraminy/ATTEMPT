@@ -168,15 +168,17 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 
 def create_label(row):
-    label = 'S'
-    if row['load_source_prompts']:
-        label += 'I'
-    if row['learn_source_prompts']:
-        label += 'L'
+    label = ''
+    if row['use_source_prompts']:
+        label += 'S'
+        if row['load_source_prompts']:
+            label += 'I'
+        if row['learn_source_prompts']:
+            label += 'L'
     if row['use_private_prompts']:
         label += 'P'
-    if row['load_private_prompts']:
-        label += 'I'
+        if row['load_private_prompts']:
+            label += 'I'
     return label
 
 def save_df_as_image(df, path):
@@ -546,7 +548,10 @@ def show_df(df):
         tag_cols = list(tags.keys())
     if "expid" in tag_cols:
         tag_cols.remove("expid")
-    if "expid" in df:
+    if "exp_name" in df:
+        df["expid"] = df["exp_name"].str.split("-").str[1]
+        df["expname"] = df["exp_name"].str.split("-").str[1]
+    if False: #"expid" in df:
         df["fexpid"] = df["expid"]
         df["expname"] = df["expid"].str.split("-").str[0]
         df["expname"] = df["expname"].str.split("_").str[0]
@@ -1224,7 +1229,7 @@ def show_df(df):
             spath = tdf.iloc[0]["path"]
             subprocess.Popen(["nautilus", spath])
         if char in ["o","y"]:
-            tdf = pivot_df if pivot_df is not None else df
+            tdf = df #pivot_df if pivot_df is not None and context == "pivot" else df
             images = []
             exprs, _ = get_sel_rows(tdf)
             merge = "vert" if char == "o" else "horiz"
@@ -2606,6 +2611,7 @@ def show_df(df):
                 sel_cols.append("time")
 
             pivot_df = df
+            info_cols = []
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
         if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
@@ -3196,11 +3202,9 @@ def get_files(dfpath, dfname, dftype, limit, file_id):
                        df[key] = png
                 if fid == "parent":
                     _ff = "@".join(f.split("/")[5:]) 
-                    df["exp_name"] = _ff #.replace("=","+").replace("_","+")
-                elif fid == "name":
-                    df["exp_name"] =  "_" + Path(f).stem
+                    df["exp_name"] = Path(f).parent.stem #.replace("=","+").replace("_","+")
                 else:
-                    df["exp_name"] =  "_" + df[fid]
+                    df["exp_name"] =  "_" + Path(f).stem
             dfs.append(df)
             ii += 1
         if len(dfs) > 1:

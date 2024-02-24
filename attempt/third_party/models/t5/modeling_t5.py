@@ -1104,7 +1104,7 @@ class T5Stack(T5PreTrainedModel):
         self.sig_coef = config.sig_coef
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
-        self.attend_source = config.attend_source
+        self.use_source_prompts = config.use_source_prompts
         self.attend_input = config.attend_input
         self.add_target = config.add_target
         self.compose_method = config.compose_method
@@ -1214,7 +1214,7 @@ class T5Stack(T5PreTrainedModel):
         target_prompt_ids = []
         task_prompt_ids = []
         common_prompt_ids = []
-        self.attn_mask = torch.ones(attend_num, attend_num, device=device)
+        self.attn_mask = torch.zeros(attend_num, attend_num, device=device)
         src_list = []
         tgt_list = []
         i = 1
@@ -1231,11 +1231,13 @@ class T5Stack(T5PreTrainedModel):
                 src_list.append(i)
                 i += 1
                 continue
+            mylogs.bp("mask")
             if encoder.is_target:
                 tgt_list.append(i)
                 self.attn_mask[i, :] = torch.tensor(encoder.attend_to_mask, device=device)
                 i += 1
 
+        self.attn_mask_learned[:] = self.attn_mask 
         if self.router is None:
             #router = nn.Parameter(data=torch.empty((
             #        attend_num,
@@ -1833,7 +1835,7 @@ class T5Stack(T5PreTrainedModel):
                  self.src_prompt_dim, self.model_dim), device=device) 
             ii = 1
             for encoder in self.prompt_encoders:
-                if encoder.is_source and self.attend_source:
+                if encoder.is_source: # and self.use_source_prompts:
                     source_idx_list.append(ii)
                     emb = encoder(encoder.net_inps)
                     src_prompts[encoder.src_idx, :] = emb

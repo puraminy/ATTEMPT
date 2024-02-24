@@ -318,6 +318,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    if exp_conf:
         with open(exp_conf) as f:
             exp_args = json.load(f)
+        prev_exp_folder = exp_args["output_dir"]
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
         if experiment == "exp":
             experiment = exp_args["experiment"] + "_" + mylogs.now 
@@ -325,7 +326,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
         if reval:
-            prev_exp_folder = exp_args["output_dir"]
             exp_args["load_model_dir"] = prev_exp_folder 
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
@@ -334,8 +334,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    mylogs.bp("start")
    experiment = experiment.replace("#","-").replace("@","-")
-   if exp_conf and reval and not new_exp_folder: 
-      save_path = exp_args["save_path"]
+   #if exp_conf and not new_exp_folder: 
+   #   log_folder = experiment 
+      #ans = input("Do you want save the results in (otherwise enter new folder) "+log_folder+ "[yes]:")
+      #if ans and ans != "yes":
+      #    new_exp_folder = ans
+      #else:
+   #   new_exp_folder = log_folder 
+
    mylogs.bp("start") 
    if experiment == "self":
        save_path = os.path.join(os.getcwd(), "output")
@@ -386,8 +392,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["save_path"] = save_path
 
    if prev_exp_folder:
-       prev_exp_id = Path(prev_exp_folder).name
-       eval_folders = glob.glob("Eval-" + prev_exp_id + "*")
+       mylogs.bp("prev")
+       prev_folder = Path(prev_exp_folder)
+       prev_exp_id = prev_folder.name
+       eval_folders = glob.glob(
+               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*"))
        try:
            shutil.copytree(prev_exp_folder, 
                    os.path.join(save_path, Path(prev_exp_folder).name))
@@ -815,6 +824,7 @@ def train(**kwargs):
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
+    use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
     tasks = data_args.task_name
@@ -1120,7 +1130,7 @@ def train(**kwargs):
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
-    config.attend_source = model_args.attend_source #my option
+    config.use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     config.attend_input = model_args.attend_input #my option
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
@@ -1412,6 +1422,7 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         attend_to_all = kwargs.setdefault("attend_to_all", False) 
+        attend_to_all = attend_to_all and use_source_prompts
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
         # create and load target prompts
         num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
@@ -1446,7 +1457,11 @@ def train(**kwargs):
             if False: #TODO router_dict and name in router_dict:
                 encoder.attend_to_mask = [1 if r > 0.1 else 0 for r in router_dict[name]] 
             else: 
-                encoder.attend_to_mask = [1]*num_attend_to 
+                if use_source_prompts:
+                    encoder.attend_to_mask = [1]*num_attend_to  
+                else:
+                    encoder.attend_to_mask = [0]*num_attend_to  
+                    encoder.attend_to_mask[0] = 1 # for input
                 attn_flag = False
                 for i, n in enumerate(source_prompts, start=1):
                     encoder.attend_to_mask[i] = 0 
@@ -2415,10 +2430,10 @@ def train(**kwargs):
                             save_image(eval_folder, model, 
                                     {"init_router":init_router_scores}, spec=rm)
 
+                        mylogs.bp("nusp")
                         scores_matrix = model.encoder.attn_scores.index_select(0, targets)
-                        mylogs.bp("scores_matrix")
-                        tlen = scores_matrix.size(0)
-                        all_len = scores_matrix.size(1)
+                        tlen = router_scores.size(0)
+                        all_len = router_scores.size(1)
                         sim = torch.eye(tlen)
                         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                         for i in range(tlen):
@@ -2431,8 +2446,9 @@ def train(**kwargs):
                             start = 0 if model_args.attend_input else 1 
                             scores_matrix = scores_matrix[:,start:slen+tlen + 1]
 
-                        if len(torch.nonzero(scores_matrix)) < 1:
-                            scores_matrix = torch.eye(tlen)
+                        #if len(torch.nonzero(scores_matrix)) < 1:
+                        #    start = slen if model_args.attend_input else slen + 1 
+                        #    scores_matrix[:tlen, start: start + tlen +1] = torch.eye(tlen)
                         save_image(eval_folder, model, {"score":scores_matrix}, 
                                     spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
                                             + " | {:.2f}".format(mean_score))
@@ -2446,6 +2462,8 @@ def train(**kwargs):
                             mask_matrix = mask.index_select(0, targets)
                         else:
                             learned_mask = model.encoder.attn_mask_learned 
+                            if len(torch.nonzero(learned_mask)) < 1:
+                                learned_mask = model.encoder.attn_mask_orig
                             mask_matrix = learned_mask.index_select(0, targets)
                         if multi_tasking:
                             start = 0 if model_args.attend_input else 1 
