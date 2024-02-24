@@ -1361,7 +1361,8 @@ def train(**kwargs):
             encoder_name = prompt
             encoder_type = adapter_args.prompt_encoder_type
             if "_for" in encoder_name:
-                encoder_type = kwargs.get("private_prompt_encoder_type", encoder_type)
+                # encoder_type = kwargs.get("private_prompt_encoder_type", encoder_type)
+                encoder_type = encoder_type 
             encoder, enc_type = create_encoder(encoder_name, model, tokenizer, 
                     prompt_tokens=[],
                     is_source = True,
@@ -2470,7 +2471,10 @@ def train(**kwargs):
                                     effect = 0
                                 else:
                                     effect = (score- base_score) # / base_score) #*100
-                                if "else" in rm:
+                                if True: #"else" in rm:
+                                    if score < 1 and base_score < 1:
+                                        score = score*100
+                                        base_score = base_score*100
                                     effect = score if score > 0 else -10
                                 else:
                                     effect = -1*effect

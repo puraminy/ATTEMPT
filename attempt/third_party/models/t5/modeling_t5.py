@@ -75,8 +75,19 @@ def normalize_scores(scores, method="soft",
         scores[scores > gen_thresh_max] = gen_thresh_max
 
     if gen_thresh_min is not None:
-        scores[scores < gen_thresh_min] = 0 if method == "nothing" else -100
+        scores[scores < gen_thresh_min] = 0 # if method == "nothing" else -100
+        pass
 
+    mylogs.bp("col_sums")
+    col_sums = torch.sum((scores > 0)*scores, dim=0)
+    if method == "importance1":
+        scores = scores * col_sums
+    if method == "importance2":
+        scores = F.softmax(scores, -1)
+        scores = scores * col_sums
+    if method == "importance3":
+        scores = scores * col_sums
+        scores = F.softmax(scores, -1)
     if method == "nothing":
        pass 
     elif method == "direct" or method == "soft" or method == "rb":
@@ -1431,8 +1442,8 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        if self.compose_method == "wcat":
-            attend_to_idx = attend_to_idx[:,:-1] # skip target
+        #if self.compose_method == "wcat":
+        #    attend_to_idx = attend_to_idx[:,:-1] # skip target
 
         if self.add_target:
             if self.target_share == -1:
@@ -1460,8 +1471,8 @@ class T5Stack(T5PreTrainedModel):
         elif self.attn_method == "rb":
             mylogs.bp("rmconst")
             route_idx = attend_to_idx
-            router = torch.zeros(target_idx.size()[1],
-                    route_idx.size()[1], 
+            router = torch.zeros(target_idx.size(1),
+                    route_idx.size(1), 
                     device=inputs_embeds.device)
             router = router.repeat(batch_size, 1, 1)
             for i in range(batch_size):
@@ -1492,6 +1503,9 @@ class T5Stack(T5PreTrainedModel):
                 elif route_method == "const":
                     attn_scores  = attn_dist
                     self.norm_method = "nothing"
+                elif route_method == "importance":
+                    col_sums = torch.sum(router, dim=0)
+                    attn_scores = rb_scores * col_sums
                 else:
                     attn_scores = rb_scores # + attn_dist
             elif not self.training:
@@ -1501,6 +1515,9 @@ class T5Stack(T5PreTrainedModel):
                 if route_method == "const":
                     attn_scores  = attn_dist
                     self.norm_method = "nothing"
+                elif route_method == "importance":
+                    col_sums = torch.sum(router, dim=0)
+                    attn_scores = router * col_sums
                 else:
                     attn_scores = router
 
@@ -1573,43 +1590,50 @@ class T5Stack(T5PreTrainedModel):
         else:
             num_select = attn_scores.size(-1) # select all
 
-        attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
-                attn_scores, 
-                num_select, 
-                sorted="sorted" in self.source_prompts_order,
-                threshold=None) #  self.sel_thresh)
-        if torch.any(attend_to_sel_idx == -1):
-            mylogs.bp("negg")
-        if self.source_prompts_order == "rand":
-            idx = torch.randperm(attend_to_sel_idx.shape[-1])
-            attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
-            attn_sel_scores = attn_sel_scores[:,:,idx].view(attn_sel_scores.size())
-        elif self.source_prompts_order == "sorted_asc":
-            attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
-            attn_sel_scores = torch.flip(attn_sel_scores, dims=(-1,))
+        mylogs.bp("negg")
+        sorting_opts = ["sorted", "sorted_asc","sorted_desc"]
+        attn_sel_scores, attend_to_x = attn_scores, attend_to 
+        if (num_select < attn_scores.size(-1) 
+            or self.source_prompts_order in sorting_opts):
+            attn_sel_scores, attend_to_sel_idx = batched_topk(batch_size,
+                    attn_scores, 
+                    num_select, 
+                    sorted=self.source_prompts_order in sorting_opts,
+                    threshold=None) #  self.sel_thresh)
+            if torch.any(attend_to_sel_idx == -1):
+                mylogs.bp("negg")
+            if self.source_prompts_order == "rand":
+                idx = torch.randperm(attend_to_sel_idx.shape[-1])
+                attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
+                attn_sel_scores = attn_sel_scores[:,:,idx].view(attn_sel_scores.size())
+            elif self.source_prompts_order == "sorted_asc": #TODO it doesn't work
+                attend_to_sel_idx = torch.flip(attend_to_sel_idx, dims=(-1,))
+                attn_sel_scores = torch.flip(attn_sel_scores, dims=(-1,))
 
-        if False: #self.attend_target or self.attend_private: # force to select them
-            attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
-        attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
-        if not self.attend_input:
-            attend_to_sel_idx = attend_to_sel_idx + 1
+            if False: #self.attend_target or self.attend_private: # force to select them
+                attn_sel_scores[attn_sel_scores >= 2] = attn_sel_scores[attn_sel_scores >= 2]- 2
+            attend_to_idx = batched_index_select(attend_to_idx, 1, attend_to_sel_idx)
 
-        mylogs.bp("params")
-        # Create a binary mask for the top k indices
-        if route_method == "params":
-            # top_k_mask = torch.zeros_like(attn_scores)
-            # top_k_mask.scatter_(-1, attend_to_sel_idx, 1)
-            # attn_sel_scores = attn_score * top_k_mask
-            pass
+            if not self.attend_input:
+                attend_to_sel_idx = attend_to_sel_idx + 1
 
-        # Apply the mask to select the top k prompts
-        # top_k_mask = top_k_mask.squeeze(1).unsqueeze(-1).unsqueeze(-1)
-        # attend_to = attend_to.view(batch_size, attn_scores.shape[-1], -1)  
-        # attend_to_1 = attend_to * top_k_mask
-        # attend_to_1 = attend_to_1.view(batch_size, num_targets, -1, 
-        #        self.src_prompt_dim, self.model_dim)
+            mylogs.bp("params")
+            # Create a binary mask for the top k indices
+            if route_method == "params":
+                # top_k_mask = torch.zeros_like(attn_scores)
+                # top_k_mask.scatter_(-1, attend_to_sel_idx, 1)
+                # attn_sel_scores = attn_score * top_k_mask
+                pass
 
-        attend_to_x = batched_index_select(src_prompts, 1, attend_to_sel_idx)
+            # Apply the mask to select the top k prompts
+            # top_k_mask = top_k_mask.squeeze(1).unsqueeze(-1).unsqueeze(-1)
+            # attend_to = attend_to.view(batch_size, attn_scores.shape[-1], -1)  
+            # attend_to_1 = attend_to * top_k_mask
+            # attend_to_1 = attend_to_1.view(batch_size, num_targets, -1, 
+            #        self.src_prompt_dim, self.model_dim)
+
+            attend_to_x = batched_index_select(src_prompts, 1, attend_to_sel_idx)
+
         attend_to_x = attend_to_x.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
         if route_method == "params":
