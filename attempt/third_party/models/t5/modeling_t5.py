@@ -90,6 +90,8 @@ def normalize_scores(scores, method="soft",
     if method == "importance3":
         scores = scores * col_sums
         scores = F.softmax(scores, -1)
+    if method == "one":
+        scores[True] = 1
     if method == "nothing":
        pass 
     elif method == "direct" or method == "soft" or method == "rb":
@@ -97,8 +99,8 @@ def normalize_scores(scores, method="soft",
     elif method == "sigmoid":
         scores = torch.sigmoid(scores)  
     elif method == "sign":
-        scores[scores <= 0] = 0
-        scores[scores > 0] = 1
+        scores[scores < 0] = 0
+        scores[scores >= 0] = 1
     elif method == "relu":
         scores[scores <= 0] = 0
     elif method == "sigmoid_relu":
@@ -1450,7 +1452,7 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        if self.compose_method in ["wcat","wp"] or not self.attend_private:
+        if self.compose_method in ["wcat","wp"]: # or not self.attend_private:
             mylogs.bp("wcat")
             mylogs.bp("wp")
             assert self.use_private_prompts is True, "use private prompts must be enabled"
@@ -1459,18 +1461,19 @@ class T5Stack(T5PreTrainedModel):
             private_prompt = attend_to[:,-1,:,:]
             private_prompt = private_prompt.unsqueeze(1)
 
-
         if self.target_share is not None:
             if self.target_share == -1:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
-                if True: #self.training:
+                if self.training:
                     tst = self.target_share_temperature
                     # tst = self.temperature
                     target_shares = RelaxedBernoulli(temperature=tst, 
                         logits=target_router).rsample()            
                 else:
-                    target_shares = torch.sigmoid(target_router * self.sig_coef) 
+                    target_shares = torch.sigmoid(target_router) # * self.sig_coef) 
+            elif self.target_share >= 1:
+                target_shares = torch.ones(1, batch_size, device=device)
             else:
                 target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
@@ -1795,6 +1798,7 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
+           mylogs.bp("adt")
            if self.target_share == 1:
                soft_prompts = target_prompts
            elif self.target_share == 2:

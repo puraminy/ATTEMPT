@@ -1483,8 +1483,10 @@ def train(**kwargs):
                     if "_for" in n and not n in encoder.attend_to:
                         encoder.attend_to_mask[i] = 0 
                         attn_flag = True
+                # TODO it seems unnecessary
                 if not attn_flag or (not use_private_prompts and not use_source_set): 
-                    encoder.attend_to_mask = [1]*num_attend_to # attend to all 
+                    if use_source_prompts:
+                        encoder.attend_to_mask = [1]*num_attend_to # attend to all 
             if kwargs.setdefault("init_from_words", False):
                 encoder.init_embs_from_words(model.get_input_embeddings())
             if not model_args.attn_tuning and load_prompts: 
@@ -2450,8 +2452,8 @@ def train(**kwargs):
 
                         mylogs.bp("nusp")
                         scores_matrix = model.encoder.attn_scores.index_select(0, targets)
-                        tlen = router_scores.size(0)
-                        all_len = router_scores.size(1)
+                        tlen = scores_matrix.size(0)
+                        all_len = scores_matrix.size(1)
                         sim = torch.eye(tlen)
                         cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
                         for i in range(tlen):
@@ -2462,7 +2464,10 @@ def train(**kwargs):
                         scores_matrix = torch.round(scores_matrix*100)/100
                         if multi_tasking:
                             start = 0 if model_args.attend_input else 1 
-                            scores_matrix = scores_matrix[:,start:slen+tlen + 1]
+                            if model_args.add_target is True:
+                                scores_matrix = scores_matrix[:,start:]
+                            else:
+                                scores_matrix = scores_matrix[:,start:slen+tlen + 1]
 
                         #if len(torch.nonzero(scores_matrix)) < 1:
                         #    start = slen if model_args.attend_input else slen + 1 

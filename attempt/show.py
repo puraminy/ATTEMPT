@@ -998,8 +998,9 @@ def show_df(df):
             refresh()
         if cur_col < len(sel_cols) and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
-            _sel_val = df.iloc[sel_row][_sel_col]
-            infos.append("{}:{}".format(_sel_col, _sel_val))
+            if not df.empty:
+                _sel_val = df.iloc[sel_row][_sel_col]
+                infos.append("{}:{}".format(_sel_col, _sel_val))
         for c in info_cols:
             if not c in df:
                 continue
@@ -1058,9 +1059,33 @@ def show_df(df):
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
+        if context == "details":
+            old_search = search
+            pattern = re.compile("[A-Za-z0-9]+")
+            if ch == cur.KEY_BACKSPACE:
+                if search:
+                   search = search[:-1]
+                   char == ""
+                   ch = 0
+                else:
+                   context = ""
+                if not search:
+                   mbeep()
+            elif pattern.fullmatch(char) is not None:
+                search += char 
+            if search:
+                col = sel_cols[cur_col]
+                df = details_df[details_df[col].astype(str).str.contains(search, na=False)]
+                # .first_valid_index()
+                # si = min(si, len(mask) - 1)
+                # sel_row = df.loc[mask.any(axis=1)].index[si]
+                char = ""
+                ch = 0
+            consts["search"] = search
         if char == "n":
             # info_cols = info_cols_back.copy()
             backit(df, sel_cols)
+            context = "details"
             max_width = 100
             infos = []
             for c in df.columns:
@@ -1069,6 +1094,7 @@ def show_df(df):
                 infos.append(_info)
             df = pd.DataFrame(data=infos)
             df = df.sort_values(by="col", ascending=True)
+            details_df = df
             sel_cols = ["col","val"]
         if ch == LEFT:
             cur_col -= 1
@@ -2957,7 +2983,7 @@ def show_df(df):
             save_obj(sel_cols,"sel_cols",dfname)
             extra["filter"] = []
             info_cols = []
-        if char == "b" and back:
+        if (ch == cur.KEY_BACKSPACE or char == "b") and back:
             if back:
                 df = back.pop()
                 sel_cols = sels.pop() 
