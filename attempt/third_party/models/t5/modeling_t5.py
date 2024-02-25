@@ -90,7 +90,7 @@ def normalize_scores(scores, method="soft",
     if method == "importance3":
         scores = scores * col_sums
         scores = F.softmax(scores, -1)
-    if method == "one":
+    if method == "one" or len(torch.nonzero(scores)) == 0:
         scores[True] = 1
     if method == "nothing":
        pass 
@@ -99,8 +99,8 @@ def normalize_scores(scores, method="soft",
     elif method == "sigmoid":
         scores = torch.sigmoid(scores)  
     elif method == "sign":
-        scores[scores < 0] = 0
-        scores[scores >= 0] = 1
+        scores[scores <= 0] = 0
+        scores[scores > 0] = 1
     elif method == "relu":
         scores[scores <= 0] = 0
     elif method == "sigmoid_relu":

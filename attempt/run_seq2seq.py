@@ -518,7 +518,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
+   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -544,6 +544,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["tag"] = ctags 
    args["merge"] = merge
    y_labels = []
+   exp_number = 1
    for comb in tot_comb:
        _output_dir = []
        prev_name = ""
@@ -687,6 +688,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    print("Stop!")
                    return
        done = "na"
+       args["exp_number"] = exp_number
+       exp_number += 1
        if debug:
            ctx.invoke(train, **args)
        else:
@@ -2245,8 +2248,10 @@ def train(**kwargs):
         results = {}
         ds_backup = None
         mylogs.bp("gen_conf")
-        gnm = kwargs.setdefault("gen_norm_method",["soft"])
-        if type(gnm) != list: gnm = [gnm] 
+        gnm = ["sign"]
+        if "gen_norm_method" in main_vars:
+            gnm = kwargs.setdefault("gen_norm_method",["sign"])
+            if type(gnm) != list: gnm = [gnm] 
         gen_thresh_min = kwargs.get("gen_thresh_min", [None])
         gen_thresh_max = kwargs.get("gen_thresh_max", [None])
         if type(gen_thresh_min) != list: gen_thresh_min = [gen_thresh_min]

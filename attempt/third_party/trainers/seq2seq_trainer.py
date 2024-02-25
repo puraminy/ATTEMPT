@@ -118,7 +118,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         self._max_length = max_length
         self._num_beams = num_beams,
         print("=================== Evaluation ==================")
-        print("Experiment: ", mylogs.args("expid"), "/", mylogs.args("total_exp"))
+        print("Experiment: ", mylogs.args("exp_number"), "/", mylogs.args("total_exp"))
         print("Tags: ", mylogs.get_tag(as_str=True))
         print("Tasks: ", mylogs.args("task_name"), " minus ", mylogs.args("exclude_tasks"))
         print("Save in: ", mylogs.args("save_path"))
