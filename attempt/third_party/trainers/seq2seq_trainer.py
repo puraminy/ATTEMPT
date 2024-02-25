@@ -120,6 +120,8 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         print("=================== Evaluation ==================")
         print("Experiment: ", mylogs.args("expid"), "/", mylogs.args("total_exp"))
         print("Tags: ", mylogs.get_tag(as_str=True))
+        print("Tasks: ", mylogs.args("task_name"), " minus ", mylogs.args("exclude_tasks"))
+        print("Save in: ", mylogs.args("save_path"))
         print("=================================================")
         if eval_dataset is None and self.eval_dataset is None:
             if self.args.do_eval:

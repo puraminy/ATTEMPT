@@ -25,7 +25,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
 #            if not model_args.attn_tuning:
 #                if model_args.attend_target is False:
 #                    assert model_args.add_target is True, "Can't both attend target and add target be false"
-
+            if kwargs.compose_method == "wcat":
+                assert kwargs.use_private_prompts is True, "wcat works with private prompts"
             if kwargs.prompt_sharing == "shared_prompts":
                 assert not "-pnt" in kwargs.template and not "-psht" in kwargs.template, "Shared_prompts is for templates with shared prompt"
             if kwargs.attend_for is not None:
@@ -38,7 +39,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
             if kwargs.num_source_prompts > 0:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.add_target is True:
-                assert model_args.attn_tuning, " This option works for attention tuninng"
+                assert model_args.attn_tuning is True, " This option works for attention tuninng"
                 assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts or kwargs.source_prompts or kwargs.use_prompt_set, "add target needs source prompts"
             if model_args.attend_target is True:
                 assert model_args.attn_tuning, " attend target True is for attention tuninng"
@@ -49,7 +50,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert not model_args.add_target, " Target share None is for not add_target"
             if model_args.target_share is not None:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
-                assert model_args.add_target, " Target share not None is for add target"
+                # assert model_args.add_target, " Target share not None is for add target"
             if kwargs.use_private_prompts is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
         elif adapter_args.train_task_adapters:

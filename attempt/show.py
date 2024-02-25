@@ -1120,7 +1120,7 @@ def show_df(df):
             if context == "inp":
                 back_rows[-1] += 1
                 hotkey = "bp"
-            elif group_col and group_col in sel_cols:
+            elif False: #TODO group_col and group_col in sel_cols:
                 sel_group +=1
             else:
                 sel_row += 1
@@ -1129,7 +1129,7 @@ def show_df(df):
             if context == "inp":
                 back_rows[-1] -= 1
                 hotkey = "bp"
-            elif group_col and group_col in sel_cols:
+            elif False: #TODO group_col and group_col in sel_cols:
                 sel_group -=1
             else:
                 sel_row -= 1
@@ -1789,7 +1789,7 @@ def show_df(df):
                 if not "/" in conf:
                     conf = os.path.join(home, "results", conf + ".json")
                 meld.append(conf)
-            subprocess.run(meld)
+            subprocess.Popen(meld)
         elif char == "B":
             if "cfg" in df:
                 _,files = get_sel_rows(df, row_id="cfg", col="cfg", from_main=False)
@@ -2297,12 +2297,12 @@ def show_df(df):
             _,files = get_sel_rows(df, row_id="cfg", col="cfg", from_main=False)
             files = [os.path.join(home, "results", c + ".json") for c in files]
             files.insert(0, "meld")
-            subprocess.run(files)
+            subprocess.Popen(files)
         elif char == "m":
             _,dirs = get_sel_rows(df, col="output_dir")
             files = [os.path.join(d, "exp.json") for d in dirs]
             files.insert(0, "meld")
-            subprocess.run(files)
+            subprocess.Popen(files)
         elif char == "m" and prev_char == "x":
             info_cols = []
             sel_cols = []
@@ -2610,8 +2610,7 @@ def show_df(df):
             cond_colors["eid"] = time_colors
             cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
-            cond_colors["expid"] = time_colors
-            cond_colors["eid"] = index_colors
+            cond_colors["expid"] = index_colors
             for col in pivot_cols:
                 pcols.extend(df[col].unique())
             for col in pcols:

@@ -1089,6 +1089,7 @@ class T5Stack(T5PreTrainedModel):
         self.is_decoder = config.is_decoder
         ################# MyCode
         self.prompt_encoders = []
+        self.use_private_prompts = False
         self.embedding_dim = self.config.hidden_size
         # all prompt ids for all tasks
         self.target_prompt_ids = []
@@ -1143,6 +1144,7 @@ class T5Stack(T5PreTrainedModel):
         # self.learn_source_prompts = config.learn_source_prompts
         ##############################################
         self.attend_target = attend_target
+        self.use_private_prompts = config.use_private_prompts
         self.num_target_prompts = config.num_target_prompts
         self.target_share = config.target_share 
         self.attend_for = config.attend_for 
@@ -1411,10 +1413,12 @@ class T5Stack(T5PreTrainedModel):
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
         inp_target = target_prompts
-        if self.attend_for == "private": 
+        private_prompt = None
+        if self.use_private_prompts:
             private_prompt = src_prompts[:,-1,:,:]
-            inp_target = private_prompt.unsqueeze(1)
-            attend_to = src_prompts[:,:-1,:,:]
+            if self.attend_for == "private": 
+                inp_target = private_prompt.unsqueeze(1)
+                attend_to = src_prompts[:,:-1,:,:]
         elif self.attend_for == "target": 
             inp_target = target_prompts
         elif self.attend_for == "inp_target": 
@@ -1446,10 +1450,17 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        #if self.compose_method == "wcat":
-        #    attend_to_idx = attend_to_idx[:,:-1] # skip target
+        if self.compose_method in ["wcat","wp"] or not self.attend_private:
+            mylogs.bp("wcat")
+            mylogs.bp("wp")
+            assert self.use_private_prompts is True, "use private prompts must be enabled"
+            attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
+            attend_to = attend_to[:,:-1,:,:]
+            private_prompt = attend_to[:,-1,:,:]
+            private_prompt = private_prompt.unsqueeze(1)
 
-        if self.add_target:
+
+        if self.target_share is not None:
             if self.target_share == -1:
                 target_router = self.target_router.unsqueeze(0)
                 target_router = batched_index_select(target_router, 1, target_idx)
@@ -1636,7 +1647,7 @@ class T5Stack(T5PreTrainedModel):
             # attend_to_1 = attend_to_1.view(batch_size, num_targets, -1, 
             #        self.src_prompt_dim, self.model_dim)
 
-            attend_to_x = batched_index_select(src_prompts, 1, attend_to_sel_idx)
+            attend_to_x = batched_index_select(attend_to, 1, attend_to_sel_idx)
 
         attend_to_x = attend_to_x.view(batch_size, num_targets, -1, 
                 self.src_prompt_dim, self.model_dim)
@@ -1681,7 +1692,7 @@ class T5Stack(T5PreTrainedModel):
         elif self.target_share == -4:
             top = torch.mean(attn_sel_scores, -1) 
             target_shares = 1 - top.transpose(0,1)
-        mylogs.bp("att")
+        mylogs.bp("cmm")
         if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
@@ -1702,14 +1713,34 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
-        elif self.compose_method == "wcat":
+        elif self.compose_method == "wp":
+            # attn_sel_scores = attn_sel_scores[:,:,:-1]
+            # attend_to_x = attend_to_x[:,:,:-1,:,:])
+            mylogs.bp("wp")
             avg_prompts = torch.einsum(
-                    'bts, btsld -> btld', attn_sel_scores[:,:,:-1], 
-                     attend_to_x[:,:,:-1,:,:])
-            last_prompt = attend_to_x[:,:,-1,:,:]
+                    'bts, btsld -> btld', attn_sel_scores, 
+                    attend_to_x)
+            ts = target_shares.reshape(batch_size, 1, 1, 1)
+            if self.target_share == 2:
+               soft_prompts = avg_prompts + private_prompt 
+            else:
+               soft_prompts = (1 - ts) * avg_prompts + ts * private_prompt 
+            attn_sel_scores = torch.cat(
+                   [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
+            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
+        elif self.compose_method == "wcat":
+            mylogs.bp("wcat")
+            avg_prompts = torch.einsum(
+                    'bts, btsld -> btld', attn_sel_scores, 
+                    attend_to_x)
+            ts = target_shares.reshape(batch_size, 1, 1, 1)
+            if self.target_share != 2:
+                private_prompt = ts * private_prompt
             soft_prompts = torch.cat(
-                   [avg_prompts, last_prompt], dim=2)
-
+                   [avg_prompts, private_prompt], dim=2)
+            attn_sel_scores = torch.cat(
+                   [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
+            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
         elif  "pool" in self.compose_method:
             mylogs.bp("pool")
             # b t s l d > b t l d

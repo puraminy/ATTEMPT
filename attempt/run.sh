@@ -60,7 +60,7 @@ if [ -n "$_re" ]; then
    _cur=True
 fi
 
-if [ -z "$_reval" ] && [ -z "$_re" ]; then
+if [ -n "$_get_output"  ]; then # -z "$_reval" ] && [ -z "$_re" ]; then
    if [ ${#arr[@]} -lt 2 ]; then 
       echo "Output folder and config file or patterns are required (eg. bash eval.sh out1 pat1 pat2 )"
       exit
@@ -179,13 +179,11 @@ fi
 
 ###################################
 params=""
-if [ -z "$_re" ]; then
-   if [ -n "$_tasks" ]; then
-      params="${params} --@task_name=$_tasks"
-   fi
-   if [ -n "$_src" ]; then
-      params="${params} --@source_prompts=$_src"
-   fi
+if [ -n "$_tasks" ]; then
+   params="${params} --@task_name=$_tasks"
+fi
+if [ -n "$_src" ]; then
+   params="${params} --@source_prompts=$_src"
 fi
 if [ -n "$_reval" ]; then
    params="${params} --reval"

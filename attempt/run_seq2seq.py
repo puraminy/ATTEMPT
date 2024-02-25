@@ -391,23 +391,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["conf"] = exp_conf
    args["save_path"] = save_path
 
-   if prev_exp_folder:
-       mylogs.bp("prev")
-       prev_folder = Path(prev_exp_folder)
-       prev_exp_id = prev_folder.name
-       eval_folders = glob.glob(
-               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*no-mask*"))
-       try:
-           shutil.copytree(prev_exp_folder, 
-                   os.path.join(save_path, Path(prev_exp_folder).name))
-       except (FileNotFoundError, FileExistsError):
-           pass
-       for folder in eval_folders:
-           try:
-               shutil.copytree(folder, os.path.join(save_path, Path(folder).name))
-           except (FileNotFoundError, FileExistsError):
-               pass
-
    args["new_exp_folder"] = new_exp_folder
    args["load_path"] = "" 
    args["is_debug"] = debug
@@ -461,6 +444,26 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        else:
            _mvars.append(var)
    if _mvars: main_vars = _mvars
+
+
+   if prev_exp_folder and not "task_name" in main_vars:
+       mylogs.bp("prev")
+       prev_folder = Path(prev_exp_folder)
+       prev_exp_id = prev_folder.name
+       eval_folders = glob.glob(
+               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*no-mask*"))
+       try:
+           shutil.copytree(prev_exp_folder, 
+                   os.path.join(save_path, Path(prev_exp_folder).name))
+       except (FileNotFoundError, FileExistsError):
+           pass
+       for folder in eval_folders:
+           try:
+               shutil.copytree(folder, os.path.join(save_path, Path(folder).name))
+           except (FileNotFoundError, FileExistsError):
+               pass
+
+
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
        members = [x.strip("@") for x in val if not x in multi and not "@" in x.strip("@")]
@@ -816,7 +819,13 @@ def train(**kwargs):
     # set other options
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
-
+    exclude_tasks = kwargs.setdefault("exclude_tasks", None) 
+    if exclude_tasks:
+        tasks = []
+        for t in data_args.task_name:
+            if not t in exclude_tasks:
+                tasks.append(t)
+        data_args.task_name = tasks
 
     mylogs.bp("nsp")
     num_prompts = kwargs.setdefault("num_prompts", 1) 
@@ -900,6 +909,8 @@ def train(**kwargs):
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
+        elif model_args.compose_method == "tcat":
+            target_prompt_length = 2 * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wavg":
             pass
             #target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
@@ -981,7 +992,7 @@ def train(**kwargs):
         mylogs.dlog.info("-------------------------------------")
         if not resolved:
             shutil.rmtree(training_args.output_dir)
-            assert False, "has_conflict"
+            return "has_conflict"
 
     if False: #main_vars: #TODO it must be checked in run not here
         x = main_vars
@@ -1127,6 +1138,7 @@ def train(**kwargs):
     config.attend_target = model_args.attend_target
     config.num_target_prompts = num_target_prompts
     config.attend_private = use_private_prompts 
+    config.use_private_prompts = use_private_prompts
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
@@ -2250,7 +2262,7 @@ def train(**kwargs):
         if "prompt_masking" in main_vars:
             masking_list = kwargs.setdefault("prompt_masking",["0-col-0"])
         if masking_list == "none" or masking_list is None: 
-            maskingi_list = ["0-col-0"]
+            masking_list = ["0-col-0"]
         if type(masking_list) != list:
             masking_list = [masking_list]
         for masking in masking_list:
