@@ -520,7 +520,10 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     print("Saving results %s", save_path)
     merged_df.to_csv(save_path, index=False, sep="\t")
 #################
-    for metric in [mean_rouge, mean_bert, mean_match, mean_out]:
+    ret_scores = {}
+    for sname, metric in zip(
+            ['mean_rouge', 'mean_bert', 'mean_match', 'mean_out'],
+            [mean_rouge, mean_bert, mean_match, mean_out]):
         s =0 
         ii = 0
         jj = 0
@@ -529,6 +532,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             s += float(val)
             ii += 1
             jj += counter[key]
+
+        ret_scores[sname] = s/ii
         metric["AVG"] = "{:.2f}--{}".format(s/ii, jj)
 
     mean_bert_str = json.dumps(mean_bert, indent=2)
@@ -635,4 +640,5 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
        wandb.run.summary["test_bert"] = test_bert
        wandb.run.summary["num_preds"] = num_preds 
 
-    return merged_df
+    ret_scores["num_preds"] = num_preds
+    return ret_scores

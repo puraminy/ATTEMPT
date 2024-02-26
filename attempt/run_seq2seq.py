@@ -333,7 +333,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args["trial"] = str(trial) + "-rev-" + str(exp_args["expid"].split("-")[-1])
 
    mylogs.bp("start")
-   experiment = experiment.replace("#","-").replace("@","-")
+   experiment = experiment.replace("#","-").replace("@","-").replace(":","-")
    #if exp_conf and not new_exp_folder: 
    #   log_folder = experiment 
       #ans = input("Do you want save the results in (otherwise enter new folder) "+log_folder+ "[yes]:")
@@ -614,7 +614,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
            print(_conf)
-           with open("logs/exp_" + str(ii) + ".json","w") as f:
+           out_conf_file = os.path.join(save_path, "logs", "exp_" + str(ii) + ".json")
+           Path(os.path.join(save_path, "logs")).mkdir(exist_ok = True, parents=True)
+           with open(out_conf_file,"w") as f:
                print(_conf, file=f)
            continue
        # break point before running to check arguments (breakpoint must be check)
@@ -1034,7 +1036,7 @@ def train(**kwargs):
     tags_dict = mylogs.get_tag(tag, kwargs)
     wandb.init(
       # Set the project where this run will be logged
-      project= experiment.replace("#","-").replace("/","-")[:100], 
+      project= experiment.replace("#","-").replace(":","-").replace("/","-")[:100], 
       name=title,
       dir=wandb_dir,
       settings=wandb.Settings(symlink=False),
@@ -2230,6 +2232,7 @@ def train(**kwargs):
                 annot=annot,
                 y_labels=y_labels,
                 x_labels=x_labels,
+                title = title,
                 #title = title  
                 #        + " | " + model_args.compose_method \
                 #        + " | " + str(kwargs.norm_method) \
@@ -2263,21 +2266,29 @@ def train(**kwargs):
         gen_ntp = [gg for gg in gen_ntp if gg <= num_target_prompts]
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        gen_masks = {}
-        gen_masks["no-mask"] = None
         masking_list = []
+        mylogs.bp("genm")
+        masking_scores = kwargs.setdefault("masking_scores",["m_score"])
+        if type(masking_scores) != list: masking_scores = [masking_scores] 
         if "prompt_masking" in main_vars:
             masking_list = kwargs.setdefault("prompt_masking",["0-col-0"])
         if masking_list == "none" or masking_list is None: 
             masking_list = ["0-col-0"]
         if type(masking_list) != list:
             masking_list = [masking_list]
+        gen_masks_list = [{"no-mask":None}]
+        if masking_list:
+            gen_masks_list = []
         for masking in masking_list:
+            gen_masks = {}
+            if not "-" in masking:
+                masking = "0-" + masking + "-1"
             nn, mask_type, mm = masking.split("-") 
             num_masks, num_masked_prompts =int(nn), int(mm) 
             mylogs.bp("nrp")
+            gen_masks["no-mask"] = None
             if num_masks == 0: 
-                if mask_type == "pos" or mask_type == "else":
+                if mask_type == "remove" or mask_type == "keeponly":
                     router = model.encoder.router
                     positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in router]
                     max_length_index = max(range(len(positive_indices_per_row)), 
@@ -2295,6 +2306,8 @@ def train(**kwargs):
                     mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
                     mkey = str(col) + "-" + mask_type + "-" + str(mm)
                     gen_masks[mkey] = mask
+            gen_masks_list.append(gen_masks)
+
         ii = 0
         kk = 0
         sdf_rows = []
@@ -2317,13 +2330,15 @@ def train(**kwargs):
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
-            task_scores = {}
-            effect_scores = {}
-            eval_folders = {}
-            no_mask_test_files = {}
-            gen_combs = itertools.product(gnm, 
+            gen_combs = itertools.product(gen_masks_list, gnm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
-            for norm_method, gmin, gmax, gntp in gen_combs:
+            mylogs.bp("genm")
+            gen_mask_counter = 0
+            for gen_masks, norm_method, gmin, gmax, gntp in gen_combs:
+                task_scores = {}
+                effect_scores = {}
+                eval_folders = {}
+                no_mask_test_files = {}
                 for rm, mask in gen_masks.items():
                     if "-" in norm_method:
                         norm_method, tmin, tmax = norm_method.split("-")
@@ -2347,7 +2362,7 @@ def train(**kwargs):
                         task_scores[rm] = {}
                     gen_conf = {"rep_penalty":2.0}
                     gen_conf["gen_norm_method"] = norm_method
-                    gen_conf["mask_type"] = rm
+                    gen_conf["mask_type"] = rm if mask is not None else "no-mask"
                     gen_conf["gen_thresh_min"] = gmin
                     gen_conf["gen_thresh_max"] = gmax
                     gen_conf["gen_ntp"] = gntp
@@ -2389,7 +2404,7 @@ def train(**kwargs):
                             ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
                         use_cache = False
                         if adapter_args.prompt_tuning: 
-                            if rm != "no-mask" and mask is not None: 
+                            if mask is not None: 
                                 mylogs.bp("cache")
                                 task_index = y_labels.index(task)
                                 task_mask = mask_matrix[task_index]
@@ -2401,13 +2416,17 @@ def train(**kwargs):
                         df, scores, preds, golds = evaluate_test(task, test_dataset, 
                                 save_to, ds_name, gen_conf, use_cache = use_cache)
 
-                        if rm == "no-mask":
+                        if mask is None:
                             no_mask_test_files[task] = save_to
 
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")
-                        mylogs.bp("test")
-                        task_score = df["m_score"].mean() 
+                        mylogs.bp("rouge")
+                        # TODO make it general not according to task names
+                        if "xAttr" in data_args.task_name: 
+                          task_score = scores[masking_scores[0]]
+                        else:
+                          task_score = df[masking_scores[0]].mean() 
                         task_scores[rm][test_key][task] = task_score
                         total_score += task_score 
                         da = {}
@@ -2466,7 +2485,7 @@ def train(**kwargs):
                                 if i != j:
                                     sim[i][j] = cos(scores_matrix[i][:], scores_matrix[j][:])
 
-                        scores_matrix = torch.round(scores_matrix*100)/100
+                        scores_matrix = scores_matrix.round(decimals=2)
                         if multi_tasking:
                             start = 0 if model_args.attend_input else 1 
                             if model_args.add_target is True:
@@ -2497,7 +2516,7 @@ def train(**kwargs):
                             start = 0 if model_args.attend_input else 1 
                             mask_matrix = mask_matrix[:,start:slen+tlen + 1]
                         save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
-                        if "col" in rm or "pos" in rm or "else" in rm:
+                        if "-" in rm and ("col" in rm or "remove" in rm or "keeponly" in rm):
                             if not test_key in effect_scores:
                                 effect_scores[test_key] = torch.zeros(
                                     (tlen, slen + tlen + 2), device=device) 
@@ -2517,7 +2536,7 @@ def train(**kwargs):
                                     effect = 0
                                 else:
                                     effect = (score- base_score) # / base_score) #*100
-                                if True: #"else" in rm:
+                                if True: #"keeponly" in rm:
                                     if score < 1 and base_score < 1:
                                         score = score*100
                                         base_score = base_score*100
@@ -2530,17 +2549,19 @@ def train(**kwargs):
                                 if col < len(positive_idx[task_index]):  
                                     col_index = positive_idx[task_index][col]
                                     effect_scores[test_key][task_index, col_index] = effect
-                                # elif not "else" in rm:
+                                # elif not "keeponly" in rm:
                                 #    effect_scores[test_key][task_index, col] = score 
                                 effect_scores[test_key][task_index, -1] = base_score 
-        #### end of for
-            mylogs.bp("effect")
-            for test_key, effect_score in effect_scores.items(): 
-                for eval_folder_name in eval_folders[test_key]:
-                    eval_folder = os.path.join(exp_folder, eval_folder_name)
-                    save_image(eval_folder, model, 
-                            {"effect": effect_score.round(decimals=2)}, 
-                            spec=eval_folder_name)
+                #### end of for
+                mylogs.bp("effect")
+                spec = masking_list[gen_mask_counter]
+                for test_key, effect_score in effect_scores.items(): 
+                    for eval_folder_name in eval_folders[test_key]:
+                        eval_folder = os.path.join(exp_folder, eval_folder_name)
+                        save_image(eval_folder, model, 
+                        {"effect_" + spec : effect_score.round(decimals=2)}, 
+                        spec= spec)
+                gen_mask_counter += 1
             
         ########
         sdf = pd.DataFrame(data=sdf_rows)

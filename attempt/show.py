@@ -601,6 +601,7 @@ def show_df(df):
     all_sel_cols = []
     main_sel_cols = []
     search = ""
+    si = 0
     mode = "main"
     sort = "rouge_score"
     on_col_list = []
@@ -680,7 +681,8 @@ def show_df(df):
     def row_print(df, col_widths ={}, _print=False):
         nonlocal group_rows
         infos = []
-        margin = min(len(df), 5)
+        group_mode = group_col and group_col in sel_cols 
+        margin = min(len(df), 5) # if not group_mode else 0
         sel_dict = {}
         g_row = ""
         g = 0
@@ -688,10 +690,9 @@ def show_df(df):
         row_color = TEXT_COLOR
         sel_col_color = 102 # HL_COLOR #TITLE_COLOR
         cross_color = SEL_COLOR # WARNING_COLOR # HL_COLOR   
-        sel_row_color = HL_COLOR # SEL_COLOR
+        sel_row_color = HL_COLOR if not group_mode else row_color 
         g_color = row_color
-        group_mode = group_col and group_col in sel_cols 
-        _sel_row = -1 if group_mode else sel_row 
+        _sel_row = sel_row #-1 if group_mode else sel_row 
         ii = 0 
         for idx, row in df.iterrows():
            text = "{:<5}".format(ii)
@@ -699,7 +700,7 @@ def show_df(df):
            _infs = []
            if (group_mode and group_col in row and row[group_col] != g_row):
                g_row = row[group_col]
-               if _print and _sel_row >= 0 and ii >= _sel_row - 1:
+               if _print and _sel_row >= 0 and ii >= _sel_row - margin:
                    g_text = "{:^{}}".format(g_row, COLS)
                    # mprint("\n", text_win, color = HL_COLOR) 
                    mprint(g_text, text_win, color = HL_COLOR) 
@@ -715,8 +716,8 @@ def show_df(df):
                   row_color = TEXT_COLOR
                   sel_col_color = TITLE_COLOR
                   g_color = row_color
-               if g == sel_group:
-                  _sel_row = ii
+               if g == sel_row: # sel_group:
+                  #_sel_row = ii
                   #row_color = SEL_COLOR
                   #g_color = WARNING_COLOR
                   g_start = ii
@@ -725,10 +726,13 @@ def show_df(df):
                ii += 1
                continue
 
-           if group_mode: cross_color = sel_col_color
+           # if group_mode: cross_color = sel_col_color
            _color = row_color
            if cur_col < 0:
-              _color = sel_col_color
+               if ii == sel_row:
+                  _color = HL_COLOR
+               else:
+                  _color = sel_col_color
            if ii in sel_rows:
                _color = MSG_COLOR
            if ii == _sel_row and not group_mode:
@@ -899,13 +903,17 @@ def show_df(df):
             for key, img_dict in imgs.items():
                 #sorted_keys = (sorted(img_dict.keys()))
                 if not image_keys:
-                  image_keys = ["sim", "rsim", "score", 
+                  key_list = ["sim", "rsim", "score", 
                                 "effect", "init_router", "router", "mask"] 
                   # image_keys = ["score", "router"] 
+                else:
+                  key_list = []
+                  for prefix in image_keys:
+                      key_list.extend([k for k in img_dict.keys() if k.startswith(prefix)])
                 # TODO fixed
-                img_list = [img_dict[k] for k in image_keys if k in img_dict] 
+                img_list = [img_dict[k] for k in key_list if k in img_dict] 
                 max_width = 0
-                if len(img_list) > 1:
+                if len(img_list) > 0:
                     if len(img_list) > 1 and merge == "vert":
                         new_im = combine_y(img_list)
                     else:
@@ -1081,12 +1089,13 @@ def show_df(df):
                 # sel_row = df.loc[mask.any(axis=1)].index[si]
                 char = ""
                 ch = 0
-            consts["search"] = search
-        if char == "n":
+            consts["search"] = "/" + search
+        if char == ";":
             # info_cols = info_cols_back.copy()
             backit(df, sel_cols)
             context = "details"
             max_width = 100
+            consts["search"] = "/"
             infos = []
             for c in df.columns:
                 value = df.iloc[sel_row][c]
@@ -1264,12 +1273,21 @@ def show_df(df):
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             subprocess.Popen(["nautilus", spath])
-        if char in ["o","y"]:
+        if char in ["o","y","k"]:
             tdf = df #pivot_df if pivot_df is not None and context == "pivot" else df
             images = []
             exprs, _ = get_sel_rows(tdf)
-            merge = "vert" if char == "o" else "horiz"
-            image_keys = "" if char == "o" else ["score", "sim"]
+            merge = "vert"
+            image_keys = "" 
+            if char == "o" and "images" in settings:
+                image_keys = settings["images"].split("@")
+            elif char == "y":
+                image_keys = ["score","sim"]
+                merge = "vert"
+            elif char == "k":
+                image_keys = ["effect"]
+                merge = "vert"
+
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
             dif_cols = ["expid"]
@@ -1928,7 +1946,7 @@ def show_df(df):
             sel_rows = []
             FID = "input_text"
             hotkey = hk
-        elif char == "e":
+        elif char == "e" and context != "notes":
             if sort != "time":
                 df = df.sort_values(by="time", ascending=False)
                 sort = "time"
@@ -1943,7 +1961,7 @@ def show_df(df):
             sel_cols = group_sel_cols.copy()
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
             left = 0
-        elif char in ["k", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+        elif char in ["l", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
             backit(df, sel_cols)
             left = 0
             context= "comp"
@@ -2361,13 +2379,14 @@ def show_df(df):
         elif char == "/":
             old_search = search
             search = rowinput("/", search)
-            if search == old_search:
+            if search and search == old_search:
                 si += 1
             else:
                 si = 0
-            mask = np.column_stack([df[col].astype(str).str.contains(search, na=False) for col in df])
-            si = min(si, len(mask) - 1)
-            sel_row = df.loc[mask.any(axis=1)].index[si]
+            if search:
+                mask = np.column_stack([df[col].astype(str).str.contains(search, na=False) for col in df])
+                si = min(si, len(mask) - 1)
+                sel_row = df.loc[mask.any(axis=1)].index[si]
         elif char == ":":
             cmd = rowinput() #default=prev_cmd)
         elif char == "q":
@@ -2549,30 +2568,28 @@ def show_df(df):
                 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 sel_cols = df.columns 
                 info_cols = ["comment"]
-        if ch == cur.KEY_IC:
+                df = df.sort_values("date", ascending=False)
+        if ch == cur.KEY_IC or char == "e" and context == "notes":
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
-            if Path(note_file).is_file():
-                tdf = pd.read_csv(note_file)
+            if context != "notes":
+                if Path(note_file).is_file():
+                    tdf = pd.read_csv(note_file)
+                else:
+                    tdf = pd.DataFrame(columns=["date","cat","comment"])
+                tdf = tdf.loc[:, ~tdf.columns.str.contains('^Unnamed')]
             else:
-                tdf = pd.DataFrame(columns=["date","cat","comment"])
-            tdf = tdf.loc[:, ~tdf.columns.str.contains('^Unnamed')]
-            cat = "uncat"
-            if len(df) > 0 and "cat" in df:
-               cat = df.iloc[sel_row]["cat"] 
+                tdf = df
             bg_color = HL_COLOR
             win_height = 8
             note_title = ""
-            if prev_idea:
-                _default = prev_idea
-            else:
-                _default = cat + "\n"
+            _default = ""
+            cat = ""
+            if char == "e" and len(df) > 0:
+                cat = df.iloc[sel_row]["cat"] 
+                _default = cat + "\n" + df.iloc[sel_row]["comment"]
             _comment, ret_ch = biginput("", default=_default)
             if _comment:
-                if ret_ch == "=" or ret_ch == "|":
-                    prev_idea = _comment
-                else:
-                    prev_idea = ""
                 lines = _comment.split("\n")
                 comment = _comment
                 if len(lines) > 1:
@@ -2582,11 +2599,14 @@ def show_df(df):
                 new_note["date"] = now
                 new_note["comment"] = comment
                 new_note["cat"] = cat
-                tdf = pd.concat([tdf, pd.DataFrame([new_note])], ignore_index=True)
+                if char != "e":
+                    tdf = pd.concat([tdf, pd.DataFrame([new_note])], ignore_index=True)
+                else:
+                    tdf.iloc[sel_row] = new_note 
                 tdf.to_csv(note_file)
             if "comment" in df:
                 df = tdf
-                df = df.sort_values(by=["date","cat"], ascending=False) 
+                df = df.sort_values(by=["date"], ascending=False) 
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df
@@ -3047,10 +3067,9 @@ def get_cols(df, num = 1):
 def biginput(prompt=":", default=""):
     rows, cols = std.getmaxyx()
     win = cur.newwin(12, cols, 5, 0)
-    _default = ""
     win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
     _comment, ret_ch = minput(win, 0, 0, "Enter text", 
-            default=_default, mode =MULTI_LINE, rtl=False)
+            default=default, mode =MULTI_LINE, rtl=False)
     if _comment == "<ESC>":
         _comment = ""
     return _comment, ret_ch

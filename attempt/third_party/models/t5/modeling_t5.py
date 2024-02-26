@@ -1365,15 +1365,15 @@ class T5Stack(T5PreTrainedModel):
                     k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
                     mask = r <= k_th_quant
                     attn_mask[i, 1:nse] = mask.long()
-                elif mask_type == "pos":
+                elif mask_type == "remove":
                     if index <=  len(positive_indices_per_row[i]):
                         to = min(nse + 1, (index -1) + num_masked_prompts)
                         to = min(to, len(positive_indices_per_row[i]))
                         idx = min(index -1, to) 
                         indices = positive_indices_per_row[i][idx:to]
                         attn_mask[i, indices] = 0 
-                elif mask_type == "else":
-                    mylogs.bp("else")
+                elif mask_type == "keeponly":
+                    mylogs.bp("keeponly")
                     if index <=  len(positive_indices_per_row[i]):
                         to = min(nse + 1, (index -1) + num_masked_prompts)
                         to = min(to, len(positive_indices_per_row[i]))
