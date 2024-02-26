@@ -558,6 +558,8 @@ def show_df(df):
         tag_cols = list(tags.keys())
     if "expid" in tag_cols:
         tag_cols.remove("expid")
+    if "mask_type" in df:
+        df["cur_masking"] = df["mask_type"].str.split("-").str[1]
     if "exp_name" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
@@ -1285,7 +1287,7 @@ def show_df(df):
                 image_keys = ["score","sim"]
                 merge = "vert"
             elif char == "k":
-                image_keys = ["effect"]
+                image_keys = ["router","effect"]
                 merge = "vert"
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
@@ -1311,7 +1313,7 @@ def show_df(df):
                 images.append(im)
 
             if images:
-                pic = combine_x(images) if char =="o" else combine_y(images)
+                pic = combine_x(images) # if char =="o" else combine_y(images)
                 if len(images) > 1:
                     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 30)
                 else:
@@ -1567,7 +1569,7 @@ def show_df(df):
             hotkey = "CGR"
             #backit(df, sel_cols)
             #df = fav_df
-        elif char == "j":
+        elif char == "j" and False:
             canceled, col = list_values(info_cols)
             if not canceled:
                 pos = rowinput("pos:","")
@@ -1953,15 +1955,28 @@ def show_df(df):
             elif "All" in df:
                 df = df.sort_values(by="All", ascending=False)
                 sort = "All"
-        elif char == "i" and pcols and pcols[0] in df:
+        elif (char == "i" or char == "j") and context == "pivot": 
             backit(df, sel_cols)
             context = "prefix"
-            sel_exp=df.iloc[sel_row]["eid"]
-            df = group_df[group_df['eid'] == sel_exp]
-            sel_cols = group_sel_cols.copy()
+            col = sel_cols[cur_col]
+            s_rows = sel_rows
+            if not sel_rows: s_rows = [sel_row]
+            dfs = []
+            for s_row in s_rows:
+                sel_exp=df.iloc[s_row]["eid"]
+                if char == "j":
+                    tdf = group_df[(group_df['eid'] == sel_exp) 
+                            & (group_df["prefix"] == col)]
+                else:
+                    tdf = group_df[(group_df['eid'] == sel_exp)] 
+                dfs.append(tdf)
+            df = pd.concat(dfs, ignore_index=True)
+            sel_cols = index_cols + ["fid"] + group_sel_cols.copy()
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
             left = 0
-        elif char in ["l", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+            sel_rows = range(len(df))
+        elif char in ["k", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
+            dif_col = sel_cols[cur_col]
             backit(df, sel_cols)
             left = 0
             context= "comp"
@@ -2002,7 +2017,7 @@ def show_df(df):
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
             elif len(s_rows) > 1:
-                sel_cols=orig_tag_cols + ["bert_score", "out_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["num_preds","eid","bert_score", "out_score","pred_text1","target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 unique_cols = info_cols.copy()
                 sel_cols = list(dict.fromkeys(sel_cols))
@@ -2011,10 +2026,10 @@ def show_df(df):
                                                FID, char, _cols)
                 df = pd.concat(dfs).sort_index(kind='mergesort')
                 _all = len(df)
-                df =df.sort_values(by='input_text').drop_duplicates(subset=['input_text', 'pred_text1',"prefix"], keep=False)
-                _common = _all - len(df)
+                cdf=df.sort_values(by='input_text').drop_duplicates(subset=['input_text', 'pred_text1',"prefix"], keep=False)
+                _common = _all - len(cdf)
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
-                #df = df.sort_values(by="input_text", ascending=False)
+                df = df.sort_values(by=["input_text","prefix","fid"], ascending=False)
             else:
                 #path = df.iloc[sel_row]["path"]
                 #path = Path(path)
@@ -2027,7 +2042,7 @@ def show_df(df):
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
                     task = df.iloc[0]["prefix"]
-                sel_cols=orig_tag_cols + ["prefix","bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["num_preds","prefix","bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         main_vars, keep_cols=["pred_text1"])
                 #unique_cols = info_cols.copy()
@@ -2038,12 +2053,15 @@ def show_df(df):
                 info_cols = ["input_text","prefix"]
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=orig_tag_cols + ["prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score"]
+                sel_cols=orig_tag_cols + ["fid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
-                        main_vars, keep_cols=["pred_text1"])
+                        main_vars, keep_cols=["fid", "prefix", "pred_text1"])
                 if "pred_text1" in sel_cols:
                     sel_cols.remove("pred_text1")
-                sel_cols.insert(1, "pred_text1")
+                sel_cols.insert(1, "fid")
+                sel_cols.insert(2, "prefix")
+                sel_cols.insert(3, "num_preds")
+                sel_cols.insert(4, "pred_text1")
                 sel_cols = list(dict.fromkeys(sel_cols))
                 unique_cols = info_cols.copy()
                 info_cols_back = info_cols.copy()
@@ -2679,7 +2697,7 @@ def show_df(df):
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             if len(df) > 1:
                 sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
-                        keep_cols=pivot_cols + info_cols)
+                        keep_cols=pivot_cols + info_cols + pcols)
             for col in ["folder", "output_dir"]:
                 if col in sel_cols:
                     sel_cols.remove(col)

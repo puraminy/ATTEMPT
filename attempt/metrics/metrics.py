@@ -545,21 +545,22 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     mlog.info("-----------------------------------------------------")
     pbar.close()
     pred_counts = df['pred_text1'].unique()
+    ret_scores["num_preds"] = len(pred_counts)
     mlog.info("Pred counts")
     vlog.info("Pred counts")
-    if len(pred_counts) < 100:
+    if len(pred_counts) < 5:
         for  r in pred_counts:
             mlog.info(r)
             vlog.info(r)
 
-    for logger in [mlog, vlog, clog]:
-        logger.info("Len data frame: {}".format(len(df)))
-        logger.info("Rouge:{} ".format(mean_rouge_str)) 
+    #for logger in [mlog, vlog, clog]:
+    #    logger.info("Len data frame: {}".format(len(df)))
+    #    logger.info("Rouge:{} ".format(mean_rouge_str)) 
         #if "bert" in scorers:
         #    logger.info("BERT:{} ".format(mean_bert_str)) 
         #logger.info("nli_counter: {}".format(nli_counter))
         #logger.info("hyp_counter: {}".format(hyp_counter))
-        logger.info("Distinct preds:{}".format(len(pred_counts)))
+    #    logger.info("Distinct preds:{}".format(len(pred_counts)))
 
 #################
     gdf = scored_df
@@ -640,5 +641,4 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
        wandb.run.summary["test_bert"] = test_bert
        wandb.run.summary["num_preds"] = num_preds 
 
-    ret_scores["num_preds"] = num_preds
     return ret_scores

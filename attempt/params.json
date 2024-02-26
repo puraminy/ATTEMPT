@@ -39,6 +39,7 @@
   "order":"source_prompts_order",
   "masking":"prompt_masking",
   "ms":"masking_scores",
+  "sep":"separate_eval",
   "sr":"save_router",
   "usr":"use_saved_router",
   "ignore":"ignore_if_prompt_not_exists",

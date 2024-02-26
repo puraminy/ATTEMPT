@@ -1585,7 +1585,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = normalize_scores(attn_scores, method) 
 
         num_targets = attend_for.size(1) 
-        if self.compose_method in ["cat","concat","pool","mpool"]:
+        if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
             num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
@@ -1754,12 +1754,12 @@ class T5Stack(T5PreTrainedModel):
             # 12 7680
             # 12 1 10 780
             if self.compose_method == "pool":
-                pool = torch.nn.AdaptiveAvgPool1d(num_attend_to)
+                pool = torch.nn.AdaptiveAvgPool1d(1)
             else:
-                pool = torch.nn.AdaptiveMaxPool1d(num_attend_to)
+                pool = torch.nn.AdaptiveMaxPool1d(1)
             inp = attend_to_x
-            # inp = torch.einsum(
-            #    'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
+            inp = torch.einsum(
+                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             x = inp.view(inp.size(0), inp.size(1), inp.size(2), -1)
             x = x.permute(0, 1, 3, 2)
             x = x.view(-1, x.size(2), x.size(3))

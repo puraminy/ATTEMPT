@@ -910,7 +910,7 @@ def train(**kwargs):
         if use_private_prompts and ntp == 0:
             num_target_prompts += 1
         num_target_prompts = max(num_target_prompts, 1)
-        if model_args.compose_method in ["cat", "concat", "pool", "mpool","lin"]:
+        if model_args.compose_method in ["cat", "concat"]: #, "pool", "mpool","lin"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
@@ -2271,9 +2271,7 @@ def train(**kwargs):
         masking_scores = kwargs.setdefault("masking_scores",["m_score"])
         if type(masking_scores) != list: masking_scores = [masking_scores] 
         if "prompt_masking" in main_vars:
-            masking_list = kwargs.setdefault("prompt_masking",["0-col-0"])
-        if masking_list == "none" or masking_list is None: 
-            masking_list = ["0-col-0"]
+            masking_list = kwargs.setdefault("prompt_masking",[])
         if type(masking_list) != list:
             masking_list = [masking_list]
         gen_masks_list = [{"no-mask":None}]
@@ -2290,7 +2288,8 @@ def train(**kwargs):
             if num_masks == 0: 
                 if mask_type == "remove" or mask_type == "keeponly":
                     router = model.encoder.router
-                    positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in router]
+                    positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] 
+                            for row in router]
                     max_length_index = max(range(len(positive_indices_per_row)), 
                             key=lambda i: len(positive_indices_per_row[i]))
                     # Access the maximum length and indices
@@ -2312,7 +2311,12 @@ def train(**kwargs):
         kk = 0
         sdf_rows = []
         img_list = []
-        exp_folder = Path(training_args.output_dir).parent
+        sep_eval = kwargs.get("separate_eval", False)
+        if sep_eval: 
+            exp_folder = Path(training_args.output_dir).parent.parent
+            exp_folder = os.path.join(str(exp_folder), exp_folder.stem + "_mask")
+        else:
+            exp_folder = Path(training_args.output_dir).parent
         exp_folder_name = Path(training_args.output_dir).stem
         exp_folder = str(exp_folder) 
         if not adapter_args.prompt_tuning:
@@ -2330,239 +2334,249 @@ def train(**kwargs):
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
-            gen_combs = itertools.product(gen_masks_list, gnm, 
+            gen_combs = itertools.product(gnm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
-            gen_mask_counter = 0
-            for gen_masks, norm_method, gmin, gmax, gntp in gen_combs:
-                task_scores = {}
-                effect_scores = {}
-                eval_folders = {}
-                no_mask_test_files = {}
-                for rm, mask in gen_masks.items():
-                    if "-" in norm_method:
-                        norm_method, tmin, tmax = norm_method.split("-")
-                        gmin = float(tmin) if tmin != 'none' else None
-                        gmax = float(tmax) if tmax != 'none' else None
+            for norm_method, gmin, gmax, gntp in gen_combs:
+                gen_mask_counter = 0
+                for gen_masks in gen_masks_list:
+                    task_scores = {}
+                    effect_scores = {}
+                    eval_folders = {}
+                    no_mask_test_files = {}
+                    for rm, mask in gen_masks.items():
+                        if "-" in norm_method:
+                            norm_method, tmin, tmax = norm_method.split("-")
+                            gmin = float(tmin) if tmin != 'none' else None
+                            gmax = float(tmax) if tmax != 'none' else None
 
-                    model.encoder.attn_scores = torch.zeros(
-                        (attend_num, attend_num), device=device) 
-                    model.encoder.attn_mask_learned = torch.zeros(
-                        (attend_num, attend_num), device=device) 
-                    mylogs.bp("pic")
-                    rv = "Eval" if not reval else "Reval"
-                    eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
-                            + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
-                            + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
-                    eval_folder = os.path.join(exp_folder, eval_folder_name)
-                    Path(eval_folder).mkdir(parents=True, exist_ok=True)
-                    counter = 0
-                    total_score = 0
-                    if not rm in task_scores:
-                        task_scores[rm] = {}
-                    gen_conf = {"rep_penalty":2.0}
-                    gen_conf["gen_norm_method"] = norm_method
-                    gen_conf["mask_type"] = rm if mask is not None else "no-mask"
-                    gen_conf["gen_thresh_min"] = gmin
-                    gen_conf["gen_thresh_max"] = gmax
-                    gen_conf["gen_ntp"] = gntp
-                    test_key = ""
-                    for kk, vv in gen_conf.items():
-                        if kk not in ["attn_mask"]:
-                            exp_info[kk] = vv
-                            if kk != "mask_type":
-                                test_key += str(vv) + "-"
-                    test_key = test_key.strip("-")
-                    if not test_key in eval_folders:
-                        eval_folders[test_key] = []
-                    eval_folders[test_key].append(eval_folder_name)
-                    if not test_key in task_scores[rm]:
-                        task_scores[rm][test_key] = {}
-                    if adapter_args.prompt_tuning:
-                        targets = model.encoder.target_encoders_idx
-                        y_labels = [model.encoder.prompt_names[i] for i in targets]
-                        y_labels = [y.replace("tar-","") for y in y_labels]
-                        if mask is not None:
-                            mask_matrix = mask.index_select(0, targets)
-                        orig_mask = model.encoder.attn_mask_orig 
-                        orig_mask_matrix = orig_mask.index_select(0, targets)
-                    for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                        if mask is not None: 
-                           gen_conf["attn_mask"] = mask 
-                        else:
-                           gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-
-                        mylogs.bp("testmask")
-                        task = task.split("_")[0]
-                        ds_conf = task #data_args.test_dataset_config_name[idx]
-                        ds_name = task #data_args.test_dataset_name[idx]
-                        
-                        ds_name = "none" if not ds_name else ds_name
-                        ds_conf = "none" if not ds_conf else ds_conf
-                        is_train = "train" if training_args.do_train else "eval"
-                        save_to = os.path.join(eval_folder,
-                            ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
-                        use_cache = False
-                        if adapter_args.prompt_tuning: 
-                            if mask is not None: 
-                                mylogs.bp("cache")
-                                task_index = y_labels.index(task)
-                                task_mask = mask_matrix[task_index]
-                                orig_task_mask = orig_mask_matrix[task_index]
-                                if torch.equal(task_mask,orig_task_mask):
-                                    use_cache = True
-                                    mylogs.minfo("Using cached predictions for " + task)
-
-                        df, scores, preds, golds = evaluate_test(task, test_dataset, 
-                                save_to, ds_name, gen_conf, use_cache = use_cache)
-
-                        if mask is None:
-                            no_mask_test_files[task] = save_to
-
-                        df["src_path"] = op.join(mylogs.home, data_args.data_path, 
-                                                ds_conf,"test.tsv")
-                        mylogs.bp("rouge")
-                        # TODO make it general not according to task names
-                        if "xAttr" in data_args.task_name: 
-                          task_score = scores[masking_scores[0]]
-                        else:
-                          task_score = df[masking_scores[0]].mean() 
-                        task_scores[rm][test_key][task] = task_score
-                        total_score += task_score 
-                        da = {}
-                        if use_wandb:
-                            test_rouge = wandb.run.summary["test_rouge"]
-                            test_bert = wandb.run.summary["test_bert"]
-                            num_preds = wandb.run.summary["num_preds"]
-                            da["test_rouge"] = test_rouge
-                            da["test_bert"] = test_bert
-                            da["num_preds"] = num_preds
-                        da["task"] = task
-                        da["norm_method"] = norm_method
-                        sdf_rows.append(da)
-                        ii += 1
-                        counter += 1
-#################
-                    mylogs.bp("pic")
-                    mean_score = total_score / counter
-                    if adapter_args.prompt_tuning:
-                        targets = model.encoder.target_encoders_idx
-                        router_scores = model.encoder.router.index_select(0, targets)
-                        tlen = router_scores.size(0)
-                        rsim = torch.eye(tlen)
-                        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                        for i in range(tlen):
-                            for j in range(tlen):
-                                if i != j:
-                                    rsim[i][j] = cos(router_scores[i][:], 
-                                            router_scores[j][:])
-                        vmin = 0 if tlen <=3 else None
-                        save_image(eval_folder, model, {"rsim":rsim}, 
-                                    annot=True, square=True, vmin=vmin, vmax=1,
-                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                            + " | {:.2f}".format(mean_score))
-                        tlen = router_scores.size(0)
-                        if multi_tasking:
-                            start = 0 if model_args.attend_input else 1 
-                            router_scores = router_scores[:,start:slen+tlen + 1]
-                        save_image(eval_folder, model, {"router":router_scores}, 
-                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                            + " | {:.2f}".format(mean_score))
-                        if init_router is not None:
-                            init_router_scores = init_router.index_select(0, targets)
-                            init_router_scores = init_router_scores[:,start:slen+tlen + 1]
-                            save_image(eval_folder, model, 
-                                    {"init_router":init_router_scores}, spec=rm)
-
-                        mylogs.bp("nusp")
-                        scores_matrix = model.encoder.attn_scores.index_select(0, targets)
-                        tlen = scores_matrix.size(0)
-                        all_len = scores_matrix.size(1)
-                        sim = torch.eye(tlen)
-                        cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
-                        for i in range(tlen):
-                            for j in range(tlen):
-                                if i != j:
-                                    sim[i][j] = cos(scores_matrix[i][:], scores_matrix[j][:])
-
-                        scores_matrix = scores_matrix.round(decimals=2)
-                        if multi_tasking:
-                            start = 0 if model_args.attend_input else 1 
-                            if model_args.add_target is True:
-                                scores_matrix = scores_matrix[:,start:]
-                            else:
-                                scores_matrix = scores_matrix[:,start:slen+tlen + 1]
-
-                        #if len(torch.nonzero(scores_matrix)) < 1:
-                        #    start = slen if model_args.attend_input else slen + 1 
-                        #    scores_matrix[:tlen, start: start + tlen +1] = torch.eye(tlen)
-                        save_image(eval_folder, model, {"score":scores_matrix}, 
-                                    spec = norm_method + "-" + str(gmin) + "-" + str(gmax) \
-                                            + " | {:.2f}".format(mean_score))
-                        score_dict= {"sim":sim.round(decimals=2)} #, "rsim": rsim}
-                        save_image(eval_folder, model, score_dict, 
-                                annot=True,
-                                square=True,
-                                spec = norm_method + " | {:.2f}".format(mean_score))
-
-                        if mask is not None:
-                            mask_matrix = mask.index_select(0, targets)
-                        else:
-                            learned_mask = model.encoder.attn_mask_learned 
-                            if len(torch.nonzero(learned_mask)) < 1:
-                                learned_mask = model.encoder.attn_mask_orig
-                            mask_matrix = learned_mask.index_select(0, targets)
-                        if multi_tasking:
-                            start = 0 if model_args.attend_input else 1 
-                            mask_matrix = mask_matrix[:,start:slen+tlen + 1]
-                        save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
-                        if "-" in rm and ("col" in rm or "remove" in rm or "keeponly" in rm):
-                            if not test_key in effect_scores:
-                                effect_scores[test_key] = torch.zeros(
-                                    (tlen, slen + tlen + 2), device=device) 
-
-                            col,_,_ = rm.split("-")
-                            col = int(col) - 1
-                            if col == 1:
-                                mylogs.bp("effect")
-                            positive_idx = [torch.nonzero(row > 0)[:, -1] 
-                                    for row in router_scores]
-                            base_scores = task_scores["no-mask"][test_key]
-                            mask_scores = task_scores[rm][test_key]
-                            for _task, _score in mask_scores.items():
-                                base_score = float(base_scores[_task])
-                                score = float(_score) 
-                                if base_score == 0:
-                                    effect = 0
-                                else:
-                                    effect = (score- base_score) # / base_score) #*100
-                                if True: #"keeponly" in rm:
-                                    if score < 1 and base_score < 1:
-                                        score = score*100
-                                        base_score = base_score*100
-                                    effect = score if score > 0 else -10
-                                else:
-                                    effect = -1*effect
-                                    effect = min(effect, 50)
-                                effect = max(effect, -50)
-                                task_index = y_labels.index(_task) 
-                                if col < len(positive_idx[task_index]):  
-                                    col_index = positive_idx[task_index][col]
-                                    effect_scores[test_key][task_index, col_index] = effect
-                                # elif not "keeponly" in rm:
-                                #    effect_scores[test_key][task_index, col] = score 
-                                effect_scores[test_key][task_index, -1] = base_score 
-                #### end of for
-                mylogs.bp("effect")
-                spec = masking_list[gen_mask_counter]
-                for test_key, effect_score in effect_scores.items(): 
-                    for eval_folder_name in eval_folders[test_key]:
+                        model.encoder.attn_scores = torch.zeros(
+                            (attend_num, attend_num), device=device) 
+                        model.encoder.attn_mask_learned = torch.zeros(
+                            (attend_num, attend_num), device=device) 
+                        mylogs.bp("pic")
+                        rv = "Eval" if not reval else "Reval"
+                        eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
+                                + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
+                                + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
-                        save_image(eval_folder, model, 
-                        {"effect_" + spec : effect_score.round(decimals=2)}, 
-                        spec= spec)
-                gen_mask_counter += 1
-            
+                        Path(eval_folder).mkdir(parents=True, exist_ok=True)
+                        counter = 0
+                        total_score = 0
+                        if not rm in task_scores:
+                            task_scores[rm] = {}
+                        gen_conf = {"rep_penalty":2.0}
+                        gen_conf["gen_norm_method"] = norm_method
+                        gen_conf["mask_type"] = rm if mask is not None else "no-mask"
+                        gen_conf["gen_thresh_min"] = gmin
+                        gen_conf["gen_thresh_max"] = gmax
+                        gen_conf["gen_ntp"] = gntp
+                        exp_info["cur_masking"] = rm.split("-")[1]
+                        test_key = ""
+                        for kk, vv in gen_conf.items():
+                            if kk not in ["attn_mask"]:
+                                exp_info[kk] = vv
+                                if kk != "mask_type":
+                                    test_key += str(vv) + "-"
+                        test_key = test_key.strip("-")
+                        if not test_key in eval_folders:
+                            eval_folders[test_key] = []
+                        eval_folders[test_key].append(eval_folder_name)
+                        if not test_key in task_scores[rm]:
+                            task_scores[rm][test_key] = {}
+                        if adapter_args.prompt_tuning:
+                            targets = model.encoder.target_encoders_idx
+                            y_labels = [model.encoder.prompt_names[i] for i in targets]
+                            y_labels = [y.replace("tar-","") for y in y_labels]
+                            if mask is not None:
+                                mask_matrix = mask.index_select(0, targets)
+                            orig_mask = model.encoder.attn_mask_orig 
+                            orig_mask_matrix = orig_mask.index_select(0, targets)
+                        for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                            if mask is not None: 
+                               gen_conf["attn_mask"] = mask 
+                            else:
+                               gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
+
+                            mylogs.bp("testmask")
+                            task = task.split("_")[0]
+                            ds_conf = task #data_args.test_dataset_config_name[idx]
+                            ds_name = task #data_args.test_dataset_name[idx]
+                            
+                            ds_name = "none" if not ds_name else ds_name
+                            ds_conf = "none" if not ds_conf else ds_conf
+                            is_train = "train" if training_args.do_train else "eval"
+                            save_to = os.path.join(eval_folder,
+                                ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
+                            use_cache = False
+                            if adapter_args.prompt_tuning: 
+                                if mask is not None: 
+                                    mylogs.bp("cache")
+                                    task_index = y_labels.index(task)
+                                    task_mask = mask_matrix[task_index]
+                                    orig_task_mask = orig_mask_matrix[task_index]
+                                    if torch.equal(task_mask,orig_task_mask):
+                                        use_cache = True
+                                        mylogs.minfo("Using cached predictions for " + task)
+
+                            df, scores, preds, golds = evaluate_test(task, test_dataset, 
+                                    save_to, ds_name, gen_conf, use_cache = use_cache)
+
+                            if mask is None:
+                                no_mask_test_files[task] = save_to
+
+                            df["src_path"] = op.join(mylogs.home, data_args.data_path, 
+                                                    ds_conf,"test.tsv")
+                            mylogs.bp("rouge")
+                            # TODO make it general not according to task names
+                            if "xAttr" in data_args.task_name: 
+                              mscore = masking_scores[0]
+                              if masking_scores[0]=="m_score": 
+                                 mscore = "mean_rouge" 
+                              task_score = scores[mscore]
+                            else:
+                              task_score = df[masking_scores[0]].mean() 
+                            task_scores[rm][test_key][task] = task_score
+                            total_score += task_score 
+                            da = {}
+                            if use_wandb:
+                                test_rouge = wandb.run.summary["test_rouge"]
+                                test_bert = wandb.run.summary["test_bert"]
+                                num_preds = wandb.run.summary["num_preds"]
+                                da["test_rouge"] = test_rouge
+                                da["test_bert"] = test_bert
+                                da["num_preds"] = num_preds
+                            da["task"] = task
+                            da["norm_method"] = norm_method
+                            sdf_rows.append(da)
+                            ii += 1
+                            counter += 1
+#################
+                        mylogs.bp("pic")
+                        mean_score = total_score / counter
+                        if adapter_args.prompt_tuning:
+                            targets = model.encoder.target_encoders_idx
+                            router_scores = model.encoder.router.index_select(0, targets)
+                            tlen = router_scores.size(0)
+                            rsim = torch.eye(tlen)
+                            cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                            for i in range(tlen):
+                                for j in range(tlen):
+                                    if i != j:
+                                        rsim[i][j] = cos(router_scores[i][:], 
+                                                router_scores[j][:])
+                            vmin = 0 if tlen <=3 else None
+                            save_image(eval_folder, model, {"rsim":rsim}, 
+                                        annot=True, square=True, vmin=vmin, vmax=1,
+                                        spec = norm_method + "-" + str(gmin) \
+                                                + "-" + str(gmax) \
+                                                + " | {:.2f}".format(mean_score))
+                            tlen = router_scores.size(0)
+                            if multi_tasking:
+                                start = 0 if model_args.attend_input else 1 
+                                router_scores = router_scores[:,start:slen+tlen + 1]
+                            save_image(eval_folder, model, {"router":router_scores}, 
+                                        spec = norm_method + "-" + str(gmin) \
+                                                + "-" + str(gmax) \
+                                                + " | {:.2f}".format(mean_score))
+                            if init_router is not None:
+                                init_router_scores= init_router.index_select(0, targets)
+                                init_router_scores= init_router_scores[:,start:slen+tlen + 1]
+                                save_image(eval_folder, model, 
+                                        {"init_router":init_router_scores}, spec=rm)
+
+                            mylogs.bp("nusp")
+                            scores_matrix = model.encoder.attn_scores.index_select(0,targets)
+                            tlen = scores_matrix.size(0)
+                            all_len = scores_matrix.size(1)
+                            sim = torch.eye(tlen)
+                            cos = torch.nn.CosineSimilarity(dim=0, eps=1e-6)
+                            for i in range(tlen):
+                                for j in range(tlen):
+                                    if i != j:
+                                        sim[i][j] = cos(scores_matrix[i][:], 
+                                                scores_matrix[j][:])
+
+                            scores_matrix = scores_matrix.round(decimals=2)
+                            if multi_tasking:
+                                start = 0 if model_args.attend_input else 1 
+                                if model_args.add_target is True:
+                                    scores_matrix = scores_matrix[:,start:]
+                                else:
+                                    scores_matrix = scores_matrix[:,start:slen+tlen + 1]
+
+                            #if len(torch.nonzero(scores_matrix)) < 1:
+                            #    start = slen if model_args.attend_input else slen + 1 
+                            #    scores_matrix[:tlen, start: start + tlen +1] = torch.eye(tlen)
+                            save_image(eval_folder, model, {"score":scores_matrix}, 
+                                        spec = norm_method + "-" + str(gmin) \
+                                                + "-" + str(gmax) \
+                                                + " | {:.2f}".format(mean_score))
+                            score_dict= {"sim":sim.round(decimals=2)} #, "rsim": rsim}
+                            save_image(eval_folder, model, score_dict, 
+                                    annot=True,
+                                    square=True,
+                                    spec = norm_method + " | {:.2f}".format(mean_score))
+
+                            if mask is not None:
+                                mask_matrix = mask.index_select(0, targets)
+                            else:
+                                learned_mask = model.encoder.attn_mask_learned 
+                                if len(torch.nonzero(learned_mask)) < 1:
+                                    learned_mask = model.encoder.attn_mask_orig
+                                mask_matrix = learned_mask.index_select(0, targets)
+                            if multi_tasking:
+                                start = 0 if model_args.attend_input else 1 
+                                mask_matrix = mask_matrix[:,start:slen+tlen + 1]
+                            save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
+                            if ("-" in rm 
+                                and ("col" in rm or "remove" in rm or "keeponly" in rm)):
+                                if not test_key in effect_scores:
+                                    effect_scores[test_key] = torch.zeros(
+                                        (tlen, slen + tlen + 2), device=device) 
+
+                                col,_,_ = rm.split("-")
+                                col = int(col) - 1
+                                if col == 1:
+                                    mylogs.bp("effect")
+                                positive_idx = [torch.nonzero(row > 0)[:, -1] 
+                                        for row in router_scores]
+                                base_scores = task_scores["no-mask"][test_key]
+                                mask_scores = task_scores[rm][test_key]
+                                for _task, _score in mask_scores.items():
+                                    base_score = float(base_scores[_task])
+                                    score = float(_score) 
+                                    if base_score == 0:
+                                        effect = 0
+                                    else:
+                                        effect = (score- base_score) # / base_score) #*100
+                                    if True: #"keeponly" in rm:
+                                        if score < 1 and base_score < 1:
+                                            score = score*100
+                                            base_score = base_score*100
+                                        effect = score if score > 0 else -10
+                                    else:
+                                        effect = -1*effect
+                                        effect = min(effect, 50)
+                                    effect = max(effect, -50)
+                                    task_index = y_labels.index(_task) 
+                                    if col < len(positive_idx[task_index]):  
+                                        col_index = positive_idx[task_index][col]
+                                        effect_scores[test_key][task_index, col_index]=effect
+                                    # elif not "keeponly" in rm:
+                                    #    effect_scores[test_key][task_index, col] = score 
+                                    effect_scores[test_key][task_index, -1] = base_score 
+                    #### end of for
+                    mylogs.bp("effect")
+                    spec = masking_list[gen_mask_counter]
+                    for test_key, effect_score in effect_scores.items(): 
+                        for eval_folder_name in eval_folders[test_key]:
+                            eval_folder = os.path.join(exp_folder, eval_folder_name)
+                            save_image(eval_folder, model, 
+                            {"effect_" + spec : effect_score.round(decimals=2)}, 
+                            spec= spec)
+                    gen_mask_counter += 1
+                
         ########
         sdf = pd.DataFrame(data=sdf_rows)
         if False: #img_list:
