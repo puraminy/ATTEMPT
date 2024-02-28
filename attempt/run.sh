@@ -96,7 +96,7 @@ if [ -n "$_gft" ]; then
    _tasks="${_tasks}cola#mnli#rte#qnli#stsb#qqp#mrpc#sst2"
 fi
 if [ -n "$_lt" ]; then
-   _tasks="mnli#wnli#paws#mrpc#imdb#sst2"
+   _tasks="mnli#snli#paws#mrpc#imdb#sst2"
 fi
 
 if [ -n "$_ot" ]; then

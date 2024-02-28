@@ -319,6 +319,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
+        exp_conf_name = Path(exp_conf).stem
+        exp_args["conf"] = exp_conf_name
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
         if experiment == "exp":
             experiment = exp_args["experiment"] + "_" + mylogs.now 
@@ -358,25 +360,20 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        else:
           save_path = os.path.join(log_path, experiment)
        if Path(save_path).exists():
-          if not rem:
-               while Path(save_path).exists():
-                  ans = "u" #input("Do you want to delete '" + save_path + \
-                            #"'? d)delete u)use  newname)")
-                  if ans == "d": 
-                      rem = True
-                  elif ans == "u":
-                      break
-                  else:
-                      experiment = ans
-                      save_path = os.path.join(log_path, experiment)
-          if rem:
-               if inp_log_path:
-                   main_folder = inp_log_path
-               elif new_exp_folder:
-                   main_folder = new_exp_folder
-               else:
-                   main_folder = save_path
-               ans = input("Do you want to remove " + main_folder + ":")
+          #if not rem:
+          #     while Path(save_path).exists():
+          #        ans = "u" #input("Do you want to delete '" + save_path + \
+          #                  #"'? d)delete u)use  newname)")
+          #        if ans == "d": 
+          #            rem = True
+          #        elif ans == "u":
+          #            break
+          #        else:
+          #            experiment = ans
+          #            save_path = os.path.join(log_path, experiment)
+          if False: #rem:
+               main_folder = save_path
+               ans = "yes" #input("Do you want to remove " + main_folder + ":")
                if ans == "yes":
                    main_folder = main_folder.rstrip("/")
                    dirs = glob.glob(main_folder + '/*/')
@@ -1439,6 +1436,7 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         attend_to_all = kwargs.setdefault("attend_to_all", False) 
+        mylogs.bp("usp")
         attend_to_all = attend_to_all and use_source_prompts
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
         # create and load target prompts
@@ -1474,6 +1472,7 @@ def train(**kwargs):
             if False: #TODO router_dict and name in router_dict:
                 encoder.attend_to_mask = [1 if r > 0.1 else 0 for r in router_dict[name]] 
             else: 
+                mylogs.bp("mask")
                 if use_source_prompts:
                     encoder.attend_to_mask = [1]*num_attend_to  
                 else:
@@ -1482,11 +1481,14 @@ def train(**kwargs):
                 attn_flag = False
                 for i, n in enumerate(source_prompts, start=1):
                     encoder.attend_to_mask[i] = 0 
-                    if n in encoder.attend_to or "_com" in n or attend_to_all:
+                    if (n in encoder.attend_to or "_com" in n) and use_source_prompts:
                         encoder.attend_to_mask[i] = 1 
                         attn_flag = True
-                    if "_for" in n and not n in encoder.attend_to:
-                        encoder.attend_to_mask[i] = 0 
+                    if "_for" in n: 
+                        if n in encoder.attend_to:
+                            encoder.attend_to_mask[i] = 1 
+                        else:
+                            encoder.attend_to_mask[i] = 0 
                         attn_flag = True
                 # TODO it seems unnecessary
                 if not attn_flag or (not use_private_prompts and not use_source_set): 
@@ -2232,11 +2234,11 @@ def train(**kwargs):
                 annot=annot,
                 y_labels=y_labels,
                 x_labels=x_labels,
-                title = title,
-                #title = title  
-                #        + " | " + model_args.compose_method \
-                #        + " | " + str(kwargs.norm_method) \
-                #        + " | " + spec
+                #title = title,
+                title = title  
+                        #+ " | " + str(kwargs.gen_norm_method) \
+                        #+ " | " + str(kwargs.gen_thresh_min) \
+                        + " | " + spec
             )
             if img_buf:
                 im = Image.open(img_buf)
@@ -2568,7 +2570,9 @@ def train(**kwargs):
                                     effect_scores[test_key][task_index, -1] = base_score 
                     #### end of for
                     mylogs.bp("effect")
-                    spec = masking_list[gen_mask_counter]
+                    spec = str(gen_mask_counter)
+                    if gen_mask_counter < len(masking_list):
+                        spec = masking_list[gen_mask_counter]
                     for test_key, effect_score in effect_scores.items(): 
                         for eval_folder_name in eval_folders[test_key]:
                             eval_folder = os.path.join(exp_folder, eval_folder_name)

@@ -1220,7 +1220,7 @@ class PAWS(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"0":"unequal","1":"duplicate"}
+    labels_map = {"0":"not_equivalent","1":"equivalent"}
 
     def load_dataset(self, split):
         return datasets.load_dataset("paws", "labeled_final", split=split)

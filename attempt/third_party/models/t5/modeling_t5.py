@@ -61,13 +61,13 @@ def normalize_scores(scores, method="soft",
         sel_thresh=None, gen_thresh_min=None, gen_thresh_max=None, resample=False):
     mylogs.bp("norm")
     if method == "rb" or resample is True:
-        scores = RelaxedBernoulli(temperature=0.001, 
-            logits=scores).rsample()  
+        scores = RelaxedBernoulli(temperature=gen_thresh_min or 0.0001, 
+            logits=scores*100).rsample()  
 
     if sel_thresh is not None:
-        if method == "soft" or method == "direct":
-            scores[scores < sel_thresh] = -100
-        else:
+        if method == "srelu":
+            scores[scores < sel_thresh] = -100 #TODO check if it must be applied or not
+        elif method == "nothing":
             scores[scores < sel_thresh] = 0
 
     if gen_thresh_max is not None:
@@ -75,9 +75,9 @@ def normalize_scores(scores, method="soft",
         scores[scores > gen_thresh_max] = gen_thresh_max
 
     if gen_thresh_min is not None:
-        if method == "soft" or method == "direct":
+        if method == "srelu":
             scores[scores < gen_thresh_min] = -100
-        else:
+        elif method == "nothing":
             scores[scores < gen_thresh_min] = 0
 
     mylogs.bp("col_sums")
@@ -94,7 +94,7 @@ def normalize_scores(scores, method="soft",
         scores[True] = 1
     if method == "nothing":
        pass 
-    elif method == "direct" or method == "soft" or method == "rb":
+    elif method == "direct" or method == "soft" or method == "srelu":
         scores = F.softmax(scores, -1)
     elif method == "sigmoid":
         scores = torch.sigmoid(scores)  
@@ -103,6 +103,9 @@ def normalize_scores(scores, method="soft",
         scores[scores > 0] = 1
     elif method == "relu":
         scores[scores <= 0] = 0
+    elif method == "spos":
+        scores = F.softmax(scores, -1)
+        scores[scores > 0.3] = 1
     elif method == "sigmoid_relu":
         ret_scores = torch.sigmoid(scores)  
         ret_scores[scores <= 0] = 0

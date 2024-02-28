@@ -169,6 +169,8 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 def create_label(row):
     label = ''
+    if row['add_target']:
+        label += 'A_'
     if row['use_source_prompts']:
         label += 'S'
         if row['load_source_prompts']:
@@ -335,7 +337,13 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        tdf = tdf[tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
+        _cols = tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]
+        _cols = list(dict.fromkeys(_cols))
+        _cols2 = [] 
+        for col in _cols:
+            if col in main_df:
+                _cols2.append(col)
+        tdf = tdf[_cols2]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
         sort = "rouge_score"
         if len(tdf) > 1:
@@ -1069,7 +1077,7 @@ def show_df(df):
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
-        if context == "details":
+        if context == "details" or context == "notes":
             old_search = search
             pattern = re.compile("[A-Za-z0-9]+")
             if ch == cur.KEY_BACKSPACE:
@@ -1083,9 +1091,9 @@ def show_df(df):
                    mbeep()
             elif pattern.fullmatch(char) is not None:
                 search += char 
-            if search:
+            if search and search != old_search:
                 col = sel_cols[cur_col]
-                df = details_df[details_df[col].astype(str).str.contains(search, na=False)]
+                df = search_df[search_df[col].astype(str).str.contains(search, na=False)]
                 # .first_valid_index()
                 # si = min(si, len(mask) - 1)
                 # sel_row = df.loc[mask.any(axis=1)].index[si]
@@ -1105,7 +1113,7 @@ def show_df(df):
                 infos.append(_info)
             df = pd.DataFrame(data=infos)
             df = df.sort_values(by="col", ascending=True)
-            details_df = df
+            search_df = df
             sel_cols = ["col","val"]
         if ch == LEFT:
             cur_col -= 1
@@ -1275,7 +1283,7 @@ def show_df(df):
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             subprocess.Popen(["nautilus", spath])
-        if char in ["o","y","k"]:
+        if char in ["o","y","k", "K"]:
             tdf = df #pivot_df if pivot_df is not None and context == "pivot" else df
             images = []
             exprs, _ = get_sel_rows(tdf)
@@ -1883,11 +1891,12 @@ def show_df(df):
             #with open(, 'r') as f:
             #    lines = f.readlines()
             #subwin(lines)                
-        elif char == "T":
+        elif char == "T" or char == "U" or char == "Y":
             s_rows = sel_rows
             if not sel_rows:
                 s_rows = [sel_row]
             pfix = ""
+            ignore_fname = False if char == "T" else True
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -1907,19 +1916,26 @@ def show_df(df):
                 score = str(round(score,2)) if score else "noscore" 
                 fname = prefix + "_" + compose + "_" + str(epc) \
                         + "_" + str(tn) + "@" + score + "@.json"
-                fname = rowinput("prefix:", default=fname)
+                if not ignore_fname:
+                    fname = rowinput("prefix:", default=fname)
                 if fname:
                     parent = Path(path).parent
                     pname = Path(path).parent.name
                     expid = Path(path).name
-                    if "reval" in fname:
+                    if char == "U":
+                        dest = os.path.join(home, "comp", "comp_" + str(s_row) + ".json")
+                    elif "reval" in fname or char == "Y":
                         dest = os.path.join(home, "reval", fname)
                     else:
                         folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
                         results_folder = os.path.join(home,"results",
                                 fname.replace(".json",""))
                         for folder in folders:
-                            shutil.copytree(folder, results_folder + "/" + Path(folder).name)
+                            try:
+                                shutil.copytree(folder, 
+                                        results_folder + "/" + Path(folder).name)
+                            except FileExistsError:
+                                pass
                         dest = os.path.join(home, "results", fname)
                         shutil.copyfile(js, dest)
                         clean_file(dest)
@@ -1931,7 +1947,7 @@ def show_df(df):
         elif char == "p":
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
-        elif char == "U":
+        elif char == "U" and False:
             left = 0
             backit(df, sel_cols)
 
@@ -1975,8 +1991,10 @@ def show_df(df):
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
             left = 0
             sel_rows = range(len(df))
-        elif char in ["k", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
-            dif_col = sel_cols[cur_col]
+            char = ""
+            if char == "j":
+                char = "i"
+        if char in ["n", "i"] and "fid" in df: # and prev_cahr != "x" and hk == "gG":
             backit(df, sel_cols)
             left = 0
             context= "comp"
@@ -2005,14 +2023,14 @@ def show_df(df):
             on_col_list.extend(["prefix"])
             g_cols = []
             _rows = s_rows
-            if char == "k":
+            if char == "n":
                 dfs = []
                 all_rows = range(len(df))
                 for r1 in all_rows:
                     for r2 in all_rows:
                         if r2 > r1:
                             _rows = [r1, r2]
-                            _df, sel_exp = find_common(df, filter_df, on_col_list, _rows, FID, char)
+                            _df, sel_exp = find_common(df, filter_df, on_col_list, _rows, FID, char, tag_cols = index_cols)
                             dfs.append(_df)
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
@@ -2021,7 +2039,8 @@ def show_df(df):
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 unique_cols = info_cols.copy()
                 sel_cols = list(dict.fromkeys(sel_cols))
-                _cols = tag_cols
+                _cols = tag_cols + index_cols + sel_cols + rep_cols + info_cols
+                _cols = list(dict.fromkeys(_cols))
                 df, sel_exp, dfs = find_common(df, main_df, on_col_list, _rows, 
                                                FID, char, _cols)
                 df = pd.concat(dfs).sort_index(kind='mergesort')
@@ -2029,7 +2048,6 @@ def show_df(df):
                 cdf=df.sort_values(by='input_text').drop_duplicates(subset=['input_text', 'pred_text1',"prefix"], keep=False)
                 _common = _all - len(cdf)
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
-                df = df.sort_values(by=["input_text","prefix","fid"], ascending=False)
             else:
                 #path = df.iloc[sel_row]["path"]
                 #path = Path(path)
@@ -2053,16 +2071,27 @@ def show_df(df):
                 info_cols = ["input_text","prefix"]
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=orig_tag_cols + ["fid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score"]
+                sel_cols=orig_tag_cols + ["eid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score"]
+                ii = 0
+                for col in index_cols:
+                    if col in sel_cols:
+                        sel_cols.remove(col)
+                    sel_cols.insert(ii, col)
+                    ii += 1
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         main_vars, keep_cols=["fid", "prefix", "pred_text1"])
                 if "pred_text1" in sel_cols:
                     sel_cols.remove("pred_text1")
-                sel_cols.insert(1, "fid")
-                sel_cols.insert(2, "prefix")
-                sel_cols.insert(3, "num_preds")
-                sel_cols.insert(4, "pred_text1")
+                ii = 0
+                _sort = []
+                for col in index_cols:
+                    if col in sel_cols:
+                        _sort.append(col)
+                        ii += 1
+                sel_cols.insert(ii, "prefix")
+                sel_cols.insert(ii + 1, "pred_text1")
                 sel_cols = list(dict.fromkeys(sel_cols))
+                df = df.sort_values(by=["input_text","prefix"]+_sort, ascending=False)
                 unique_cols = info_cols.copy()
                 info_cols_back = info_cols.copy()
                 info_cols = []
@@ -2245,7 +2274,7 @@ def show_df(df):
             filter_df = main_df
             df = main_df[cond]
             hotkey = hk
-        elif char in ["y","Y"] and prev_char == "x":
+        elif char in ["y","Y"] and False: 
             #yyyyyyyy
            cols = get_cols(df, 2)
            backit(df, sel_cols)
@@ -2460,17 +2489,22 @@ def show_df(df):
 
             if context == "pivot" or len(sel_rows) > 1:
                 prefix = sel_cols[cur_col]
-                exprs, prefixes = get_sel_rows(df, col=prefix, from_main=False) 
+                exprs, scores = get_sel_rows(df, col=prefix, from_main=False) 
+                _, mask_types = get_sel_rows(df, col="mask_type", from_main=False) 
+                _, labels = get_sel_rows(df, col="label", from_main=False) 
             else:
                 prefix = df.iloc[sel_row]['prefix'] 
                 exprs = [eid]
-                prefixes = [prefix]
+                scores = [prefix]
+                mask_types = [df.iloc[sel_row]['mask_type']] 
+                labels = [df.iloc[sel_row]['label']] 
+
 
             info_cols.append(prefix)
             consts["prefix"] = prefix
             _cols = ["pred_text1", "target_text"]
             dfs = []
-            for eid, acc in zip(exprs, prefixes):
+            for eid, acc, mt, label in zip(exprs, scores, mask_types, labels):
                 tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
                 canceled, val = False, "pred_text1" # list_values(sel_cols)
                 if not canceled:
@@ -2479,6 +2513,9 @@ def show_df(df):
                 tdf["preds"] = list(tdf.axes[0])
                 tdf["acc"] = acc
                 tdf["eid"] = eid
+                tdf["label"] = label
+                tdf["mask_type"] = mt 
+                tdf["uid"] = mt + "_" + str(label)
                 dfs.append(tdf)
             df = pd.concat(dfs, ignore_index=True)
             all_sel_cols = ["preds"] + list(df.columns)
@@ -2489,7 +2526,7 @@ def show_df(df):
             left = 0
             sel_rows= []
             context = "cross"
-            group_col = "eid"
+            group_col = "uid"
         if cmd.startswith("anova"):
             to = ""
             canceled, val = False, "pred_text1" # list_values(sel_cols)
@@ -2587,6 +2624,7 @@ def show_df(df):
                 sel_cols = df.columns 
                 info_cols = ["comment"]
                 df = df.sort_values("date", ascending=False)
+                search_df = df
         if ch == cur.KEY_IC or char == "e" and context == "notes":
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
