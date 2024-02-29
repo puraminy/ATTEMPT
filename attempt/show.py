@@ -567,7 +567,8 @@ def show_df(df):
     if "expid" in tag_cols:
         tag_cols.remove("expid")
     if "mask_type" in df:
-        df["cur_masking"] = df["mask_type"].str.split("-").str[1]
+        df["cur_masking"] = (df["mask_type"].str.split("-").str[0] + "-" 
+                + df["mask_type"].str.split("-").str[1]) 
     if "exp_name" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
@@ -1077,7 +1078,7 @@ def show_df(df):
         if ch == SDOWN:
             info_cols_back = info_cols.copy()
             info_cols = []
-        if context == "details" or context == "notes":
+        if context == "details": # or context == "notes":
             old_search = search
             pattern = re.compile("[A-Za-z0-9]+")
             if ch == cur.KEY_BACKSPACE:
@@ -1294,9 +1295,11 @@ def show_df(df):
             elif char == "y":
                 image_keys = ["score","sim"]
                 merge = "vert"
-            elif char == "k":
+            elif char == "k" or char == "K":
                 image_keys = ["router","effect"]
                 merge = "vert"
+            if char == "K":
+                image_keys.append("score")
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
@@ -1383,6 +1386,10 @@ def show_df(df):
             if pic is not None:
                 dest = os.path.join("routers.png")
                 pic.save(dest)
+                if char == "K":
+                    fname = rowinput("prefix:", default=fname)
+                    ptemp = os.path.join(home, "pictemp", fname)
+                    pic.save(ptemp)
                 #pname=tdf.iloc[sel_row]["image"]
                 subprocess.Popen(["eog", dest])
         elif char == "L":
@@ -1897,6 +1904,9 @@ def show_df(df):
                 s_rows = [sel_row]
             pfix = ""
             ignore_fname = False if char == "T" else True
+            if char == "U":
+                cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
+                os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -1923,7 +1933,9 @@ def show_df(df):
                     pname = Path(path).parent.name
                     expid = Path(path).name
                     if char == "U":
-                        dest = os.path.join(home, "comp", "comp_" + str(s_row) + ".json")
+                        dest = os.path.join(home, "comp", "comp_" + prefix + ".json")
+                    elif "conf" in fname:
+                        dest = os.path.join(home, "confs", fname)
                     elif "reval" in fname or char == "Y":
                         dest = os.path.join(home, "reval", fname)
                     else:
@@ -1944,9 +1956,23 @@ def show_df(df):
                     os.system(cmd)
                     # subprocess.run(cmd.split())
 
-        elif char == "p":
+        elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
+        elif char == "p":
+            folder_path = "/home/ahmad/pictemp"
+            files = os.listdir(folder_path)
+            for file in files:
+                file_path = os.path.join(folder_path, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                    else:
+                        show_msg(f"Skipping {file_path} as it is not a file.")
+                except Exception as e:
+                    show_msg(f"Error while deleting {file_path}: {e}") 
+            show_msg("Done!")
+            mbeep()
         elif char == "U" and False:
             left = 0
             backit(df, sel_cols)
@@ -2515,7 +2541,7 @@ def show_df(df):
                 tdf["eid"] = eid
                 tdf["label"] = label
                 tdf["mask_type"] = mt 
-                tdf["uid"] = mt + "_" + str(label)
+                tdf["uid"] = mt + " " + str(label) + " " + str(eid)
                 dfs.append(tdf)
             df = pd.concat(dfs, ignore_index=True)
             all_sel_cols = ["preds"] + list(df.columns)
@@ -2624,7 +2650,7 @@ def show_df(df):
                 sel_cols = df.columns 
                 info_cols = ["comment"]
                 df = df.sort_values("date", ascending=False)
-                search_df = df
+                # search_df = df
         if ch == cur.KEY_IC or char == "e" and context == "notes":
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
@@ -2659,6 +2685,7 @@ def show_df(df):
                     tdf = pd.concat([tdf, pd.DataFrame([new_note])], ignore_index=True)
                 else:
                     tdf.iloc[sel_row] = new_note 
+                shutil.copyfile(note_file, note_file.replace("notes", now + "_notes"))
                 tdf.to_csv(note_file)
             if "comment" in df:
                 df = tdf

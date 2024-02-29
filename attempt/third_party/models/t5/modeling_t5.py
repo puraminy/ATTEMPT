@@ -1360,7 +1360,11 @@ class T5Stack(T5PreTrainedModel):
         k = num_masked_prompts
         targets = self.target_encoders_idx
         attn_scores = self.router #.index_select(0, targets)
-        positive_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in attn_scores]
+        if "any" in mask_type:
+            selected_indices_per_row = [torch.nonzero(torch.ones_like(row))[:, -1] 
+                    for row in attn_scores]
+        else:
+            selected_indices_per_row = [torch.nonzero(row > 0)[:, -1] for row in attn_scores]
         for i, encoder in enumerate(self.prompt_encoders, start=1):
             if encoder.is_target:
                 if mask_type == "rand" or mask_type == "random":
@@ -1368,36 +1372,41 @@ class T5Stack(T5PreTrainedModel):
                     k_th_quant = torch.topk(r, k, largest = False)[0][:,-1:]
                     mask = r <= k_th_quant
                     attn_mask[i, 1:nse] = mask.long()
-                elif mask_type == "remove":
-                    if index <=  len(positive_indices_per_row[i]):
+                elif (mask_type.startswith("remove")
+                    or mask_type.startswith("keeponly")):
+                    if mask_type.startswith("remove"):
+                        attn_mask[i, 1:nse+1] = 1
+                    else:
+                        attn_mask[i, 1:nse+1] = 0
+                    if index <=  len(selected_indices_per_row[i]):
                         to = min(nse + 1, (index -1) + num_masked_prompts)
-                        to = min(to, len(positive_indices_per_row[i]))
+                        to = min(to, len(selected_indices_per_row[i]))
                         idx = min(index -1, to) 
-                        indices = positive_indices_per_row[i][idx:to]
-                        attn_mask[i, indices] = 0 
-                elif mask_type == "keeponly":
+                        indices = selected_indices_per_row[i][idx:to]
+                        if mask_type.startswith("remove"):
+                            attn_mask[i, indices] = 0 
+                        else:
+                            attn_mask[i, indices] = 1 
+                elif mask_type.startswith("keeponly") and False:
                     mylogs.bp("keeponly")
-                    if index <=  len(positive_indices_per_row[i]):
+                    if index <=  len(selected_indices_per_row[i]):
                         to = min(nse + 1, (index -1) + num_masked_prompts)
-                        to = min(to, len(positive_indices_per_row[i]))
+                        to = min(to, len(selected_indices_per_row[i]))
                         idx = min(index -1, to) 
-                        positive_indices = positive_indices_per_row[i]
+                        selected_indices = selected_indices_per_row[i]
                         indices = range(idx,to)
-                        other_positive_indices = [val
-                                for ii, val in enumerate(positive_indices) 
+                        other_selected_indices = [val
+                                for ii, val in enumerate(selected_indices) 
                                 if ii not in indices]
-                        attn_mask[i, other_positive_indices] = 0 
-                elif mask_type == "olse":
-                    if index <=  len(positive_indices_per_row[i]):
-                        idx = index - 1 
-                        positive_indices = positive_indices_per_row[i]
-                        other_positive_indices = [val
-                                for ii, val in enumerate(positive_indices) 
-                                if ii != idx]
-                        attn_mask[i, other_positive_indices] = 0 
+                        attn_mask[i, other_selected_indices] = 0 
                 else:
                     to = min(nse + 1, index + num_masked_prompts)
-                    attn_mask[i, index:to] = 0 
+                    if mask_type == "remcol":
+                        attn_mask[i, 1:nse+1] = 1
+                        attn_mask[i, index:to] = 0 
+                    elif mask_type == "keepcol":
+                        attn_mask[i, 1:nse+1] = 0
+                        attn_mask[i, index:to] = 1 
         return attn_mask
 
     def anneal(self, i_step):
@@ -1459,10 +1468,10 @@ class T5Stack(T5PreTrainedModel):
             mylogs.bp("wcat")
             mylogs.bp("wp")
             assert self.use_private_prompts is True, "use private prompts must be enabled"
-            attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
-            attend_to = attend_to[:,:-1,:,:]
             private_prompt = attend_to[:,-1,:,:]
             private_prompt = private_prompt.unsqueeze(1)
+            #attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
+            #attend_to = attend_to[:,:-1,:,:]
 
         if self.target_share is not None:
             if self.target_share == -1:

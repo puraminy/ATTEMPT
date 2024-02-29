@@ -1435,7 +1435,7 @@ def train(**kwargs):
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
-        attend_to_all = kwargs.setdefault("attend_to_all", False) 
+        attend_to_all = kwargs.setdefault("attend_to_all", True) 
         mylogs.bp("usp")
         attend_to_all = attend_to_all and use_source_prompts
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
@@ -1481,7 +1481,7 @@ def train(**kwargs):
                 attn_flag = False
                 for i, n in enumerate(source_prompts, start=1):
                     encoder.attend_to_mask[i] = 0 
-                    if (n in encoder.attend_to or "_com" in n) and use_source_prompts:
+                    if (n in encoder.attend_to or "_com" in n) or attend_to_all:
                         encoder.attend_to_mask[i] = 1 
                         attn_flag = True
                     if "_for" in n: 
@@ -2107,7 +2107,7 @@ def train(**kwargs):
                     num_beams=data_args.num_beams,
                     metric_key_prefix="test", task=task)
 
-            if gen_conf["mask_type"] == "no-mask":
+            if gen_conf["mask_type"].startswith("no-mask"):
                 no_mask_preds[task] = (predictions, labels, metrics)
             
             mylogs.bp("gen")
@@ -2253,9 +2253,9 @@ def train(**kwargs):
         results = {}
         ds_backup = None
         mylogs.bp("gen_conf")
-        gnm = ["sign"]
+        gnm = ["soft"]
         if "gen_norm_method" in main_vars:
-            gnm = kwargs.setdefault("gen_norm_method",["sign"])
+            gnm = kwargs.setdefault("gen_norm_method",["soft"])
             if type(gnm) != list: gnm = [gnm] 
         gen_thresh_min = kwargs.get("gen_thresh_min", [None])
         gen_thresh_max = kwargs.get("gen_thresh_max", [None])
@@ -2286,7 +2286,7 @@ def train(**kwargs):
             nn, mask_type, mm = masking.split("-") 
             num_masks, num_masked_prompts =int(nn), int(mm) 
             mylogs.bp("nrp")
-            gen_masks["no-mask"] = None
+            gen_masks["no-mask_"+mask_type] = None
             if num_masks == 0: 
                 if mask_type == "remove" or mask_type == "keeponly":
                     router = model.encoder.router
@@ -2369,7 +2369,7 @@ def train(**kwargs):
                             task_scores[rm] = {}
                         gen_conf = {"rep_penalty":2.0}
                         gen_conf["gen_norm_method"] = norm_method
-                        gen_conf["mask_type"] = rm if mask is not None else "no-mask"
+                        gen_conf["mask_type"] = rm # if mask is not None else "no-mask"
                         gen_conf["gen_thresh_min"] = gmin
                         gen_conf["gen_thresh_max"] = gmax
                         gen_conf["gen_ntp"] = gntp
@@ -2531,19 +2531,23 @@ def train(**kwargs):
                                 start = 0 if model_args.attend_input else 1 
                                 mask_matrix = mask_matrix[:,start:slen+tlen + 1]
                             save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
-                            if ("-" in rm 
-                                and ("col" in rm or "remove" in rm or "keeponly" in rm)):
+                            if "-" in rm  and mask is not None:
                                 if not test_key in effect_scores:
                                     effect_scores[test_key] = torch.zeros(
                                         (tlen, slen + tlen + 2), device=device) 
 
-                                col,_,_ = rm.split("-")
+                                col,mtype,_ = rm.split("-")
                                 col = int(col) - 1
                                 if col == 1:
                                     mylogs.bp("effect")
-                                positive_idx = [torch.nonzero(row > 0)[:, -1] 
+                                if "any" in rm or "col" in rm:
+                                    selected_cols_idx = [
+                                            torch.nonzero(torch.ones_like(row))[:, -1] 
                                         for row in router_scores]
-                                base_scores = task_scores["no-mask"][test_key]
+                                else:
+                                    selected_cols_idx = [torch.nonzero(row > 0)[:, -1] 
+                                        for row in router_scores]
+                                base_scores = task_scores["no-mask_"+mtype][test_key]
                                 mask_scores = task_scores[rm][test_key]
                                 for _task, _score in mask_scores.items():
                                     base_score = float(base_scores[_task])
@@ -2562,8 +2566,8 @@ def train(**kwargs):
                                         effect = min(effect, 50)
                                     effect = max(effect, -50)
                                     task_index = y_labels.index(_task) 
-                                    if col < len(positive_idx[task_index]):  
-                                        col_index = positive_idx[task_index][col]
+                                    if col < len(selected_cols_idx[task_index]):  
+                                        col_index = selected_cols_idx[task_index][col]
                                         effect_scores[test_key][task_index, col_index]=effect
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
