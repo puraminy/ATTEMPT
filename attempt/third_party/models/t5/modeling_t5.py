@@ -1352,9 +1352,10 @@ class T5Stack(T5PreTrainedModel):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attend_num = len(self.prompt_encoders) + 1 # one for input
         base = num_masked_prompts / attend_num
-        nse = sum(1 for enc in self.prompt_encoders) 
-                # if enc.is_source and not enc.is_private and not enc.is_target)
+        nse = sum(1 for enc in self.prompt_encoders  
+                  if enc.is_source and not enc.is_private and not enc.is_target)
                 # if enc.is_source and not enc.is_target)
+        nspe = sum(1 for enc in self.prompt_encoders if not enc.is_target)
         mylogs.bp("nrp")
         attn_mask = self.attn_mask_orig.clone() 
         k = num_masked_prompts
@@ -1387,24 +1388,26 @@ class T5Stack(T5PreTrainedModel):
                             attn_mask[i, indices] = 0 
                         else:
                             attn_mask[i, indices] = 1 
-                elif mask_type.startswith("keeponly") and False:
-                    mylogs.bp("keeponly")
-                    if index <=  len(selected_indices_per_row[i]):
-                        to = min(nse + 1, (index -1) + num_masked_prompts)
-                        to = min(to, len(selected_indices_per_row[i]))
-                        idx = min(index -1, to) 
-                        selected_indices = selected_indices_per_row[i]
-                        indices = range(idx,to)
-                        other_selected_indices = [val
-                                for ii, val in enumerate(selected_indices) 
-                                if ii not in indices]
-                        attn_mask[i, other_selected_indices] = 0 
+                elif mask_type == "keep_private":
+                    attn_mask[i, 1:] = 0
+                    attn_mask[i, nse+1:nspe+1] = self.attn_mask_orig[i, nse+1:nspe+1]
+                elif mask_type == "rem_private":
+                    attn_mask[i, nse+1:nspe+1] = 0 
+                elif mask_type == "keep_target":
+                    attn_mask[i, 1:nspe+1] = 0
+                elif mask_type == "rem_target":
+                    attn_mask[i, nspe+1:] = 0
+                elif mask_type == "keep_source":
+                    attn_mask[i, 1:] = 0
+                    attn_mask[i, 1:nse+1] = 1
+                elif mask_type == "rem_source":
+                    attn_mask[i, 1:nse+1] = 0
                 else:
                     to = min(nse + 1, index + num_masked_prompts)
-                    if mask_type == "remcol":
+                    if mask_type == "rem":
                         # attn_mask[i, 1:nse+1] = 1
                         attn_mask[i, index:to] = 0 
-                    elif mask_type == "keepcol":
+                    elif mask_type == "keep":
                         attn_mask[i, 1:] = 0
                         attn_mask[i, index:to] = self.attn_mask_orig[i, index:to] 
         return attn_mask
@@ -1818,14 +1821,23 @@ class T5Stack(T5PreTrainedModel):
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
         # Add target embedding when attend_target is not True
         if add_target is True:
+           attn_mask = self.attn_mask
+           if not self.training: 
+               mylogs.bp("ccc")
+               if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+                   attn_mask = self.gen_conf["attn_mask"] 
            mylogs.bp("adt")
+           mask = torch.zeros((batch_size,1), device=attn_mask.device)
+           for i in range(batch_size):
+                mask[i] = attn_mask[target_idx[i].reshape(-1,1), target_idx[i]]
+           mask = mask.reshape(batch_size, 1, 1, 1)
            if self.target_share == 1:
-               soft_prompts = target_prompts
+               soft_prompts = mask * target_prompts
            elif self.target_share == 2:
-               soft_prompts = soft_prompts + target_prompts
+               soft_prompts = soft_prompts + mask * target_prompts
            elif self.target_share != 0:
                ts = target_shares.reshape(batch_size, 1, 1, 1)
-               soft_prompts = (1 - ts) * soft_prompts + ts * target_prompts
+               soft_prompts = (1 - ts) * soft_prompts + mask * ts * target_prompts
            attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
@@ -1969,7 +1981,7 @@ class T5Stack(T5PreTrainedModel):
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
                         #target_idx = target_idx_list.repeat(batch_size, 1)
-                        mylogs.bp("nmask")
+                        mylogs.bp("nfwdmask")
                         source_idx = source_idx_list.repeat(batch_size, 1)
                         attn_mask = attn_mask.repeat(batch_size, 1, 1)
                         sel_attn_mask = batched_index_select(attn_mask, 2, 

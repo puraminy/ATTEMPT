@@ -1444,10 +1444,10 @@ def train(**kwargs):
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
         attend_to_all = kwargs.setdefault("attend_to_all", True) 
-        mylogs.bp("usp")
         attend_to_all = attend_to_all and use_source_prompts
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
         # create and load target prompts
+        mylogs.bp("usp")
         num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
@@ -1487,13 +1487,20 @@ def train(**kwargs):
                     encoder.attend_to_mask = [0]*num_attend_to  
                     encoder.attend_to_mask[0] = 1 # for input
                 attn_flag = False
-                for i, n in enumerate(source_prompts, start=1):
-                    encoder.attend_to_mask[i] = 0 
-                    if (n in encoder.attend_to or "_com" in n) or attend_to_all:
-                        encoder.attend_to_mask[i] = 1 
-                        attn_flag = True
+                all_prompts = source_prompts + target_prompts
+                for i, n in enumerate(all_prompts, start=1):
+                    #encoder.attend_to_mask[i] = 0 
+                    #if (n in encoder.attend_to or "_com" in n) and use_source_prompts:
+                    #    encoder.attend_to_mask[i] = 1 
+                    #    attn_flag = True
                     if "_for" in n: 
                         if n in encoder.attend_to:
+                            encoder.attend_to_mask[i] = 1 
+                        else:
+                            encoder.attend_to_mask[i] = 0 
+                        attn_flag = True
+                    if "tar-" in n: 
+                        if "source_" + n in encoder.attend_to and model_args.add_target:
                             encoder.attend_to_mask[i] = 1 
                         else:
                             encoder.attend_to_mask[i] = 0 
@@ -2206,7 +2213,7 @@ def train(**kwargs):
             return df, scores, golds, preds
 
         ################ Draw image
-        def save_image(folder, model, score_dict, spec, 
+        def save_image(folder, model, score_dict, spec, p_labels=None, 
                 square=False, annot=True, vmin=None, vmax=None):
             if not model_args.attn_tuning:
                 return
@@ -2214,14 +2221,15 @@ def train(**kwargs):
             mylogs.bp("save_image")
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
-            p_labels = []
-            for pl in model.encoder.prompt_names:
-                if not "tar" in pl and not "input" in pl:
-                    pl = pl.replace("source_for_","") 
-                    pl = pl.replace("source_","") 
-                    pl = pl.replace("superglue-","") 
-                    pl = pl.replace("com","src") 
-                    p_labels.append(pl)
+            if not p_labels:
+                p_labels = []
+                for pl in model.encoder.prompt_names:
+                    if not "tar" in pl and not "input" in pl:
+                        pl = pl.replace("source_for_","") 
+                        pl = pl.replace("source_","") 
+                        pl = pl.replace("superglue-","") 
+                        pl = pl.replace("com","src") 
+                        p_labels.append(pl)
 
             tasks = data_args.task_name
             folder = os.path.join(folder, "img_logs")
@@ -2289,14 +2297,19 @@ def train(**kwargs):
         if type(masking_list) != list:
             masking_list = [masking_list]
         gen_masks_list = [{"no-mask":None}]
+        mask_num_start = 0
         if masking_list:
             gen_masks_list = []
+        prompt_names = model.encoder.prompt_names
         for masking in masking_list:
             gen_masks = {}
             if not "-" in masking:
                 masking = "0-" + masking + "-1"
             nn, mask_type, mm = masking.split("-") 
-            num_masks, num_masked_prompts =int(nn), int(mm) 
+            ss = 0
+            if "_" in nn:
+                ss, nn = nn.split("_")
+            num_masks, num_masked_prompts, mask_num_start =int(nn), int(mm), int(ss)
             mylogs.bp("nrp")
             gen_masks["no-mask_"+mask_type] = None
             if num_masks == 0: 
@@ -2311,15 +2324,29 @@ def train(**kwargs):
                     num_masks = max_length
                 else:
                     num_masks = num_source_prompts
-                    if use_private_prompts:
-                        num_masks += len(data_args.task_name)
-                    if model_args.add_target is True:
-                        num_masks += len(data_args.task_name)
+            col = 0
             if num_masked_prompts > 0:
-                for rm in range(num_masks):
+                for rm in range(mask_num_start, mask_num_start + num_masks):
                     col = rm + 1
                     mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
-                    mkey = str(col) + "-" + mask_type + "-" + str(mm)
+                    mkey = str(col) + "-" + mask_type + "-" \
+                            + prompt_names[col].replace("source_","")
+                    gen_masks[mkey] = mask
+            if mask_type:
+                if use_source_prompts:
+                    col += 1
+                    mask = model.encoder.make_attn_mask(col, 1, mask_type + "_source")
+                    mkey = str(col) + "-" + mask_type + "-source"
+                    gen_masks[mkey] = mask
+                if use_private_prompts:
+                    col += 1
+                    mask = model.encoder.make_attn_mask(col, 1, mask_type + "_private")
+                    mkey = str(col) + "-" + mask_type + "-private"
+                    gen_masks[mkey] = mask
+                if model_args.add_target is True:
+                    col += 1
+                    mask = model.encoder.make_attn_mask(col, 1, mask_type + "_target")
+                    mkey = str(col) + "-" + mask_type + "-target" 
                     gen_masks[mkey] = mask
             gen_masks_list.append(gen_masks)
 
@@ -2360,6 +2387,7 @@ def train(**kwargs):
                     effect_scores = {}
                     eval_folders = {}
                     no_mask_test_files = {}
+                    mask_labels = []
                     for rm, mask in gen_masks.items():
                         if "-" in norm_method:
                             norm_method, tmin, tmax = norm_method.split("-")
@@ -2550,20 +2578,23 @@ def train(**kwargs):
                                 else:
                                     mask_matrix = mask_matrix[:,start:slen+tlen + 1]
                             save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
+                            mylogs.bp("effect")
                             if "-" in rm  and mask is not None:
                                 if not test_key in effect_scores:
                                     effect_scores[test_key] = torch.zeros(
-                                        (tlen, slen + tlen + 2), device=device) 
+                                        (tlen, slen + len(gen_masks) + 1), device=device) 
 
-                                col,mtype,_ = rm.split("-")
+                                col,mtype,mlabel = rm.split("-")
+                                if mlabel in ["source","private","target"]:
+                                    mylogs.bp("mlabel")
+                                mask_labels.append(mlabel)
                                 col = int(col) - 1
                                 if col == 1:
                                     mylogs.bp("effect")
-                                if "any" in rm or "col" in rm:
-                                    selected_cols_idx = [
-                                            torch.nonzero(torch.ones_like(row))[:, -1] 
+                                selected_cols_idx = [
+                                        torch.nonzero(torch.ones_like(row))[:, -1] 
                                         for row in router_scores]
-                                else:
+                                if "pos" in rm:
                                     selected_cols_idx = [torch.nonzero(row > 0)[:, -1] 
                                         for row in router_scores]
                                 base_scores = task_scores["no-mask_"+mtype][test_key]
@@ -2601,7 +2632,8 @@ def train(**kwargs):
                             eval_folder = os.path.join(exp_folder, eval_folder_name)
                             save_image(eval_folder, model, 
                             {"effect_" + spec : effect_score.round(decimals=2)}, 
-                            spec= spec)
+                            spec= spec,
+                            p_labels = mask_labels)
                     gen_mask_counter += 1
                 
         ########

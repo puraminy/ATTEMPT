@@ -6,7 +6,6 @@ vars=""
 flags=""
 others=""
 onError="continue"
-main_vars=""
 g=0
 for i in $@
 do
@@ -18,9 +17,7 @@ do
             q=${i#"--"}
             extra_params="${extra_params} --@${q}"; 
             p=${i%=*}
-            main_vars="${main_vars}--${q}"
             g=extra
-            mvar=True
        ;;
        -*) extra_params="${extra_params} $i"; g=run;;
        *=*) vars="${vars} $i"; g=vars;;
@@ -46,7 +43,6 @@ done
 eval "${flags}"
 eval "${vars}"
 
-main_vars="-mv ${main_vars}"
 onError=break
 echo ""
 echo "==================== Parameters: ======================"
@@ -196,7 +192,7 @@ if [ -n "$_cur" ]; then
    _path="."; 
 fi
 if [ -z "$_path" ]; then 
-   _path="${SCRIPT_DIR}/configs"
+   _path="${HOME}/confs"
 fi
 if [ -z "$_dpat" ]; then _dpat=""; fi
 if [ -n "$_base" ]; then 
@@ -206,8 +202,8 @@ fi
 logs=$HOME/logs/$output
 ii=0
 for conf in "${configs[@]}"; do
-   echo "find ${_path} -type f -name \"*${conf}*.json\" -path \"*${_dpat}*\""
-   files=$(find ${_path} -type f -name "*${conf}*.json" -path "*${_dpat}*")
+   echo "find ${_path} -type f -name \"*${conf}*json\" -path \"*${_dpat}*\""
+   files=$(find ${_path} -type f -name "*${conf}*json" -path "*${_dpat}*")
    for file in $files; do 
       ((ii++))
       filename=$(basename -- "$file")
@@ -222,11 +218,11 @@ for conf in "${configs[@]}"; do
          echo "python3 $SCRIPT_DIR/run_seq2seq.py run -exp $experiment" 
          echo "-cfg ${file}"
          echo "-lp $logs"
-         echo "${params} ${extra_params} ${main_vars}" 
+         echo "${params} ${extra_params}" 
          echo "--------------- end of experiment $ii -----------"
       else
          echo "Training ..."
-         python3 $SCRIPT_DIR/run_seq2seq.py run -cfg $file -exp $experiment -lp $logs ${params} ${extra_params} $main_vars 
+         python3 $SCRIPT_DIR/run_seq2seq.py run -cfg $file -exp $experiment -lp $logs ${params} ${extra_params}
       fi
       if [ -n "$_one" ]; then
          echo "Exit after one experiment"

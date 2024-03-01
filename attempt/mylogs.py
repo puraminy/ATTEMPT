@@ -144,7 +144,7 @@ def bp(break_point):
     if colab: return
     cond = False 
     equal = False
-    if str(break_point).startswith("="):  
+    if str(break_point).startswith(">"):  
         break_point = str(break_point).strip("=") 
         cond = break_point in str(BREAK_POINT) 
         equal = True
@@ -152,7 +152,8 @@ def bp(break_point):
         cond = str(BREAK_POINT) in str(break_point) 
         equal = True
     if not equal:
-        cond = break_point in str(BREAK_POINT) or str(BREAK_POINT) in break_point 
+        # cond = break_point in str(BREAK_POINT) 
+        cond = str(BREAK_POINT) in break_point # or cond 
     if cond:
         fname = sys._getframe().f_back.f_code.co_name
         line = sys._getframe().f_back.f_lineno
