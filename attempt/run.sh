@@ -6,7 +6,7 @@ vars=""
 flags=""
 others=""
 onError="continue"
-main_vars="task_name"
+main_vars=""
 g=0
 for i in $@
 do

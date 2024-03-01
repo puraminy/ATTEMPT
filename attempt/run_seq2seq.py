@@ -336,6 +336,14 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    mylogs.bp("start")
    experiment = experiment.replace("#","-").replace("@","-").replace(":","-")
+   if exp_conf:
+       cc = 1
+       exp_name = experiment
+       while exp_name == exp_args["experiment"]:
+           exp_name = experiment + "-" + str(cc)
+           cc += 1
+       experiment = exp_name
+
    #if exp_conf and not new_exp_folder: 
    #   log_folder = experiment 
       #ans = input("Do you want save the results in (otherwise enter new folder) "+log_folder+ "[yes]:")
@@ -2366,7 +2374,7 @@ def train(**kwargs):
                         rv = "Eval" if not reval else "Reval"
                         eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
                                 + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
-                                + "_" + gcmm \
+                                + "_" + str(gcmm) \
                                 + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
