@@ -2257,6 +2257,10 @@ def train(**kwargs):
         if "gen_norm_method" in main_vars:
             gnm = kwargs.setdefault("gen_norm_method",["soft"])
             if type(gnm) != list: gnm = [gnm] 
+        gcmm = [None]
+        if "gen_compose_method" in main_vars:
+            gcmm = kwargs.setdefault("gen_compose_method",[None])
+            if type(gcmm) != list: gcmm = [gcmm] 
         gen_thresh_min = kwargs.get("gen_thresh_min", [None])
         gen_thresh_max = kwargs.get("gen_thresh_max", [None])
         if type(gen_thresh_min) != list: gen_thresh_min = [gen_thresh_min]
@@ -2301,6 +2305,8 @@ def train(**kwargs):
                     num_masks = num_source_prompts
                     if use_private_prompts:
                         num_masks += len(data_args.task_name)
+                    if model_args.add_target is True:
+                        num_masks += len(data_args.task_name)
             if num_masked_prompts > 0:
                 for rm in range(num_masks):
                     col = rm + 1
@@ -2336,10 +2342,10 @@ def train(**kwargs):
                 df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
         else:
             attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
-            gen_combs = itertools.product(gnm, 
+            gen_combs = itertools.product(gnm, gcmm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
-            for norm_method, gmin, gmax, gntp in gen_combs:
+            for norm_method, gcmm, gmin, gmax, gntp in gen_combs:
                 gen_mask_counter = 0
                 for gen_masks in gen_masks_list:
                     task_scores = {}
@@ -2360,6 +2366,7 @@ def train(**kwargs):
                         rv = "Eval" if not reval else "Reval"
                         eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
                                 + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
+                                + "_" + gcmm \
                                 + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
@@ -2373,6 +2380,7 @@ def train(**kwargs):
                         gen_conf["gen_thresh_min"] = gmin
                         gen_conf["gen_thresh_max"] = gmax
                         gen_conf["gen_ntp"] = gntp
+                        gen_conf["gen_cmm"] = gcmm
                         exp_info["cur_masking"] = rm.split("-")[1]
                         test_key = ""
                         for kk, vv in gen_conf.items():
@@ -2529,7 +2537,10 @@ def train(**kwargs):
                                 mask_matrix = learned_mask.index_select(0, targets)
                             if multi_tasking:
                                 start = 0 if model_args.attend_input else 1 
-                                mask_matrix = mask_matrix[:,start:slen+tlen + 1]
+                                if model_args.add_target is True:
+                                    mask_matrix = mask_matrix[:,start:]
+                                else:
+                                    mask_matrix = mask_matrix[:,start:slen+tlen + 1]
                             save_image(eval_folder, model, {"mask": mask_matrix}, spec=rm)
                             if "-" in rm  and mask is not None:
                                 if not test_key in effect_scores:

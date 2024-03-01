@@ -250,6 +250,15 @@ def index_colors(df,row,col, default=None):
     index = df.iloc[row][col]
     return index
 
+def cat_colors(df,row,col, default=None):
+    cat = df.iloc[row][col]
+    cat = str(cat)
+    if "research" in cat or "question" in cat:
+        return WARNING_COLOR
+    elif "done" in cat:
+        return MSG_COLOR
+    return default
+
 def time_colors(df,row,col, default=None):
     rel_col = "time" 
     last_hour = datetime.now() - timedelta(hours = 1)
@@ -567,8 +576,8 @@ def show_df(df):
     if "expid" in tag_cols:
         tag_cols.remove("expid")
     if "mask_type" in df:
-        df["cur_masking"] = (df["mask_type"].str.split("-").str[0] + "-" 
-                + df["mask_type"].str.split("-").str[1]) 
+        df["cur_masking"] = (df["mask_type"].str.split("-").str[1] + "-" 
+                + df["mask_type"].str.split("-").str[2]) 
     if "exp_name" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
@@ -1284,7 +1293,7 @@ def show_df(df):
             tdf = main_df[main_df['eid'] == sel_exp]
             spath = tdf.iloc[0]["path"]
             subprocess.Popen(["nautilus", spath])
-        if char in ["o","y","k", "K"]:
+        if char in ["o","y","k", "p"]:
             tdf = df #pivot_df if pivot_df is not None and context == "pivot" else df
             images = []
             exprs, _ = get_sel_rows(tdf)
@@ -1295,11 +1304,9 @@ def show_df(df):
             elif char == "y":
                 image_keys = ["score","sim"]
                 merge = "vert"
-            elif char == "k" or char == "K":
-                image_keys = ["router","effect"]
+            elif char == "k" or char == "p":
+                image_keys = ["score","router","effect"]
                 merge = "vert"
-            if char == "K":
-                image_keys.append("score")
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
                     merge = merge, image_keys = image_keys)
@@ -1385,11 +1392,15 @@ def show_df(df):
                     pic = _image
             if pic is not None:
                 dest = os.path.join("routers.png")
+                if char == "p":
+                    # fname = rowinput("prefix:", default="image")
+                    ptemp = os.path.join(home, "pictemp", "image.png")
+                    if Path(ptemp).is_file():
+                        pic2 = Image.open(ptemp)
+                        pic = combine_x([pic, pic2])
+                    else:
+                        pic.save(ptemp)
                 pic.save(dest)
-                if char == "K":
-                    fname = rowinput("prefix:", default=fname)
-                    ptemp = os.path.join(home, "pictemp", fname)
-                    pic.save(ptemp)
                 #pname=tdf.iloc[sel_row]["image"]
                 subprocess.Popen(["eog", dest])
         elif char == "L":
@@ -1959,7 +1970,7 @@ def show_df(df):
         elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
-        elif char == "p":
+        elif char == "K":
             folder_path = "/home/ahmad/pictemp"
             files = os.listdir(folder_path)
             for file in files:
@@ -2618,24 +2629,6 @@ def show_df(df):
                         sel_cols.insert(len(index_cols), sort_col)
                 sort = sort_col
                 # df = df.sort_values(by=sort_col, ascending=False)
-        if cmd.startswith("cat"):
-            note_file = os.path.join(doc_dir, "notes.csv")
-            _,cat = cmd.split("=")
-            context = "notes"
-            doc_dir = "/home/ahmad/findings" #os.getcwd() 
-            if not "comment" in df:
-                backit(df, sel_cols)
-                if Path(note_file).is_file():
-                    df = pd.read_csv(note_file)
-                else:
-                    df = pd.DataFrame(columns=["date","cat","comment"])
-                sel_cols = df.columns 
-                info_cols = ["comment"]
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-            new_note = {"date":now, "cat":cat,"comment":""}
-            df = pd.concat([df, pd.DataFrame([new_note])], ignore_index=True)
-            df.to_csv(note_file, index=False)
-            df = df.sort_values(by=["date","cat"], ascending=False) 
         if char == "!":
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
@@ -2648,13 +2641,14 @@ def show_df(df):
                     df = pd.DataFrame(columns=["date","cat","comment"])
                 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                 sel_cols = df.columns 
-                info_cols = ["comment"]
+                info_cols = []
                 df = df.sort_values("date", ascending=False)
+                cond_colors["cat"] = cat_colors
                 # search_df = df
         if ch == cur.KEY_IC or char == "e" and context == "notes":
             doc_dir = "/home/ahmad/findings" #os.getcwd() 
             note_file = os.path.join(doc_dir, "notes.csv")
-            if context != "notes":
+            if not "comment" in df or context != "notes":
                 if Path(note_file).is_file():
                     tdf = pd.read_csv(note_file)
                 else:
@@ -2690,6 +2684,7 @@ def show_df(df):
             if "comment" in df:
                 df = tdf
                 df = df.sort_values(by=["date"], ascending=False) 
+                cond_colors["cat"] = cat_colors
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             mdf = df #main_df

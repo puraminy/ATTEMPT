@@ -11,6 +11,7 @@
   "tmpr":"temperature",
   "alr":"attn_learning_rate",
   "cmm":"compose_method",
+  "gcmm":"gen_compose_method",
   "ex":"exclude_tasks",
   "ts":"target_share",
   "amin":"anneal_min",

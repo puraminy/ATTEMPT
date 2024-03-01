@@ -1350,11 +1350,11 @@ class T5Stack(T5PreTrainedModel):
 #
     def make_attn_mask(self, index=0, num_masked_prompts = 1, mask_type="rand"):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        attend_num =len(self.prompt_encoders) + 1 # one for input
+        attend_num = len(self.prompt_encoders) + 1 # one for input
         base = num_masked_prompts / attend_num
-        nse = sum(1 for enc in self.prompt_encoders 
+        nse = sum(1 for enc in self.prompt_encoders) 
                 # if enc.is_source and not enc.is_private and not enc.is_target)
-                if enc.is_source and not enc.is_target)
+                # if enc.is_source and not enc.is_target)
         mylogs.bp("nrp")
         attn_mask = self.attn_mask_orig.clone() 
         k = num_masked_prompts
@@ -1402,11 +1402,11 @@ class T5Stack(T5PreTrainedModel):
                 else:
                     to = min(nse + 1, index + num_masked_prompts)
                     if mask_type == "remcol":
-                        attn_mask[i, 1:nse+1] = 1
+                        # attn_mask[i, 1:nse+1] = 1
                         attn_mask[i, index:to] = 0 
                     elif mask_type == "keepcol":
-                        attn_mask[i, 1:nse+1] = 0
-                        attn_mask[i, index:to] = 1 
+                        attn_mask[i, 1:] = 0
+                        attn_mask[i, index:to] = self.attn_mask_orig[i, index:to] 
         return attn_mask
 
     def anneal(self, i_step):
@@ -1464,7 +1464,13 @@ class T5Stack(T5PreTrainedModel):
         attend_to_idx = source_idx
         if not self.attend_input:
             attend_to_idx = source_idx[:,1:]
-        if self.compose_method in ["wcat","wp"]: # or not self.attend_private:
+
+        compose_method = self.compose_method
+        if not self.training:
+            if "gen_cmm" in self.gen_conf and self.gen_conf["gen_cmm"] is not None: 
+                compose_method = self.gen_conf["gen_cmm"]
+
+        if compose_method in ["wcat","wp"]: # or not self.attend_private:
             mylogs.bp("wcat")
             mylogs.bp("wp")
             assert self.use_private_prompts is True, "use private prompts must be enabled"
@@ -1597,7 +1603,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = normalize_scores(attn_scores, method) 
 
         num_targets = attend_for.size(1) 
-        if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
+        if compose_method in ["cat","concat"]: #,"pool","mpool"]:
             num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
@@ -1615,7 +1621,7 @@ class T5Stack(T5PreTrainedModel):
             mylogs.bp("tk2")
             mylogs.bp(task + "2")
 
-        if not "pool" in self.compose_method and not "lin" in self.compose_method:
+        if not "pool" in compose_method and not "lin" in compose_method:
             num_select = num_attend_to
         else:
             num_select = attn_scores.size(-1) # select all
@@ -1711,24 +1717,24 @@ class T5Stack(T5PreTrainedModel):
         if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
-        if self.compose_method == "wavg": 
+        if compose_method == "wavg": 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to_x)
-        elif self.compose_method == "rcat" or self.compose_method == "scat":
+        elif compose_method == "rcat" or compose_method == "scat":
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', agg_scores, soft_prompts)
-        elif self.compose_method == "cat":
+        elif compose_method == "cat":
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
-        elif self.compose_method == "concat":
+        elif compose_method == "concat":
             attn_sel_scores[True] = 1
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
-        elif self.compose_method == "wp":
+        elif compose_method == "wp":
             # attn_sel_scores = attn_sel_scores[:,:,:-1]
             # attend_to_x = attend_to_x[:,:,:-1,:,:])
             mylogs.bp("wp")
@@ -1743,7 +1749,7 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
             attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
-        elif self.compose_method == "wcat":
+        elif compose_method == "wcat":
             mylogs.bp("wcat")
             avg_prompts = torch.einsum(
                     'bts, btsld -> btld', attn_sel_scores, 
@@ -1756,7 +1762,7 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
             attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
-        elif  "pool" in self.compose_method:
+        elif  "pool" in compose_method:
             mylogs.bp("pool")
             # b t s l d > b t l d
             # 12 1 4 10 768 > 12 1 10 768
@@ -1765,20 +1771,22 @@ class T5Stack(T5PreTrainedModel):
             # 12 7680 1
             # 12 7680
             # 12 1 10 780
-            if self.compose_method == "pool":
-                pool = torch.nn.AdaptiveAvgPool1d(1)
-            else:
+            if "mpool" in compose_method:
                 pool = torch.nn.AdaptiveMaxPool1d(1)
+            else:
+                pool = torch.nn.AdaptiveAvgPool1d(1)
+
             inp = attend_to_x
-            inp = torch.einsum(
-                'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
+            if compose_method in ["wpool","wmpool"]:
+                inp = torch.einsum(
+                    'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             x = inp.view(inp.size(0), inp.size(1), inp.size(2), -1)
             x = x.permute(0, 1, 3, 2)
             x = x.view(-1, x.size(2), x.size(3))
             x = pool(x)
             x = x.squeeze(dim=-1)
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
-        elif self.compose_method == "lin":
+        elif compose_method == "lin":
             mylogs.bp("lin")
             # inp = attend_to_x
             inp = torch.einsum(
@@ -1789,7 +1797,7 @@ class T5Stack(T5PreTrainedModel):
             x = self.comp_linear(x)
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
             # attn_sel_scores = F.softmax(soft_prompts, dim=1)
-        elif self.compose_method == "lin2":
+        elif compose_method == "lin2":
             mylogs.bp("lin")
             x = attend_to_x
             x = self.attn_Wa(x)
@@ -1799,7 +1807,7 @@ class T5Stack(T5PreTrainedModel):
             # x = self.attn_Wa(x)
             # x = self.layer_norm(x)
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
-        elif self.compose_method == "sub":
+        elif compose_method == "sub":
             mylogs.bp("sub")
             x = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)

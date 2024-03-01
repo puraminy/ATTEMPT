@@ -1184,6 +1184,7 @@ class MNLI(AbstractTask):
     metric_names = ["accuracy"]
     # labels_map = {"0":"en", "1":"neutral", "2": "contradicts"}
     labels_map = {"0":"entailment", "1":"neutral", "2": "contradiction"}
+    # labels_map = {"0":"0", "1":"1", "2": "2"}
     # labels_map = {"0":"C", "1":"D", "2": "E"}
     rel_nat = "The logical relation between premise and hypothesis is " 
 
