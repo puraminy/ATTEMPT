@@ -250,6 +250,12 @@ def cli():
     help="Merge experiments in one folder"
 )
 @click.option(
+    "--not_copy_prev_exp",
+    "-nc",
+    is_flag=True,
+    help="Don't copy the experiment of the source config to new experiment"
+)
+@click.option(
     "--reval",
     "-reval",
     is_flag=True,
@@ -296,7 +302,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, deep_check, merge, 
+        debug, version, trial, rem, repeat, deep_check, merge, not_copy_prev_exp, 
         reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
    if debug:
        port = "1234"
@@ -450,8 +456,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            _mvars.append(var)
    if _mvars: main_vars = _mvars
 
-
-   if prev_exp_folder and not "task_name" in main_vars:
+   if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
        mylogs.bp("prev")
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
@@ -829,11 +834,16 @@ def train(**kwargs):
     # set other options
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
-    exclude_tasks = kwargs.setdefault("exclude_tasks", None) 
-    if exclude_tasks:
+    exclude_tasks = kwargs.setdefault("exclude_tasks", []) 
+    if type(exclude_tasks) != list:
+        exclude_tasks = [exclude_tasks]
+    include_tasks = kwargs.setdefault("include_tasks", []) 
+    if type(include_tasks) != list:
+        include_tasks = [include_tasks]
+    if exclude_tasks or include_tasks:
         tasks = []
-        for t in data_args.task_name:
-            if not t in exclude_tasks:
+        for t in data_args.task_name + include_tasks:
+            if not t in exclude_tasks and not t in tasks:
                 tasks.append(t)
         data_args.task_name = tasks
 
@@ -2193,7 +2203,9 @@ def train(**kwargs):
                 preds.append(pred)
                 df.at[i, "pred_text1"] = pred
             df = df.drop(columns=["input_ids","labels","attention_mask"])
-            task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else ["rouge"]
+            assert task in TASK_TO_METRICS, "There is no metric for task " + task
+            if task in TASK_TO_METRICS:
+                task_metric = TASK_TO_METRICS[task] 
             metrics_list = []
             mylogs.bp("metrics")
             for mstr in task_metric:

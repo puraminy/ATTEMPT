@@ -120,6 +120,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         print("=================== Evaluation ==================")
         print("Experiment: ", mylogs.args("exp_number"), "/", mylogs.args("total_exp"))
         print("Tags: ", mylogs.get_tag(as_str=True))
+        print("Conf: ", mylogs.args("conf"))
         print("Tasks: ", mylogs.args("task_name"), " minus ", mylogs.args("exclude_tasks"))
         print("Save in: ", mylogs.args("save_path"))
         print("=================================================")

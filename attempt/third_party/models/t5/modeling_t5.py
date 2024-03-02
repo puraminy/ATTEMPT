@@ -1525,12 +1525,12 @@ class T5Stack(T5PreTrainedModel):
                 attn_dist = -1*attn_dist
                 b = next(self.anneal_ts)
 
-            end = attn_dist.size(2)
-            max_task_num = torch.max(task_ids).item()
-            if max_task_num < end:
-                for i in range(batch_size):
-                    task_id = task_ids[i].item()
-                    attn_dist[i, :, task_id] = b 
+            #end = attn_dist.size(2)
+            #max_task_num = torch.max(task_ids).item()
+            #if max_task_num < end:
+            #    for i in range(batch_size):
+            #        task_id = task_ids[i].item()
+            #        attn_dist[i, :, task_id] = b 
 
             if self.training and self.learn_attention:
                 logits = router
@@ -1970,8 +1970,8 @@ class T5Stack(T5PreTrainedModel):
                 target_prompts = (target_prompts*mask).sum(dim=0)/mask.sum(dim=0)
                 if self.attn_prompt_tuning and not self.target_share == 1:
                     attn_mask = self.attn_mask
+                    mylogs.bp("ccc")
                     if not self.training: 
-                        mylogs.bp("ccc")
                         if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                             attn_mask = self.gen_conf["attn_mask"] 
                     if len(source_idx_list) > 1 or self.attend_input:
@@ -2002,7 +2002,8 @@ class T5Stack(T5PreTrainedModel):
                             sel_prompts = torch.cat((sel_prompts,
                                 avg_tp), dim=1)
                             source_idx = torch.cat([source_idx, target_idx], dim=1)
-                        soft_prompts, attn_scores, attend_to_idx = self.attend_prompts(
+                        if source_idx.size(1) > 1 or self.attend_input:
+                            soft_prompts, attn_scores, attend_to_idx = self.attend_prompts(
                                 inputs_embeds, 
                                 src_prompts = sel_prompts, 
                                 target_prompts = target_prompts,
@@ -2011,75 +2012,85 @@ class T5Stack(T5PreTrainedModel):
                                 target_idx=target_idx, 
                                 task_ids = tids,
                                 task=task)
-                        # self.adapter_config.soft_prompts = soft_prompts.view(-1, self.model_dim)
-                        if not self.training:
-                            num_targets = target_idx.size()[-1]
-                            attend_to_idx = attend_to_idx.view(batch_size, num_targets, -1)
-                            src_idx = attend_to_idx[batch_size - 1]
-                            tgt_idx = target_idx[batch_size - 1]
-                            mylogs.bp("pred2")
-                            ascore = attn_scores[batch_size - 1]
-                            self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
-                            self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
-                        ###### Pad extra prompt tokens
-                        mylogs.bp("pred1")
-                        # amask = amask.squeeze(1)
-                        masked_prompts = soft_prompts
-                        tmask = target_prompt_masks.clone()
-                        amask = torch.ones((batch_size, 
-                            attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
-                        if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
-                            if self.training: 
-                                thresh = self.sel_thresh 
-                            else:
-                                thresh = self.gen_conf.get("gen_thresh_min", None)
-                            if thresh is not None:
-                                amask = attn_scores > thresh 
-                                if not torch.all(amask):
-                                    mylogs.bp("amask")
-                                amask = amask.repeat_interleave(self.src_prompt_dim)
-                                amask = amask.view(batch_size, -1)
-                                _amask = amask.unsqueeze(1)
-                                masked_prompts = soft_prompts[_amask]
+                            # self.adapter_config.soft_prompts = soft_prompts.view(-1, 
+                            # self.model_dim)
+                            if not self.training:
+                                num_targets = target_idx.size()[-1]
+                                attend_to_idx = attend_to_idx.view(batch_size, 
+                                        num_targets, -1)
+                                src_idx = attend_to_idx[batch_size - 1]
+                                tgt_idx = target_idx[batch_size - 1]
+                                mylogs.bp("pred2")
+                                ascore = attn_scores[batch_size - 1]
+                                self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
+                                self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
+                            ###### Pad extra prompt tokens
+                            mylogs.bp("pred1")
+                            # amask = amask.squeeze(1)
+                            masked_prompts = soft_prompts
+                            tmask = target_prompt_masks.clone()
+                            amask = torch.ones((batch_size, 
+                                attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
+                            if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
+                                if self.training: 
+                                    thresh = self.sel_thresh 
+                                else:
+                                    thresh = self.gen_conf.get("gen_thresh_min", None)
+                                if thresh is not None:
+                                    amask = attn_scores > thresh 
+                                    if not torch.all(amask):
+                                        mylogs.bp("amask")
+                                    amask = amask.repeat_interleave(self.src_prompt_dim)
+                                    amask = amask.view(batch_size, -1)
+                                    _amask = amask.unsqueeze(1)
+                                    masked_prompts = soft_prompts[_amask]
 
-                            number_to_keep_per_batch = torch.sum(amask, dim=-1) 
-                            sequence_length = tmask.size(1)
-                            if True: #self.padding_pos == "end":
-                                sequence_range = range(sequence_length)
-                            else:
-                                sequence_range = range(sequence_length -1, -1, -1)
-                            num_true = [0]*batch_size
-                            alen = amask.size(1)
-                            for i in range(batch_size):
-                                k = 0
-                                for j in sequence_range: 
-                                    if (tmask[i, j] and k < alen and amask[i, k] 
-                                        and num_true[i] < number_to_keep_per_batch[i]):
-                                        num_true[i] += 1
-                                        k += 1
-                                    elif tmask[i, j]:
-                                        tmask[i, j] = False
-                                        att_mask[i, j] = 0
-                                        input_ids[i, j] = 0
-                                        k += 1
+                                number_to_keep_per_batch = torch.sum(amask, dim=-1) 
+                                sequence_length = tmask.size(1)
+                                if True: #self.padding_pos == "end":
+                                    sequence_range = range(sequence_length)
+                                else:
+                                    sequence_range = range(sequence_length -1, -1, -1)
+                                num_true = [0]*batch_size
+                                alen = amask.size(1)
+                                for i in range(batch_size):
+                                    k = 0
+                                    for j in sequence_range: 
+                                        if (tmask[i, j] and k < alen and amask[i, k] 
+                                            and num_true[i] < number_to_keep_per_batch[i]):
+                                            num_true[i] += 1
+                                            k += 1
+                                        elif tmask[i, j]:
+                                            tmask[i, j] = False
+                                            att_mask[i, j] = 0
+                                            input_ids[i, j] = 0
+                                            k += 1
 
-                        inputs_embeds[tmask]= masked_prompts.view(-1, self.model_dim)
-                        if not self.training: # or mylogs.is_debug(): 
-                            pass
-                            # assert torch.all((attn_scores >= 0) & (attn_scores <= 1)), "Not all values are between 0 and 1"
-                            # assert torch.all((self.attn_scores >= 0) & (self.attn_scores <= 1)), "Not all values of self.attn_scores are between 0 and 1"
-                            # targets = self.target_encoders_idx
-                            #ss1 = self.attn_scores  
-                            # self.attn_scores.index_select(0, targets)
-                            #ss2 = self.router.index_select(0, targets)
-                            #ss3 = self.attn_mask.index_select(0, targets)
-                            #y_labels = [self.prompt_names[i] for i in targets]
-                            #img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
-                            #    y_labels=y_labels,
-                            #    x_labels=self.prompt_names,
-                            #    title= "at5:" + self.route_method + ":" \
-                            #            + self.compose_method + ":" + self.attn_method, 
-                            #    add_tags=False) 
+                            inputs_embeds[tmask]= masked_prompts.view(-1, self.model_dim)
+                            if not self.training: # or mylogs.is_debug(): 
+                                pass
+                                # assert torch.all((attn_scores >= 0) 
+                                # & (attn_scores <= 1)), "Not all values are between 0 and 1"
+                                # assert torch.all((self.attn_scores >= 0) 
+                                # & (self.attn_scores <= 1)), \ 
+                                # "Not all values of self.attn_scores are between 0 and 1"
+                                # targets = self.target_encoders_idx
+                                #ss1 = self.attn_scores  
+                                # self.attn_scores.index_select(0, targets)
+                                #ss2 = self.router.index_select(0, targets)
+                                #ss3 = self.attn_mask.index_select(0, targets)
+                                #y_labels = [self.prompt_names[i] for i in targets]
+                                #img_buf = WBCallback.save_images(scores=[ss1,ss2,ss3], 
+                                #    y_labels=y_labels,
+                                #    x_labels=self.prompt_names,
+                                #    title= "at5:" + self.route_method + ":" \
+                                #            + self.compose_method + ":" + self.attn_method, 
+                                #    add_tags=False) 
+                        else:
+                            self.adapter_config.soft_prompts=target_prompts.view(-1, 
+                                    self.model_dim)
+                            inputs_embeds[target_prompt_masks]= target_prompts.view(-1, 
+                                    self.model_dim)
                     else:
                         self.adapter_config.soft_prompts=target_prompts.view(-1, 
                                 self.model_dim)
@@ -2087,7 +2098,8 @@ class T5Stack(T5PreTrainedModel):
                                 self.model_dim)
                 else:
                     self.adapter_config.soft_prompts=target_prompts.view(-1, self.model_dim)
-                    inputs_embeds[target_prompt_masks]=target_prompts.view(-1, self.model_dim)
+                    inputs_embeds[target_prompt_masks]=target_prompts.view(-1, 
+                            self.model_dim)
             return input_ids, att_mask 
         return input_ids, att_mask
     ######################################################

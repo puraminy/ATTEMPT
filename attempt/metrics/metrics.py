@@ -47,6 +47,7 @@ TASK_TO_METRICS = {
                    "qnli": ["accuracy"],
                    "rte": ["accuracy"],
                    "wnli": ["accuracy"],
+                   "tweet-eval": ["accuracy"],
                    "qqp": ["accuracy"],
                    "superglue-boolq": ["accuracy"],
                    "superglue-rte": ["accuracy"],

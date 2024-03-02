@@ -1260,13 +1260,14 @@ class SNLI(AbstractTask):
 
 
 class MultiNLI(AbstractTask):
-    name = "mnli"
+    name = "multinli"
     labels_list = ["0", "1", "2"]
     split_to_data_split = {"train": "train",
                            "validation": "validation_mismatched",
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    labels_map = {"0":"entailment", "1":"neutral", "2": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('multi_nli', split=split)
