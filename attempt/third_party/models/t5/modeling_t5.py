@@ -1481,6 +1481,12 @@ class T5Stack(T5PreTrainedModel):
             private_prompt = private_prompt.unsqueeze(1)
             #attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
             #attend_to = attend_to[:,:-1,:,:]
+        if compose_method in ["cat"] and self.add_target: # or not self.attend_private:
+            mylogs.bp("attcat")
+            last_prompt = attend_to[:,-1,:,:]
+            last_prompt = last_prompt.unsqueeze(1)
+            attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
+            attend_to = attend_to[:,:-1,:,:]
 
         if self.target_share is not None:
             if self.target_share == -1:
@@ -1606,7 +1612,7 @@ class T5Stack(T5PreTrainedModel):
             attn_scores = normalize_scores(attn_scores, method) 
 
         num_targets = attend_for.size(1) 
-        if compose_method in ["cat","concat"]: #,"pool","mpool"]:
+        if compose_method in ["cat","concat","catw"]: #,"pool","mpool"]:
             num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
             num_attend_to = num_attend_to // num_targets
         else:
@@ -1728,7 +1734,7 @@ class T5Stack(T5PreTrainedModel):
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', agg_scores, soft_prompts)
-        elif compose_method == "cat":
+        elif compose_method in ["cat","catw"]:
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = soft_prompts.reshape(batch_size, num_targets,-1, self.model_dim) 
@@ -1827,17 +1833,27 @@ class T5Stack(T5PreTrainedModel):
                if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                    attn_mask = self.gen_conf["attn_mask"] 
            mylogs.bp("adt")
+           target = target_prompts
+           if compose_method in ["cat","concat"]:
+               target = last_prompt
            mask = torch.zeros((batch_size,1), device=attn_mask.device)
            for i in range(batch_size):
                 mask[i] = attn_mask[target_idx[i].reshape(-1,1), target_idx[i]]
            mask = mask.reshape(batch_size, 1, 1, 1)
            if self.target_share == 1:
-               soft_prompts = mask * target_prompts
+               soft_prompts = mask * target
            elif self.target_share == 2:
-               soft_prompts = soft_prompts + mask * target_prompts
+               target = mask * target
            elif self.target_share != 0:
                ts = target_shares.reshape(batch_size, 1, 1, 1)
-               soft_prompts = (1 - ts) * soft_prompts + mask * ts * target_prompts
+               soft_prompts = (1 - ts) * soft_prompts 
+               target = mask * ts * target
+           
+           if compose_method in ["cat","concat"]:
+               soft_prompts = torch.cat([soft_prompts, target], dim=2)
+           else:
+               soft_prompts = soft_prompts + target 
+
            attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
            attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
@@ -1981,7 +1997,7 @@ class T5Stack(T5PreTrainedModel):
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
                         #target_idx = target_idx_list.repeat(batch_size, 1)
-                        mylogs.bp("nfwdmask")
+                        mylogs.bp("fwdmask")
                         source_idx = source_idx_list.repeat(batch_size, 1)
                         attn_mask = attn_mask.repeat(batch_size, 1, 1)
                         sel_attn_mask = batched_index_select(attn_mask, 2, 
@@ -1993,14 +2009,15 @@ class T5Stack(T5PreTrainedModel):
                         src_prompts = src_prompts.repeat(batch_size, 1, 1, 1) 
                         sel_prompts = batched_index_select(src_prompts, 1, 
                             source_idx.unsqueeze(1))
-                        if self.attend_target is True:
+                        mylogs.bp("fwdatt")
+                        if (self.attend_target 
+                            or self.add_target and self.compose_method in ["cat"]):
                             pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
                             tpv = target_prompts.view(batch_size,-1,self.model_dim)
                             avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
                             avg_tp = avg_tp.view(batch_size, -1, 
                                     self.src_prompt_dim, self.model_dim)
-                            sel_prompts = torch.cat((sel_prompts,
-                                avg_tp), dim=1)
+                            sel_prompts = torch.cat((sel_prompts, avg_tp), dim=1)
                             source_idx = torch.cat([source_idx, target_idx], dim=1)
                         if source_idx.size(1) > 1 or self.attend_input:
                             soft_prompts, attn_scores, attend_to_idx = self.attend_prompts(
@@ -2031,7 +2048,7 @@ class T5Stack(T5PreTrainedModel):
                             tmask = target_prompt_masks.clone()
                             amask = torch.ones((batch_size, 
                                 attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
-                            if self.compose_method in ["cat","concat"]: #,"pool","mpool"]:
+                            if self.compose_method in ["cat","concat"]:
                                 if self.training: 
                                     thresh = self.sel_thresh 
                                 else:

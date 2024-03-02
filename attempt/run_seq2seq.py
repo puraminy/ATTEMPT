@@ -441,7 +441,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    var_dict = {k:n for k,n in zip(var_names, values)} 
    _mvars = []
    mylogs.bp("mvar")
-   for var in main_vars.split("--"):
+   if main_vars and "--" in main_vars:
+       main_vars = main_vars.split("--")
+   if not main_vars:
+       main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
+   if not main_vars:
+       main_vars = [map_param(param_map,x,key=True) for x in ctx.args if x.startswith("--")]
+   for var in main_vars:
        if not var: continue
        var = map_param(param_map, var)
        if "=" in var:
@@ -458,6 +464,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
        mylogs.bp("prev")
+       assert False, main_vars 
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
        eval_folders = glob.glob(
@@ -493,10 +500,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    inp_exp_vars = exp_vars
    mylogs.bp("start")
    mylogs.bp("mvar")
-   if not main_vars:
-       main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
-   if not main_vars:
-       main_vars = [map_param(param_map,x,key=True) for x in ctx.args if x.startswith("--")]
        # main_vars = "--".join([x.strip("@") for x in main_vars])
 
    if not exp_vars:
@@ -813,7 +816,7 @@ def train(**kwargs):
     kwargs = dotdict(kwargs)
     _dict = kwargs.copy()
     for c in ["tag","log_var","main_vars","full_tag","new_exp_folder", 
-            "total_exp", "break_point", "repeat"]:
+            "total_exp", "exclude_tasks", "include_tasks", "break_point", "repeat"]:
         if c in _dict:
             del _dict[c]
 
@@ -926,6 +929,10 @@ def train(**kwargs):
             num_target_prompts += 1
         num_target_prompts = max(num_target_prompts, 1)
         if model_args.compose_method in ["cat", "concat"]: #, "pool", "mpool","lin"]:
+            target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
+            if model_args.add_target:
+                target_prompt_length += adapter_args.num_prompt_tokens
+        elif model_args.compose_method == "catw":
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
