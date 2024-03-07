@@ -168,6 +168,8 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 
 def create_label(row):
+    if not 'add_target' in row:
+        return ""
     label = ''
     if row['add_target']:
         label += 'A_'
@@ -1917,7 +1919,7 @@ def show_df(df):
             ignore_fname = False if char == "T" else True
             if char == "U":
                 cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
-                os.system(cmd)
+                # os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -1960,11 +1962,12 @@ def show_df(df):
                             except FileExistsError:
                                 pass
                         dest = os.path.join(home, "results", fname)
-                        shutil.copyfile(js, dest)
-                        clean_file(dest)
+                    shutil.copyfile(js, dest)
+                    clean_file(dest)
+                    mbeep()
                     to = "ahmad@10.42.0.2:" + dest 
                     cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
-                    os.system(cmd)
+                    # os.system(cmd)
                     # subprocess.run(cmd.split())
 
         elif char == "p" and False:
@@ -2679,7 +2682,8 @@ def show_df(df):
                     tdf = pd.concat([tdf, pd.DataFrame([new_note])], ignore_index=True)
                 else:
                     tdf.iloc[sel_row] = new_note 
-                shutil.copyfile(note_file, note_file.replace("notes", now + "_notes"))
+                if Path(note_file).is_file():
+                    shutil.copyfile(note_file, note_file.replace("notes", now + "_notes"))
                 tdf.to_csv(note_file)
             if "comment" in df:
                 df = tdf
@@ -3147,7 +3151,7 @@ def biginput(prompt=":", default=""):
     win = cur.newwin(12, cols, 5, 0)
     win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
     _comment, ret_ch = minput(win, 0, 0, "Enter text", 
-            default=default, mode =MULTI_LINE, rtl=False)
+            default=default, mode =MULTI_LINE)
     if _comment == "<ESC>":
         _comment = ""
     return _comment, ret_ch
@@ -3370,7 +3374,7 @@ def get_files(dfpath, dfname, dftype, limit, file_id):
                     df["exp_name"] =  "_" + Path(f).stem
             dfs.append(df)
             ii += 1
-        if len(dfs) > 1:
+        if len(dfs) > 0:
             df = pd.concat(dfs, ignore_index=True)
             return df
         return None

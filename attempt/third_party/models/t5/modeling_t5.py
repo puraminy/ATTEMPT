@@ -1336,7 +1336,8 @@ class T5Stack(T5PreTrainedModel):
                 self.attn_W_down = nn.Linear(inp_dim, 1000, bias=False)
                 self.attn_W_up = nn.Linear(1000, inp_dim, bias=False)
                 self.attn_non_linear = nn.SiLU()
-                self.layer_norm = nn.LayerNorm(inp_dim)
+
+            self.layer_norm = nn.LayerNorm(inp_dim)
 #        self.z = nn.Parameter(data=torch.empty((
 #            attend_num, 
 #            intrinsic_dim
@@ -1499,6 +1500,9 @@ class T5Stack(T5PreTrainedModel):
                         logits=target_router).rsample()            
                 else:
                     target_shares = torch.sigmoid(target_router) # * self.sig_coef) 
+                    # target_shares = F.softmax(target_router, dim=-1)
+                    # target_shares = RelaxedBernoulli(temperature=0.01, 
+                    #    logits=target_router).rsample()            
             elif self.target_share >= 1:
                 target_shares = torch.ones(1, batch_size, device=device)
             else:
@@ -1726,7 +1730,7 @@ class T5Stack(T5PreTrainedModel):
         if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
-        if compose_method == "wavg": 
+        if compose_method in ["wavg","mwavg"]: 
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', attn_sel_scores, attend_to_x)
         elif compose_method == "rcat" or compose_method == "scat":
@@ -1851,8 +1855,12 @@ class T5Stack(T5PreTrainedModel):
            
            if compose_method in ["cat","concat"]:
                soft_prompts = torch.cat([soft_prompts, target], dim=2)
+           elif compose_method in ["mwavg"]:
+               soft_prompts = torch.mul(target, soft_prompts) 
            else:
                soft_prompts = soft_prompts + target 
+
+           # soft_prompts = self.layer_norm(soft_prompts)
 
            attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)

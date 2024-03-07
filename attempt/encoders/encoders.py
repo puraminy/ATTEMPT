@@ -227,22 +227,32 @@ class MatPromptEncoder(PromptEncoder):
 
 class MLPPromptEncoder(PromptEncoder):
     enc_type = "mlp"
-    def __init__(self, num_layers=1, hidden_size=-1, **kwargs) -> None:
+    def __init__(self, num_layers=1, hidden_size=-1, nl = "gelu", **kwargs) -> None:
         super().__init__(**kwargs)
         embedding_dim = self.embedding_dim
+        if nl.lower() == "gelu":
+            nlf = torch.nn.GELU()
+        elif nl.lower() == "relu":
+            nlf = torch.nn.ReLU()
+        elif nl.lower() == "silu":
+            nlf = torch.nn.SiLU()
+        elif nl.lower() == "elu":
+            nlf = torch.nn.ELU()
+        else:
+            nlf = torch.nn.GELU()
         hsize = hidden_size if hidden_size > 1 else embedding_dim
         if num_layers == 2:
             self.mlp = torch.nn.Sequential(
                 torch.nn.Linear(embedding_dim, hsize),
-                torch.nn.ReLU(),
+                nlf,
                 torch.nn.Linear(hsize, hsize),
-                torch.nn.ReLU(),
+                nlf,
                 torch.nn.Linear(hsize, embedding_dim)
             )
         else:
             self.mlp = torch.nn.Sequential(
                 torch.nn.Linear(embedding_dim, hsize),
-                torch.nn.ReLU(),
+                nlf,
                 torch.nn.Linear(hsize, embedding_dim)
             )
 
@@ -334,7 +344,8 @@ def extend_tokenizer(tokenizer, tokens = []):
         tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
 
 def create_encoder(name, model, tokenizer, prompt_tokens, 
-        length=None, encoder_type="lstm", is_source = False, shared_mat=None):
+        length=None, encoder_type="lstm", non_linear="gelu",
+        hidden_size=-1, num_layers=1, is_source = False, shared_mat=None):
     embedding_dim = model.config.hidden_size
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
@@ -346,16 +357,20 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
     prompt_encoder = None
     if encoder_type.startswith("mlp"):
         _enc_type = encoder_type.split("@")
-        num_layers = 1
         if len(_enc_type) > 1:
             num_layers = int(_enc_type[1])
-        hidden_size = -1
         if len(_enc_type) > 2:
             hidden_size = int(_enc_type[2])
+        if len(_enc_type) > 3:
+            non_linear = _enc_type[3]
+
+        # assert False, str(num_layers) + "-" + str(hidden_size) + "-" + str(non_linear)
+
         prompt_encoder = MLPPromptEncoder(name = name,
                 model=model, tokenizer=tokenizer,
                 prompt_tokens=prompt_tokens, 
                 length = length,
+                nl = non_linear,
                 is_source = is_source,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)

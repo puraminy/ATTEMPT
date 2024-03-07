@@ -94,18 +94,6 @@ global_x_labels = []
 from scipy.stats import entropy
 
 
-def map_param(param_map, x, key=False):
-    k, v = x, ""
-    if "=" in x:
-        k, v = x.split("=")
-    k = k.strip("--")
-    k = k.strip("@")
-    m = param_map[k] if k in param_map else k
-    if key is True or not v: 
-        return m
-    else:
-        return "@" + m + "=" + v 
-
 def cosine_similarity(A, B, N):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     portion_A = torch.tensor(A[:N]).to(device).detach().clone()
@@ -149,6 +137,17 @@ def run_command(command):
 import click
 import debugpy
 import os.path as op
+def map_param(param_map, x, key=False):
+    k, v = x, ""
+    if "=" in x:
+        k, v = x.split("=")
+    k = k.strip("--")
+    k = k.strip("@")
+    m = param_map[k] if k in param_map else k
+    if key is True or not v: 
+        return m
+    else:
+        return "@" + m + "=" + v 
 
 @click.group()
 def cli():
@@ -464,7 +463,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
        mylogs.bp("prev")
-       assert False, main_vars 
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
        eval_folders = glob.glob(
@@ -838,9 +836,13 @@ def train(**kwargs):
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
     exclude_tasks = kwargs.setdefault("exclude_tasks", []) 
+    if exclude_tasks is None:
+        exclude_tasks = []
     if type(exclude_tasks) != list:
         exclude_tasks = [exclude_tasks]
     include_tasks = kwargs.setdefault("include_tasks", []) 
+    if include_tasks is None:
+        include_tasks = []
     if type(include_tasks) != list:
         include_tasks = [include_tasks]
     if exclude_tasks or include_tasks:
@@ -956,7 +958,7 @@ def train(**kwargs):
 
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
-    task_args["map_labels"] = kwargs.setdefault("map_labels", True)
+    task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
     task_args["train_samples"] = data_args.max_train_samples
@@ -1406,6 +1408,10 @@ def train(**kwargs):
                 intrinsic_dim,
                 adapter_args.num_prompt_tokens * config.d_model
             )).uniform_(-bound, bound), requires_grad=False)
+
+        prompt_num_layers = kwargs.get("num_layers",1)
+        prompt_hidden_size = kwargs.get("hidden_size", -1)
+        prompt_non_linear = kwargs.get("non_linear", "gelu")
         for prompt in source_prompts: 
             encoder_name = prompt
             encoder_type = adapter_args.prompt_encoder_type
@@ -1414,6 +1420,9 @@ def train(**kwargs):
                 encoder_type = encoder_type 
             encoder, enc_type = create_encoder(encoder_name, model, tokenizer, 
                     prompt_tokens=[],
+                    non_linear = prompt_non_linear,
+                    hidden_size = prompt_hidden_size,
+                    num_layers = prompt_num_layers,
                     is_source = True,
                     length = adapter_args.num_prompt_tokens,
                     encoder_type = encoder_type,
@@ -1469,6 +1478,9 @@ def train(**kwargs):
         for name, prompt_tokens in encoders_prompts.items():
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
+                    non_linear = prompt_non_linear,
+                    hidden_size = prompt_hidden_size,
+                    num_layers = prompt_num_layers,
                     encoder_type=adapter_args.prompt_encoder_type, 
                     shared_mat= shared_mat) 
 

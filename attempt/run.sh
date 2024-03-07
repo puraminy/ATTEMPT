@@ -103,7 +103,7 @@ if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_at" ]; then
-   _tasks="${_tasks}#xAttr#xReact#oReact#oWant#xWant#xIntent#isAfter#isBefore"
+   _tasks="${_tasks}#xAttr#xReact#xNeed#oWant#xWant#xIntent#isAfter#isBefore"
 fi
 if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"

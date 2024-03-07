@@ -9,6 +9,9 @@
     "prefix"
   ],
   "rep_cols":[
+    "time"
+  ],
+  "rep_cols":[
     "expid",
     "expname",
     "folder",
@@ -25,16 +28,25 @@
     "load_source_prompts",
     "load_private_prompts",
     "use_private_prompts",
+    "use_source_prompts",
+    "learn_source_prompts",
     "num_train_epochs",
     "num_target_prompts",
     "gen_norm_method",
     "norm_method",
     "sel_thresh",
+    "mask_type",
+    "add_target",
     "time"
   ],
   "info_cols":[
     "expid",
     "compose_method"
+  ],
+  "index_cols":[
+    "expid",
+    "compose_method",
+    "mask_type"
   ],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]

@@ -37,6 +37,11 @@ TASK_TO_METRICS = {
                    "xNeed": ["rouge"],
                    "atomic-rels": ["rouge"],
                    "xReact": ["rouge"],
+                   "oReact": ["rouge"],
+                   "oEffect": ["rouge"],
+                   "oWant": ["rouge"],
+                   "isBefore": ["rouge"],
+                   "isAfter": ["rouge"],
                    "mrpc": ["accuracy"], #, "f1_score_with_invalid"],
                    "cola": ["accuracy"], # ['matthews_corrcoef'],
                    "stsb": ['pearson_corrcoef', 'spearman_corrcoef'],
@@ -301,7 +306,6 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
     return {task: tasks_metrics(task) for task in task_names}
 
 ######## My functions
-
 def bert_score(bert_scorer, hyps, refs, device):
         if bert_scorer == None:
             return 0, 0, 0.0
