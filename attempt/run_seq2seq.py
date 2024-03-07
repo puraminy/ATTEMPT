@@ -1476,12 +1476,15 @@ def train(**kwargs):
         mylogs.bp("usp")
         num_attend_to = len(source_prompts) + len(target_prompts) + 1 # one for input 
         for name, prompt_tokens in encoders_prompts.items():
+            encoder_type = adapter_args.prompt_encoder_type 
+            if prompt_tokens[0].startswith("<tar-"):
+                encoder_type = kwargs.get("target_encoder_type", encoder_type)
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
                     non_linear = prompt_non_linear,
                     hidden_size = prompt_hidden_size,
                     num_layers = prompt_num_layers,
-                    encoder_type=adapter_args.prompt_encoder_type, 
+                    encoder_type=encoder_type, 
                     shared_mat= shared_mat) 
 
             opp = kwargs.setdefault("output_prompts_prefix", None) 

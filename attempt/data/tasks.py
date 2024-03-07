@@ -733,7 +733,10 @@ class MRPC(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     #labels_map = {"map":{"0":"unequal","1":"duplicate"}
-    labels_map = {"map":{"0":"not_equivalent","1":"equivalent"}}
+    labels_map = {
+            "map":{"0":"not_equivalent","1":"equivalent"},
+            "map2":{"0":"not_equal","1":"duplicate"}
+            }
     #labels_map = {"map":{"0":"F","1":"G"}
 
     def load_dataset(self, split):
@@ -794,7 +797,9 @@ class TweetEval(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"map":{"0":"negative", "1":"neutral", "2":"positive"}}
+    labels_map = {
+            "map":{"0":"negative", "1":"neutral", "2":"positive"},
+            }
     rel_nat = "The sentiment is"
 
     def load_dataset(self, split):
@@ -816,7 +821,9 @@ class SST2(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"map":{"0":"negative", "1":"positive"}}
+    labels_map = {
+            "map":{"0":"negative", "1":"positive"},
+            }
     #labels_map = {"map":{"0":"bad", "1":"good"}
     # labels_map = {"map":{"0":"L", "1":"M"}
     #rel_nat = "As a result, they feel"
@@ -1159,7 +1166,12 @@ class QQP(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"map":{"0":"not_duplicate","1":"duplicate"}}
+    labels_map = {
+            "map1":{"0":"not_equivalent","1":"equivalent"},
+            "map":{"0":"not_duplicate","1":"duplicate"},
+            "map2":{"0":"not_equal","1":"duplicate"},
+            "map3":{"0":"different","1":"duplicate"},
+            }
     #labels_map = {"map":{"0":"unequal","1":"duplicate"}
     #labels_map = {"map":{"0":"different","1":"identical"}
     #labels_map = {"map":{"0":"F","1":"G"}
@@ -1187,7 +1199,10 @@ class MNLI(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     # labels_map = {"map":{"0":"en", "1":"neutral", "2": "contradicts"}
-    labels_map = {"map":{"0":"entailment", "1":"neutral", "2": "contradiction"}}
+    labels_map = {
+            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"},
+            "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            }
     # labels_map = {"map":{"0":"0", "1":"1", "2": "2"}
     # labels_map = {"map":{"0":"C", "1":"D", "2": "E"}
     rel_nat = "The logical relation between premise and hypothesis is " 
@@ -1225,7 +1240,9 @@ class PAWS(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"not_equivalent","1":"equivalent"}}
+    labels_map = {
+            "map":{"0":"not_equivalent","1":"equivalent"}
+            }
 
     def load_dataset(self, split):
         return datasets.load_dataset("paws", "labeled_final", split=split)
@@ -1251,7 +1268,9 @@ class SNLI(AbstractTask):
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"entailment", "1":"neutral", "2": "contradiction"}}
+    labels_map = {
+            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            }
 
     def load_dataset(self, split):
         return datasets.load_dataset('snli', split=split)
@@ -1271,7 +1290,9 @@ class MultiNLI(AbstractTask):
                            "test": "validation_matched"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"entailment", "1":"neutral", "2": "contradiction"}}
+    labels_map = {
+            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            }
 
     def load_dataset(self, split):
         return datasets.load_dataset('multi_nli', split=split)
@@ -1316,8 +1337,10 @@ class RTE(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-
-    labels_map = {"map":{"0":"entailment", "1":"not_entailment"}} # entailment nont_entailment
+    labels_map = {
+            "map":{"0":"entailment", "1":"not_entailment"},
+            "map2":{"0":"entailment", "1":"not_entailment"}
+            } # entailment nont_entailment
     ## labels_map = {"map":{"0":"C", "1":"D"} # entailment nont_entailment
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',

@@ -96,6 +96,8 @@ def normalize_scores(scores, method="soft",
        pass 
     elif method == "direct" or method == "soft" or method == "srelu":
         scores = F.softmax(scores, -1)
+    elif method == "colsoft":
+        scores = F.softmax(scores, 0)
     elif method == "sigmoid":
         scores = torch.sigmoid(scores)  
     elif method == "sign":
@@ -1489,24 +1491,6 @@ class T5Stack(T5PreTrainedModel):
             attend_to_idx = attend_to_idx[:,:-1] # skip private prompts
             attend_to = attend_to[:,:-1,:,:]
 
-        if self.target_share is not None:
-            if self.target_share == -1:
-                target_router = self.target_router.unsqueeze(0)
-                target_router = batched_index_select(target_router, 1, target_idx)
-                if self.training:
-                    tst = self.target_share_temperature
-                    # tst = self.temperature
-                    target_shares = RelaxedBernoulli(temperature=tst, 
-                        logits=target_router).rsample()            
-                else:
-                    target_shares = torch.sigmoid(target_router) # * self.sig_coef) 
-                    # target_shares = F.softmax(target_router, dim=-1)
-                    # target_shares = RelaxedBernoulli(temperature=0.01, 
-                    #    logits=target_router).rsample()            
-            elif self.target_share >= 1:
-                target_shares = torch.ones(1, batch_size, device=device)
-            else:
-                target_shares = self.target_share * torch.ones(1, batch_size, device=device)
         # Bernouli 
         route_method = self.route_method
         gen_norm_method = self.norm_method
@@ -1717,16 +1701,6 @@ class T5Stack(T5PreTrainedModel):
             # attn_sel_scores = torch.ones_like(attn_sel_scores, requires_grad=True)
             pass
 
-        if self.target_share == -2:
-            top, _ = torch.max(attn_sel_scores, -1) 
-            target_shares = top.transpose(0,1)
-        elif self.target_share == -3:
-            top, _ = torch.max(attn_sel_scores, -1) 
-            target_shares = 1 - top.transpose(0,1)
-        elif self.target_share == -4:
-            top = torch.mean(attn_sel_scores, -1) 
-            target_shares = 1 - top.transpose(0,1)
-        mylogs.bp("cmm")
         if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
@@ -1829,44 +1803,73 @@ class T5Stack(T5PreTrainedModel):
             x = self.attn_W_up(x)
             # x = self.layer_norm(x)
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
-        # Add target embedding when attend_target is not True
-        if add_target is True:
-           attn_mask = self.attn_mask
-           if not self.training: 
-               mylogs.bp("ccc")
-               if self.gen_conf is not None and "attn_mask" in self.gen_conf:
-                   attn_mask = self.gen_conf["attn_mask"] 
-           mylogs.bp("adt")
-           target = target_prompts
-           if compose_method in ["cat","concat"]:
-               target = last_prompt
-           mask = torch.zeros((batch_size,1), device=attn_mask.device)
-           for i in range(batch_size):
-                mask[i] = attn_mask[target_idx[i].reshape(-1,1), target_idx[i]]
-           mask = mask.reshape(batch_size, 1, 1, 1)
-           if self.target_share == 1:
-               soft_prompts = mask * target
-           elif self.target_share == 2:
-               target = mask * target
-           elif self.target_share != 0:
-               ts = target_shares.reshape(batch_size, 1, 1, 1)
-               soft_prompts = (1 - ts) * soft_prompts 
-               target = mask * ts * target
-           
-           if compose_method in ["cat","concat"]:
-               soft_prompts = torch.cat([soft_prompts, target], dim=2)
-           elif compose_method in ["mwavg"]:
-               soft_prompts = torch.mul(target, soft_prompts) 
-           else:
-               soft_prompts = soft_prompts + target 
-
-           # soft_prompts = self.layer_norm(soft_prompts)
-
-           attn_sel_scores = torch.cat(
-                   [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
-           attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
-               
         return soft_prompts, attn_sel_scores, attend_to_idx
+
+    def add_target_prompts(self, target_prompts, soft_prompts, 
+            attn_sel_scores, attend_to_idx, target_idx):
+       batch_size = soft_prompts.shape[0]
+       device = soft_prompts.device
+       if self.target_share is not None:
+            if self.target_share == -1:
+                target_router = self.target_router.unsqueeze(0)
+                target_router = batched_index_select(target_router, 1, target_idx)
+                if self.training:
+                    tst = self.target_share_temperature
+                    # tst = self.temperature
+                    target_shares = RelaxedBernoulli(temperature=tst, 
+                        logits=target_router).rsample()            
+                else:
+                    target_shares = torch.sigmoid(target_router) # * self.sig_coef) 
+                    # target_shares = F.softmax(target_router, dim=-1)
+                    # target_shares = RelaxedBernoulli(temperature=0.01, 
+                    #    logits=target_router).rsample()            
+            elif self.target_share >= 1:
+                target_shares = torch.ones(1, batch_size, device=device)
+            else:
+                target_shares = self.target_share * torch.ones(1, batch_size, device=device)
+       if self.target_share == -2:
+            top, _ = torch.max(attn_sel_scores, -1) 
+            target_shares = top.transpose(0,1)
+       elif self.target_share == -3:
+            top, _ = torch.max(attn_sel_scores, -1) 
+            target_shares = 1 - top.transpose(0,1)
+       elif self.target_share == -4:
+            top = torch.mean(attn_sel_scores, -1) 
+            target_shares = 1 - top.transpose(0,1)
+       mylogs.bp("cmm")
+       attn_mask = self.attn_mask
+       if not self.training: 
+           mylogs.bp("ccc")
+           if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+               attn_mask = self.gen_conf["attn_mask"] 
+       mylogs.bp("adt")
+       target = target_prompts
+       if self.compose_method in ["cat","concat"]:
+           target = last_prompt
+       mask = torch.zeros((batch_size,1), device=attn_mask.device)
+       for i in range(batch_size):
+            mask[i] = attn_mask[target_idx[i].reshape(-1,1), target_idx[i]]
+       mask = mask.reshape(batch_size, 1, 1, 1)
+       if self.target_share == 1:
+           soft_prompts = mask * target
+       elif self.target_share == 2:
+           target = mask * target
+       elif self.target_share != 0:
+           ts = target_shares.reshape(batch_size, 1, 1, 1)
+           soft_prompts = (1 - ts) * soft_prompts 
+           target = mask * ts * target
+       
+       if self.compose_method in ["cat","concat"]:
+           soft_prompts = torch.cat([soft_prompts, target], dim=2)
+       elif self.compose_method in ["mwavg"]:
+           soft_prompts = torch.mul(target, soft_prompts) 
+       else:
+           soft_prompts = soft_prompts + target 
+       # soft_prompts = self.layer_norm(soft_prompts)
+       attn_sel_scores = torch.cat(
+               [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
+       attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
+       return soft_prompts, attn_sel_scores, attend_to_idx
 
     def isin(self, ar1, ar2):
         return (ar1[..., None] == ar2).any(-1)
@@ -2037,6 +2040,16 @@ class T5Stack(T5PreTrainedModel):
                                 target_idx=target_idx, 
                                 task_ids = tids,
                                 task=task)
+                            if self.add_target:
+                                (soft_prompts, 
+                                 attn_scores, 
+                                 attend_to_idx) = self.add_target_prompts(
+                                         target_prompts,
+                                         soft_prompts,
+                                         attn_scores,
+                                         attend_to_idx,
+                                         target_idx=target_idx 
+                                         )
                             # self.adapter_config.soft_prompts = soft_prompts.view(-1, 
                             # self.model_dim)
                             if not self.training:

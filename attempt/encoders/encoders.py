@@ -230,31 +230,30 @@ class MLPPromptEncoder(PromptEncoder):
     def __init__(self, num_layers=1, hidden_size=-1, nl = "gelu", **kwargs) -> None:
         super().__init__(**kwargs)
         embedding_dim = self.embedding_dim
-        if nl.lower() == "gelu":
-            nlf = torch.nn.GELU()
-        elif nl.lower() == "relu":
-            nlf = torch.nn.ReLU()
-        elif nl.lower() == "silu":
-            nlf = torch.nn.SiLU()
-        elif nl.lower() == "elu":
-            nlf = torch.nn.ELU()
+        if nl is not None:
+            if nl.lower() == "gelu":
+                nlf = torch.nn.GELU()
+            elif nl.lower() == "relu":
+                nlf = torch.nn.ReLU()
+            elif nl.lower() == "silu":
+                nlf = torch.nn.SiLU()
+            elif nl.lower() == "elu":
+                nlf = torch.nn.ELU()
+            else:
+                nlf = None 
         else:
-            nlf = torch.nn.GELU()
+            nlf = None 
         hsize = hidden_size if hidden_size > 1 else embedding_dim
+        layers = [torch.nn.Linear(embedding_dim, hsize)]
+        if nlf is not None:
+            layers.append(nlf)
         if num_layers == 2:
-            self.mlp = torch.nn.Sequential(
-                torch.nn.Linear(embedding_dim, hsize),
-                nlf,
-                torch.nn.Linear(hsize, hsize),
-                nlf,
-                torch.nn.Linear(hsize, embedding_dim)
-            )
-        else:
-            self.mlp = torch.nn.Sequential(
-                torch.nn.Linear(embedding_dim, hsize),
-                nlf,
-                torch.nn.Linear(hsize, embedding_dim)
-            )
+            layers.append(torch.nn.Linear(hsize, hsize))
+            if nlf is not None:
+                layers.append(nlf)
+        if num_layers > 0:
+            layers.append(torch.nn.Linear(hsize, embedding_dim))
+        self.mlp = torch.nn.Sequential(*layers)
 
     def forward_step(self, index_list, tids=None, training=True):
         embs = self.embedding(self.net_inps)

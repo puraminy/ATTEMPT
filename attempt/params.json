@@ -9,6 +9,8 @@
   "st":"sel_thresh",
   "rm":"route_method",
   "tmpr":"temperature",
+  "temp":"template",
+  "map":"mapping",
   "alr":"attn_learning_rate",
   "cmm":"compose_method",
   "gcmm":"gen_compose_method",

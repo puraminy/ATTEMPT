@@ -168,8 +168,6 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 
 def create_label(row):
-    if not 'add_target' in row:
-        return ""
     label = ''
     if row['add_target']:
         label += 'A_'
@@ -534,7 +532,7 @@ def show_df(df):
         fav_df = pd.read_table(fav_path)
     else:
         fav_df = pd.DataFrame(columns = df.columns)
-    sel_path = os.path.join(home, "atomic2020", "sel-test", "new_test.tsv")
+    sel_path = os.path.join(home, "atomic2020", "new_test.tsv")
     if Path(sel_path).exists():
         sel_df = pd.read_table(sel_path)
         if not "sel" in sel_df:
@@ -1919,7 +1917,7 @@ def show_df(df):
             ignore_fname = False if char == "T" else True
             if char == "U":
                 cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
-                # os.system(cmd)
+                os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -1967,9 +1965,8 @@ def show_df(df):
                     mbeep()
                     to = "ahmad@10.42.0.2:" + dest 
                     cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
-                    # os.system(cmd)
+                    os.system(cmd)
                     # subprocess.run(cmd.split())
-
         elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
@@ -2709,7 +2706,6 @@ def show_df(df):
             if not "eid" in rep_cols:
                 gcol += ["eid"] 
             mdf[gcol] = mdf[gcol].fillna('none')
-
             pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
                     values=score_cols, aggfunc='mean', margins=True)
             columns = pdf.columns.to_flat_index()
