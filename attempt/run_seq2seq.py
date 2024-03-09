@@ -1199,7 +1199,7 @@ def train(**kwargs):
     sign_router = kwargs.setdefault("sign_router", False) 
     if sign_router:
        model_args.learn_attention = False
-    config.learn_attention = model_args.learn_attention
+    config.learn_attention = model_args.learn_attention 
     config.learn_source_prompts = model_args.learn_source_prompts
     config.learn_target_prompts = model_args.learn_target_prompts
     adapter_config = get_adapter_config(
@@ -1294,14 +1294,15 @@ def train(**kwargs):
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     mylogs.bp("router")
+    use_saved_router = kwargs.setdefault("use_saved_router", False) 
     router_prefix = kwargs.setdefault("router_prefix", None) 
+    use_saved_router = use_saved_router or (router_prefix and router_prefix in main_vars)
     if router_prefix is None or router_prefix == "1":
         router_prefix = str(data_args.max_train_samples)
 
     router_prefix = str(router_prefix) + "_" + \
             "-".join(sorted(data_args.task_name)) + "-" + str(num_source_prompts)
     mylogs.bp("router")
-    use_saved_router = kwargs.setdefault("use_saved_router", False) 
     router_dict = None
     init_router = None
     if model_args.attn_tuning is True and use_saved_router:
