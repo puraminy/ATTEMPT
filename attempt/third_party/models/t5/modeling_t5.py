@@ -682,7 +682,7 @@ class T5Attention(nn.Module):
             return hidden_states
 
         #### Mycod qqqqqqqqqqqqqqqqqqqq
-        mylogs.bp("query_fwd")
+        # mylogs.bp("query_fwd")
         #x = self.attn_W_down(hidden_states)
         #x = self.attn_non_linear(x)
         #x = self.attn_W_up(x)
@@ -1164,6 +1164,7 @@ class T5Stack(T5PreTrainedModel):
         self.mul_prefix_emb = mul_prefix_emb
         self.attn_method = attn_method
         self.model_dim = model_dim
+        self.out_dim = config.prompt_out_dim if config.prompt_out_dim > 0 else model_dim
         self.shared_attn = shared_attn
         self.learned_temperature = learned_temperature
         self.target_task_id = None
@@ -1422,24 +1423,13 @@ class T5Stack(T5PreTrainedModel):
              self.sel_thresh = self.anneal_thresh.anneal(i_step)
 
     ################# MyCode fffffffffff
-    def attend_prompts(self, inputs_embeds, src_prompts, 
+    def attend_input(self, inputs_embeds, src_prompts, 
             target_prompts, add_target, source_idx=None, 
             target_idx =None, task_ids=None, task=""):
-        #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
-        #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
-        mylogs.bp("att")
-        if not self.training:
-            mylogs.bp("all")
         batch_size = inputs_embeds.shape[0]
         attend_for = target_prompts
         inp_target = target_prompts
-        private_prompt = None
-        if self.use_private_prompts:
-            private_prompt = src_prompts[:,-1,:,:]
-            if self.attend_for == "private": 
-                inp_target = private_prompt.unsqueeze(1)
-                attend_to = src_prompts[:,:-1,:,:]
-        elif self.attend_for == "target": 
+        if self.attend_for == "target": 
             inp_target = target_prompts
         elif self.attend_for == "inp_target": 
             #pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
@@ -1451,6 +1441,61 @@ class T5Stack(T5PreTrainedModel):
         elif self.attend_for == "input": 
             inp_target = inputs_embeds 
             inp_target = inp_target.unsqueeze(1)
+        avg_attend_to, _ = torch.max(attend_to, 2)
+        avg_attend_for, _ = torch.max(inp_target, 2)
+        if self.attn_method == "dot":
+            x = torch.transpose(avg_attend_to, 1,2)
+            attn_scores = avg_attend_for.bmm(x)
+        elif self.attn_method == "linear":
+            x = self.attn_Wa(avg_attend_to)
+            x = self.layer_norm(x)
+            x = torch.transpose(x, 1,2)
+            attn_scores = avg_attend_for.bmm(
+                x) / self.temperature
+
+        elif self.attn_method == "sub":
+            x = self.attn_W_down(avg_attend_to)
+            x = self.attn_non_linear(x)
+            x = self.attn_W_up(x)
+            x = self.layer_norm(x)
+            #x = x.unsqueeze(-1) ###
+            x = torch.transpose(x, -2, -1)
+            attn_scores = avg_attend_for.bmm(
+                x) / self.temperature
+
+        # implement token level model
+        elif self.attn_method == "token":
+            x = self.attn_W_down(avg_attend_to)
+            x = self.attn_non_linear(x)
+            x = self.attn_W_up(x)
+            x = self.layer_norm(x)
+            x = x.unsqueeze(-1)
+            attn_scores = torch.einsum(
+                "bpld,bdk->bplk", attend_for, x) / self.temperature
+        elif self.attn_method == "constant":
+            # FIXME: more efficient implementation
+            attn_scores = (torch.ones(attend_for.size(1), 
+                attend_to.size(1), device=inputs_embeds.device) / attend_to.size(1))
+            attn_scores = attn_scores.repeat(batch_size, 1, 1)
+        else:
+            raise NotImplementedError
+
+        return attn_scores 
+
+    def attend_prompts(self, inputs_embeds, src_prompts, 
+            source_idx=None, num_targets=1, target_idx =None, task_ids=None, task=""):
+        #avg_inputs_embeds, _ = torch.max(inputs_embeds, 1)
+        #pool = torch.nn.AdaptiveAvgPool1d(self.promt_dim)
+        mylogs.bp("att")
+        if not self.training:
+            mylogs.bp("all")
+        batch_size = inputs_embeds.shape[0]
+        private_prompt = None
+        if self.use_private_prompts:
+            private_prompt = src_prompts[:,-1,:,:]
+            if self.attend_for == "private": 
+                inp_target = private_prompt.unsqueeze(1)
+                attend_to = src_prompts[:,:-1,:,:]
         if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
             pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
@@ -1460,11 +1505,6 @@ class T5Stack(T5PreTrainedModel):
         else:
             attend_to = src_prompts[:,1:,:,:]
 
-        avg_attend_to, _ = torch.max(attend_to, 2)
-        avg_attend_for, _ = torch.max(inp_target, 2)
-        #avg_attend_to = attend_to
-        #avg_attend_for = inp_target
-        #avg_attend_for = avg_inputs_embeds #torch.max(target_prompts ,2)
         device=inputs_embeds.device
         attn_scores = None
         attend_to_idx = source_idx
@@ -1556,55 +1596,17 @@ class T5Stack(T5PreTrainedModel):
 
             #z = torch.mm(self.z, self.A) 
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
-        elif self.attn_method == "dot":
-            x = torch.transpose(avg_attend_to, 1,2)
-            attn_scores = avg_attend_for.bmm(x)
-
-        elif self.attn_method == "linear":
-            x = self.attn_Wa(avg_attend_to)
-            x = self.layer_norm(x)
-            x = torch.transpose(x, 1,2)
-            attn_scores = avg_attend_for.bmm(
-                x) / self.temperature
-
-        elif self.attn_method == "sub":
-            x = self.attn_W_down(avg_attend_to)
-            x = self.attn_non_linear(x)
-            x = self.attn_W_up(x)
-            x = self.layer_norm(x)
-            #x = x.unsqueeze(-1) ###
-            x = torch.transpose(x, -2, -1)
-            attn_scores = avg_attend_for.bmm(
-                x) / self.temperature
-
-        # implement token level model
-        elif self.attn_method == "token":
-            x = self.attn_W_down(avg_attend_to)
-            x = self.attn_non_linear(x)
-            x = self.attn_W_up(x)
-            x = self.layer_norm(x)
-            x = x.unsqueeze(-1)
-            attn_scores = torch.einsum(
-                "bpld,bdk->bplk", attend_for, x) / self.temperature
-        elif self.attn_method == "constant":
-            # FIXME: more efficient implementation
-            attn_scores = (torch.ones(attend_for.size(1), 
-                attend_to.size(1), device=inputs_embeds.device) / attend_to.size(1))
-            attn_scores = attn_scores.repeat(batch_size, 1, 1)
-        else:
-            raise NotImplementedError
 
         mylogs.bp("before")
         if self.training and "before" in self.norm_method:
             method = self.norm_method.replace("before_","")
             attn_scores = normalize_scores(attn_scores, method) 
 
-        num_targets = attend_for.size(1) 
-        if compose_method in ["cat","concat","catw"]: #,"pool","mpool"]:
-            num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
-            num_attend_to = num_attend_to // num_targets
-        else:
-            num_attend_to = self.num_target_prompts
+        #if compose_method in ["cat","concat","catw"]: #,"pool","mpool"]:
+        #    num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
+        #    num_attend_to = num_attend_to // num_targets
+        #else:
+        num_attend_to = self.num_target_prompts
 
         if not self.training and "gen_ntp" in self.gen_conf:
             num_attend_to = self.gen_conf["gen_ntp"]
@@ -1668,7 +1670,7 @@ class T5Stack(T5PreTrainedModel):
             attend_to_x = batched_index_select(attend_to, 1, attend_to_sel_idx)
 
         attend_to_x = attend_to_x.view(batch_size, num_targets, -1, 
-                self.src_prompt_dim, self.model_dim)
+                self.src_prompt_dim, self.out_dim)
         if route_method == "params":
             # attend_to_x = attend_to
             # attend_to_x = attend_to_x.unsqueeze(1)
@@ -1859,10 +1861,14 @@ class T5Stack(T5PreTrainedModel):
            soft_prompts = (1 - ts) * soft_prompts 
            target = mask * ts * target
        
+       mylogs.bp("prod")
        if self.compose_method in ["cat","concat"]:
            soft_prompts = torch.cat([soft_prompts, target], dim=2)
-       elif self.compose_method in ["mwavg"]:
-           soft_prompts = torch.mul(target, soft_prompts) 
+       elif self.compose_method in ["mwavg"] or self.out_dim != self.model_dim:
+           _soft_prompts = soft_prompts.view(-1, 
+                   soft_prompts.size(-2), soft_prompts.size(-1))
+           _target = target_prompts.view(-1, target.size(-2), target.size(-1))
+           soft_prompts = soft_prompts * target 
        else:
            soft_prompts = soft_prompts + target 
        # soft_prompts = self.layer_norm(soft_prompts)
@@ -1914,8 +1920,15 @@ class T5Stack(T5PreTrainedModel):
             task_prompt_masks = self.get_task_prompt_ids_mask(input_ids)
             sp_prompt_ids = input_ids[task_prompt_masks].view(batch_size,-1) 
             
-            target_prompts = torch.zeros((*target_prompt_ids.size(), self.model_dim), 
+            mylogs.bp("fwd")
+            target_prompts = torch.zeros(
+                (*target_prompt_ids.size(), self.model_dim), 
                                           device=device) 
+            #target_prompts = torch.zeros((
+            #    (batch_size,
+            #    self.out_dim, 
+            #    self.model_dim)
+            #), device=device)
             common_prompts = torch.zeros((*common_prompt_ids.size(), self.model_dim), 
                                           device=device) 
             task_prompts = torch.zeros((*sp_prompt_ids.size(), self.model_dim), 
@@ -1929,7 +1942,7 @@ class T5Stack(T5PreTrainedModel):
             common_prompts_list = []
             src_prompts = torch.zeros(
                 (num_prompt_encoders, 
-                 self.src_prompt_dim, self.model_dim), device=device) 
+                 self.src_prompt_dim, self.out_dim), device=device) 
             ii = 1
             for encoder in self.prompt_encoders:
                 if encoder.is_source: # and self.use_source_prompts:
@@ -1970,6 +1983,7 @@ class T5Stack(T5PreTrainedModel):
                     #find input ids for prompt tokens
                     prompt_input_ids = target_prompt_ids[target_masks]
                     #call forwards on prompt encoder whose outputs are prompt embeddings
+                    mylogs.bp("fwdtarget")
                     out = encoder(prompt_input_ids, tids)
                     prompt_embeds = out.to(device)
                     target_prompts_clone = target_prompts.clone()
@@ -1990,7 +2004,7 @@ class T5Stack(T5PreTrainedModel):
                 mask = task_prompts !=0
                 task_prompts = (task_prompts*mask).sum(dim=0)/mask.sum(dim=0)
                 inputs_embeds[task_prompt_masks]=task_prompts.view(-1, self.model_dim)
-            if target_prompts_list:
+            if target_idx_list:
                 target_prompts = torch.stack(target_prompts_list) 
                 mask = target_prompts != 0
                 # averaging target prompts in the case that there are shared prompt tokens
@@ -2002,8 +2016,6 @@ class T5Stack(T5PreTrainedModel):
                         if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                             attn_mask = self.gen_conf["attn_mask"] 
                     if len(source_idx_list) > 1 or self.attend_input:
-                        target_prompts = target_prompts.view(batch_size,
-                            -1, self.prompt_dim, self.model_dim)
                         target_idx = torch.unique_consecutive(target_idx, dim=1)  
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
@@ -2021,26 +2033,27 @@ class T5Stack(T5PreTrainedModel):
                         sel_prompts = batched_index_select(src_prompts, 1, 
                             source_idx.unsqueeze(1))
                         mylogs.bp("fwdatt")
-                        if (self.attend_target 
-                            or self.add_target and self.compose_method in ["cat"]):
-                            pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-                            tpv = target_prompts.view(batch_size,-1,self.model_dim)
-                            avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
-                            avg_tp = avg_tp.view(batch_size, -1, 
-                                    self.src_prompt_dim, self.model_dim)
-                            sel_prompts = torch.cat((sel_prompts, avg_tp), dim=1)
-                            source_idx = torch.cat([source_idx, target_idx], dim=1)
+                        #if (self.attend_target 
+                        #    or self.add_target and self.compose_method in ["cat"]):
+                        #    pool = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+                        #    tpv = target_prompts.view(batch_size,-1,self.model_dim)
+                        #    avg_tp = pool(tpv.permute(0,2,1)).permute(0,2,1)
+                        #    avg_tp = avg_tp.view(batch_size, -1, 
+                        #            self.src_prompt_dim, self.model_dim)
+                        #    sel_prompts = torch.cat((sel_prompts, avg_tp), dim=1)
+                        #    source_idx = torch.cat([source_idx, target_idx], dim=1)
+                        mylogs.bp("fwdatt")
                         if source_idx.size(1) > 1 or self.attend_input:
                             soft_prompts, attn_scores, attend_to_idx = self.attend_prompts(
                                 inputs_embeds, 
                                 src_prompts = sel_prompts, 
-                                target_prompts = target_prompts,
-                                add_target = self.add_target, 
                                 source_idx=source_idx, 
                                 target_idx=target_idx, 
                                 task_ids = tids,
                                 task=task)
                             if self.add_target:
+                                target_prompts = target_prompts.view(batch_size,
+                                    -1, self.prompt_dim, self.out_dim)
                                 (soft_prompts, 
                                  attn_scores, 
                                  attend_to_idx) = self.add_target_prompts(

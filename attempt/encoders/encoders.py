@@ -196,6 +196,7 @@ class PromptEncoder(torch.nn.Module):
 class EmbeddingPromptEncoder(PromptEncoder):
     enc_type = "emb"
     def forward_step(self, index_list, tids=None, training=True):
+        mylogs.bp("emb")
         ret_embeds = self.embedding(index_list)
         return ret_embeds 
 
@@ -206,19 +207,20 @@ class MatPromptEncoder(PromptEncoder):
         super().__init__(**kwargs)
         self.temperature = temperature 
         self.z = nn.Parameter(data=torch.empty((
-            n_prompts,
-            intrinsic_dim
+            intrinsic_dim,
+            self.embedding_dim
         )).uniform_(-1e-3, 1e-3))
-        self.A = shared_mat 
-        hsize = intrinsic_dim
-        self.mlp = torch.nn.Sequential(
-            torch.nn.Linear(intrinsic_dim, hsize),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hsize, intrinsic_dim)
-        )
+        #self.A = shared_mat 
+        #hsize = intrinsic_dim
+        #self.mlp = torch.nn.Sequential(
+        #    torch.nn.Linear(intrinsic_dim, hsize),
+        #    torch.nn.ReLU(),
+        #    torch.nn.Linear(hsize, intrinsic_dim)
+        #)
 
     def forward_step(self, index_list, tids=None, training=True):
         # z = self.embedding(self.net_inps)
+        return self.z
         z = self.mlp(self.z)
         running_weight = torch.mm(z, self.A) 
         running_weight = running_weight.view(self.length, -1)
@@ -227,9 +229,14 @@ class MatPromptEncoder(PromptEncoder):
 
 class MLPPromptEncoder(PromptEncoder):
     enc_type = "mlp"
-    def __init__(self, num_layers=1, hidden_size=-1, nl = "gelu", **kwargs) -> None:
+    def __init__(self, num_layers=1, hidden_size=-1, 
+            nl = "gelu", out_dim= -1, in_dim=-1, **kwargs):
         super().__init__(**kwargs)
         embedding_dim = self.embedding_dim
+        if out_dim == -1:
+            out_dim = embedding_dim
+        if in_dim == -1:
+            in_dim = embedding_dim
         if nl is not None:
             if nl.lower() == "gelu":
                 nlf = torch.nn.GELU()
@@ -244,15 +251,14 @@ class MLPPromptEncoder(PromptEncoder):
         else:
             nlf = None 
         hsize = hidden_size if hidden_size > 1 else embedding_dim
-        layers = [torch.nn.Linear(embedding_dim, hsize)]
+        layers = [torch.nn.Linear(in_dim, hsize)]
         if nlf is not None:
             layers.append(nlf)
         if num_layers == 2:
             layers.append(torch.nn.Linear(hsize, hsize))
             if nlf is not None:
                 layers.append(nlf)
-        if num_layers > 0:
-            layers.append(torch.nn.Linear(hsize, embedding_dim))
+        layers.append(torch.nn.Linear(hsize, out_dim))
         self.mlp = torch.nn.Sequential(*layers)
 
     def forward_step(self, index_list, tids=None, training=True):
@@ -344,7 +350,8 @@ def extend_tokenizer(tokenizer, tokens = []):
 
 def create_encoder(name, model, tokenizer, prompt_tokens, 
         length=None, encoder_type="lstm", non_linear="gelu",
-        hidden_size=-1, num_layers=1, is_source = False, shared_mat=None):
+        hidden_size=-1, num_layers=1, out_dim=-1, in_dim=-1,
+        is_source = False, shared_mat=None):
     embedding_dim = model.config.hidden_size
     cur_list = tokenizer.additional_special_tokens
     my_specials = [x for x in cur_list if not "<extra_id"  in x]
@@ -370,6 +377,8 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 prompt_tokens=prompt_tokens, 
                 length = length,
                 nl = non_linear,
+                in_dim = in_dim,
+                out_dim = out_dim,
                 is_source = is_source,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)

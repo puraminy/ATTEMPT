@@ -39,8 +39,8 @@ class AbstractTask(abc.ABC):
     labels_list = None
     pcounter = 0
     rel_nat = None
-    map_labels = True
     samples_per_head = 1
+    map_labels = True
     labels_map = {"map":{}} # verbelizer
     split_to_data_name = {}
     split_to_data_split: Mapping[str, str] = \
@@ -177,9 +177,16 @@ class AbstractTask(abc.ABC):
         directory = os.path.dirname(file_path)
         fname = self.name + "_" + split 
         extension = ".csv" 
-        obs_str = str(n_obs) if n_obs is not None else "all"
-        outfile = os.path.join(directory, 
-                fname + "_" + str(self.seed) + "_" + obs_str + extension)
+        obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
+        if split == "train":
+            if obs_str != "all":
+                outfile = os.path.join(directory, 
+                    fname + "_" + str(self.seed) + "_" + obs_str + extension)
+            else:
+                outfile = os.path.join(directory, fname + "_" + obs_str + extension)
+        else:
+            outfile = os.path.join(directory, fname + "_" + obs_str + extension)
+
         if Path(outfile).is_file():
             file_name = outfile
 
@@ -896,6 +903,7 @@ class STSB(AbstractTask):
 
 class Atomic(AbstractTask):
     name = "atomic"
+    map_labels = False
     metric = [metrics.rouge]
     metric_names = ["rouge"]
     generation = True

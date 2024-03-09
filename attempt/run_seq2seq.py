@@ -1165,6 +1165,7 @@ def train(**kwargs):
     config.anneal_dir = model_args.anneal_dir # my option
     config.anneal_rate = anneal_rate # my option
     config.attend_target = model_args.attend_target
+    config.prompt_out_dim = kwargs.get("out_dim", -1)
     config.num_target_prompts = num_target_prompts
     config.attend_private = use_private_prompts 
     config.use_private_prompts = use_private_prompts
@@ -1412,6 +1413,7 @@ def train(**kwargs):
         prompt_num_layers = kwargs.get("num_layers",1)
         prompt_hidden_size = kwargs.get("hidden_size", -1)
         prompt_non_linear = kwargs.get("non_linear", "gelu")
+        prompt_out_dim = kwargs.get("out_dim", -1)
         for prompt in source_prompts: 
             encoder_name = prompt
             encoder_type = adapter_args.prompt_encoder_type
@@ -1424,6 +1426,7 @@ def train(**kwargs):
                     hidden_size = prompt_hidden_size,
                     num_layers = prompt_num_layers,
                     is_source = True,
+                    out_dim = prompt_out_dim,
                     length = adapter_args.num_prompt_tokens,
                     encoder_type = encoder_type,
                     shared_mat= shared_mat) 
@@ -1484,6 +1487,8 @@ def train(**kwargs):
                     non_linear = prompt_non_linear,
                     hidden_size = prompt_hidden_size,
                     num_layers = prompt_num_layers,
+                    in_dim = prompt_out_dim,
+                    out_dim = -1,
                     encoder_type=encoder_type, 
                     shared_mat= shared_mat) 
 

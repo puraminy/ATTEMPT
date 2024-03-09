@@ -25,8 +25,10 @@
   "lpp":"load_private_prompts",
   "lsp":"load_source_prompts",
   "learn_sp":"learn_source_prompts",
+  "learn_pp":"learn_private_prompts",
   "ep":"num_train_epochs",
   "tn":"max_train_samples",
+  "tsn":"max_test_samples",
   "prompts":"save_to_prompts_dir",
   "numt":"num_prompt_tokens",
   "alr":"attn_learning_rate",
@@ -43,10 +45,12 @@
   "plr":"private_prompt_learning_rate",
   "order":"source_prompts_order",
   "masking":"prompt_masking",
+  "m":"prompt_masking",
   "ms":"masking_scores",
   "sep":"separate_eval",
   "sr":"save_router",
   "usr":"use_saved_router",
   "ignore":"ignore_if_prompt_not_exists",
-  "enctype":"prompt_encoder_type"
+  "enctype":"prompt_encoder_type",
+  "tenctype":"target_encoder_type"
 }
