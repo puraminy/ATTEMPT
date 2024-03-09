@@ -648,6 +648,9 @@ def show_df(df):
         info_cols = all_cols['info_cols'] 
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         index_cols = all_cols['index_cols']
+        extra_cols = all_cols['extra_cols']
+    if "compose_method" in df:
+        rep_cols = rep_cols + extra_cols
 
     main_sel_cols = sel_cols.copy()
 
@@ -2799,7 +2802,7 @@ def show_df(df):
             info_cols = []
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
-        if char == "l" or char == "r" or char == "Z" or cmd.startswith("rep"):
+        if char == "l" or char == "Z" or cmd.startswith("rep"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
             if len(score_cols) > 1:
@@ -2814,6 +2817,7 @@ def show_df(df):
             latex_table=tabulate(df, #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
             latex_table = latex_table.replace("tabular", "longtable")
+            latex_table = latex_table.replace("_", "-")
             report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
             report = report.replace("mytable", "\n \\newpage mytable")
             # df = pdf
