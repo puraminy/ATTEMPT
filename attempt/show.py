@@ -1,4 +1,4 @@
-# v 9
+# v 10
 import scipy.stats as stats
 # get ANOVA table as R like output
 import statsmodels.api as sm
@@ -646,7 +646,7 @@ def show_df(df):
     if 'sel_cols' in all_cols:
         sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
-        rep_cols = all_cols['rep_cols']
+        rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         index_cols = all_cols['index_cols']
 
     main_sel_cols = sel_cols.copy()
@@ -709,6 +709,7 @@ def show_df(df):
         g_start = -1
         row_color = TEXT_COLOR
         sel_col_color = 102 # HL_COLOR #TITLE_COLOR
+        selected_col_color = SEL_COLOR
         cross_color = SEL_COLOR # WARNING_COLOR # HL_COLOR   
         sel_row_color = HL_COLOR if not group_mode else row_color 
         g_color = row_color
@@ -809,18 +810,20 @@ def show_df(df):
                        #elif sel_col in cond_colors:
                        #    cell_color = cond_colors[sel_col](df, ii, sel_col, 
                        #            default = sel_col_color)
+                       elif sel_col in selected_cols:
+                          cell_color = selected_col_color
                        else:
                           cell_color = sel_col_color
                    else:
                        if ii in sel_rows:
                           cell_color = MSG_COLOR
+                       elif sel_col in selected_cols:
+                          cell_color = selected_col_color
                        elif ii == _sel_row:
                           cell_color = sel_row_color
                        elif sel_col in cond_colors:
                            cell_color = cond_colors[sel_col](df, ii, sel_col, 
                                    default = row_color)
-                       elif sel_col in selected_cols:
-                          cell_color = sel_col_color
                        elif sel_col == group_col:
                           cell_color = g_color
                        else:
@@ -1206,11 +1209,14 @@ def show_df(df):
             col = sel_cols[cur_col]
             df = df.sort_values(by=col, ascending=asc)
             asc = not asc
-        elif char == "\"":
+        elif char in ["+","\""]:
+            col = sel_cols[cur_col]
             if col in selected_cols:
                 selected_cols.remove(col)
             else:
                 selected_cols.append(col)
+            consts["selected_cols"] = selected_cols
+            mbeep()
         elif char == "-":
             backit(df, sel_cols)
             col = sel_cols[cur_col]
@@ -1653,8 +1659,25 @@ def show_df(df):
             df = df.sort_values(by=sort, ascending=asc)
             selected_cols = []
             asc = not asc
-        elif char == "g":
-            if cur_col < len(sel_cols):
+        if context == "grouping":
+            if not selected_cols:
+                selected_cols = ["label","compose_method","max_train_samples"]
+            if char == "g":
+                df = back[-1]
+                df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
+            elif char == "s":
+                df = back[-1]
+                df = df.groupby(selected_cols).std(numeric_only=True).reset_index()
+            df = df.round(2)
+        elif char == "g" and context != "grouping":
+            backit(df, sel_cols)
+            context = "grouping"
+            if not selected_cols:
+                selected_cols = ["label","compose_method","max_train_samples"]
+            if len(selected_cols) > 0:
+                df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
+                df = df.round(2)
+            elif cur_col < len(sel_cols):
                 col = sel_cols[cur_col]
                 if col == group_col:
                     group_col = ""
@@ -2693,7 +2716,7 @@ def show_df(df):
             _rep_cols = []
             context = "pivot"
             for c in rep_cols: 
-                if c in score_cols: 
+                if c in score_cols: # or c in ["d_seed", "max_train_samples"]: 
                     _agg[c] = "mean"
                 elif (c.endswith("score") 
                         or (char == "Z" and (c.endswith("_num") or c.startswith("num_")))): 
@@ -2805,7 +2828,7 @@ def show_df(df):
             mbeep()
             #subprocess.run(["pdflatex", tex])
             #subprocess.run(["okular", pdf])
-        if "image" in cmd or char == "Z":
+        if "getimage" in cmd or char == "Z":
             show_msg("Generating images ...", bottom=True, delay=2000)
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
@@ -2926,9 +2949,10 @@ def show_df(df):
                 f.write(report)
             #with open(m_report, "w") as f:
             #    f.write(main_report)
+            show_msg(pdf)
             mbeep()
             #subprocess.run(["pdflatex", tex])
-            #subprocess.run(["okular", pdf])
+            subprocess.run(["okular", pdf])
 
         if cmd == "fix_types":
             for col in ["target_text", "pred_text1"]: 

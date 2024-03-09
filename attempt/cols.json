@@ -9,43 +9,45 @@
     "prefix"
   ],
   "rep_cols":[
-    "time"
-  ],
-  "rep_cols":[
     "expid",
     "expname",
     "folder",
     "output_dir",
     "use_private_prompts",
-    "prefix",
-    "trial",
-    "mask_type",
-    "temperature",
-    "gen_thresh",
-    "compose_method",
-    "route_method",
-    "max_train_samples",
     "load_source_prompts",
     "load_private_prompts",
     "use_private_prompts",
     "use_source_prompts",
     "learn_source_prompts",
+    "max_train_samples",
+    "add_target",
+    "d_seed",
+    "trial",
+    "time"
+  ],
+  "extra_cols":[
+    "mask_type",
+    "temperature",
+    "gen_thresh",
+    "compose_method",
+    "route_method",
     "num_train_epochs",
     "num_target_prompts",
     "gen_norm_method",
     "norm_method",
     "sel_thresh",
-    "mask_type",
-    "add_target",
-    "time"
+    "num_prompt_tokens"
   ],
   "info_cols":[
     "expid",
+    "label",
     "compose_method"
   ],
   "index_cols":[
     "expid",
+    "label",
     "compose_method",
+    "norm_method",
     "mask_type"
   ],
   "score_cols_m":["m_score"],

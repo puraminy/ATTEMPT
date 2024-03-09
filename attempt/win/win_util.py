@@ -248,7 +248,10 @@ def m_print(text, win, color, attr = None, end="\n", refresh = False, color_star
     if win is None:
         print(text, end=end)
     else:
-        color = int(color)
+        try:
+            color = int(color)
+        except:
+            color = ERR_COLOR
         c = cur.color_pair(color)
         if attr is not None:
             c = cur.color_pair(color) | attr
