@@ -142,12 +142,18 @@ def map_param(param_map, x, key=False):
     if "=" in x:
         k, v = x.split("=")
     k = k.strip("--")
-    k = k.strip("@")
+    pre = ""
+    if k.startswith("@"):
+        k = k.strip("@")
+    pre += "@"
+    if k.startswith("^"):
+        k = k.strip("^")
+        pre += "^"
     m = param_map[k] if k in param_map else k
     if key is True or not v: 
         return m
     else:
-        return "@" + m + "=" + v 
+        return pre + m + "=" + v 
 
 @click.group()
 def cli():
@@ -516,8 +522,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                tags.append(vv.strip("^"))
            full_tags.append(vv.strip("^"))
            values[ii] = [x for x in cc if not x.startswith("!")] 
-           if (exp_vars and not vv in exp_vars) or (main_vars and not vv in main_vars):
-               values[ii] = [values[ii][0]] # ignore the rest of values for this item 
+           #if (exp_vars and not vv in exp_vars) or (main_vars and not vv in main_vars):
+           #    values[ii] = [values[ii][0]] # ignore the rest of values for this item 
       if len(values[ii]) == 1:
            if not vv.startswith("@"):
                exclude_list.append(vv)
@@ -566,7 +572,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            if var_name.startswith("^") and prev_name:
                prev_vals = values[kk-1]
                cur_vals = values[kk]
-               assert len(prev_vals) == len(cur_vals), "Pair variables must have same number"
+               assert len(prev_vals) == len(cur_vals), str(prev_vals) + " " + str(cur_vals) + "Pair variables must have same number"
                pairs = zip(prev_vals, cur_vals)
                if not (prev_item, var_item) in pairs:
                    conflict = prev_name + ":" + prev_item + " "+ var_name + ":" + var_item
@@ -984,9 +990,11 @@ def train(**kwargs):
     _confs =["en"] * n_tasks
     for i,c in enumerate(ds_confs):
         _confs[i] = ds_confs[i]
-    #if kwargs.setdefault("adjust_epochs", False):
-    #    training_args.num_train_epochs *= n_tasks
-
+    if kwargs.setdefault("adjust_epochs", True) and data_args.max_train_samples <= 10:
+        num_epochs = training_args.num_train_epochs
+        num_epochs *= 2
+        training_args.num_train_epochs = num_epochs
+    
     data_args.dataset_config_name = _confs
     data_args.eval_dataset_config_name = _confs
 
@@ -1136,7 +1144,7 @@ def train(**kwargs):
         steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     mylogs.bp("steps")
     if model_args.anneal_rate is None: 
-        anneal_rate = 1/(steps + 5) 
+        anneal_rate = (model_args.temperature - model_args.anneal_min)/(steps + 5) 
     else:
         anneal_rate = model_args.anneal_rate
     # Load a model config

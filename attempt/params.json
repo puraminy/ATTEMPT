@@ -19,6 +19,7 @@
   "ts":"target_share",
   "tst":"target_share_temperature",
   "amin":"anneal_min",
+  "arate":"anneal_rate",
   "atype":"anneal_type",
   "upp":"use_private_prompts",
   "usp":"use_source_prompts",

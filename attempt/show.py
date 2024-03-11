@@ -2006,8 +2006,8 @@ def show_df(df):
                 path=tdf.iloc[0]["output_dir"]
                 js = os.path.join(path, "exp.json")
                 score = str(round(score,2)) if score else "noscore" 
-                fname = prefix + "_" + compose + "_" + str(epc) \
-                        + "_" + str(tn) + "@" + score + "@.json"
+                fname = prefix + "-" + compose + "-" + str(epc) \
+                        + "-" + str(tn) + "@" + score + "@.json"
                 if not ignore_fname:
                     fname = rowinput("prefix:", default=fname)
                 if fname:
