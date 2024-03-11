@@ -1566,7 +1566,7 @@ class T5Stack(T5PreTrainedModel):
             #        task_id = task_ids[i].item()
             #        attn_dist[i, :, task_id] = b 
 
-            if self.training and self.learn_attention:
+            if self.training: # and self.learn_attention:
                 logits = router
                 mylogs.bp("rbsample")
                 rb_scores = RelaxedBernoulli(temperature=self.temperature, 
@@ -1738,6 +1738,51 @@ class T5Stack(T5PreTrainedModel):
             attn_sel_scores = torch.cat(
                    [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
             attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
+        elif compose_method == "wmp":
+            mylogs.bp("wmp")
+            s_attn_sel_scores = attn_sel_scores[:,:,:-1]
+            s_attend_to_x = attend_to_x[:,:,:-1,:,:]
+            assert self.use_private_prompts is True, "use private prompts must be enabled"
+            private_prompts = attend_to_x[:,:,-1,:,:]
+            avg_prompts = torch.einsum(
+                    'bts, btsld -> btld', s_attn_sel_scores, 
+                    s_attend_to_x)
+            if self.target_share == 2:
+               soft_prompts = avg_prompts * private_prompts 
+            else:
+               ts = attn_sel_scores[:,:,-1]
+               ts = ts.reshape(batch_size, 1, 1, 1)
+               soft_prompts = avg_prompts * (ts * private_prompts) 
+        elif compose_method == "wsp":
+            mylogs.bp("wsp")
+            s_attn_sel_scores = attn_sel_scores[:,:,:-1]
+            s_attend_to_x = attend_to_x[:,:,:-1,:,:]
+            assert self.use_private_prompts is True, "use private prompts must be enabled"
+            private_prompts = attend_to_x[:,:,-1,:,:]
+            avg_prompts = torch.einsum(
+                    'bts, btsld -> btld', s_attn_sel_scores, 
+                    s_attend_to_x)
+            if self.target_share == 2:
+               soft_prompts = avg_prompts + private_prompts 
+            else:
+               ts = attn_sel_scores[:,:,-1]
+               ts = ts.reshape(batch_size, 1, 1, 1)
+               soft_prompts = avg_prompts + (ts * private_prompts) 
+        elif compose_method == "wcp":
+            mylogs.bp("wcp")
+            s_attn_sel_scores = attn_sel_scores[:,:,:-1]
+            s_attend_to_x = attend_to_x[:,:,:-1,:,:]
+            assert self.use_private_prompts is True, "use private prompts must be enabled"
+            private_prompts = attend_to_x[:,:,-1,:,:]
+            avg_prompts = torch.einsum(
+                    'bts, btsld -> btld', s_attn_sel_scores, 
+                    s_attend_to_x)
+            if self.target_share != 2:
+               ts = attn_sel_scores[:,:,-1]
+               ts = ts.reshape(batch_size, 1, 1, 1)
+               private_prompts = ts * private_prompts
+            soft_prompts = torch.cat(
+                   [avg_prompts, private_prompts], dim=2)
         elif compose_method == "wcat":
             mylogs.bp("wcat")
             avg_prompts = torch.einsum(

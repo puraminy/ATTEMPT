@@ -936,7 +936,7 @@ def train(**kwargs):
                 target_prompt_length += adapter_args.num_prompt_tokens
         elif model_args.compose_method == "catw":
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-        elif model_args.compose_method == "wcat":
+        elif model_args.compose_method in ["wcat", "wcp"]:
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "tcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
@@ -1296,7 +1296,7 @@ def train(**kwargs):
     mylogs.bp("router")
     use_saved_router = kwargs.setdefault("use_saved_router", False) 
     router_prefix = kwargs.setdefault("router_prefix", None) 
-    use_saved_router = use_saved_router or (router_prefix and router_prefix in main_vars)
+    use_saved_router = use_saved_router # or (router_prefix and router_prefix in main_vars)
     if router_prefix is None or router_prefix == "1":
         router_prefix = str(data_args.max_train_samples)
 

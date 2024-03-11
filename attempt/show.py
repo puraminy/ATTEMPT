@@ -409,6 +409,35 @@ def calc_metrics(main_df):
                     infos.append("---------------------------------------------")
     return infos
 
+
+class MyDF:
+    context = ""
+    df = None
+    sel_row = 0
+    sel_rows = []
+    sel_cols = []
+    selected_cols = []
+    cur_row = 0
+    cur_col = 0
+    left = 0
+    info_cols = []
+    sort = ""
+    group_col = ""
+    def __init__(self, df, context, sel_cols, cur_col,info_cols, 
+            sel_rows, sel_row, left, group_col, selected_cols, sort, **kwargs):
+        self.df = df
+        self.context = context
+        self.sel_cols = sel_cols
+        self.cur_col = cur_col
+        self.info_cols = info_cols
+        self.sel_rows = sel_rows
+        self.sel_row = sel_row
+        self.left = left
+        self.group_col = group_col
+        self.selected_cols = selected_cols
+        self.sort = sort
+
+
 def show_df(df):
     global dfname, hotkey, global_cmd
 
@@ -416,6 +445,7 @@ def show_df(df):
     cmd = global_cmd 
     sel_row = 0
     cur_col = 0
+    cur_row = 0
     ROWS, COLS = std.getmaxyx()
     ch = 1
     left = 0
@@ -542,29 +572,18 @@ def show_df(df):
         sel_df.to_csv(sel_path, sep="\t", index=False)
 
     back = []
-    sels = []
-    back_df = None
-    back_cols = []
-    back_left = []
-    back_group_col = []
-    back_sel_rows = []
+    cur_df = None
     context = "main"
-    back_context = []
-    def backit(df, sel_cols):
+
+    def backit(df, sel_cols, cur_df = None):
         if len(sel_cols) < 2:
             mbeep()
             return
-        back_df = df
-        back.append(df)
-        back_context.append(context)
-        sels.append(sel_cols.copy())
-        back_rows.append(sel_row)
-        back_cols.append(cur_col)
-        back_left.append(left)
-        back_infos.append(info_cols.copy())
-        back_group_col.append(group_col)
-        back_sel_rows.append(sel_rows)
-
+        if not cur_df:
+            cur_df = MyDF(df, context, sel_cols, cur_col,info_cols, 
+                sel_rows, sel_row, left, group_col, selected_cols, sort)
+        back.append(cur_df)
+        general_keys["b"] = "back"
 
     filter_df = main_df
     tag_cols = []
@@ -607,6 +626,8 @@ def show_df(df):
     #wwwwwwwwww
     colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
     context_map = {"g":"main", "G":"main", "X":"view", "r":"main"}
+    general_keys = {"l":"latex df"}
+    shortkeys = {"main":{"r":"pivot table"}}
     ax = None
     if "Z" in hotkey:
         df["m_score"] = df["rouge_score"]
@@ -666,6 +687,7 @@ def show_df(df):
 
     sel_fid = "" 
     df_cond = True
+    df_conds = []
     open_dfnames = [dfname]
     dot_cols = {}
     selected_cols = []
@@ -699,10 +721,11 @@ def show_df(df):
     do_wrap = True
     sel_group = 0
     group_col = ""
+    keep_uniques = False
     group_rows = []
 
     def row_print(df, col_widths ={}, _print=False):
-        nonlocal group_rows
+        nonlocal group_rows, sel_row
         infos = []
         group_mode = group_col and group_col in sel_cols 
         margin = min(len(df), 5) # if not group_mode else 0
@@ -716,15 +739,18 @@ def show_df(df):
         cross_color = SEL_COLOR # WARNING_COLOR # HL_COLOR   
         sel_row_color = HL_COLOR if not group_mode else row_color 
         g_color = row_color
-        _sel_row = sel_row #-1 if group_mode else sel_row 
+        _cur_row = cur_row #-1 if group_mode else sel_row 
         ii = 0 
+        gg = 0 # count rows in each group
+        pp = 0 # count printed rows
         for idx, row in df.iterrows():
            text = "{:<5}".format(ii)
            _sels = []
            _infs = []
            if (group_mode and group_col in row and row[group_col] != g_row):
                g_row = row[group_col]
-               if _print and _sel_row >= 0 and ii >= _sel_row - margin:
+               gg = 0
+               if not keep_uniques and _print and _cur_row >= 0 and ii >= _cur_row - margin:
                    g_text = "{:^{}}".format(g_row, COLS)
                    # mprint("\n", text_win, color = HL_COLOR) 
                    mprint(g_text, text_win, color = HL_COLOR) 
@@ -741,12 +767,16 @@ def show_df(df):
                   sel_col_color = TITLE_COLOR
                   g_color = row_color
                if g == sel_row: # sel_group:
-                  #_sel_row = ii
+                  #_cur_row = ii
                   #row_color = SEL_COLOR
                   #g_color = WARNING_COLOR
                   g_start = ii
                g+=1
-           if _sel_row < 0 or ii < _sel_row - margin:
+           if _cur_row < 0 or ii < _cur_row - margin:
+               ii += 1
+               pp += 1
+               continue
+           if group_mode and keep_uniques and gg > 0:
                ii += 1
                continue
 
@@ -757,9 +787,11 @@ def show_df(df):
                   _color = HL_COLOR
                else:
                   _color = sel_col_color
-           if ii in sel_rows:
+           if pp == _cur_row:
+               sel_row = ii
+           if pp in sel_rows:
                _color = MSG_COLOR
-           if ii == _sel_row and not group_mode:
+           if pp == _cur_row and not group_mode:
                 _color = cross_color if cur_col < 0 else SEL_COLOR 
            if _print:
                mprint(text, text_win, color = _color, end="") 
@@ -787,10 +819,10 @@ def show_df(df):
                        pass
                _info = sel_col + ":" + orig_content
                if sel_col in info_cols:
-                   if ii == _sel_row and not sel_col in _infs:
+                   if pp == _cur_row and not sel_col in _infs:
                       infos.append(_info)
                       _infs.append(sel_col)
-               if ii == _sel_row:
+               if pp == _cur_row:
                    sel_dict[sel_col] = row[sel_col]
                if not sel_col in col_widths:
                    col_widths[sel_col] = len(content) + 2
@@ -808,7 +840,7 @@ def show_df(df):
                if sel_col in sel_cols:
                    if (cur_col >=0 and cur_col < len(sel_cols) 
                           and sel_col == sel_cols[cur_col]):
-                       if ii == _sel_row: 
+                       if pp == _cur_row: 
                           cell_color = cross_color 
                        #elif sel_col in cond_colors:
                        #    cell_color = cond_colors[sel_col](df, ii, sel_col, 
@@ -822,7 +854,7 @@ def show_df(df):
                           cell_color = MSG_COLOR
                        elif sel_col in selected_cols:
                           cell_color = selected_col_color
-                       elif ii == _sel_row:
+                       elif pp == _cur_row:
                           cell_color = sel_row_color
                        elif sel_col in cond_colors:
                            cell_color = cond_colors[sel_col](df, ii, sel_col, 
@@ -841,7 +873,9 @@ def show_df(df):
            if _print:
                mprint("", text_win, color = _color, end="\n") 
            ii += 1
-           if ii > _sel_row + ROWS:
+           gg += 1
+           pp += 1
+           if pp > _cur_row + ROWS:
                break
         return infos, col_widths
 
@@ -997,6 +1031,8 @@ def show_df(df):
         top = max(top, 0)
         sel_row = min(sel_row, len(df) - 1)
         sel_row = max(sel_row, 0)
+        cur_row = max(cur_row, 0)
+        cur_row = min(cur_row, len(df) - 1)
         sel_rows = sorted(sel_rows)
         sel_rows = list(dict.fromkeys(sel_rows))
         sel_cols = list(dict.fromkeys(sel_cols))
@@ -1004,6 +1040,7 @@ def show_df(df):
         #sel_group = min(sel_row, sel_group)
         cur_col = min(cur_col, len(sel_cols) - 1)
         cur_col = max(cur_col, -1)
+        back_df = back[-1].df if len(back) > 0 else df
         if not hotkey:
             if adjust:
                 _, col_widths = row_print(df, col_widths={})
@@ -1034,7 +1071,7 @@ def show_df(df):
             _sel_col = sel_cols[cur_col]
             if not df.empty:
                 _sel_val = df.iloc[sel_row][_sel_col]
-                infos.append("{}:{}".format(_sel_col, _sel_val))
+                infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
         for c in info_cols:
             if not c in df:
                 continue
@@ -1045,6 +1082,10 @@ def show_df(df):
         infos.append("-------------------------")
         if show_consts:
             consts["len"] = str(len(df))
+            consts["context"] = context
+            consts["keys"] = general_keys
+            if context in shortkeys:
+                consts["keys"] = {**general_keys,**shortkeys[context]}
             for key,val in consts.items():
                 if type(val) == list:
                     val = "-".join(val)
@@ -1184,7 +1225,7 @@ def show_df(df):
             elif False: #TODO group_col and group_col in sel_cols:
                 sel_group +=1
             else:
-                sel_row += 1
+                cur_row += 1
             adjust = False
         elif ch == UP: 
             if context == "inp":
@@ -1193,19 +1234,19 @@ def show_df(df):
             elif False: #TODO group_col and group_col in sel_cols:
                 sel_group -=1
             else:
-                sel_row -= 1
+                cur_row -= 1
             adjust = False
         elif ch == cur.KEY_SRIGHT:
-            sel_row += ROWS - 4
+            cur_row += ROWS - 4
         elif ch == cur.KEY_HOME:
-            sel_row = 0 
+            cur_row = 0 
             sel_group = 0
         elif ch == cur.KEY_SHOME:
             left = 0 
         elif ch == cur.KEY_END:
-            sel_row = len(df) -1
+            cur_row = len(df) -1
         elif ch == cur.KEY_SLEFT:
-            sel_row -= ROWS - 4
+            cur_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
             seq = ""
         elif char == "s":
@@ -1245,7 +1286,7 @@ def show_df(df):
                 consts["filter"] += " " + col + "='" + str(val) + "'"
             else:
                 consts["filter"] = col + "='" + str(val) + "'"
-            df_cond = df_cond & (df[col] == val)
+            df_conds.append((col, df[col] == val))
         elif char == "=" and prev_char == "x":
             col = info_cols[-1]
             sel_cols.insert(cur_col, col)
@@ -1526,7 +1567,7 @@ def show_df(df):
             mbeep()
             sel_df = sel_df.sort_values(by=["prefix","input_text","target_text"]).drop_duplicates()
             sel_df.to_csv(sel_path, sep="\t", index=False)
-        elif char == "h":
+        elif char == "h" and False:
             backit(df, sel_cols)
             sel_cols = ["prefix", "input_text", "target_text", "sel"]
             df = sel_df
@@ -1665,30 +1706,34 @@ def show_df(df):
         if context == "grouping":
             if not selected_cols:
                 selected_cols = ["label","compose_method","max_train_samples"]
-            if char == "g":
-                df = back[-1]
+            if char == "m":
+                df = back_df
                 df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
             elif char == "s":
-                df = back[-1]
+                df = back_df
                 df = df.groupby(selected_cols).std(numeric_only=True).reset_index()
             df = df.round(2)
-        elif char == "g" and context != "grouping":
+        elif char in ["a"] and context != "grouping":
             backit(df, sel_cols)
             context = "grouping"
+            shortkeys["grouping"] = {"m":"show mean","s":"show std"}
             if not selected_cols:
                 selected_cols = ["label","compose_method","max_train_samples"]
             if len(selected_cols) > 0:
                 df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
                 df = df.round(2)
-            elif cur_col < len(sel_cols):
+        elif char in ["g", "u"]:
+            context = "group_mode"
+            if cur_col < len(sel_cols):
                 col = sel_cols[cur_col]
+                keep_uniques = char == "u"
                 if col == group_col:
                     group_col = ""
-                    sel_row = 0
+                    cur_row = 0
                     sel_group = 0
                 else:
                     group_col = col
-                    sel_row = 0
+                    cur_row = 0
                     sel_group = 0
                     df = df.sort_values(by=[group_col, sort], ascending=[True, False])
         elif char == "A": 
@@ -1701,7 +1746,7 @@ def show_df(df):
                 df = df.sort_values(by=["m_score"], ascending=False)
             elif "avg" in df:
                 df = df.sort_values(by=["avg"], ascending=False)
-        elif char == "a": 
+        elif char == "a" and False: 
             consts["options"] = "b: back"
             backit(df, sel_cols)
             col = sel_cols[cur_col]
@@ -1713,7 +1758,7 @@ def show_df(df):
             elif "avg" in df:
                 df = df.sort_values(by=["avg"], ascending=False)
                 sort = "avg"
-        elif char == "u":
+        elif char == "u" and False:
             infos = calc_metrics(main_df)
             subwin(infos)
         elif char == "U" and prev_char == "x": 
@@ -2297,15 +2342,26 @@ def show_df(df):
             df = df.groupby(list(dot_cols.keys())).agg(_agg).reset_index(drop=True)
         elif is_enter(ch) and prev_char == "=":
            backit(df, sel_cols)
-           df = df[df_cond]
+           df_conds.sort(key=lambda tup: tup[0])
            df_cond = True
+           prev_col = -1
+           for col, cond in df_conds:
+               if col == prev_col: 
+                   df_cond = df_cond | cond
+               else:
+                   df_cond = df_cond & cond
+               prev_col = col
+           df = df[df_cond]
+           df_conds = [] 
+           group_col = ""
+           keep_uniques = False
         elif is_enter(ch) or char in ["f"]:
-            if context != "filter" or char == "f":
-                backit(df, sel_cols)
+            if is_enter(ch) and context == "filter":
+               df = back_df
             else:
-                df = back[-1]
+                backit(df, sel_cols)
+            context = "filter"
             is_filtered = True
-            if is_enter(ch): char = "F"
             col = sel_cols[cur_col]
             if col == "fid": col = FID
             canceled, col, val = list_df_values(df, col, get_val=True)
@@ -2324,7 +2380,6 @@ def show_df(df):
                   extra["filter"] = []
                extra["filter"].append(cond)
                sel_row = 0
-            if char == "f":
                keep_cols.append(col)
         if char == "V":
             backit(df, sel_cols)
@@ -2590,6 +2645,22 @@ def show_df(df):
             sel_rows= []
             context = "cross"
             group_col = "uid"
+        if cmd == "line" or (char == "h" and context == "pivot"):
+             try:
+                 cur_col_name = sel_cols[cur_col]
+                 if len(selected_cols) == 0:
+                     selected_cols = [sel_cols[cur_col]]
+                 if len(selected_cols) == 1 and cur_col_name not in selected_cols:
+                     selected_cols.append(cur_col_name)
+                 if len(selected_cols) == 2:
+                     df.plot.line(x=selected_cols[0], y=selected_cols[1])
+                 elif len(selected_cols) > 0:
+                     tdf = df[selected_cols]
+                     tdf.plot.line(subplots=True)
+                 plt.show()
+             except Exception as e:
+                 show_msg("Error:" + repr(e))
+                 mbeep()
         if cmd.startswith("anova"):
             to = ""
             canceled, val = False, "pred_text1" # list_values(sel_cols)
@@ -2717,7 +2788,6 @@ def show_df(df):
             mdf = df #main_df
             _agg = {}
             _rep_cols = []
-            context = "pivot"
             for c in rep_cols: 
                 if c in score_cols: # or c in ["d_seed", "max_train_samples"]: 
                     _agg[c] = "mean"
@@ -2755,6 +2825,8 @@ def show_df(df):
 
             avg_col = "All"
             backit(df, sel_cols)
+            context = "pivot"
+            shortkeys["pivot"] = {"o":"open image", "h": "plot line"}
             score_col = score_cols[0]
             pcols = []
             cond_colors["eid"] = time_colors
@@ -2814,7 +2886,7 @@ def show_df(df):
                 report = f.read()
             with open(os.path.join(doc_dir, "report.tex"), "w") as f:
                 f.write("")
-            latex_table=tabulate(df, #[rep_cols+score_cols], 
+            latex_table=tabulate(df[sel_cols],  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
             latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
@@ -3111,16 +3183,24 @@ def show_df(df):
             info_cols = []
         if (ch == cur.KEY_BACKSPACE or char == "b") and back:
             if back:
-                df = back.pop()
-                sel_cols = sels.pop() 
-                sel_row = back_rows.pop()
-                sel_rows = back_sel_rows.pop()
-                info_cols = back_infos.pop()
-                context = back_context.pop()
-                cur_col = back_cols.pop()
-                left = back_left.pop()
-                group_col = back_group_col.pop()
+                cur_df = back.pop()
+                df = cur_df.df
+                sel_cols = cur_df.sel_cols 
+                sel_row = cur_df.sel_row
+                sel_rows = cur_df.sel_rows
+                info_cols = cur_df.info_cols
+                context = cur_df.context
+                cur_col = cur_df.cur_col
+                left = cur_df.left
+                group_col = cur_df.group_col
+                if back:
+                    back_df = back[-1].df
+                else:
+                    if "b" in general_keys:
+                        del general_keys["b"]
             else:
+                if "b" in general_keys:
+                    del general_keys["b"]
                 mbeep()
             if extra["filter"]:
                 extra["filter"].pop()
