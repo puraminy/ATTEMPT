@@ -1491,9 +1491,10 @@ def train(**kwargs):
             encoder_type = adapter_args.prompt_encoder_type 
             if prompt_tokens[0].startswith("<tar-"):
                 encoder_type = kwargs.get("target_encoder_type", encoder_type)
+                target_non_linear = kwargs.get("target_non_linear", prompt_non_linear)
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
-                    non_linear = prompt_non_linear,
+                    non_linear = target_non_linear,
                     hidden_size = prompt_hidden_size,
                     num_layers = prompt_num_layers,
                     in_dim = prompt_out_dim,
