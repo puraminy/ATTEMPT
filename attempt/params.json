@@ -1,5 +1,7 @@
 {
   "tasks":"task_name",
+  "t":"task_name",
+  "d":"d_seed",
   "bs":"per_device_train_batch_size",
   "gmin":"gen_thresh_min",
   "gmax":"gen_thresh_max",
@@ -11,6 +13,8 @@
   "tmpr":"temperature",
   "temp":"template",
   "map":"mapping",
+  "maps":"map_style",
+  "fam":"full_attn_map",
   "alr":"attn_learning_rate",
   "cmm":"compose_method",
   "gcmm":"gen_compose_method",

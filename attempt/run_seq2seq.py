@@ -403,6 +403,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if Path(save_path).is_file():
            os.remove(save_path)
 
+   if not save_path:
+       save_path = os.getcwd()
    Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
    args["conf"] = exp_conf
@@ -625,8 +627,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if repeat:
           args["expid"] += "-rep"
-       if not save_path:
-           output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
        _conf = json.dumps(args, indent=2)
        if preview == "conf":
@@ -939,11 +939,11 @@ def train(**kwargs):
         num_target_prompts = max(num_target_prompts, 1)
         if model_args.compose_method in ["cat", "concat"]: #, "pool", "mpool","lin"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-            if model_args.add_target:
-                target_prompt_length += adapter_args.num_prompt_tokens
-        elif model_args.compose_method == "catw":
+        #    if model_args.add_target:
+        #        target_prompt_length += adapter_args.num_prompt_tokens
+        elif model_args.compose_method in ["catw","mcat","scat"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-        elif model_args.compose_method in ["wcat", "wcp"]:
+        elif model_args.compose_method in ["wcat", "wcp", "wcp1"]:
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "tcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
@@ -2106,6 +2106,7 @@ def train(**kwargs):
                     wandb.run.summary[f"evaluation_{metric_to_check}"] = metric_value 
 
     # Test
+    mylogs.bp("do_test")
     reval = not training_args.do_train 
     slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     exp_info["slen"] = slen
@@ -2241,9 +2242,11 @@ def train(**kwargs):
                 preds.append(pred)
                 df.at[i, "pred_text1"] = pred
             df = df.drop(columns=["input_ids","labels","attention_mask"])
-            assert task in TASK_TO_METRICS, "There is no metric for task " + task
+            # assert task in TASK_TO_METRICS, "There is no metric for task " + task
             if task in TASK_TO_METRICS:
                 task_metric = TASK_TO_METRICS[task] 
+            else:
+                task_metric = TASK_TO_METRICS["default"] 
             metrics_list = []
             mylogs.bp("metrics")
             for mstr in task_metric:
@@ -2259,7 +2262,7 @@ def train(**kwargs):
                 if mm == 0:
                     df["m_score"] = round(float(v),1) 
                 mm += 1
-            scores = do_score(df, "rouge@bert", save_to, use_wandb=use_wandb)
+            scores = do_score(df, "rouge", save_to, use_wandb=use_wandb)
             return df, scores, golds, preds
 
         ################ Draw image
@@ -2430,6 +2433,8 @@ def train(**kwargs):
             gen_combs = itertools.product(gnm, gcmm, 
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
+            full_attn_mat = None
+            use_attn_map = kwargs.get("full_attn_map", True)
             for norm_method, gcmm, gmin, gmax, gntp in gen_combs:
                 gen_mask_counter = 0
                 for gen_masks in gen_masks_list:
@@ -2450,10 +2455,13 @@ def train(**kwargs):
                             (attend_num, attend_num), device=device) 
                         mylogs.bp("pic")
                         rv = "Eval" if not reval else "Reval"
+                        test_num = str(data_args.max_test_samples) 
+                        if test_num == "-1":
+                            test_num = "all"
                         eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
                                 + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
-                                + "_" + str(gcmm) \
-                                + "_trial-" + str(kwargs.trial) + "_" + str(ii) 
+                                + "_" + str(gcmm) + "-" + str(use_attn_map) \
+                                + "_num-" + test_num + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
                         counter = 0
@@ -2491,6 +2499,10 @@ def train(**kwargs):
                         for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                             if mask is not None: 
                                gen_conf["attn_mask"] = mask 
+                               if use_attn_map is True: 
+                                   gen_conf["attn_mat"] = full_attn_mat
+                               else:
+                                   gen_conf["attn_mat"] = None
                             else:
                                gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
 
@@ -2537,10 +2549,10 @@ def train(**kwargs):
                             da = {}
                             if use_wandb:
                                 test_rouge = wandb.run.summary["test_rouge"]
-                                test_bert = wandb.run.summary["test_bert"]
+                                #test_bert = wandb.run.summary["test_bert"]
                                 num_preds = wandb.run.summary["num_preds"]
                                 da["test_rouge"] = test_rouge
-                                da["test_bert"] = test_bert
+                                #da["test_bert"] = test_bert
                                 da["num_preds"] = num_preds
                             da["task"] = task
                             da["norm_method"] = norm_method
@@ -2549,6 +2561,8 @@ def train(**kwargs):
                             counter += 1
 #################
                         mylogs.bp("pic")
+                        if mask is None:
+                            full_attn_mat = model.encoder.attn_scores
                         mean_score = total_score / counter
                         if adapter_args.prompt_tuning:
                             targets = model.encoder.target_encoders_idx
@@ -2582,7 +2596,10 @@ def train(**kwargs):
                                         {"init_router":init_router_scores}, spec=rm)
 
                             mylogs.bp("nusp")
-                            scores_matrix = model.encoder.attn_scores.index_select(0,targets)
+                            attn_mat = model.encoder.attn_scores
+                            if full_attn_mat is None:
+                                attn_mat = full_attn_mat
+                            scores_matrix = attn_mat.index_select(0,targets)
                             tlen = scores_matrix.size(0)
                             all_len = scores_matrix.size(1)
                             sim = torch.eye(tlen)
@@ -2632,7 +2649,7 @@ def train(**kwargs):
                             if "-" in rm  and mask is not None:
                                 if not test_key in effect_scores:
                                     effect_scores[test_key] = torch.zeros(
-                                        (tlen, slen + len(gen_masks) + 1), device=device) 
+                                        (tlen +1, slen + len(gen_masks) + 1), device=device) 
 
                                 col,mtype,mlabel = rm.split("-")
                                 if mlabel in ["source","private","target"]:
@@ -2669,6 +2686,8 @@ def train(**kwargs):
                                     if col < len(selected_cols_idx[task_index]):  
                                         col_index = selected_cols_idx[task_index][col]
                                         effect_scores[test_key][task_index, col_index]=effect
+                                    column_means = effect_scores[test_key].mean(dim=0)
+                                    effect_scores[test_key][-1, :] = column_means
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
                                     effect_scores[test_key][task_index, -1] = base_score 

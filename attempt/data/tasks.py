@@ -42,12 +42,28 @@ class AbstractTask(abc.ABC):
     samples_per_head = 1
     map_labels = True
     labels_map = {"map":{}} # verbelizer
+    use_gen_map = False
+    general_map = {
+            "entailment":"estelzam",
+            "not_entailment":"adam",
+            "contradiction":"tazad",
+            "neutral":"khonsa",
+            "duplicate":"tekrar",
+            "not_duplicate":"natekrar",
+            "equivalent":"barabar",
+            "not_equivalent":"namosavi",
+            "acceptable":"paziresh",
+            "unacceptable":"napazir",
+            "positive":"mosbat",
+            "negative":"manfi"
+            }
     split_to_data_name = {}
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
-    small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
-                                         "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
-                                         "superglue-boolq", "xsum", "scitail"]
+    small_datasets_without_all_splits = []
+    # small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
+    #                                     "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
+    #                                     "superglue-boolq", "xsum", "scitail"]
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
                                      "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
@@ -68,15 +84,24 @@ class AbstractTask(abc.ABC):
         self.prompt_set = {} 
         prompt_config = {}
         self.mapping = task_args.mapping
-        self.map_style = task_args.map_style
         if self.map_labels is True:
             self.labels_map["distinct"] = {}
             for i, label in enumerate(self.labels_list):
                self.labels_map["distinct"][label] = self.name + str(i)
+
+        if not self.mapping in self.labels_map and self.map_labels:
+            self.mapping = "map"
         prompt_config["length"] = task_args.prompt_length
         prompt_config["target_length"] = task_args.target_prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
         self.multi_choice = task_args.multi_choice
+        self.map_style = task_args.map_style
+        if self.map_style == "gen" and self.use_gen_map is True:
+            if self.mapping in self.labels_map:
+                for kk, vv in self.labels_map[self.mapping].items():
+                    if vv in self.general_map:
+                        self.labels_map[self.mapping][kk] = self.general_map[vv]
+
         self.prompt_config = prompt_config
         self.task_args = task_args
         self.counter = {} #counter for logging items
@@ -96,7 +121,7 @@ class AbstractTask(abc.ABC):
 
     def check_n_obs(self, n_obs, total_size):
         if n_obs < 0 or (n_obs is not None and n_obs > total_size):
-            n_obs = total_size
+            n_obs = min(total_size, 10000)
             logger.warning("n_obs is set to %s", n_obs)
         return n_obs
 
@@ -175,7 +200,8 @@ class AbstractTask(abc.ABC):
         mylogs.bp("get")
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
-        fname = self.name + "_" + split 
+        tname = Path(directory).stem
+        fname = tname + "_" + split 
         extension = ".csv" 
         obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
         if split == "train":
@@ -742,7 +768,7 @@ class MRPC(AbstractTask):
     #labels_map = {"map":{"0":"unequal","1":"duplicate"}
     labels_map = {
             "map":{"0":"not_equivalent","1":"equivalent"},
-            "map2":{"0":"not_equal","1":"duplicate"}
+      #      "map2":{"0":"not_equal","1":"duplicate"}
             }
     #labels_map = {"map":{"0":"F","1":"G"}
 
@@ -755,6 +781,21 @@ class MRPC(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+class MRPC2(MRPC):
+    name = "mrpc2"
+    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    labels_map = {
+            "map":{"0":"not_equivalent","1":"equivalent"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            }
+
+class MRPC3(MRPC):
+    name = "mrpc3"
+    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    labels_map = {
+            "map":{"0":"not_equivalent","1":"equivalent"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            }
 
 class COLA(AbstractTask):
     name = "cola"
@@ -822,6 +863,7 @@ class TweetEval(AbstractTask):
 
 class SST2(AbstractTask):
     name = "sst2"
+    use_gen_map = True
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -1171,6 +1213,7 @@ class CommonGen(AbstractTask):
 
 class QQP(AbstractTask):
     name = "qqp"
+    use_gen_map = True
     labels_list = ["0", "1"]
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
@@ -1315,6 +1358,7 @@ class MultiNLI(AbstractTask):
 class QNLI(AbstractTask):
     name = "qnli"
     labels_list = ["0", "1"]
+    use_gen_map = True
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
@@ -1339,6 +1383,7 @@ class QNLI(AbstractTask):
 
 class RTE(AbstractTask):
     name = "rte"
+    use_gen_map = False
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
@@ -1347,7 +1392,7 @@ class RTE(AbstractTask):
                            "test": "validation"}
     labels_map = {
             "map":{"0":"entailment", "1":"not_entailment"},
-            "map2":{"0":"entailment", "1":"not_entailment"}
+            "map2":{"0":"not_duplicate", "1":"duplicate"}
             } # entailment nont_entailment
     ## labels_map = {"map":{"0":"C", "1":"D"} # entailment nont_entailment
     def load_dataset(self, split):
@@ -1688,6 +1733,8 @@ TASK_MAPPING = OrderedDict(
         ('atomic-rels', AtomicRel),
         ('squad', Squad),
         ('mrpc', MRPC),
+        ('mrpc2', MRPC2),
+        ('mrpc3', MRPC3),
         ('cola', COLA),
         ('sst2', SST2),
         ('tweet-eval', TweetEval),

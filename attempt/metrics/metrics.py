@@ -29,6 +29,7 @@ import pandas as pd
 import json
 
 TASK_TO_METRICS = {
+                   "default":["accuracy"],
                    "atomic": ["rouge"],
                    "xIntent": ["rouge"],
                    "xAttr": ["rouge"],
@@ -432,22 +433,31 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
                 continue
 
             data = {"prefix":oldrel, "input_text":oldinp}
+            counter[scope] += 1
+            counter["all"] += 1
             oldinp = inp
             hi, ri = 0, 0
-            hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
-            best_hyp = preds[hi]
-            best_ref = tails[ri]
-            #hyp_counter[hi] += 1
-            data["match_score"] = 0
-            if best_hyp.strip() == best_ref:
-                data["match_score"] = 1
-                sum_match[scope] += 1
-                sum_match["all"] += 1
-            data["out_score"] = 0
-            if best_hyp.strip() not in gold_set:
-                data["out_score"] = 1
-                sum_out[scope] += 1
-                sum_out["all"] += 1
+            if bert_scorer is not None:
+                hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
+                best_hyp = preds[hi]
+                best_ref = tails[ri]
+                #hyp_counter[hi] += 1
+                data["match_score"] = 0
+                if best_hyp.strip() == best_ref:
+                    data["match_score"] = 1
+                    sum_match[scope] += 1
+                    sum_match["all"] += 1
+                data["out_score"] = 0
+                if best_hyp.strip() not in gold_set:
+                    data["out_score"] = 1
+                    sum_out[scope] += 1
+                    sum_out["all"] += 1
+                sum_bert[scope] += cur_score
+                sum_bert["all"] += cur_score
+                mean_bert[scope] = "{:.4f}".format(sum_bert[scope] / counter[scope])
+                mean_bert["all"] = "{:.4f}".format(sum_bert["all"] / counter["all"])
+                mean_out[scope] = "{:.4f}".format(sum_out[scope] / counter[scope])
+                mean_out["all"] = "{:.4f}".format(sum_out["all"] / counter["all"])
             if nli_model:
                 pair = (best_hyp, best_ref)
                 nli_scores = nli_model.predict(pair)  
@@ -455,18 +465,10 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
                 label = nli_map[_max]
                 nli_counter[label] += 1
                 data["nli_group"] = label
-            data["top"] = best_ref
-            data["all_preds"] = "<br />".join(preds) 
-            data["top_pred"] = best_hyp
-            data["bert_score"] = float("{:.2f}".format(cur_score))
-            sum_bert[scope] += cur_score
-            sum_bert["all"] += cur_score
-            counter[scope] += 1
-            counter["all"] += 1
-            mean_bert[scope] = "{:.4f}".format(sum_bert[scope] / counter[scope])
-            mean_bert["all"] = "{:.4f}".format(sum_bert["all"] / counter["all"])
-            mean_out[scope] = "{:.4f}".format(sum_out[scope] / counter[scope])
-            mean_out["all"] = "{:.4f}".format(sum_out["all"] / counter["all"])
+                data["top"] = best_ref
+                data["all_preds"] = "<br />".join(preds) 
+                data["top_pred"] = best_hyp
+                data["bert_score"] = float("{:.2f}".format(cur_score))
             #### BLUE score
             #tokenized_rs = []
             #for r in tails:
@@ -506,7 +508,10 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             mean_rouge[scope] = "{:.4f}".format(sum_rouge[scope] / counter[scope])
             mean_rouge_all = sum_rouge["all"] / counter["all"]
             mean_rouge["all"] = "{:.4f}".format(mean_rouge_all)
-            pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
+            if bert_scorer is not None:
+                pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
+            else:
+                pbar.set_description(f"{scope:<20} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
             preds = [cur_hyp]
             tails = [tail]
             pbar.update()
@@ -527,8 +532,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
 #################
     ret_scores = {}
     for sname, metric in zip(
-            ['mean_rouge', 'mean_bert', 'mean_match', 'mean_out'],
-            [mean_rouge, mean_bert, mean_match, mean_out]):
+            ['mean_rouge'], # 'mean_bert', 'mean_match', 'mean_out'],
+            [mean_rouge]): #, mean_bert, mean_match, mean_out]):
         s =0 
         ii = 0
         jj = 0
@@ -568,27 +573,27 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     #    logger.info("Distinct preds:{}".format(len(pred_counts)))
 
 #################
-    gdf = scored_df
-    gdf["prefix"] = df["prefix"]
-    gdf["input_text"] = df["input_text"]
-    gdf["target_text"] = df["target_text"]
-    gdf["pred_text1"] = df["pred_text1"]
-    group_col = "pred_text1"
-    gdf["rouge_score"] = gdf.groupby(['prefix','input_text'])["rouge_score"].transform("max")
-    gdf["bert_score"] = gdf.groupby(['prefix','input_text'])["bert_score"].transform("max")
-    gdf["pred_freq"] = gdf.groupby(['prefix','pred_text1'],
-                     sort=False)["pred_text1"].transform("count")
-    cols = ['prefix']
-    gdf = gdf.merge(gdf[cols+['pred_text1']]
-         .value_counts().groupby(cols).head(1)
-         .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
-       )
+    #gdf = scored_df
+    #gdf["prefix"] = df["prefix"]
+    #gdf["input_text"] = df["input_text"]
+    #gdf["target_text"] = df["target_text"]
+    #gdf["pred_text1"] = df["pred_text1"]
+    #group_col = "pred_text1"
+    #gdf["rouge_score"] = gdf.groupby(['prefix','input_text'])["rouge_score"].transform("max")
+    #gdf["bert_score"] = gdf.groupby(['prefix','input_text'])["bert_score"].transform("max")
+    #gdf["pred_freq"] = gdf.groupby(['prefix','pred_text1'],
+    #                 sort=False)["pred_text1"].transform("count")
+    #cols = ['prefix']
+    #gdf = gdf.merge(gdf[cols+['pred_text1']]
+    #     .value_counts().groupby(cols).head(1)
+    #     .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
+    #   )
 
-    res_df = gdf[["prefix","input_text","pred_text1",
-                  "target_text","rouge_score","bert_score"]]
-    res_df = res_df.groupby(["prefix","input_text"]).first()
-    scores = res_df[["rouge_score","bert_score"]]
-    scores = scores.sort_values(by = ["bert_score"], ascending=False)
+    #res_df = gdf[["prefix","input_text","pred_text1",
+    #              "target_text","rouge_score","bert_score"]]
+    #res_df = res_df.groupby(["prefix","input_text"]).first()
+    #scores = res_df[["rouge_score","bert_score"]]
+    #scores = scores.sort_values(by = ["bert_score"], ascending=False)
     #scores = scores.to_numpy()
     #fig = df_to_image(scores, annot=False)
     #wandb.run.log({"results": wandb.Image(fig)})
@@ -596,54 +601,54 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     #wandb.run.log({"attn_scores": res_table})
 
 ########################
-    col = ["prefix"]
-    _agg = {}
-    for c in gdf.columns:
-        if c.endswith("score"):
-            _agg[c] = "mean"
-        else:
-            _agg[c] = ["first", "nunique"]
-    gb = gdf.groupby(col)
-    #counts = gb.size().to_frame(name='group_records')
-    #gdf = (counts.join(gb.agg(_agg)))
-    gdf = gb.agg(_agg)
-    gdf.columns = [ '_'.join(str(i) for i in col) for col in gdf.columns]
-    avg_len = 1
-    ren = {
-            "target_text_nunique":"num_targets",
-            "pred_text1_nunique":"num_preds",
-            "input_text_nunique":"num_inps",
-            }
-    for c in gdf.columns:
-        if c.endswith("_mean"):
-            ren[c] = c.replace("_mean","")
-        elif c.endswith("_first"):
-            ren[c] = c.replace("_first","")
-    gdf = gdf.rename(columns=ren)
-    gdf = gdf.reset_index(drop=True)
-    prefix = gdf.iloc[0]["prefix"]
-    num_preds = gdf.iloc[0]["num_preds"]
-    pred_max = gdf.iloc[0]["pred_max"]
-    pred_max_num = gdf.iloc[0]["pred_max_num"]
-    test_rouge = gdf.iloc[0]["rouge_score"]
-    test_bert = gdf.iloc[0]["bert_score"]
-    test_rouge = "{:.2f}".format(test_rouge)
-    test_bert = "{:.2f}".format(test_bert)
-    gdf = gdf[["rouge_score","bert_score"]]
+    #col = ["prefix"]
+    #_agg = {}
+    #for c in gdf.columns:
+    #    if c.endswith("score"):
+    #        _agg[c] = "mean"
+    #    else:
+    #        _agg[c] = ["first", "nunique"]
+    #gb = gdf.groupby(col)
+    ##counts = gb.size().to_frame(name='group_records')
+    ##gdf = (counts.join(gb.agg(_agg)))
+    #gdf = gb.agg(_agg)
+    #gdf.columns = [ '_'.join(str(i) for i in col) for col in gdf.columns]
+    #avg_len = 1
+    #ren = {
+    #        "target_text_nunique":"num_targets",
+    #        "pred_text1_nunique":"num_preds",
+    #        "input_text_nunique":"num_inps",
+    #        }
+    #for c in gdf.columns:
+    #    if c.endswith("_mean"):
+    #        ren[c] = c.replace("_mean","")
+    #    elif c.endswith("_first"):
+    #        ren[c] = c.replace("_first","")
+    #gdf = gdf.rename(columns=ren)
+    #gdf = gdf.reset_index(drop=True)
+    #prefix = gdf.iloc[0]["prefix"]
+    #num_preds = gdf.iloc[0]["num_preds"]
+    #pred_max = gdf.iloc[0]["pred_max"]
+    #pred_max_num = gdf.iloc[0]["pred_max_num"]
+    #test_rouge = gdf.iloc[0]["rouge_score"]
+    #test_bert = gdf.iloc[0]["bert_score"]
+    #test_rouge = "{:.2f}".format(test_rouge)
+    #test_bert = "{:.2f}".format(test_bert)
+    #gdf = gdf[["rouge_score","bert_score"]]
     # [["num_preds","pred_max_num","num_inps","num_targets"]]
     #gtable = wandb.Table(dataframe=gdf)
     #wandb.run.log({"Summary": gtable})
-    title = f"{prefix}: rg {test_rouge} | {test_bert} | {num_preds} up, mp: {pred_max_num} | {pred_max}"
-    tdf = {"rouge_score":0, "bert_score":1}
-    gdf = pd.concat([gdf, pd.DataFrame([tdf])], ignore_index=True)
-    gdf = pd.concat([gdf, scores])
-    if scores_to_image:
-        fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
-        if use_wandb:
-            wandb.run.log({prefix: wandb.Image(fig)})
-    if use_wandb:
-       wandb.run.summary["test_rouge"] = test_rouge 
-       wandb.run.summary["test_bert"] = test_bert
-       wandb.run.summary["num_preds"] = num_preds 
+    #title = f"{prefix}: rg {test_rouge} | {test_bert} | {num_preds} up, mp: {pred_max_num} | {pred_max}"
+    #tdf = {"rouge_score":0, "bert_score":1}
+    #gdf = pd.concat([gdf, pd.DataFrame([tdf])], ignore_index=True)
+    #gdf = pd.concat([gdf, scores])
+    #if scores_to_image:
+    #    fig = df_to_image(gdf.to_numpy(), title = title, annot = False)
+    #    if use_wandb:
+    #        wandb.run.log({prefix: wandb.Image(fig)})
+    #if use_wandb:
+    #   wandb.run.summary["test_rouge"] = test_rouge 
+    #   wandb.run.summary["test_bert"] = test_bert
+    #   wandb.run.summary["num_preds"] = num_preds 
 
     return ret_scores

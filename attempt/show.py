@@ -418,7 +418,7 @@ class MyDF:
     sel_cols = []
     selected_cols = []
     cur_row = 0
-    cur_col = 0
+    cur_col = -1
     left = 0
     info_cols = []
     sort = ""
@@ -444,7 +444,7 @@ def show_df(df):
     hk = hotkey
     cmd = global_cmd 
     sel_row = 0
-    cur_col = 0
+    cur_col = -1
     cur_row = 0
     ROWS, COLS = std.getmaxyx()
     ch = 1
@@ -597,7 +597,7 @@ def show_df(df):
     if "mask_type" in df:
         df["cur_masking"] = (df["mask_type"].str.split("-").str[1] + "-" 
                 + df["mask_type"].str.split("-").str[2]) 
-    if "exp_name" in df:
+    if "compose_method" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
     if False: #"expid" in df:
@@ -1718,7 +1718,7 @@ def show_df(df):
             context = "grouping"
             shortkeys["grouping"] = {"m":"show mean","s":"show std"}
             if not selected_cols:
-                selected_cols = ["label","compose_method","max_train_samples"]
+                selected_cols = ["label","norm_method","compose_method","max_train_samples"]
             if len(selected_cols) > 0:
                 df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
                 df = df.round(2)
@@ -1980,6 +1980,27 @@ def show_df(df):
             #with open(, 'r') as f:
             #    lines = f.readlines()
             #subwin(lines)                
+        elif char == "D":
+            s_rows = sel_rows
+            if not sel_rows:
+                s_rows = [sel_row]
+            for s_row in s_rows:
+                exp=df.iloc[s_row]["eid"]
+                cond = f"(main_df['eid'] == '{exp}')"
+                tdf = main_df[main_df.eid == exp]
+                path=tdf.iloc[0]["output_dir"]
+                path = rowinput("Delete?", default=path)
+                if path:
+                    parent = Path(path).parent
+                    pname = Path(path).parent.name
+                    expid = Path(path).name
+                    folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
+                    for folder in folders:
+                        shutil.rmtree(folder)
+                        os.system(cmd)
+                    shutil.rmtree(path)
+                    os.system(cmd)
+                    mbeep()
         elif char == "T" or char == "U" or char == "Y":
             s_rows = sel_rows
             if not sel_rows:
@@ -2218,7 +2239,7 @@ def show_df(df):
                 sel_cols = ["fid","input_text","pred_text1","target_text","bert_score", "hscore", "rouge_score", "prefix"]
                 df = df[sel_cols]
                 df = df.sort_values(by="bert_score", ascending=False)
-        elif char == "D": 
+        elif char == "D" and False: 
             s_rows = sel_rows
             if FID == "fid":
                 mdf = main_df.groupby("fid", as_index=False).first()
@@ -2653,10 +2674,13 @@ def show_df(df):
                  if len(selected_cols) == 1 and cur_col_name not in selected_cols:
                      selected_cols.append(cur_col_name)
                  if len(selected_cols) == 2:
-                     df.plot.line(x=selected_cols[0], y=selected_cols[1])
+                     df.plot.line(x=selected_cols[0], y=selected_cols[1], label="my kir")
                  elif len(selected_cols) > 0:
                      tdf = df[selected_cols]
                      tdf.plot.line(subplots=True)
+                 # Customize axis labels
+                 plt.xlabel('X Axis Label')
+                 plt.ylabel('Y Axis Label')
                  plt.show()
              except Exception as e:
                  show_msg("Error:" + repr(e))
@@ -2829,10 +2853,10 @@ def show_df(df):
             shortkeys["pivot"] = {"o":"open image", "h": "plot line"}
             score_col = score_cols[0]
             pcols = []
-            cond_colors["eid"] = time_colors
+            cond_colors["eid"] = index_colors
             cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
-            cond_colors["expid"] = index_colors
+            cond_colors["expid"] = time_colors
             for col in pivot_cols:
                 pcols.extend(df[col].unique())
             for col in pcols:
@@ -2856,7 +2880,7 @@ def show_df(df):
             if len(df) > 1:
                 sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
                         keep_cols=pivot_cols + info_cols + pcols)
-            for col in ["folder", "output_dir"]:
+            for col in ["folder", "output_dir", "eid", "expname"]:
                 if col in sel_cols:
                     sel_cols.remove(col)
                 if not col in info_cols_back:
@@ -2866,6 +2890,7 @@ def show_df(df):
                 if col in sel_cols:
                     sel_cols.remove(col)
                 sel_cols.insert(i, col)
+
             if "time" in sel_cols:
                 sel_cols.remove("time")
                 sel_cols.append("time")
@@ -2877,6 +2902,7 @@ def show_df(df):
         if char == "l" or char == "Z" or cmd.startswith("rep"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
+            table_dir = "/home/ahmad/Desktop/Papers/Final_Paper2_Info/" #os.getcwd() 
             if len(score_cols) > 1:
                 # m_report = f"{_dir}/report_templates/report_colored_template.tex"
                 m_report = f"{_dir}/report_templates/report_template.tex"
@@ -2884,12 +2910,15 @@ def show_df(df):
                 m_report = f"{_dir}/report_templates/report_template.tex"
             with open(m_report, "r") as f:
                 report = f.read()
-            with open(os.path.join(doc_dir, "report.tex"), "w") as f:
-                f.write("")
-            latex_table=tabulate(df[sel_cols],  #[rep_cols+score_cols], 
+            #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
+            #    f.write("")
+            latex_table=tabulate(df[sel_cols].round(1),  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
-            latex_table = latex_table.replace("tabular", "longtable")
+            #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
+            tname = rowinput("Table name:")
+            with open(os.path.join(table_dir, tname + ".tex"), "w") as f:
+                f.write(latex_table)
             report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
             report = report.replace("mytable", "\n \\newpage mytable")
             # df = pdf
