@@ -781,12 +781,20 @@ class MRPC(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+class MRPC1(MRPC):
+    name = "mrpc1"
+    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    labels_map = {
+            "map":{"0":"not_equivalent","1":"equivalent"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            }
+
 class MRPC2(MRPC):
     name = "mrpc2"
     split_to_data_name = {"train":"mrpc", "test":"mrpc"}
     labels_map = {
             "map":{"0":"not_equivalent","1":"equivalent"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
+            "map2":{"0":"not_duplicate","1":"duplicate"}
             }
 
 class MRPC3(MRPC):
@@ -1381,6 +1389,24 @@ class QNLI(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
+class QNLI1(QNLI):
+    name = "qnli1"
+    split_to_data_name = {"train":"qnli", "test":"qnli"}
+    labels_map = {
+            "map":{"0":"entailment","1":"not_entailment"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            "map4":{"0":"equivalent","1":"not_equivalent"}
+            }
+
+class QNLI2(QNLI):
+    name = "qnli2"
+    split_to_data_name = {"train":"qnli", "test":"qnli"}
+    labels_map = {
+            "map":{"0":"entailment","1":"not_entailment"},
+            "map2":{"0":"not_duplicate","1":"duplicate"},
+            "map4":{"0":"equivalent","1":"not_equivalent"}
+            }
+
 class RTE(AbstractTask):
     name = "rte"
     use_gen_map = False
@@ -1405,6 +1431,22 @@ class RTE(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
+class RTE1(RTE):
+    name = "rte1"
+    split_to_data_name = {"train":"rte", "test":"rte"}
+    labels_map = {
+            "map":{"0":"entailment","1":"not_entailment"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            }
+
+class RTE2(RTE):
+    name = "rte2"
+    split_to_data_name = {"train":"rte", "test":"rte"}
+    labels_map = {
+            "map":{"0":"entailment","1":"not_entailment"},
+      #      "map2":{"0":"not_equal","1":"duplicate"}
+            }
 
 class WNLI(AbstractTask):
     name = "wnli"
@@ -1733,6 +1775,7 @@ TASK_MAPPING = OrderedDict(
         ('atomic-rels', AtomicRel),
         ('squad', Squad),
         ('mrpc', MRPC),
+        ('mrpc1', MRPC1),
         ('mrpc2', MRPC2),
         ('mrpc3', MRPC3),
         ('cola', COLA),
@@ -1740,7 +1783,11 @@ TASK_MAPPING = OrderedDict(
         ('tweet-eval', TweetEval),
         ('imdb', IMDB),
         ('qnli', QNLI),
+        ('qnli1', QNLI1),
+        ('qnli2', QNLI2),
         ('rte', RTE),
+        ('rte1', RTE1),
+        ('rte2', RTE2),
         ('wnli', WNLI),
         ('mnli', MNLI),
         ('parsnli', ParsNLI),

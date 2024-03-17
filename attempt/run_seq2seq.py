@@ -941,10 +941,12 @@ def train(**kwargs):
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         #    if model_args.add_target:
         #        target_prompt_length += adapter_args.num_prompt_tokens
-        elif model_args.compose_method in ["catw","mcat","scat"]:
+        elif model_args.compose_method in ["catw","mcat","scat","mscat"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method in ["wcat", "wcp", "wcp1"]:
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
+        #    if model_args.add_target:
+        #        target_prompt_length += adapter_args.num_prompt_tokens
         elif model_args.compose_method == "tcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
         elif model_args.compose_method == "wavg":
@@ -1178,6 +1180,7 @@ def train(**kwargs):
     config.num_target_prompts = num_target_prompts
     config.attend_private = use_private_prompts 
     config.use_private_prompts = use_private_prompts
+    config.ignore_private = kwargs.setdefault("ignore_private", False)
     config.source_prompts_order = kwargs.setdefault("source_prompts_order", "desc")
     config.padding_pos = kwargs.setdefault("padding_pos", "start")
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
@@ -2385,10 +2388,11 @@ def train(**kwargs):
                     mkey = str(col) + "-" + mask_type + "-" \
                             + prompt_names[col].replace("source_","")
                     gen_masks[mkey] = mask
-            if mask_type:
+            if mask_type and not model_args.compose_method in ["mcat","mwavg"]:
                 if use_source_prompts:
                     col += 1
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_source")
+                    mylogs.bp("keepsrc")
                     mkey = str(col) + "-" + mask_type + "-source"
                     gen_masks[mkey] = mask
                 if use_private_prompts:
@@ -2434,7 +2438,7 @@ def train(**kwargs):
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
             full_attn_mat = None
-            use_attn_map = kwargs.get("full_attn_map", True)
+            use_masked_attn_scores = kwargs.get("use_masked_attn", 1)
             for norm_method, gcmm, gmin, gmax, gntp in gen_combs:
                 gen_mask_counter = 0
                 for gen_masks in gen_masks_list:
@@ -2459,8 +2463,9 @@ def train(**kwargs):
                         if test_num == "-1":
                             test_num = "all"
                         eval_folder_name = rv + "-" + exp_folder_name + "-" + rm \
+                                + "-" + kwargs.get("compose_method","cmm") \
                                 + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
-                                + "_" + str(gcmm) + "-" + str(use_attn_map) \
+                                + "_" + str(gcmm) + "-" + str(use_masked_attn_scores) \
                                 + "_num-" + test_num + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
@@ -2497,16 +2502,26 @@ def train(**kwargs):
                             orig_mask = model.encoder.attn_mask_orig 
                             orig_mask_matrix = orig_mask.index_select(0, targets)
                         for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                            if mask is not None: 
-                               gen_conf["attn_mask"] = mask 
-                               if use_attn_map is True: 
-                                   gen_conf["attn_mat"] = full_attn_mat
-                               else:
-                                   gen_conf["attn_mat"] = None
-                            else:
-                               gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-
+                            gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
                             mylogs.bp("testmask")
+                            if mask is not None: 
+                               if use_masked_attn_scores > 0: 
+                                   masked_attn_scores = mask * full_attn_mat
+                                   if use_masked_attn_scores == 2:
+                                       masked_attn_scores[masked_attn_scores != 0] = 1
+                                   gen_conf["attn_mat"] = masked_attn_scores 
+                                   if any(item in rm 
+                                           for item in 
+                                           ["keep-source", "keep-target", "keep-private"]):
+                                       mylogs.bp("keepsrc")
+                                       gen_conf["attn_mask"] = mask 
+                               else:
+                                   gen_conf["attn_mask"] = mask 
+                                   if use_masked_attn_scores < 0:
+                                       gen_conf["attn_mat"] = None
+                                   else:
+                                       gen_conf["attn_mat"] = full_attn_mat
+
                             task = task.split("_")[0]
                             ds_conf = task #data_args.test_dataset_config_name[idx]
                             ds_name = task #data_args.test_dataset_name[idx]

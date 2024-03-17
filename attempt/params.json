@@ -14,7 +14,7 @@
   "temp":"template",
   "map":"mapping",
   "maps":"map_style",
-  "fam":"full_attn_map",
+  "uma":"use_masked_attn",
   "alr":"attn_learning_rate",
   "cmm":"compose_method",
   "gcmm":"gen_compose_method",

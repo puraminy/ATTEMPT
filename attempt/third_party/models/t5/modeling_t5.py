@@ -89,9 +89,11 @@ def normalize_scores(scores, method="soft",
     if method == "importance3":
         scores = scores * col_sums
         scores = F.softmax(scores, -1)
-    if method == "one" or len(torch.nonzero(scores)) == 0:
+    if method == "zero":
+        scores[True] = 0
+    elif method == "one": # or len(torch.nonzero(scores)) == 0:
         scores[True] = 1
-    if method == "nothing":
+    elif method == "nothing":
        pass 
     elif method == "direct" or method == "soft" or method == "srelu":
         scores = F.softmax(scores, -1)
@@ -1114,6 +1116,7 @@ class T5Stack(T5PreTrainedModel):
         self.prompt_tuning = config.prompt_tuning
         self.attn_prompt_tuning = config.attn_tuning
         self.use_source_prompts = config.use_source_prompts
+        self.ignore_private = config.ignore_private
         self.attend_input = config.attend_input
         self.add_target = config.add_target
         self.compose_method = config.compose_method
@@ -1516,7 +1519,7 @@ class T5Stack(T5PreTrainedModel):
             if "gen_cmm" in self.gen_conf and self.gen_conf["gen_cmm"] is not None: 
                 compose_method = self.gen_conf["gen_cmm"]
 
-        if compose_method in ["wcp1","wsp1","wmp1"]: # or not self.attend_private:
+        if compose_method in ["wcp1","wsp1","wmp1"] or self.ignore_private:
             assert self.use_private_prompts is True, "use private prompts must be enabled"
             private_prompt = attend_to[:,-1,:,:]
             private_prompt = private_prompt.unsqueeze(1)
@@ -1722,7 +1725,7 @@ class T5Stack(T5PreTrainedModel):
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
             soft_prompts = torch.einsum(
                 'bts, btsld -> btld', agg_scores, soft_prompts)
-        elif compose_method in ["cat","catw","mcat","scat"]:
+        elif compose_method in ["cat","catw","mcat","scat", "mscat"]:
             mylogs.bp("cat")
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
@@ -1798,6 +1801,7 @@ class T5Stack(T5PreTrainedModel):
             ts = target_shares.reshape(batch_size, 1, 1, 1)
             if self.target_share != 2:
                 private_prompt = ts * private_prompt
+            private_prompt = private_prompt.unsqueeze(1)
             soft_prompts = torch.cat(
                    [avg_prompts, private_prompt], dim=2)
             attn_sel_scores = torch.cat(
@@ -1897,6 +1901,8 @@ class T5Stack(T5PreTrainedModel):
        attn_mask = self.attn_mask
        if not self.training: 
            mylogs.bp("ccc")
+           if "keep-source" in self.gen_conf["mask_type"]:
+               mylogs.bp("keepsrc")
            if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                attn_mask = self.gen_conf["attn_mask"] 
        mylogs.bp("adt")
@@ -1922,6 +1928,16 @@ class T5Stack(T5PreTrainedModel):
                    soft_prompts.size(-2), soft_prompts.size(-1))
            _target = target_prompts.view(-1, target.size(-2), target.size(-1))
            soft_prompts = soft_prompts * target 
+       elif self.compose_method == "mscat":
+           btsld = soft_prompts.shape
+           split_index = btsld[3] // 2  # Split index for the 's' dimension
+           A_split = torch.split(soft_prompts, split_index, dim=3)
+           B_split = torch.split(target, split_index, dim=3)
+
+           C_mult = A_split[0] * B_split[0]  # Multiplication
+           C_add = A_split[1] + B_split[1]    # Addition
+
+           soft_prompts = torch.cat([C_mult, C_add], dim=3)           
        else:
            soft_prompts = soft_prompts + target 
        # soft_prompts = self.layer_norm(soft_prompts)
@@ -2071,6 +2087,8 @@ class T5Stack(T5PreTrainedModel):
                             attn_mask = self.gen_conf["attn_mask"] 
                         if self.gen_conf is not None and "attn_mat" in self.gen_conf:
                             attn_mat = self.gen_conf["attn_mat"] 
+                            if attn_mat is not None:
+                                mylogs.bp("amat")
                     if len(source_idx_list) > 1 or self.attend_input:
                         target_idx = torch.unique_consecutive(target_idx, dim=1)  
                         source_idx_list = torch.tensor(source_idx_list, device=device).long()
@@ -2139,7 +2157,7 @@ class T5Stack(T5PreTrainedModel):
                             tmask = target_prompt_masks.clone()
                             amask = torch.ones((batch_size, 
                                 attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
-                            if self.compose_method in ["cat","concat"]: #,"scat"]:
+                            if self.compose_method in ["cat","concat","scat","mcat"]:
                                 if self.training: 
                                     thresh = self.sel_thresh 
                                 else:
