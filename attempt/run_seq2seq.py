@@ -294,6 +294,7 @@ def cli():
 )
 @click.option(
     "--new_exp_folder",
+    "-to",
     "-new",
     default="",
     type=str,
@@ -470,6 +471,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            _mvars.append(var)
    if _mvars: main_vars = _mvars
 
+   if prev_exp_folder and not "prompt_encoders_dir" in main_vars:
+       args["prompt_encoders_dir"] = prev_exp_folder
    if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
        mylogs.bp("prev")
        prev_folder = Path(prev_exp_folder)
@@ -1143,6 +1146,19 @@ def train(**kwargs):
 
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
     steps = 0
+
+    if kwargs.get("adjust_temperature", True):
+        if data_args.max_train_samples < 10:
+            model_args.temperature = 8
+        elif data_args.max_train_samples < 20:
+            model_args.temperature = 5
+        elif model_args.compose_method in ["mwavg","mcat"]:
+            model_args.temperature = 0.001
+        else:
+            model_args.temperature = 2
+    kwargs["temperature"] = model_args.temperature
+    kwargs["attn_method"] = model_args.attn_method
+
     if training_args.do_train:
         steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     mylogs.bp("steps")
@@ -1295,17 +1311,20 @@ def train(**kwargs):
         model.update_layer_norm_weights(model_args.layer_norm_dir)
 
     ######################## My code pppppp
+    
+    mylogs.bp("router")
     prompts_dir = model_args.prompt_encoders_dir
-    if prompts_dir and not prompts_dir.startswith("/") and not prompts_dir == "save_path":
+    if ("prompt_encoders_dir" in main_vars
+        and prompts_dir and not prompts_dir.startswith("/") 
+        and not prompts_dir in ["save_path"]):
         prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
-    else:
+    elif prompts_dir == "save_path":
         base_folder = Path(kwargs.save_path)
         base_folder_stem = base_folder.stem
         base_folder_name = base_folder.name
         prompts_dir = training_args.output_dir.replace(base_folder_name, base_folder_stem)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    mylogs.bp("router")
     use_saved_router = kwargs.setdefault("use_saved_router", False) 
     router_prefix = kwargs.setdefault("router_prefix", None) 
     use_saved_router = use_saved_router # or (router_prefix and router_prefix in main_vars)
@@ -2130,6 +2149,8 @@ def train(**kwargs):
             auto_task = AutoTask.get(
                 test_dataset, test_dataset_config,
                 task_args=task_args, tokenizer=tokenizer)
+            if test_dataset in include_tasks:
+                continue
             for prefix in test_prefix[test_dataset]:
                 ds_key = test_dataset + "_" + prefix
                 if first_ds == "": first_ds = ds_key
@@ -2388,8 +2409,8 @@ def train(**kwargs):
                     mkey = str(col) + "-" + mask_type + "-" \
                             + prompt_names[col].replace("source_","")
                     gen_masks[mkey] = mask
-            if mask_type and not model_args.compose_method in ["mcat","mwavg"]:
-                if use_source_prompts:
+            if mask_type: 
+                if use_source_prompts and not model_args.compose_method in ["mcat","mwavg"]:
                     col += 1
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_source")
                     mylogs.bp("keepsrc")
@@ -2400,7 +2421,8 @@ def train(**kwargs):
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_private")
                     mkey = str(col) + "-" + mask_type + "-private"
                     gen_masks[mkey] = mask
-                if model_args.add_target is True:
+                if (model_args.add_target 
+                    and not model_args.compose_method in ["mcat","mwavg"]):
                     col += 1
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_target")
                     mkey = str(col) + "-" + mask_type + "-target" 
@@ -2466,6 +2488,7 @@ def train(**kwargs):
                                 + "-" + kwargs.get("compose_method","cmm") \
                                 + "_" + str(gmin) + "-" + str(gmax) + "_" + norm_method \
                                 + "_" + str(gcmm) + "-" + str(use_masked_attn_scores) \
+                                + "_" + str(kwargs.trial) + "-" + mylogs.now \
                                 + "_num-" + test_num + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
@@ -2474,6 +2497,7 @@ def train(**kwargs):
                         if not rm in task_scores:
                             task_scores[rm] = {}
                         gen_conf = {"rep_penalty":2.0}
+                        gen_conf["ignore_zeros"] = kwargs.get("gen_ignore_zeros", False)
                         gen_conf["gen_norm_method"] = norm_method
                         gen_conf["mask_type"] = rm # if mask is not None else "no-mask"
                         gen_conf["gen_thresh_min"] = gmin
@@ -2512,8 +2536,11 @@ def train(**kwargs):
                                    gen_conf["attn_mat"] = masked_attn_scores 
                                    if any(item in rm 
                                            for item in 
-                                           ["keep-source", "keep-target", "keep-private"]):
+                                           ["keep-source", "keep-target"]):
                                        mylogs.bp("keepsrc")
+                                       gen_conf["attn_mask"] = mask 
+                                   elif kwargs.get("gen_ignore_target", False):
+                                       mask = model.encoder.make_attn_mask(1,1,"rem_target")
                                        gen_conf["attn_mask"] = mask 
                                else:
                                    gen_conf["attn_mask"] = mask 

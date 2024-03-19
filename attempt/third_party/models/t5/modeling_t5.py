@@ -2151,13 +2151,17 @@ class T5Stack(T5PreTrainedModel):
                                 self.attn_scores[tgt_idx.reshape(-1,1), src_idx] = ascore 
                                 self.attn_mask_learned[tgt_idx.reshape(-1,1), src_idx] = 1 
                             ###### Pad extra prompt tokens
-                            mylogs.bp("pred1")
                             # amask = amask.squeeze(1)
                             masked_prompts = soft_prompts
                             tmask = target_prompt_masks.clone()
                             amask = torch.ones((batch_size, 
                                 attn_scores.size(-1)*self.src_prompt_dim), dtype=bool)
-                            if self.compose_method in ["cat","concat","scat","mcat"]:
+                            ignore_zeros = False
+                            if not self.training:
+                                ignore_zeros = self.gen_conf.get("ignore_zeros", False)
+                            if (self.compose_method in ["cat","concat","scat","mcat"] 
+                                and ignore_zeros):
+                                mylogs.bp("pred1")
                                 if self.training: 
                                     thresh = self.sel_thresh 
                                 else:

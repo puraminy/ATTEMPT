@@ -77,7 +77,7 @@ if [ -n "$_otasks" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
 sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
-if [ -n "$_sgtasks" ]; then
+if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_atasks" ]; then

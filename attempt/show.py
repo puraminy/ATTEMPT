@@ -168,11 +168,11 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 
 def create_label(row):
-    label = ''
+    label = 'PT'
     if row['add_target']:
-        label += 'A_'
+        label += 'A'
     if row['use_source_prompts']:
-        label += 'S'
+        label += '_S'
         if row['load_source_prompts']:
             label += 'I'
         if row['learn_source_prompts']:
@@ -597,7 +597,10 @@ def show_df(df):
     if "mask_type" in df:
         df["cur_masking"] = (df["mask_type"].str.split("-").str[1] + "-" 
                 + df["mask_type"].str.split("-").str[2]) 
-    if "compose_method" in df:
+    if "use_masked_attn" in df:
+        df["use_masked_attn"] = df["use_masked_attn"].astype(str)
+
+    if True: #"compose_method" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
     if False: #"expid" in df:
@@ -1082,6 +1085,7 @@ def show_df(df):
         infos.append("-------------------------")
         if show_consts:
             consts["len"] = str(len(df))
+            consts["root"] =str([Path(root_path).stem]*5)
             consts["context"] = context
             consts["keys"] = general_keys
             if context in shortkeys:
@@ -1718,9 +1722,9 @@ def show_df(df):
             context = "grouping"
             shortkeys["grouping"] = {"m":"show mean","s":"show std"}
             if not selected_cols:
-                selected_cols = ["label","norm_method","compose_method","max_train_samples"]
+                selected_cols = ["label","compose_method","max_train_samples"]
             if len(selected_cols) > 0:
-                df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
+                df = df.groupby(selected_cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
         elif char in ["g", "u"]:
             context = "group_mode"
@@ -1739,13 +1743,16 @@ def show_df(df):
         elif char == "A": 
             consts["options"] = "b: back"
             backit(df, sel_cols)
-            if not "eid" in sel_cols:
-                sel_cols.insert(1, "eid")
-            df = df.groupby(["eid"]).mean(numeric_only=True).reset_index()
-            if "m_score" in df:
-                df = df.sort_values(by=["m_score"], ascending=False)
-            elif "avg" in df:
-                df = df.sort_values(by=["avg"], ascending=False)
+            if cur_col < 0:
+                show_msg("Please select a column")
+            else:
+                col = sel_cols[cur_col]
+                df = df.groupby(col, as_index=False).mean(numeric_only=True).reset_index()
+                if "m_score" in df:
+                    df = df.sort_values(by=["m_score"], ascending=False)
+                elif "avg" in df:
+                    df = df.sort_values(by=["avg"], ascending=False)
+                df = df.round(2)
         elif char == "a" and False: 
             consts["options"] = "b: back"
             backit(df, sel_cols)
@@ -1920,7 +1927,7 @@ def show_df(df):
             info_cols = []
             save_obj(sel_cols, "sel_cols", context)
             save_obj(info_cols, "info_cols", context)
-        elif char == "M":
+        elif char == "M" and False:
             exp=df.iloc[sel_row]["eid"]
             cond = f"(main_df['eid'] == '{exp}')"
             tdf = main_df[main_df.eid == exp]
@@ -1980,6 +1987,35 @@ def show_df(df):
             #with open(, 'r') as f:
             #    lines = f.readlines()
             #subwin(lines)                
+        elif char == "M":
+            s_rows = sel_rows
+            if not sel_rows:
+                s_rows = [sel_row]
+            t_path = ""
+            for s_row in s_rows:
+                exp=df.iloc[s_row]["eid"]
+                cond = f"(main_df['eid'] == '{exp}')"
+                tdf = main_df[main_df.eid == exp]
+                path=tdf.iloc[0]["output_dir"]
+                if not t_path:
+                    t_path = Path(path).parent
+                folder_name = Path(path).stem
+                defpath = os.path.join(t_path, folder_name)
+                new_path = rowinput("Copy To:", default=defpath)
+                t_path = Path(new_path).parent
+                if new_path:
+                    parent = Path(path).parent
+                    new_parent = Path(new_path).parent
+                    pname = Path(path).parent.name
+                    expid = Path(path).name
+                    folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
+                    for folder in folders:
+                        copy_tree(folder, os.path.join(str(new_parent),Path(folder).stem))
+                        os.system(cmd)
+                    copy_tree(path, new_path)
+                    os.system(cmd)
+                    mbeep()
+            sel_rows = []
         elif char == "D":
             s_rows = sel_rows
             if not sel_rows:
@@ -2119,7 +2155,7 @@ def show_df(df):
             sel_cols = index_cols + ["fid"] + group_sel_cols.copy()
             df = df.sort_values(by=["prefix",score_cols[0]], ascending=False)
             left = 0
-            sel_rows = range(len(df))
+            # sel_rows = range(len(df))
             char = ""
             if char == "j":
                 char = "i"
@@ -2403,6 +2439,8 @@ def show_df(df):
                sel_row = 0
                keep_cols.append(col)
         if char == "V":
+            sel_rows = range(len(df))
+        if char == "V" and False:
             backit(df, sel_cols)
             sel_col = sel_cols[cur_col]
             cond = True 
@@ -2622,10 +2660,34 @@ def show_df(df):
             col = sel_cols[cur_col]
             if to == "num":
                 df[col] = df[col].astype(float)
-        if char == "x" or cmd.startswith("cross"):
+        if char == "X":
+           backit(df, sel_cols)
+           exprs = []
+           scores = []
+           for prefix in pcols:
+                exps, scs = get_sel_rows(df, col=prefix, from_main=False) 
+                exprs.extend(exps)
+                scores.extend(scs)
+           dfs = []
+           _cols = ["prefix","target_text", "m_score"]
+           for eid, pfx in zip(exprs, pcols): 
+                tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == pfx), _cols]
+                gdf = tdf.groupby("target_text", as_index=False).first()
+                accuracy_values = []
+                for target_text in gdf['target_text']:
+                    pred_text1_matches = main_df.loc[(main_df.eid == eid) & (main_df.prefix == pfx) & (main_df.target_text == target_text) & (main_df.target_text == main_df.pred_text1)]
+                    total_matches = len(main_df.loc[(main_df.eid == eid) & (main_df.prefix == pfx) & (main_df.target_text == target_text)])
+                    accuracy = len(pred_text1_matches) # / total_matches if total_matches != 0 else 0
+                    accuracy_values.append(accuracy)
+
+                gdf['accuracy'] = accuracy_values
+                dfs.append(gdf.round(1))
+           df = pd.concat(dfs, ignore_index=True)
+           sel_cols = df.columns
+           group_col = "prefix"
+        if char in ["x"] or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
-
             if context == "pivot" or len(sel_rows) > 1:
                 prefix = sel_cols[cur_col]
                 exprs, scores = get_sel_rows(df, col=prefix, from_main=False) 
@@ -3424,6 +3486,7 @@ hotkey = ""
 dfname = ""
 global_cmd = ""
 global_search = ""
+root_path = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
 data_frame = None
 
@@ -3617,9 +3680,10 @@ def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, limit, chk_time):
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname, hotkey, global_cmd, global_search,check_time, data_frame
+    global dfname, hotkey, global_cmd, global_search,check_time, data_frame, root_path
     check_time = chk_time
     global_search = search
+    root_path = path
     hotkey = hkey 
     global_cmd = cmd
     dfname = fname

@@ -21,7 +21,8 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
 
         elif adapter_args.prompt_tuning:
             if model_args.attn_method == "const":
-                assert model_args.route_method == "direct", "route method for const method must be direct"  
+                pass
+                #assert model_args.route_method == "direct", "route method for const method must be direct"  
 #            if not model_args.attn_tuning:
 #                if model_args.attend_target is False:
 #                    assert model_args.add_target is True, "Can't both attend target and add target be false"
