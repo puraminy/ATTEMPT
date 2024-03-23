@@ -16,6 +16,7 @@ import logging
 import numpy as np
 import torch
 import re
+import json
 from attempt.maps import *
 import attempt.mylogs as mylogs
 from itertools import cycle, islice
@@ -74,6 +75,7 @@ class AbstractTask(abc.ABC):
         self.template = task_args.template
         self.tokenizer = tokenizer
         self.prefix = task_args.get("prefix", self.name)
+        self.use_cache_file = task_args.get("use_cache_file", True)
         ## list of prompts
         if task: 
             self.task_name = task
@@ -121,7 +123,7 @@ class AbstractTask(abc.ABC):
 
     def check_n_obs(self, n_obs, total_size):
         if n_obs < 0 or (n_obs is not None and n_obs > total_size):
-            n_obs = min(total_size, 10000)
+            n_obs = min(total_size, 5000)
             logger.warning("n_obs is set to %s", n_obs)
         return n_obs
 
@@ -213,7 +215,7 @@ class AbstractTask(abc.ABC):
         else:
             outfile = os.path.join(directory, fname + "_" + obs_str + extension)
 
-        if Path(outfile).is_file():
+        if Path(outfile).is_file() and self.use_cache_file is True:
             file_name = outfile
 
 
@@ -226,6 +228,7 @@ class AbstractTask(abc.ABC):
                 #dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
+                df = df.dropna(how='all')
                 #df.label = df.label.astype(int)
                 dataset = Dataset.from_pandas(df)
             else:
@@ -244,6 +247,7 @@ class AbstractTask(abc.ABC):
                 #dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
+                df = df.dropna(how='all')
                 #df.label = df.label.astype(int)
                 dataset = Dataset.from_pandas(df)
             else:
@@ -263,6 +267,7 @@ class AbstractTask(abc.ABC):
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
                 #df.label = df.label.astype(int)
+                df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + self.name + " ----------")
@@ -567,7 +572,8 @@ class AbstractTask(abc.ABC):
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
-        if self.mapping in self.labels_map and self.labels_map[self.mapping]:
+        if (self.map_labels and self.mapping in self.labels_map 
+            and self.labels_map[self.mapping]):
             labels_list = []
             for label in self.labels_list:
                 labels_list.append(self.labels_map[self.mapping][label])
@@ -583,8 +589,12 @@ class AbstractTask(abc.ABC):
             labels_list = self.labels_list
             
         add_prefix = self.task_args.setdefault("add_prefix", False)
-        orig_src = ' '.join(sources)
-        sources = [src_prefix]+sources if add_prefix else sources
+        try:
+            orig_src = ' '.join(sources)
+            sources = [src_prefix]+sources if add_prefix else sources
+        except:
+            orig_src = 'none'
+            sources = [src_prefix] + ['none']
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
         src = src.strip()
@@ -605,7 +615,7 @@ class AbstractTask(abc.ABC):
                 'target': tgt,
                 'task': self.get_id(),
                 ** extra_fields}
-        extra_fields = {}
+        # extra_fields = {}
         extra_fields["event"] = orig_src 
         extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
@@ -1550,6 +1560,7 @@ class SuperGLUECOPA(AbstractTask):
 
 class SuperGLUEMultiRC(AbstractTask):
     name = "superglue-multirc"
+    map_labels = False
     labels_list = ['0', '1']
     split_to_data_split = {"train": "train",
                            "validation": "validation",
@@ -1568,8 +1579,15 @@ class SuperGLUEMultiRC(AbstractTask):
         text = re.sub('<(/)?b>', '', text)
         return text
 
+    def post_process(self, preds, labels):
+        return preds, labels
+
     def preprocessor(self, example, prefix):
-        group = example['idx']['question']
+        group = example['idx']
+        if type(group) == str:
+            group = group.replace("'", "\"")
+            group = json.loads(group)
+        group = group['question']
         # T5 applies remove_markup to the joined string, but this should not make
         # any difference as well.
         # https://github.com/google-research/text-to-text-transfer-transformer/blob/a1352e625db7ec114062f99d99b0565b9e45c155/t5/data/preprocessors.py#L797

@@ -1992,6 +1992,7 @@ def show_df(df):
             if not sel_rows:
                 s_rows = [sel_row]
             t_path = ""
+            pfx = ""
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 cond = f"(main_df['eid'] == '{exp}')"
@@ -1999,10 +2000,12 @@ def show_df(df):
                 path=tdf.iloc[0]["output_dir"]
                 if not t_path:
                     t_path = Path(path).parent
-                folder_name = Path(path).stem
+                folder_name = pfx +  Path(path).stem
                 defpath = os.path.join(t_path, folder_name)
                 new_path = rowinput("Copy To:", default=defpath)
                 t_path = Path(new_path).parent
+                new_folder_name = Path(new_path).stem
+                pfx = new_folder_name.replace(Path(path).stem,"")
                 if new_path:
                     parent = Path(path).parent
                     new_parent = Path(new_path).parent
@@ -2010,7 +2013,9 @@ def show_df(df):
                     expid = Path(path).name
                     folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
                     for folder in folders:
-                        copy_tree(folder, os.path.join(str(new_parent),Path(folder).stem))
+                        new_folder = Path(folder).stem
+                        new_folder = new_folder.replace(str(expid),new_folder_name)
+                        copy_tree(folder, os.path.join(str(new_parent), new_folder))
                         os.system(cmd)
                     copy_tree(path, new_path)
                     os.system(cmd)

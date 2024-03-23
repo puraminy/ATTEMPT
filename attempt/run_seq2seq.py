@@ -622,6 +622,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            ee = round(float(args["expid"]))
            _output_dir = str(ee)
            output_dir = os.path.join(save_path, _output_dir)
+           #if Path(output_dir).exists() and not repeat:
+           #    mylogs.minfo(f"The folder {output_dir} already exists....")
+           #    ans = input("Do you want to skip the experiment?")
+           #    if True: #ans == "y":
+           #        continue
            if not reval:
                while Path(output_dir).exists():
                    ee += 1 
@@ -855,6 +860,7 @@ def train(**kwargs):
         include_tasks = []
     if type(include_tasks) != list:
         include_tasks = [include_tasks]
+
     if exclude_tasks or include_tasks:
         tasks = []
         for t in data_args.task_name + include_tasks:
@@ -971,6 +977,7 @@ def train(**kwargs):
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
+    task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
     task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
     task_args["train_samples"] = data_args.max_train_samples
@@ -1146,18 +1153,21 @@ def train(**kwargs):
 
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
     steps = 0
-
-    if kwargs.get("adjust_temperature", True):
+    ftemp = kwargs.get("fixed_temperature", -1)
+    if ftemp > 0:
+        model_args.temperature = ftemp
+        model_args.anneal_min = ftemp
+        kwargs["anneal_min"] = ftemp 
+    elif kwargs.get("adjust_temperature", True):
         if data_args.max_train_samples < 10:
-            model_args.temperature = 8
-        elif data_args.max_train_samples < 20:
             model_args.temperature = 5
-        elif model_args.compose_method in ["mwavg","mcat"]:
-            model_args.temperature = 0.001
-        else:
-            model_args.temperature = 2
-    kwargs["temperature"] = model_args.temperature
-    kwargs["attn_method"] = model_args.attn_method
+        #elif data_args.max_train_samples < 20:
+        #    model_args.temperature = 5
+        #elif model_args.compose_method in ["mwavg","mcat"]:
+        #    model_args.temperature = 0.001
+        #else:
+        #    model_args.temperature = 2
+        kwargs["temperature"] = model_args.temperature
 
     if training_args.do_train:
         steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
@@ -2144,12 +2154,17 @@ def train(**kwargs):
         test_datasets = {}
         max_target_lengths = []
         first_ds = ""
+        exclude_from_test_tasks = kwargs.setdefault("exclude_from_test_tasks", []) 
+        if exclude_from_test_tasks is None:
+            exclude_from_test_tasks = []
+        if type(exclude_from_test_tasks) != list:
+            exclude_from_test_tasks = [exclude_from_test_tasks]
         for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, 
                 data_args.test_dataset_config_name): 
             auto_task = AutoTask.get(
                 test_dataset, test_dataset_config,
                 task_args=task_args, tokenizer=tokenizer)
-            if test_dataset in include_tasks:
+            if test_dataset in exclude_from_test_tasks:
                 continue
             for prefix in test_prefix[test_dataset]:
                 ds_key = test_dataset + "_" + prefix

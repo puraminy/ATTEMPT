@@ -58,7 +58,10 @@ from torch.nn.utils.rnn import pad_sequence
 # My utility function
 ############
 def normalize_scores(scores, method="soft", 
-        sel_thresh=None, gen_thresh_min=None, gen_thresh_max=None, resample=False):
+        sel_thresh=None, 
+        gen_thresh_min=None, 
+        gen_thresh_max=None, 
+        resample=False, is_training=False):
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=gen_thresh_min or 0.0001, 
             logits=scores*100).rsample()  
@@ -89,13 +92,22 @@ def normalize_scores(scores, method="soft",
     if method == "importance3":
         scores = scores * col_sums
         scores = F.softmax(scores, -1)
-    if method == "zero":
+    if method == "max":
+        max_values, _ = torch.max(scores, dim=2, keepdim=True)
+        mask = torch.eq(scores, max_values)
+        scores = torch.where(mask, torch.tensor(1.0), torch.tensor(0.0))
+    elif method == "zero":
         scores[True] = 0
     elif method == "one": # or len(torch.nonzero(scores)) == 0:
         scores[True] = 1
     elif method == "nothing":
        pass 
     elif method == "direct" or method == "soft" or method == "srelu":
+        if is_training:
+            scores=scores / scores.sum(dim=-1, keepdim=True) 
+            # Add a small positive constant to the scores
+            epsilon = 1e-8  # Adjust the value of epsilon as needed
+            scores += epsilon
         scores = F.softmax(scores, -1)
     elif method == "colsoft":
         scores = F.softmax(scores, 0)
@@ -1602,7 +1614,7 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("before")
         if self.training and "before" in self.norm_method:
             method = self.norm_method.replace("before_","")
-            attn_scores = normalize_scores(attn_scores, method) 
+            attn_scores = normalize_scores(attn_scores, method, is_training=self.training) 
 
         #if compose_method in ["cat","concat","catw"]: #,"pool","mpool"]:
         #    num_attend_to = (num_targets * attend_for.size(2)) // self.src_prompt_dim
@@ -1637,8 +1649,6 @@ class T5Stack(T5PreTrainedModel):
                     num_select, 
                     sorted=self.source_prompts_order in sorting_opts,
                     threshold=None) #  self.sel_thresh)
-            if torch.any(attend_to_sel_idx == -1):
-                mylogs.bp("negg")
             if self.source_prompts_order == "rand":
                 idx = torch.randperm(attend_to_sel_idx.shape[-1])
                 attend_to_sel_idx = attend_to_sel_idx[:,:,idx].view(attend_to_sel_idx.size())
@@ -1699,13 +1709,13 @@ class T5Stack(T5PreTrainedModel):
                 attn_sel_scores = normalize_scores(attn_sel_scores, 
                     gen_norm_method,
                     gen_thresh_min=gen_thresh_min,
-                    gen_thresh_max=gen_thresh_max)
+                    gen_thresh_max=gen_thresh_max, is_training=self.training)
 
         mylogs.bp("norm")
         if self.training:
             method = self.norm_method.replace("after_","")
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
-                    sel_thresh=self.sel_thresh)
+                    sel_thresh=self.sel_thresh, is_training=self.training)
 
         mylogs.bp("params")
         if route_method == "params":
@@ -1940,7 +1950,9 @@ class T5Stack(T5PreTrainedModel):
            soft_prompts = torch.cat([C_mult, C_add], dim=3)           
        else:
            soft_prompts = soft_prompts + target 
-       # soft_prompts = self.layer_norm(soft_prompts)
+
+       #if self.compose_method == "mcat":
+       #    soft_prompts = self.layer_norm(soft_prompts)
        # attn_sel_scores = torch.cat(
        #        [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
        # attend_to_idx = torch.cat([attend_to_idx, target_idx], dim=-1) 
