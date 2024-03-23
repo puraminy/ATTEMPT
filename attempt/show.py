@@ -587,7 +587,7 @@ def show_df(df):
 
     filter_df = main_df
     tag_cols = []
-    if "taginfo" in df:
+    if False: #"taginfo" in df:
         tags = df.loc[0, "ftag"]
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
@@ -603,6 +603,8 @@ def show_df(df):
     if True: #"compose_method" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
+        df["ftag"] = df["folder"].str.split("/").str[-1]
+        df["ftag"] = df["ftag"].str.split("_").str[0]
     if False: #"expid" in df:
         df["fexpid"] = df["expid"]
         df["expname"] = df["expid"].str.split("-").str[0]
@@ -632,6 +634,7 @@ def show_df(df):
     general_keys = {"l":"latex df"}
     shortkeys = {"main":{"r":"pivot table"}}
     ax = None
+    fig = None
     if "Z" in hotkey:
         df["m_score"] = df["rouge_score"]
     context = dfname
@@ -1726,6 +1729,7 @@ def show_df(df):
             if len(selected_cols) > 0:
                 df = df.groupby(selected_cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
+            selected_cols = []
         elif char in ["g", "u"]:
             context = "group_mode"
             if cur_col < len(sel_cols):
@@ -2379,14 +2383,15 @@ def show_df(df):
                         with open(tname, "w") as f:
                             f.write(latex)
 
-        elif char == "P" and prev_char == "x":
-            cols = get_cols(df,2)
-            if cols:
-                df = df.sort_values(cols[1])
-                x = cols[0]
-                y = cols[1]
+        elif char == "P":
+            fig, ax = plt.subplots()
+            #cols = selected_cols 
+            #if cols:
+            #    df = df.sort_values(cols[1])
+            #    x = cols[0]
+            #    y = cols[1]
                 #ax = df.plot.scatter(ax=ax, x=x, y=y)
-                ax = sns.regplot(df[x],df[y])
+            #    ax = sns.regplot(df[x],df[y])
         elif (is_enter(ch) or char == "x") and prev_char == ".":
             backit(df, sel_cols)
             if char == "x":
@@ -2456,50 +2461,6 @@ def show_df(df):
             filter_df = main_df
             df = main_df[cond]
             hotkey = hk
-        elif char in ["y","Y"] and False: 
-            #yyyyyyyy
-           cols = get_cols(df, 2)
-           backit(df, sel_cols)
-           if cols:
-               gcol = cols[0]
-               y_col = cols[1]
-               if char == "Y":
-                   cond = get_cond(df, gcol, 10)
-                   df = df[eval(cond)]
-               gi = 0 
-               name = ""
-               for key, grp in df.groupby([gcol]):
-                     ax = grp.sort_values('steps').plot.line(ax=ax,linestyle="--",marker="o",  x='steps', y=y_col, label=key, color=colors[gi])
-                     gi += 1
-                     if gi > len(colors) - 1: gi = 0
-                     name += key + "_"
-               ax.set_xticks(df["steps"].unique())
-               ax.set_title(name)
-               if not "filter" in extra:
-                   extra["filter"] = []
-               extra["filter"].append("group by " + name)
-               char = "H"
-        if char == "H":
-            name = ax.get_title()
-            pname = rowinput("Plot name:", name[:30])
-            if pname:
-                folder = ""
-                if "/" in pname:
-                    folder, pname = pname.split("/")
-                ax.set_title(pname)
-                if folder:
-                    folder = os.path.join(base_dir, "plots", folder)
-                else:
-                    folder = os.path.join(base_dir, "plots")
-                Path(folder).mkdir(exist_ok=True, parents=True)
-                pname = pname.replace(" ", "_")
-                pname = os.path.join(folder, now + "_" + pname +  ".png")
-                fig = ax.get_figure()
-                fig.savefig(pname)
-                ax = None
-                if "ahmad" in home:
-                    subprocess.run(["eog", pname])
-
         elif char == "r" and prev_char == "x":
             canceled, col,val = list_df_values(main_df, get_val=False)
             if not canceled:
@@ -2741,7 +2702,15 @@ def show_df(df):
                  if len(selected_cols) == 1 and cur_col_name not in selected_cols:
                      selected_cols.append(cur_col_name)
                  if len(selected_cols) == 2:
-                     df.plot.line(x=selected_cols[0], y=selected_cols[1], label="my kir")
+                     xcol = selected_cols[0]
+                     ycol = selected_cols[1]
+                     df.plot.line(x=xcol, y=ycol, label="my")
+                 if len(selected_cols) == 3:
+                     gcol = selected_cols[0]
+                     xcol = selected_cols[1]
+                     ycol = selected_cols[2]
+                     # df.set_index(xcol).groupby(gcol)[ycol].plot()
+                     sns.lineplot(x=xcol,y=ycol, hue=gcol, data=df)
                  elif len(selected_cols) > 0:
                      tdf = df[selected_cols]
                      tdf.plot.line(subplots=True)
@@ -2752,6 +2721,73 @@ def show_df(df):
              except Exception as e:
                  show_msg("Error:" + repr(e))
                  mbeep()
+        if cmd in ['plot', 'cplot']:
+            #yyyyyyyy
+           backit(df, sel_cols)
+           cols = selected_cols 
+           if cols:
+               gcol = cols[0]
+               xcol = cols[1]
+               y_col = cols[2]
+               gi = 0 
+               name = ""
+               labels = {}
+               for key, grp in df.groupby([gcol]):
+                     _label = key[0] if type(key) == tuple else key
+                     label = _label
+                     if cmd == 'cplot':
+                         label = rowinput("Order:Label [" + _label + "]:")
+                         if not label:
+                             label=_label
+                         if ":" in label:
+                             gi, label = label.split(":")
+                         gi = int(gi)
+                         labels[gi] = label
+                     ax = grp.sort_values(xcol).plot.line(ax=ax,
+                             linestyle="--",marker="o",  
+                             x=xcol, y=y_col, label=label, color=colors[gi])
+                     gi += 1
+                     if gi > len(colors) - 1: gi = 0
+                     name += "-".join(key) + "_"
+               if labels:
+                   desired_order = dict(sorted(labels.items())).values()
+                   handles, labels = ax.get_legend_handles_labels()
+                   ordered_handles=[handles[labels.index(label)] for label in desired_order]
+                   ordered_labels = desired_order
+                   ax.legend(ordered_handles, ordered_labels)
+               ax.set_xticks(df[xcol].unique())
+
+               if cmd == 'cplot':
+                  name = rowinput("Title:", name)
+               if cmd == 'cplot':
+                  xlabel = rowinput("X Label:")
+                  ax.set_xlabel(xlabel)
+               if cmd == 'cplot':
+                  xlabel = rowinput("Y Label:")
+                  ax.set_ylabel(xlabel)
+               ax.set_title(name)
+               plt.show()
+               # char = "H"
+        if char == "H":
+            name = ax.get_title()
+            pname = rowinput("Plot name:", name[:30])
+            pics_dir = "/home/ahmad/Desktop/Papers/Final_Paper2_Info/" #os.getcwd() 
+            if pname:
+                folder = ""
+                if "/" in pname:
+                    folder, pname = pname.split("/")
+                ax.set_title(pname)
+                if folder:
+                    folder = os.path.join(pics_dir, "plots", folder)
+                else:
+                    folder = os.path.join(pics_dir, "plots")
+                Path(folder).mkdir(exist_ok=True, parents=True)
+                pname = pname.replace(" ", "_")
+                pname = os.path.join(folder, now + "_" + pname +  ".png")
+                fig = ax.get_figure()
+                fig.savefig(pname)
+                ax = None
+                subprocess.run(["eog", pname])
         if cmd.startswith("anova"):
             to = ""
             canceled, val = False, "pred_text1" # list_values(sel_cols)
