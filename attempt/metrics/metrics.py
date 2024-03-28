@@ -59,7 +59,7 @@ TASK_TO_METRICS = {
                    "superglue-rte": ["accuracy"],
                    "superglue-cb": ["accuracy"],
                    "superglue-copa": ["accuracy"],
-                   "superglue-multirc": ["f1_score_with_invalid", "exact_match"],
+                   "superglue-multirc": ["f1_score_with_invalid"], # "exact_match"],
                    "superglue-wic": ["accuracy"],
                    "superglue-wsc.fixed": ["accuracy"],
                    "superglue-record": ["f1_score_with_invalid", "exact_match"],
@@ -253,7 +253,8 @@ def multirc_f1_over_all_answers(targets, predictions):
       F1 score over values, where any prediction != 0 or 1 is counted as wrong.
     """
     return f1_score_with_invalid(
-        [t["value"] for t in targets], [p["value"] for p in predictions]
+         targets, predictions
+        # [t["value"] for t in targets], [p["value"] for p in predictions]
     )
 
 

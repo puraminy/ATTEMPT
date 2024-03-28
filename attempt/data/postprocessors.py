@@ -36,10 +36,10 @@ class PostProcessor(abc.ABC):
 class MultiRC(PostProcessor):
     def process(self, preds, labels, data_info):
         preds, labels = super().process(preds, labels, data_info) 
-        preds = [{"group": info["group"], "value":pred} \
-            for info, pred in zip(data_info, preds)]
-        labels = [{"group": info["group"], "value": label}\
-            for info, label in zip(data_info, labels)] 
+        #preds = [{"group": info["group"], "value":pred} \
+        #    for info, pred in zip(data_info, preds)]
+        #labels = [{"group": info["group"], "value": label}\
+        #    for info, label in zip(data_info, labels)] 
         return preds, labels 
 
 class Record(PostProcessor):

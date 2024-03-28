@@ -62,6 +62,7 @@ def normalize_scores(scores, method="soft",
         gen_thresh_min=None, 
         gen_thresh_max=None, 
         resample=False, is_training=False):
+
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=gen_thresh_min or 0.0001, 
             logits=scores*100).rsample()  
@@ -1612,7 +1613,7 @@ class T5Stack(T5PreTrainedModel):
             #soft_prompts = torch.matmul(router.unsqueeze(0), z).view(-1, self.model_dim).tile(batch_size, 1, 1)
 
         mylogs.bp("before")
-        if self.training and "before" in self.norm_method:
+        if self.training and "before" in self.norm_method and self.attn_method != "const":
             method = self.norm_method.replace("before_","")
             attn_scores = normalize_scores(attn_scores, method, is_training=self.training) 
 
@@ -1712,7 +1713,7 @@ class T5Stack(T5PreTrainedModel):
                     gen_thresh_max=gen_thresh_max, is_training=self.training)
 
         mylogs.bp("norm")
-        if self.training:
+        if self.training and self.attn_method != "const":
             method = self.norm_method.replace("after_","")
             attn_sel_scores = normalize_scores(attn_sel_scores, method, 
                     sel_thresh=self.sel_thresh, is_training=self.training)
@@ -3352,10 +3353,15 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         lm_logits = self.lm_head(sequence_output)
 
         loss = None
+        mylogs.bp("loss")
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(
                 lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+            #### my code
+            if loss.isnan(): 
+                eps = 1e-6
+                loss = torch.tensor(eps, requires_grad=True)
 
         if not return_dict:
             output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs

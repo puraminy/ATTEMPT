@@ -169,6 +169,25 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
 
 def create_label(row):
     label = 'PT'
+    if not "compose_method" in row:
+        return label
+    elif row['compose_method'] == "mcat":
+        label = 'MCAT'
+        #nsp = int(row["num_source_prompts"])
+        #numt = int(row["num_prompt_tokens"])
+        #if numt == nsp*15:
+        #    label += "15"
+    elif row['compose_method'] == "mwavg":
+        label = 'MSUM'
+    elif row['compose_method'] == "wavg":
+        if row["use_source_prompts"]:
+            label = 'SSUM'
+        else:
+            label = 'MPT'
+    return label
+
+def create_label2(row):
+    label = ''
     if row['add_target']:
         label += 'A'
     if row['use_source_prompts']:
@@ -265,11 +284,14 @@ def time_colors(df,row,col, default=None):
     last_10_minutes = datetime.now() - timedelta(minutes = 10)
     if rel_col in df:
         time = str(datetime.now().year) + "-" + df.iloc[row][rel_col]
-        time = datetime.strptime(time, '%Y-%m-%d-%H:%M')
-        if time > last_10_minutes:
-            return WARNING_COLOR
-        elif time > last_hour:
-            return 81
+        try:
+            time = datetime.strptime(time, '%Y-%m-%d-%H:%M')
+            if time > last_10_minutes:
+                return WARNING_COLOR
+            elif time > last_hour:
+                return 81
+        except:
+            pass
     return default if default is not None else TEXT_COLOR 
 
 
@@ -333,6 +355,217 @@ def list_dfs(df, main_df, s_rows, FID):
         sort = "rouge_score"
         dfs.append(tdf)
     return dfs
+
+
+def get_main_vars(df):
+    main_vars = []
+    if "main_vars" in df:
+        mvars = []
+        for var in df["main_vars"].unique():
+            dvar = json.loads(var)
+            lvar = list(dvar.keys())
+            mvars.extend([e for e in lvar 
+                    if not e in ['max_train_samples', 'source_prompts',
+                        'task_name', 'num_train_epochs']])
+        main_vars = list(dict.fromkeys(mvars))
+    return main_vars
+
+def summarize(df):
+    mdf = df #main_df
+    file_dir = Path(__file__).parent
+    with open(os.path.join(file_dir, 'cols.json'),'r') as f:
+        all_cols = json.load(f)
+
+    pivot_cols = ["prefix"]
+    if 'sel_cols' in all_cols:
+        sel_cols = all_cols['sel_cols'] 
+        rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
+        extra_cols = all_cols['extra_cols']
+    if "compose_method" in df:
+        rep_cols = rep_cols + extra_cols
+
+    rels = df["prefix"].unique()
+    if "xAttr" in rels:
+        score_cols = ['rouge_score','num_preds'] 
+    else:
+        score_cols = ['m_score', 'num_preds'] 
+
+    main_vars = get_main_vars(df)
+    rep_cols = main_vars + sel_cols + rep_cols + score_cols
+    rep_cols = list(dict.fromkeys(rep_cols))
+    _agg = {}
+    _rep_cols = []
+    for c in rep_cols: 
+        if c in score_cols: # or c in ["d_seed", "max_train_samples"]: 
+            _agg[c] = "mean"
+        elif c.endswith("score"): 
+            score_cols.append(c)
+            _agg[c] = "mean"
+        elif c not in pivot_cols:
+            _rep_cols.append(c)
+            _agg[c] = "first"
+    gcol = _rep_cols
+    if not "eid" in rep_cols:
+        gcol += ["eid"] 
+    mdf[gcol] = mdf[gcol].fillna('none')
+    pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
+            values=score_cols, aggfunc='mean', margins=True)
+    columns = pdf.columns.to_flat_index()
+    # pdf["avg"] = pdf.mean(axis=1, skipna=True)
+    #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
+    # pdf['eid'] = mdf.groupby(gcol)['eid'].first()
+    #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
+    pdf.reset_index(inplace=True)
+    pdf.columns = [col[1] if col[0] == score_cols[0] 
+            else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
+            for col in pdf.columns]
+    # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
+    pdf['label'] = pdf.apply(create_label, axis=1)
+    pdf['ref'] = pdf.apply(
+            lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
+    pdf = pdf.round(2)
+    df = pdf.iloc[:-1]
+    return df
+
+def add_scores(df):
+    score_col = "rouge_score"
+    # backit(df, sel_cols)
+    df["rouge_score"] = df.groupby(['fid','prefix','input_text'])["rouge_score"].transform("max")
+    df["bert_score"] = df.groupby(['fid','prefix','input_text'])["bert_score"].transform("max")
+    df["hscore"] = df.groupby(['fid','prefix','input_text'])["hscore"].transform("max")
+    df["pred_freq"] = df.groupby(['fid','prefix','pred_text1'],
+                     sort=False)["pred_text1"].transform("count")
+    cols = ['fid', 'prefix']
+    tdf = df.groupby(["fid","input_text","prefix"]).first().reset_index()
+    df = df.merge(tdf[cols+['pred_text1']]
+         .value_counts().groupby(cols).head(1)
+         .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
+       )
+
+    #temp = (pd
+    #       .get_dummies(df, columns = ['pred_text1'], prefix="",prefix_sep="")
+    #       .groupby(['fid','prefix'])
+    #       .transform('sum'))
+    #df = (df
+    #.assign(pred_max_num=temp.max(1), pred_max = temp.idxmax(1))
+    #)
+    return df
+
+
+def grouping(df, FID='fid'):
+    col = [FID, "prefix"]
+    _agg = {}
+    for c in df.columns:
+        if c.endswith("score"):
+            _agg[c] = "mean"
+        else:
+            _agg[c] = ["first", "nunique"]
+    #df = df.groupby(col).agg(_agg).reset_index(drop=True)
+    gb = df.groupby(col)
+    counts = gb.size().to_frame(name='group_records')
+    counts.columns = counts.columns.to_flat_index()
+    gbdf = gb.agg(_agg)
+    gbdf.columns = gbdf.columns.to_flat_index()
+    df = (counts.join(gbdf))
+    df = df.reset_index(drop=True)
+    scols = [c for c in df.columns if type(c) != tuple]
+    tcols = [c for c in df.columns if type(c) == tuple]
+    df.columns = scols + ['_'.join(str(i) for i in col) for col in tcols]
+    avg_len = 1 #(df.groupby(col)["pred_text1"]
+                #   .apply(lambda x: np.mean(x.str.len()).round(2)))
+    ren = {
+            "target_text_nunique":"num_targets",
+            "pred_text1_nunique":"num_preds",
+            "input_text_nunique":"num_inps",
+            }
+    for c in df.columns:
+        #if c == FID + "_first":
+        #    ren[c] = "fid"
+        if c.endswith("_mean"):
+            ren[c] = c.replace("_mean","")
+        elif c.endswith("_first"):
+            ren[c] = c.replace("_first","")
+    df = df.rename(columns=ren)
+    df["avg_len"] = avg_len
+    df = df.sort_values(by = ["rouge_score"], ascending=False)
+    return df
+
+def add_cols(df):
+    for col in df.columns:
+        if col.endswith("score"):
+            df[col] = pd.to_numeric(df[col])
+    df['id']=df.index
+    df = df.reset_index(drop=True)
+    if not "tag" in df:
+        df["tag"] = np.NaN 
+    if not "hscore" in df:
+        df["hscore"] = np.NaN 
+
+    if not "pid" in df:
+        df["pid"] = 0
+    if "gen_route_methods" in df:
+        df["gen_norm_method"] = df["gen_route_methods"]
+        df["norm_method"] = df["apply_softmax_to"]
+
+    if "gen_norm_methods" in df:
+        df["gen_norm_method"] = df["gen_norm_methods"]
+
+    if not "query" in df:
+        df["query"] = df["input_text"]
+    if not "learning_rate" in df:
+        df["learning_rate"] = 1
+
+    if not "prefixed" in df:
+        df["prefixed"] = False
+
+    if not "sel" in df:
+       df["sel"] = False
+
+    if not "template" in df:
+       df["template"] = ""
+
+    if not "bert_score" in df:
+       df["bert_score"] = 0
+
+    #if "fid" in df:
+    #    df = df.rename(columns={"fid":"expid"})
+
+    if "input_text" in df:
+        df['input_text'] = df['input_text'].str.replace('##','')
+        df['input_text'] = df['input_text'].str.split('>>').str[0]
+        df['input_text'] = df['input_text'].str.strip()
+
+    if not "compose_method" in df:
+        df["compose_method"] = "PT"
+    if not "plen" in df:
+        df["plen"] = 8
+    if not "blank" in df:
+        df["blank"] = "blank"
+    if not "opt_type" in df:
+        df["opt_type"] = "na"
+    if not "rouge_score" in df:
+        df["rouge_score"] = 0
+    if not "bert_score" in df:
+        df["bert_score"] = 0
+
+    if "mask_type" in df:
+        df["cur_masking"] = (df["mask_type"].str.split("-").str[1] + "-" 
+                + df["mask_type"].str.split("-").str[2]) 
+    if "use_masked_attn" in df:
+        df["use_masked_attn"] = df["use_masked_attn"].astype(str)
+
+    if True: #"compose_method" in df:
+        df["expid"] = df["exp_name"].str.split("-").str[1]
+        df["expname"] = df["exp_name"].str.split("-").str[1]
+        df["ftag"] = df["folder"].str.split("/").str[-1]
+        df["ftag"] = df["ftag"].str.split("_").str[0]
+    if False: #"expid" in df:
+        df["fexpid"] = df["expid"]
+        df["expname"] = df["expid"].str.split("-").str[0]
+        df["expname"] = df["expname"].str.split("_").str[0]
+        df["expid"] = df["expid"].str.split("-").str[1]
+        df["expid"] = df["expid"].str.split(".").str[0]
+    return df
 
 def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
     dfs_items = [] 
@@ -403,10 +636,10 @@ def calc_metrics(main_df):
             if met: 
                 v = list(met.values())[0]
                 main_df.loc[cond, "m_score"] = round(float(v),1)
-            for met in metrics_list:
-                for k,v in met.items():
-                    infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
-                    infos.append("---------------------------------------------")
+            #for met in metrics_list:
+            #    for k,v in met.items():
+            #        infos.append(exp + ":" + task + ":" + str(k) + ":" + str(v))
+            #        infos.append("---------------------------------------------")
     return infos
 
 
@@ -438,7 +671,7 @@ class MyDF:
         self.sort = sort
 
 
-def show_df(df):
+def show_df(df, summary=False):
     global dfname, hotkey, global_cmd
 
     hk = hotkey
@@ -482,30 +715,11 @@ def show_df(df):
     if not col_widths:
         col_widths = {"query":50, "model":30, "pred_text1":30, "epochs":30, "date":30, "rouge_score":7, "bert_score":7, "out_score":7, "input_text":50}
 
-    df['id']=df.index
-    df = df.reset_index(drop=True)
-    if not "tag" in df:
-        df["tag"] = np.NaN 
 
-    main_vars = []
-    if "main_vars" in df:
-        mvars = []
-        for var in df["main_vars"].unique():
-            dvar = json.loads(var)
-            lvar = list(dvar.keys())
-            mvars.extend([e for e in lvar 
-                    if not e in ['max_train_samples', 'source_prompts',
-                        'task_name', 'num_train_epochs']])
-        main_vars = list(dict.fromkeys(mvars))
-
+    main_vars = get_main_vars(df)
     #if not "word_score" in df:
     #    df['word_score'] = df['pred_text1'].str.split().str.len()
 
-    if not "hscore" in df:
-        df["hscore"] = np.NaN 
-
-    if not "pid" in df:
-        df["pid"] = 0
 
     #if not "l1_decoder" in df:
     #    df["l1_decoder"] ="" 
@@ -513,40 +727,12 @@ def show_df(df):
     #    df["cossim_decoder"] ="" 
     #    df["cossim_encoder"] ="" 
 
-    if "gen_route_methods" in df:
-        df["gen_norm_method"] = df["gen_route_methods"]
-        df["norm_method"] = df["apply_softmax_to"]
-
-    if "gen_norm_methods" in df:
-        df["gen_norm_method"] = df["gen_norm_methods"]
-
-    if not "query" in df:
-        df["query"] = df["input_text"]
-    if not "learning_rate" in df:
-        df["learning_rate"] = 1
-
-    if not "prefixed" in df:
-        df["prefixed"] = False
-
-    if not "sel" in df:
-       df["sel"] = False
-
-    if not "template" in df:
-       df["template"] = ""
-
-    if not "bert_score" in df:
-       df["bert_score"] = 0
-
-    #if "fid" in df:
-    #    df = df.rename(columns={"fid":"expid"})
-
-    if "input_text" in df:
-        df['input_text'] = df['input_text'].str.replace('##','')
-        df['input_text'] = df['input_text'].str.split('>>').str[0]
-        df['input_text'] = df['input_text'].str.strip()
-
-    if not "m_score" in df:
-        calc_metrics(df)
+    #if not "m_score" in df:
+    #    calc_metrics(df)
+    #if "test_f1" in df:
+    #    df["m_score"] = df["test_f1"]
+    if not summary:
+        df = add_cols(df)
 
     main_df = df
     edit_col = ""
@@ -554,9 +740,6 @@ def show_df(df):
     extra = {"filter":[], "inp":""}
     save_obj(dfname, "dfname", "")
     sel_cols = list(df.columns)
-    for col in df.columns:
-        if col.endswith("score"):
-            df[col] = pd.to_numeric(df[col])
     fav_path = os.path.join(base_dir, dfname + "_fav.tsv")
     if Path(fav_path).exists():
         fav_df = pd.read_table(fav_path)
@@ -592,25 +775,9 @@ def show_df(df):
         tags = tags.replace("'", "\"")
         tags = json.loads(tags)
         tag_cols = list(tags.keys())
+
     if "expid" in tag_cols:
         tag_cols.remove("expid")
-    if "mask_type" in df:
-        df["cur_masking"] = (df["mask_type"].str.split("-").str[1] + "-" 
-                + df["mask_type"].str.split("-").str[2]) 
-    if "use_masked_attn" in df:
-        df["use_masked_attn"] = df["use_masked_attn"].astype(str)
-
-    if True: #"compose_method" in df:
-        df["expid"] = df["exp_name"].str.split("-").str[1]
-        df["expname"] = df["exp_name"].str.split("-").str[1]
-        df["ftag"] = df["folder"].str.split("/").str[-1]
-        df["ftag"] = df["ftag"].str.split("_").str[0]
-    if False: #"expid" in df:
-        df["fexpid"] = df["expid"]
-        df["expname"] = df["expid"].str.split("-").str[0]
-        df["expname"] = df["expname"].str.split("_").str[0]
-        df["expid"] = df["expid"].str.split("-").str[1]
-        df["expid"] = df["expid"].str.split(".").str[0]
 
     #df.loc[df.expid == 'P2-1', 'expid'] = "PI" 
     #tag_cols.insert(1, "expid")
@@ -663,15 +830,16 @@ def show_df(df):
     pivot_cols = ['prefix']
     experiment_images = {}
 
-    all_cols = {}
-    file_dir = Path(__file__).parent
     #sel_cols =  load_obj("sel_cols", context, [])
     #info_cols = load_obj("info_cols", context, [])
+    all_cols = {}
+    file_dir = Path(__file__).parent
     with open(os.path.join(file_dir, 'cols.json'),'r') as f:
         all_cols = json.load(f)
 
     if 'sel_cols' in all_cols:
-        sel_cols = all_cols['sel_cols'] 
+        if not summary:
+            sel_cols = all_cols['sel_cols'] 
         info_cols = all_cols['info_cols'] 
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         index_cols = all_cols['index_cols']
@@ -681,7 +849,7 @@ def show_df(df):
 
     main_sel_cols = sel_cols.copy()
 
-    rels = df["prefix"].unique()
+    rels = [] # df["prefix"].unique()
     if "xAttr" in rels:
         score_cols = ['rouge_score','num_preds'] 
     else:
@@ -706,16 +874,6 @@ def show_df(df):
         task = df["prefix"][0]
     #if not "learning_rate" in df:
     #    df[['fid_no_lr', 'learning_rate']] = df['fid'].str.split('_lr_', 1, expand=True)
-    if not "plen" in df:
-        df["plen"] = 8
-    if not "blank" in df:
-        df["blank"] = "blank"
-    if not "opt_type" in df:
-        df["opt_type"] = "na"
-    if not "rouge_score" in df:
-        df["rouge_score"] = 0
-    if not "bert_score" in df:
-        df["bert_score"] = 0
     prev_cahr = ""
     FID = "fid"
     sel_exp = ""
@@ -1712,7 +1870,7 @@ def show_df(df):
             asc = not asc
         if context == "grouping":
             if not selected_cols:
-                selected_cols = ["label","compose_method","max_train_samples"]
+                selected_cols = ["label","max_train_samples"]
             if char == "m":
                 df = back_df
                 df = df.groupby(selected_cols).mean(numeric_only=True).reset_index()
@@ -1725,7 +1883,7 @@ def show_df(df):
             context = "grouping"
             shortkeys["grouping"] = {"m":"show mean","s":"show std"}
             if not selected_cols:
-                selected_cols = ["label","compose_method","max_train_samples"]
+                selected_cols = ["label","max_train_samples"]
             if len(selected_cols) > 0:
                 df = df.groupby(selected_cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
@@ -1769,7 +1927,7 @@ def show_df(df):
             elif "avg" in df:
                 df = df.sort_values(by=["avg"], ascending=False)
                 sort = "avg"
-        elif char == "u" and False:
+        elif char == "u": # and False:
             infos = calc_metrics(main_df)
             subwin(infos)
         elif char == "U" and prev_char == "x": 
@@ -1779,30 +1937,7 @@ def show_df(df):
                 col_widths["index"]=50
                 info_cols = []
         elif char == "C": 
-            score_col = "rouge_score"
-            # backit(df, sel_cols)
-            df["rouge_score"] = df.groupby(['fid','prefix','input_text'])["rouge_score"].transform("max")
-            df["bert_score"] = df.groupby(['fid','prefix','input_text'])["bert_score"].transform("max")
-            df["hscore"] = df.groupby(['fid','prefix','input_text'])["hscore"].transform("max")
-            df["pred_freq"] = df.groupby(['fid','prefix','pred_text1'],
-                             sort=False)["pred_text1"].transform("count")
-            cols = ['fid', 'prefix']
-            tdf = df.groupby(["fid","input_text","prefix"]).first().reset_index()
-            df = df.merge(tdf[cols+['pred_text1']]
-                 .value_counts().groupby(cols).head(1)
-                 .reset_index(name='pred_max_num').rename(columns={'pred_text1': 'pred_max'})
-               )
-
-
-
-            #temp = (pd
-            #       .get_dummies(df, columns = ['pred_text1'], prefix="",prefix_sep="")
-            #       .groupby(['fid','prefix'])
-            #       .transform('sum'))
-            #df = (df
-            #.assign(pred_max_num=temp.max(1), pred_max = temp.idxmax(1))
-            #)
-
+            df = add_scores(df)
             extra["filter"].append("group predictions")
         elif char == " ":
             if sel_row in sel_rows:
@@ -1858,17 +1993,13 @@ def show_df(df):
             context = "main"
             if FID == "input_text":
                 context = "inp2"
-            col = FID
             left = 0
-            col = [col, "prefix"]
             if False: #reset:
                 info_cols = ["bert_score", "num_preds"]
             if False: #col == "fid":
                 sel_cols = ["eid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
                 sel_cols = list(dict.fromkeys(sel_cols))
             reset = False
-
-            _agg = {}
             group_sel_cols = sel_cols.copy()
             if "folder" in group_sel_cols:
                 group_sel_cols.remove("folder")
@@ -1876,42 +2007,10 @@ def show_df(df):
                 group_sel_cols.remove("prefix")
                 group_sel_cols.insert(0, "prefix")
 
-            for c in df.columns:
-                if c.endswith("score"):
-                    _agg[c] = "mean"
-                else:
-                    _agg[c] = ["first", "nunique"]
-            #df = df.groupby(col).agg(_agg).reset_index(drop=True)
-            gb = df.groupby(col)
-            counts = gb.size().to_frame(name='group_records')
-            counts.columns = counts.columns.to_flat_index()
-            gbdf = gb.agg(_agg)
-            gbdf.columns = gbdf.columns.to_flat_index()
-            df = (counts.join(gbdf))
-            df = df.reset_index(drop=True)
-            scols = [c for c in df.columns if type(c) != tuple]
-            tcols = [c for c in df.columns if type(c) == tuple]
-            df.columns = scols + ['_'.join(str(i) for i in col) for col in tcols]
-            avg_len = 1 #(df.groupby(col)["pred_text1"]
-                        #   .apply(lambda x: np.mean(x.str.len()).round(2)))
-            ren = {
-                    "target_text_nunique":"num_targets",
-                    "pred_text1_nunique":"num_preds",
-                    "input_text_nunique":"num_inps",
-                    }
-            for c in df.columns:
-                #if c == FID + "_first":
-                #    ren[c] = "fid"
-                if c.endswith("_mean"):
-                    ren[c] = c.replace("_mean","")
-                elif c.endswith("_first"):
-                    ren[c] = c.replace("_first","")
-            df = df.rename(columns=ren)
+            df = grouping(df, FID)
+            sel_cols = ["expname","eid","prefix","rouge_score","num_preds"]
             if not "num_preds" in sel_cols:
                 sel_cols.append("num_preds")
-            df["avg_len"] = avg_len
-            df = df.sort_values(by = ["rouge_score"], ascending=False)
-            sel_cols = ["expname","eid","prefix","rouge_score","num_preds"]
             group_sel_cols = sel_cols.copy()
             group_df = df.copy()
             exp_num = df["folder"].nunique()
@@ -2657,13 +2756,17 @@ def show_df(df):
             if context == "pivot" or len(sel_rows) > 1:
                 prefix = sel_cols[cur_col]
                 exprs, scores = get_sel_rows(df, col=prefix, from_main=False) 
-                _, mask_types = get_sel_rows(df, col="mask_type", from_main=False) 
+                if "mask_type" in df:
+                    _, mask_types = get_sel_rows(df, col="mask_type", from_main=False) 
+                else:
+                    mask_types = exprs.copy()
                 _, labels = get_sel_rows(df, col="label", from_main=False) 
             else:
                 prefix = df.iloc[sel_row]['prefix'] 
                 exprs = [eid]
                 scores = [prefix]
-                mask_types = [df.iloc[sel_row]['mask_type']] 
+                if "mask_type" in df:
+                    mask_types = [df.iloc[sel_row]['mask_type']] 
                 labels = [df.iloc[sel_row]['label']] 
 
 
@@ -2682,7 +2785,7 @@ def show_df(df):
                 tdf["eid"] = eid
                 tdf["label"] = label
                 tdf["mask_type"] = mt 
-                tdf["uid"] = mt + " " + str(label) + " " + str(eid)
+                tdf["uid"] = str(mt) + " " + str(label) + " " + str(eid)
                 dfs.append(tdf)
             df = pd.concat(dfs, ignore_index=True)
             all_sel_cols = ["preds"] + list(df.columns)
@@ -2721,17 +2824,23 @@ def show_df(df):
              except Exception as e:
                  show_msg("Error:" + repr(e))
                  mbeep()
-        if cmd in ['plot', 'cplot']:
+        if cmd in ['eplot','plot', 'cplot']:
             #yyyyyyyy
            backit(df, sel_cols)
            cols = selected_cols 
+           scol = sel_cols[cur_col]
+           if cmd == 'eplot':
+               cols = ["label","num_train_epochs","All"] 
+           else:
+               cols = ["label","num_source_prompts","All"] 
            if cols:
                gcol = cols[0]
                xcol = cols[1]
-               y_col = cols[2]
+               ycol = cols[2]
                gi = 0 
                name = ""
                labels = {}
+               df[xcol] = df[xcol].astype(int)
                for key, grp in df.groupby([gcol]):
                      _label = key[0] if type(key) == tuple else key
                      label = _label
@@ -2743,18 +2852,21 @@ def show_df(df):
                              gi, label = label.split(":")
                          gi = int(gi)
                          labels[gi] = label
-                     ax = grp.sort_values(xcol).plot.line(ax=ax,
-                             linestyle="--",marker="o",  
-                             x=xcol, y=y_col, label=label, color=colors[gi])
+                     ax = grp.sort_values(xcol).plot.line(x=xcol, y=ycol, ax=ax,
+                             linestyle="--",marker="o", 
+                             label=label, color=colors[gi])
                      gi += 1
                      if gi > len(colors) - 1: gi = 0
-                     name += "-".join(key) + "_"
+                     name += "-".join([str(k) for k in key]) + "_"
                if labels:
                    desired_order = dict(sorted(labels.items())).values()
                    handles, labels = ax.get_legend_handles_labels()
                    ordered_handles=[handles[labels.index(label)] for label in desired_order]
                    ordered_labels = desired_order
                    ax.legend(ordered_handles, ordered_labels)
+               xmax = df[xcol].max() 
+               ax.set_xlim([0, xmax]) 
+               ax.set_xbound(lower=0.0, upper=xmax)
                ax.set_xticks(df[xcol].unique())
 
                if cmd == 'cplot':
@@ -2776,14 +2888,13 @@ def show_df(df):
                 folder = ""
                 if "/" in pname:
                     folder, pname = pname.split("/")
-                ax.set_title(pname)
                 if folder:
                     folder = os.path.join(pics_dir, "plots", folder)
                 else:
                     folder = os.path.join(pics_dir, "plots")
                 Path(folder).mkdir(exist_ok=True, parents=True)
                 pname = pname.replace(" ", "_")
-                pname = os.path.join(folder, now + "_" + pname +  ".png")
+                pname = os.path.join(folder, pname +  ".png")
                 fig = ax.get_figure()
                 fig.savefig(pname)
                 ax = None
@@ -2912,46 +3023,12 @@ def show_df(df):
                 cond_colors["cat"] = cat_colors
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
-            mdf = df #main_df
-            _agg = {}
-            _rep_cols = []
-            for c in rep_cols: 
-                if c in score_cols: # or c in ["d_seed", "max_train_samples"]: 
-                    _agg[c] = "mean"
-                elif (c.endswith("score") 
-                        or (char == "Z" and (c.endswith("_num") or c.startswith("num_")))): 
-                    score_cols.append(c)
-                    _agg[c] = "mean"
-                elif c not in pivot_cols:
-                    _rep_cols.append(c)
-                    _agg[c] = "first"
-            gcol = _rep_cols
-            if not "eid" in rep_cols:
-                gcol += ["eid"] 
-            mdf[gcol] = mdf[gcol].fillna('none')
-            pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
-                    values=score_cols, aggfunc='mean', margins=True)
-            columns = pdf.columns.to_flat_index()
-            # pdf["avg"] = pdf.mean(axis=1, skipna=True)
-            #pdf['fid'] = mdf.groupby(gcol)['fid'].first()
-            # pdf['eid'] = mdf.groupby(gcol)['eid'].first()
-            #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
-            pdf.reset_index(inplace=True)
-            pdf.columns = [col[1] if col[0] == score_cols[0] 
-                    else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
-                    for col in pdf.columns]
-            # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
-            pdf['label'] = pdf.apply(create_label, axis=1)
-            pdf['ref'] = pdf.apply(
-                    lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
-            pdf = pdf.round(2)
-            #latex_table=tabulate(pdf, #[rep_cols+score_cols], 
-            #        headers='keys', tablefmt='latex_raw', showindex=False)
-            #latex_table = latex_table.replace("tabular", "longtable")
-            #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
-
+            if not global_summary:
+                backit(df, sel_cols)
+                pdf = summarize(df)
+            else:
+                pdf = df
             avg_col = "All"
-            backit(df, sel_cols)
             context = "pivot"
             shortkeys["pivot"] = {"o":"open image", "h": "plot line"}
             score_col = score_cols[0]
@@ -2960,8 +3037,14 @@ def show_df(df):
             cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
             cond_colors["expid"] = time_colors
-            for col in pivot_cols:
-                pcols.extend(df[col].unique())
+            if not global_summary:
+                for col in pivot_cols:
+                    pcols.extend(df[col].unique())
+            else:
+                for col in df.columns:
+                    if "n-" in col:
+                        col = col.replace("n-","")
+                        pcols.extend(df[col].unique())
             for col in pcols:
                 cond_colors[col] = pivot_colors
 
@@ -2976,8 +3059,7 @@ def show_df(df):
                 for col in pdf.columns:
                     if col in df or col.startswith(score_col[0] + "-"):
                         _sel_cols.append(col)
-            df = pdf.iloc[:-1]
-            df = df.sort_values(by="time", ascending=False)
+            df = pdf.sort_values(by="time", ascending=False)
             sort = "time"
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             if len(df) > 1:
@@ -3527,11 +3609,12 @@ hotkey = ""
 dfname = ""
 global_cmd = ""
 global_search = ""
+global_summary = False
 root_path = ""
 base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
 data_frame = None
 
-def get_files(dfpath, dfname, dftype, limit, file_id):
+def get_files(dfpath, dfname, dftype, summary, limit, file_id):
     if not dfname:
         mlog.info("No file name provided")
     else:
@@ -3561,8 +3644,10 @@ def get_files(dfpath, dfname, dftype, limit, file_id):
             print("No file was selected")
             return
         dfs = []
+        s_dfs = []
         ii = 0
         ff = 0
+        prev_exp = -1
         folders = {}
         for f in tqdm(files):
             if f.endswith(".tsv"):
@@ -3594,7 +3679,8 @@ def get_files(dfpath, dfname, dftype, limit, file_id):
                     folders[folder] = ff
                     ff += 1
                 df["folder"] = folder 
-                df["eid"] = folders[folder]
+                eid = folders[folder]
+                df["eid"] = eid 
                 _pp = _dir + "/*.png"
                 png_files = glob(_pp)
                 if not png_files:
@@ -3609,7 +3695,20 @@ def get_files(dfpath, dfname, dftype, limit, file_id):
                     df["exp_name"] = Path(f).parent.stem #.replace("=","+").replace("_","+")
                 else:
                     df["exp_name"] =  "_" + Path(f).stem
-            dfs.append(df)
+            if not summary:
+                dfs.append(df)
+            else:
+                if prev_exp != eid:
+                    if prev_exp >= 0:
+                        sdf = pd.concat(s_dfs, ignore_index = True)
+                        sdf = add_cols(sdf)
+                        sdf = add_scores(sdf)
+                        sdf = grouping(sdf)
+                        sdf = summarize(sdf)
+                        dfs.append(sdf)
+                        s_dfs = []
+                    prev_exp = eid
+            s_dfs.append(df)
             ii += 1
         if len(dfs) > 0:
             df = pd.concat(dfs, ignore_index=True)
@@ -3646,8 +3745,7 @@ def start(stdscr):
     theme = {'preset': 'default', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71','cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",           "dim-color": '241', 'bright-color':"251", "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True", "bold-highlight": "True", "bold-text": "False", "input-color":"234", "sep5": "Feedback Colors"}
 
     reset_colors(theme)
-    show_df(data_frame)
-
+    show_df(data_frame, summary=global_summary)
 
 @click.command(context_settings=dict(
             ignore_unknown_options=True,
@@ -3687,6 +3785,12 @@ def start(stdscr):
     help=""
 )
 @click.option(
+    "--summary",
+    "-s",
+    is_flag=True,
+    help=""
+)
+@click.option(
     "--hkey",
     "-h",
     default="CG",
@@ -3702,7 +3806,7 @@ def start(stdscr):
 )
 @click.option(
     "--search",
-    "-s",
+    "-f",
     default="",
     type=str,
     help=""
@@ -3715,13 +3819,16 @@ def start(stdscr):
     help="Limit of datasets to load"
 )
 @click.pass_context
-def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, limit, chk_time):
+def main(ctx, fname, path, fid, ftype, dpy, summary, hkey, cmd, search, limit, chk_time):
     if dpy:
         port = 1234
         debugpy.listen(('0.0.0.0', int(port)))
         print("Waiting for client at run...port:", port)
         debugpy.wait_for_client()  # blocks execution until client is attached
-    global dfname, hotkey, global_cmd, global_search,check_time, data_frame, root_path
+    global dfname, hotkey, global_cmd, global_search,check_time, data_frame, root_path, global_summary
+    if summary:
+        hkey = hkey.replace("C","").replace("G","")
+    global_summary = summary
     check_time = chk_time
     global_search = search
     root_path = path
@@ -3731,7 +3838,7 @@ def main(ctx, fname, path, fid, ftype, dpy, hkey, cmd, search, limit, chk_time):
     if not fname:
         fname = [ftype]
     set_app("showdf")
-    data_frame = get_files(path, fname, ftype, limit=limit, file_id= fid)
+    data_frame = get_files(path, fname, ftype, summary=summary, limit=limit, file_id= fid)
     if data_frame is not None:
         dfname = "merged"
         wrapper(start)

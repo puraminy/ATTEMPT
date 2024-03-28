@@ -593,8 +593,9 @@ class AbstractTask(abc.ABC):
             orig_src = ' '.join(sources)
             sources = [src_prefix]+sources if add_prefix else sources
         except:
-            orig_src = 'none'
-            sources = [src_prefix] + ['none']
+            sources = [t if t is not None else 'none' for t in sources]
+            orig_src = ' '.join(sources)
+            sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
         tgt =  ' '.join(targets)
         src = src.strip()
@@ -615,7 +616,7 @@ class AbstractTask(abc.ABC):
                 'target': tgt,
                 'task': self.get_id(),
                 ** extra_fields}
-        # extra_fields = {}
+        extra_fields = {}
         extra_fields["event"] = orig_src 
         extra_fields["tail"] = tgt 
         extra_fields["sel"] = False
@@ -1565,9 +1566,9 @@ class SuperGLUEMultiRC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    metric = [metrics.multirc_f1_over_all_answers,
-              metrics.mean_group_metric(metrics.exact_match)]
-    metric_names = ["f1", "em"]
+    metric = [metrics.multirc_f1_over_all_answers]
+              #metrics.mean_group_metric(metrics.exact_match)]
+    metric_names = ["f1", "accuracy"]
     labels_map = {"map":{"0":"False", "1":"True"}}
 
     def load_dataset(self, split):
@@ -1575,9 +1576,13 @@ class SuperGLUEMultiRC(AbstractTask):
 
     def remove_markup(self, text):
         """Removes the HTML markup."""
-        text = re.sub('<br>', ' ', text)
-        text = re.sub('<(/)?b>', '', text)
-        return text
+        if text is None:
+            mylogs.minfo(">>>>>>>>>>>>>>>>>>>>>>>>>>>> None text")
+            return 'none'
+        else:
+            text = re.sub('<br>', ' ', text)
+            text = re.sub('<(/)?b>', '', text)
+            return text
 
     def post_process(self, preds, labels):
         return preds, labels

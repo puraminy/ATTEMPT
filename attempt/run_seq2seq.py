@@ -471,10 +471,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            _mvars.append(var)
    if _mvars: main_vars = _mvars
 
-   if prev_exp_folder and not "prompt_encoders_dir" in main_vars:
+   
+   mylogs.bp("prev")
+   if prev_exp_folder and not "prompts_prefix" in main_vars:
        args["prompt_encoders_dir"] = prev_exp_folder
    if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
-       mylogs.bp("prev")
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
        eval_folders = glob.glob(
@@ -877,6 +878,9 @@ def train(**kwargs):
     use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
+    if not use_source_prompts:
+        model_args.compose_method = "pt"
+
     tasks = data_args.task_name
     train_prefix = {}
     test_prefix = {}
@@ -1161,8 +1165,10 @@ def train(**kwargs):
     elif kwargs.get("adjust_temperature", True):
         if data_args.max_train_samples < 10:
             model_args.temperature = 5
-        #elif data_args.max_train_samples < 20:
-        #    model_args.temperature = 5
+        elif data_args.max_train_samples < 20:
+            model_args.temperature = 3
+        else:
+            model_args.temperature = 1
         #elif model_args.compose_method in ["mwavg","mcat"]:
         #    model_args.temperature = 0.001
         #else:
@@ -1324,10 +1330,8 @@ def train(**kwargs):
     
     mylogs.bp("router")
     prompts_dir = model_args.prompt_encoders_dir
-    if ("prompt_encoders_dir" in main_vars
-        and prompts_dir and not prompts_dir.startswith("/") 
-        and not prompts_dir in ["save_path"]):
-        prompts_dir = op.join(mylogs.pretPath, prompts_dir) 
+    if "prompts_prefix" in main_vars:
+        prompts_dir = op.join(mylogs.pretPath, "prompts") 
     elif prompts_dir == "save_path":
         base_folder = Path(kwargs.save_path)
         base_folder_stem = base_folder.stem
@@ -1480,8 +1484,7 @@ def train(**kwargs):
 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
-                if bp == "load":
-                    breakpoint()
+                mylogs.bp("load")
                 enc_name = ""
                 if encoder.is_private:
                     if load_private_prompts: 
@@ -1489,12 +1492,13 @@ def train(**kwargs):
                 if encoder.is_source and "_com" in encoder.name and not reval:
                         pattern = re.compile(r"com\d+")
                         enc_name = re.sub(pattern, "com", encoder.name)
+                        encoder_name = encoder.name.replace("source_", "")
                 if enc_name or not encoder.is_private:
                     is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
                         ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
                         length = adapter_args.num_prompt_tokens,
-                        name=enc_name)
+                        name=encoder_name)
                     if is_loaded:
                         logger.info("%s was loaded", encoder.name)
                     else:
