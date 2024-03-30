@@ -862,6 +862,19 @@ def train(**kwargs):
     if type(include_tasks) != list:
         include_tasks = [include_tasks]
 
+    include_exclude_tasks = kwargs.setdefault("include_tasks_exclude_from_test", []) 
+    if include_exclude_tasks is None:
+        include_exclude_tasks = []
+    if type(include_exclude_tasks) != list:
+        include_exclude_tasks = [include_exclude_tasks]
+
+    exclude_from_test_tasks = kwargs.setdefault("exclude_from_test_tasks", []) 
+    for t in include_exclude_tasks:
+        if not t in include_tasks:
+            include_tasks.append(t)
+        if not t in exclude_from_test_tasks:
+            exclude_from_test_tasks.append(t)
+
     if exclude_tasks or include_tasks:
         tasks = []
         for t in data_args.task_name + include_tasks:
@@ -1158,11 +1171,11 @@ def train(**kwargs):
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
     steps = 0
     ftemp = kwargs.get("fixed_temperature", -1)
-    if ftemp > 0:
+    if ftemp > 0 and "temperature" not in main_vars:
         model_args.temperature = ftemp
         model_args.anneal_min = ftemp
         kwargs["anneal_min"] = ftemp 
-    elif kwargs.get("adjust_temperature", True):
+    elif kwargs.get("adjust_temperature", True) and "temperature" not in main_vars:
         if data_args.max_train_samples < 10:
             model_args.temperature = 5
         elif data_args.max_train_samples < 20:
@@ -1178,8 +1191,14 @@ def train(**kwargs):
     if training_args.do_train:
         steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
     mylogs.bp("steps")
+    if training_args.warmup_steps is not None:
+        warmup_steps = training_args.warmup_steps
+    else:
+        warmup_steps = 0.2 * steps
+    total_steps = steps + warmup_steps + 5
+    anneal_steps = 0.6*total_steps
     if model_args.anneal_rate is None: 
-        anneal_rate = (model_args.temperature - model_args.anneal_min)/(steps + 5) 
+        anneal_rate = (model_args.temperature - model_args.anneal_min)/(anneal_steps) 
     else:
         anneal_rate = model_args.anneal_rate
     # Load a model config
@@ -1914,13 +1933,9 @@ def train(**kwargs):
                 model_args.attn_learning_rate, 0.01)
     else:
         optim = AdamW(grouped_params, lr=learning_rate)
-        if training_args.warmup_steps is not None:
-            warmup_steps = training_args.warmup_steps
-        else:
-            warmup_steps = 0.2 * steps
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=warmup_steps, 
-            num_training_steps=steps)
+            num_training_steps=total_steps)
     name = data_args.dataset_name[0] 
     task_metric = TASK_TO_METRICS[name] if name in TASK_TO_METRICS else ["rouge"]
     if training_args.do_eval: 
@@ -2158,7 +2173,6 @@ def train(**kwargs):
         test_datasets = {}
         max_target_lengths = []
         first_ds = ""
-        exclude_from_test_tasks = kwargs.setdefault("exclude_from_test_tasks", []) 
         if exclude_from_test_tasks is None:
             exclude_from_test_tasks = []
         if type(exclude_from_test_tasks) != list:
@@ -2738,7 +2752,7 @@ def train(**kwargs):
                                         if score < 1 and base_score < 1:
                                             score = score*100
                                             base_score = base_score*100
-                                        effect = score if score > 0 else -10
+                                        effect = score # if score > 0 else -10
                                     else:
                                         effect = -1*effect
                                         effect = min(effect, 50)

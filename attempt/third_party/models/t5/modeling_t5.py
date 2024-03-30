@@ -110,6 +110,12 @@ def normalize_scores(scores, method="soft",
             epsilon = 1e-8  # Adjust the value of epsilon as needed
             scores += epsilon
         scores = F.softmax(scores, -1)
+    elif method == "tanh":
+        scores = torch.tanh(scores)
+    elif method == "ssig":
+        shifted_values = scores + 1.5
+        scaled_values = 10 * (shifted_values / 3) - 3
+        scores = torch.sigmoid(scaled_values)  
     elif method == "colsoft":
         scores = F.softmax(scores, 0)
     elif method == "sigmoid":
