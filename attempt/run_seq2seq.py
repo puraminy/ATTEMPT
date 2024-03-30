@@ -2761,8 +2761,6 @@ def train(**kwargs):
                                     if col < len(selected_cols_idx[task_index]):  
                                         col_index = selected_cols_idx[task_index][col]
                                         effect_scores[test_key][task_index, col_index]=effect
-                                    column_means = effect_scores[test_key].mean(dim=0)
-                                    effect_scores[test_key][-1, :] = column_means
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
                                     effect_scores[test_key][task_index, -1] = base_score 
@@ -2772,10 +2770,13 @@ def train(**kwargs):
                     if gen_mask_counter < len(masking_list):
                         spec = masking_list[gen_mask_counter]
                     for test_key, effect_score in effect_scores.items(): 
+                        scores = effect_scores[test_key]
+                        column_means = torch.mean(scores[:-1], dim=0)
+                        scores[-1, :] = column_means
                         for eval_folder_name in eval_folders[test_key]:
                             eval_folder = os.path.join(exp_folder, eval_folder_name)
                             save_image(eval_folder, model, 
-                            {"effect_" + spec : effect_score.round(decimals=2)}, 
+                            {"effect_" + spec : scores.round(decimals=2)}, 
                             spec= spec,
                             p_labels = mask_labels)
                     gen_mask_counter += 1
