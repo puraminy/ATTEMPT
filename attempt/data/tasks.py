@@ -66,7 +66,7 @@ class AbstractTask(abc.ABC):
     #                                     "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
     #                                     "superglue-boolq", "xsum", "scitail"]
     large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
-                                     "amazon_polarity", "yelp_polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
+                                     "amazon-polarity", "yelp-polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
@@ -753,6 +753,10 @@ class SciTail(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    labels_map = {
+            "map":{"0":"entailment", "1":"neutral"},
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            }
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "test"}
@@ -908,11 +912,14 @@ class SST2(AbstractTask):
 
 
 class YelpPolarity(AbstractTask):
-    name = "yelp_polarity"
+    name = "yelp-polarity"
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train", "test": "test"}
+    labels_map = {
+            "map":{"0":"negative", "1":"positive"},
+            }
 
     def load_dataset(self, split):
         print(split)
@@ -925,14 +932,14 @@ class YelpPolarity(AbstractTask):
 
 
 class Amazon_Polarity(AbstractTask):
-    name = "amazon_polarity"
+    name = "amazon-polarity"
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train", "test": "test"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('yelp_polarity', split=split)
+        return datasets.load_dataset('yelp-polarity', split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["sentence:", "<title> {0} <context> {1}".format(
@@ -1271,7 +1278,7 @@ class MNLI(AbstractTask):
     # labels_map = {"map":{"0":"en", "1":"neutral", "2": "contradicts"}
     labels_map = {
             "map":{"0":"entailment", "1":"neutral", "2": "contradiction"},
-            "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
             }
     # labels_map = {"map":{"0":"0", "1":"1", "2": "2"}
     # labels_map = {"map":{"0":"C", "1":"D", "2": "E"}
@@ -1332,14 +1339,14 @@ class PAWS(AbstractTask):
 
 class SNLI(AbstractTask):
     name = "snli"
-    labels_list = ["0", "1", "2"]
+    labels_list = ["0", "1", "2", "-1"]
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "test"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            "map":{"-1":"neutral", "0":"entailment", "1":"neutral", "2": "contradiction"}
             }
 
     def load_dataset(self, split):
@@ -1348,7 +1355,8 @@ class SNLI(AbstractTask):
     def preprocessor(self, example, prefix):
         src_texts = ["premise:", example['premise'],
                      "hypothesis: ", example["hypothesis"]]
-        tgt_texts = [str(example['label'])]
+        label = str(example['label'])
+        tgt_texts = [label]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
@@ -1429,7 +1437,7 @@ class RTE(AbstractTask):
                            "test": "validation"}
     labels_map = {
             "map":{"0":"entailment", "1":"not_entailment"},
-            "map2":{"0":"not_duplicate", "1":"duplicate"}
+            # "map2":{"0":"not_duplicate", "1":"duplicate"}
             } # entailment nont_entailment
     ## labels_map = {"map":{"0":"C", "1":"D"} # entailment nont_entailment
     def load_dataset(self, split):
@@ -1838,8 +1846,8 @@ TASK_MAPPING = OrderedDict(
         ("common-gen", CommonGen),
         ("winogrande", WinoGrande),
         ("scitail", SciTail),
-        ('yelp_polarity', YelpPolarity),
-        ('amazon_polarity', Amazon_Polarity),
+        ('yelp-polarity', YelpPolarity),
+        ('amazon-polarity', Amazon_Polarity),
         ('paws', PAWS),
     ]
 )

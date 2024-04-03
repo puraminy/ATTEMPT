@@ -92,17 +92,20 @@ if [ -n "$_gft" ]; then
    _tasks="${_tasks}cola#mnli#rte#qnli#stsb#qqp#mrpc#sst2"
 fi
 if [ -n "$_lt" ]; then
-   _tasks="mnli#snli#stsb#qnli#imdb#tweet-eval"
+   _tasks="paws#snli#multinli#yelp-polarity#imdb#tweet-eval"
 fi
 if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli"
+fi
+if [ -n "$_qt" ]; then
+   _tasks="searchqa#triviaqa#nq#hotpotqa#commonsense_qa"
 fi
 
 if [ -n "$_ot" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
 #sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
-sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-multirc"
+sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#stsb"
 if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi

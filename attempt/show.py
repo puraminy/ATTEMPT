@@ -213,13 +213,13 @@ def save_df_as_image(df, path):
     fig = plot.get_figure()
     fig.savefig(path)
 
-def clean_file(f):
-    with open(f, 'r') as f1:
+def clean_file(s, d):
+    with open(s, 'r') as f1:
         _dict = json.load(f1)
         for c in ["tag","log_var","main_vars","full_tag"]:
             if c in _dict:
                 del _dict[c]
-    with open(f, 'w') as f2:
+    with open(d, 'w') as f2:
         json.dump(_dict, f2, indent=3)
 
 
@@ -814,6 +814,7 @@ def show_df(df, summary=False):
     back_sel_cols = []
     all_sel_cols = []
     main_sel_cols = []
+    register = {}
     search = ""
     si = 0
     mode = "main"
@@ -1517,7 +1518,7 @@ def show_df(df, summary=False):
             if char == "o" and "images" in settings:
                 image_keys = settings["images"].split("@")
             elif char == "y":
-                image_keys = ["score","sim"]
+                image_keys = ["effect"]
                 merge = "vert"
             elif char == "k" or char == "p":
                 image_keys = ["score","router","effect"]
@@ -1619,6 +1620,16 @@ def show_df(df, summary=False):
                 #pname=tdf.iloc[sel_row]["image"]
                 subprocess.Popen(["eog", dest])
         elif char == "L":
+            if len(register) == 0:
+                show_msg("Nothing in register!")
+                mbeep()
+            else:
+                if not "key" in sel_cols:
+                    sel_cols.insert(0, "key")
+                group_col = "key"
+                df = pd.concat([d for k,d in register])
+                df = df.sort_values(by = "key")
+        elif char == "L" and False:
             s_rows = sel_rows
             if not sel_rows:
                 s_rows = group_rows
@@ -2151,9 +2162,13 @@ def show_df(df, summary=False):
                 s_rows = [sel_row]
             pfix = ""
             ignore_fname = False if char == "T" else True
-            if char == "U":
-                cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
-                os.system(cmd)
+            if char in ["U", "Y"]:
+                comp_path = "/home/ahmad/comp/"
+                shutil.rmtree(comp_path)
+                Path(comp_path).mkdir(parents=True, exist_ok=True)
+                if char == "Y":
+                    cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
+                    os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -2179,11 +2194,11 @@ def show_df(df, summary=False):
                     parent = Path(path).parent
                     pname = Path(path).parent.name
                     expid = Path(path).name
-                    if char == "U":
+                    if char in ["U", "Y"]:
                         dest = os.path.join(home, "comp", "comp_" + prefix + ".json")
                     elif "conf" in fname:
                         dest = os.path.join(home, "confs", fname)
-                    elif "reval" in fname or char == "Y":
+                    elif "reval" in fname:
                         dest = os.path.join(home, "reval", fname)
                     else:
                         folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
@@ -2196,12 +2211,14 @@ def show_df(df, summary=False):
                             except FileExistsError:
                                 pass
                         dest = os.path.join(home, "results", fname)
+
                     shutil.copyfile(js, dest)
-                    clean_file(dest)
+                    # clean_file(js, dest)
                     mbeep()
-                    to = "ahmad@10.42.0.2:" + dest 
-                    cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
-                    os.system(cmd)
+                    if char == "Y":
+                        to = "ahmad@10.42.0.2:" + dest 
+                        cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
+                        os.system(cmd)
                     # subprocess.run(cmd.split())
         elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
@@ -2753,7 +2770,14 @@ def show_df(df, summary=False):
         if char in ["x"] or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
-            if context == "pivot" or len(sel_rows) > 1:
+            if "prefix" in df:
+                prefix = df.iloc[sel_row]['prefix'] 
+                exprs = [eid]
+                scores = [prefix]
+                if "mask_type" in df:
+                    mask_types = [df.iloc[sel_row]['mask_type']] 
+                labels = [df.iloc[sel_row]['label']] 
+            else:
                 prefix = sel_cols[cur_col]
                 exprs, scores = get_sel_rows(df, col=prefix, from_main=False) 
                 if "mask_type" in df:
@@ -2761,13 +2785,6 @@ def show_df(df, summary=False):
                 else:
                     mask_types = exprs.copy()
                 _, labels = get_sel_rows(df, col="label", from_main=False) 
-            else:
-                prefix = df.iloc[sel_row]['prefix'] 
-                exprs = [eid]
-                scores = [prefix]
-                if "mask_type" in df:
-                    mask_types = [df.iloc[sel_row]['mask_type']] 
-                labels = [df.iloc[sel_row]['label']] 
 
 
             info_cols.append(prefix)
@@ -2824,15 +2841,25 @@ def show_df(df, summary=False):
              except Exception as e:
                  show_msg("Error:" + repr(e))
                  mbeep()
-        if cmd in ['eplot','plot', 'cplot']:
+        if cmd.startswith(">"):
+            regkey = cmd[1:]
+            df["key"] = regkey 
+            register[regkey] = df
+            consts["Register"] = str(register)
+        if cmd == "clear":
+            register = {}
+        if cmd in ['nplot','eplot','plot', 'cplot']:
             #yyyyyyyy
            backit(df, sel_cols)
+           fig, ax = plt.subplots()
            cols = selected_cols 
            scol = sel_cols[cur_col]
-           if cmd == 'eplot':
+           if cmd in ['eplot','cplot']:
                cols = ["label","num_train_epochs","All"] 
+           elif cmd == 'nplot':
+               cols = ["label","max_train_samples","All"] 
            else:
-               cols = ["label","num_source_prompts","All"] 
+               cols = ["label",scol,"All"] 
            if cols:
                gcol = cols[0]
                xcol = cols[1]

@@ -2361,10 +2361,11 @@ def train(**kwargs):
                 y_labels=y_labels,
                 x_labels=x_labels,
                 #title = title,
-                title = title  
+                title = spec + ("| remove" if "rem" in title else "")
+                        #title  
                         #+ " | " + str(kwargs.gen_norm_method) \
                         #+ " | " + str(kwargs.gen_thresh_min) \
-                        + " | " + spec
+                        #+ " | " + spec
             )
             if img_buf:
                 im = Image.open(img_buf)
@@ -2443,7 +2444,9 @@ def train(**kwargs):
                             + prompt_names[col].replace("source_","")
                     gen_masks[mkey] = mask
             if mask_type: 
-                if use_source_prompts and not model_args.compose_method in ["mcat","mwavg"]:
+                if (use_source_prompts 
+                    and not model_args.compose_method in ["mcat","mwavg"]
+                    and num_source_prompts > 1):
                     col += 1
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_source")
                     mylogs.bp("keepsrc")
@@ -2567,12 +2570,16 @@ def train(**kwargs):
                                    if use_masked_attn_scores == 2:
                                        masked_attn_scores[masked_attn_scores != 0] = 1
                                    gen_conf["attn_mat"] = masked_attn_scores 
+                                   git_def = False 
+                                   if model_args.compose_method == "wavg":
+                                       git_def = True
+                                   gen_ignore_target=kwargs.get("gen_ignore_target",git_def)
                                    if any(item in rm 
                                            for item in 
                                            ["keep-source", "keep-target"]):
                                        mylogs.bp("keepsrc")
                                        gen_conf["attn_mask"] = mask 
-                                   elif kwargs.get("gen_ignore_target", False):
+                                   elif gen_ignore_target: 
                                        mask = model.encoder.make_attn_mask(1,1,"rem_target")
                                        gen_conf["attn_mask"] = mask 
                                else:
@@ -2729,6 +2736,9 @@ def train(**kwargs):
                                 col,mtype,mlabel = rm.split("-")
                                 if mlabel in ["source","private","target"]:
                                     mylogs.bp("mlabel")
+                                map_label = {"source":"all_src", "target":"private"}
+                                mlabel =map_label[mlabel] if mlabel in map_label else mlabel
+                                mlabel = mlabel.replace("com","src")
                                 mask_labels.append(mlabel)
                                 col = int(col) - 1
                                 if col == 1:
@@ -2764,11 +2774,15 @@ def train(**kwargs):
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
                                     effect_scores[test_key][task_index, -1] = base_score 
+                                    torch.set_printoptions(threshold=10_000)
+                                    print(effect_scores[test_key]) 
                     #### end of for
                     mylogs.bp("effect")
                     spec = str(gen_mask_counter)
                     if gen_mask_counter < len(masking_list):
                         spec = masking_list[gen_mask_counter]
+                    map_methods = {"mwavg":"MSUM","wavg":"SSUM","mcat":"MCAT"}
+                    spec = map_methods[model_args.compose_method]
                     for test_key, effect_score in effect_scores.items(): 
                         scores = effect_scores[test_key]
                         column_means = torch.mean(scores[:-1], dim=0)

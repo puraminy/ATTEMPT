@@ -65,7 +65,12 @@ def normalize_scores(scores, method="soft",
 
     if method == "rb" or resample is True:
         scores = RelaxedBernoulli(temperature=gen_thresh_min or 0.0001, 
-            logits=scores*100).rsample()  
+            logits=scores).rsample()  
+    if method == "rbsign": 
+        scores = RelaxedBernoulli(temperature=0.001, 
+            logits=scores).rsample()  
+        scores[scores < 0.5] = 0
+        scores[scores >= 0.5] = 1
 
     if sel_thresh is not None:
         if method == "srelu":
@@ -1278,7 +1283,7 @@ class T5Stack(T5PreTrainedModel):
             #    ), device=device).uniform_(-1e-3, 1e-3))
             router = torch.zeros((attend_num, attend_num), device=device)
             route_method = self.route_method
-            if self.bias is not None:
+            if self.bias is not None and self.bias > 0:
                 i,j,k = 1,1,1
                 first = True
                 mylogs.bp("bias")
@@ -1920,6 +1925,8 @@ class T5Stack(T5PreTrainedModel):
            mylogs.bp("ccc")
            if "keep-source" in self.gen_conf["mask_type"]:
                mylogs.bp("keepsrc")
+           elif "keep-" in self.gen_conf["mask_type"]:
+               mylogs.bp("keepprompt")
            if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                attn_mask = self.gen_conf["attn_mask"] 
        mylogs.bp("adt")
