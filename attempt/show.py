@@ -1068,7 +1068,7 @@ def show_df(df, summary=False):
             df[_col] = df[_col].astype(str)
 
     map_cols =  load_obj("map_cols", "atomic", {})
-    def get_images(df, exps, fid='eid', merge="vert", image_keys="all"):
+    def get_images(df, exps, fid='eid', merge="vert", image_keys="all", crop=False):
         imgs = {}
         dest = ""
         start = "pred"
@@ -1152,10 +1152,13 @@ def show_df(df, summary=False):
                     fnames.append(dest)
             for key, img_list in c_imgs.items():
                 for i, img in enumerate(img_list):
-                    if img.width < max_width:
+                    if crop:
+                        imageBox = img.getbbox()
+                        _image = img.crop(imageBox)
+                    elif img.width < max_width:
                         dif = max_width - img.width // 2
                         _image = add_margin(img, 0, dif, 0, dif, (255, 255, 255))
-                        c_imgs[key][i] = _image
+                    c_imgs[key][i] = _image
             imgs = c_imgs
         return imgs, fnames
 
@@ -1525,7 +1528,7 @@ def show_df(df, summary=False):
                 merge = "vert"
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
-                    merge = merge, image_keys = image_keys)
+                    merge = merge, image_keys = image_keys, crop = char == "y")
             dif_cols = ["expid"]
             for col in sel_cols:
                 if col in pcols or col in ["eid"]:
@@ -2166,7 +2169,7 @@ def show_df(df, summary=False):
                 comp_path = "/home/ahmad/comp/"
                 shutil.rmtree(comp_path)
                 Path(comp_path).mkdir(parents=True, exist_ok=True)
-                if char == "Y":
+                if char == "U":
                     cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
                     os.system(cmd)
             for s_row in s_rows:
@@ -2215,7 +2218,7 @@ def show_df(df, summary=False):
                     shutil.copyfile(js, dest)
                     # clean_file(js, dest)
                     mbeep()
-                    if char == "Y":
+                    if char == "U":
                         to = "ahmad@10.42.0.2:" + dest 
                         cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
                         os.system(cmd)
@@ -2910,7 +2913,7 @@ def show_df(df, summary=False):
         if char == "H":
             name = ax.get_title()
             pname = rowinput("Plot name:", name[:30])
-            pics_dir = "/home/ahmad/Desktop/Papers/Final_Paper2_Info/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
             if pname:
                 folder = ""
                 if "/" in pname:
@@ -3114,7 +3117,7 @@ def show_df(df, summary=False):
         if char == "l" or char == "Z" or cmd.startswith("rep"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
-            table_dir = "/home/ahmad/Desktop/Papers/Final_Paper2_Info/" #os.getcwd() 
+            table_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
             if len(score_cols) > 1:
                 # m_report = f"{_dir}/report_templates/report_colored_template.tex"
                 m_report = f"{_dir}/report_templates/report_template.tex"
@@ -3124,7 +3127,10 @@ def show_df(df, summary=False):
                 report = f.read()
             #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
             #    f.write("")
-            latex_table=tabulate(df[sel_cols].round(1),  #[rep_cols+score_cols], 
+            cols = sel_cols
+            if selected_cols:
+                cols = selected_cols
+            latex_table=tabulate(df[cols].round(1),  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False)
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
