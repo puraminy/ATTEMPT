@@ -92,7 +92,7 @@ if [ -n "$_gft" ]; then
    _tasks="${_tasks}cola#mnli#rte#qnli#stsb#qqp#mrpc#sst2"
 fi
 if [ -n "$_lt" ]; then
-   _tasks="paws#snli#multinli#yelp-polarity#imdb#tweet-eval"
+   _tasks="multinli#scitail#yelp-polarity#imdb#mrpc#paws"
 fi
 if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli"

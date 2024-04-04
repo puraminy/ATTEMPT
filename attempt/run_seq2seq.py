@@ -886,7 +886,7 @@ def train(**kwargs):
     num_prompts = kwargs.setdefault("num_prompts", 1) 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
-    load_source_prompts = kwargs.setdefault("load_source_prompts", True) 
+    load_source_prompts = kwargs.setdefault("load_source_prompts", False) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
     use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     use_source_set = kwargs.setdefault("use_source_set", False)
@@ -939,8 +939,11 @@ def train(**kwargs):
         data_args.source_prompts = tasks # source are the same target tasks
     elif use_source_set:
         nsp = max([len(s) for s in task_source_prompts_set.values()])
-    elif data_args.source_prompts is not None and len(data_args.source_prompts) > 0:
-        nsp = len(data_args.source_prompts) 
+    elif data_args.source_prompts is not None:
+        if type(data_args.source_prompts) != list:
+            data_args.source_prompts = [data_args.source_prompts]
+        if len(data_args.source_prompts) > 0:
+            nsp = len(data_args.source_prompts) 
 
     nsp += inp_nsp 
     num_source_prompts = nsp 
@@ -1349,7 +1352,7 @@ def train(**kwargs):
     
     mylogs.bp("router")
     prompts_dir = model_args.prompt_encoders_dir
-    if "prompts_prefix" in main_vars:
+    if "prompts_prefix" in main_vars or "save_to_prompts_dir" in main_vars:
         prompts_dir = op.join(mylogs.pretPath, "prompts") 
     elif prompts_dir == "save_path":
         base_folder = Path(kwargs.save_path)
@@ -1504,15 +1507,19 @@ def train(**kwargs):
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
                 mylogs.bp("load")
-                enc_name = ""
+                load_prompt = False
                 if encoder.is_private:
                     if load_private_prompts: 
-                        enc_name = encoder.name.replace("_for","")
-                if encoder.is_source and "_com" in encoder.name and not reval:
-                        pattern = re.compile(r"com\d+")
-                        enc_name = re.sub(pattern, "com", encoder.name)
+                        encoder_name = encoder.name.replace("_for","")
+                        load_prompt = True
+                if encoder.is_source:
+                    load_prompt = True
+                    if "_com" in encoder.name and not reval:
+                        #pattern = re.compile(r"com\d+")
+                        #enc_name = re.sub(pattern, "com", encoder.name)
                         encoder_name = encoder.name.replace("source_", "")
-                if enc_name or not encoder.is_private:
+                        load_prompt = False
+                if load_prompt: 
                     is_loaded = encoder.load(prompts_dir, 
                         prefix=prompts_prefix,
                         ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
@@ -1547,10 +1554,10 @@ def train(**kwargs):
             encoder_type = adapter_args.prompt_encoder_type 
             if prompt_tokens[0].startswith("<tar-"):
                 encoder_type = kwargs.get("target_encoder_type", encoder_type)
-                target_non_linear = kwargs.get("target_non_linear", prompt_non_linear)
+                prompt_non_linear = kwargs.get("target_non_linear", prompt_non_linear)
             encoder, enc_type = create_encoder(name, model, tokenizer, 
                     prompt_tokens, 
-                    non_linear = target_non_linear,
+                    non_linear = prompt_non_linear,
                     hidden_size = prompt_hidden_size,
                     num_layers = prompt_num_layers,
                     in_dim = prompt_out_dim,
@@ -2441,7 +2448,7 @@ def train(**kwargs):
                     col = rm + 1
                     mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
                     mkey = str(col) + "-" + mask_type + "-" \
-                            + prompt_names[col].replace("source_","")
+                            + prompt_names[col].replace("source_","").replace("-","_")
                     gen_masks[mkey] = mask
             if mask_type: 
                 if (use_source_prompts 
@@ -2496,7 +2503,13 @@ def train(**kwargs):
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
             full_attn_mat = None
-            use_masked_attn_scores = kwargs.get("use_masked_attn", 1)
+            use_masked_attn_scores = 0
+            if "use_masked_attn" in main_vars:
+                use_masked_attn_scores = kwargs.get("use_masked_attn", 0)
+            git_def = False 
+            if model_args.compose_method == "wavg":
+               git_def = True
+            gen_ignore_target=kwargs.get("gen_ignore_target", git_def)
             for norm_method, gcmm, gmin, gmax, gntp in gen_combs:
                 gen_mask_counter = 0
                 for gen_masks in gen_masks_list:
@@ -2541,6 +2554,10 @@ def train(**kwargs):
                         gen_conf["gen_ntp"] = gntp
                         gen_conf["gen_cmm"] = gcmm
                         exp_info["cur_masking"] = rm.split("-")[1]
+                        if "keep-source" in gen_conf["mask_type"]:
+                           mylogs.bp("keepsrc")
+                        elif "keep-" in gen_conf["mask_type"]:
+                           mylogs.bp("keepprompt")
                         test_key = ""
                         for kk, vv in gen_conf.items():
                             if kk not in ["attn_mask"]:
@@ -2563,26 +2580,25 @@ def train(**kwargs):
                             orig_mask_matrix = orig_mask.index_select(0, targets)
                         for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                             gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
-                            mylogs.bp("testmask")
                             if mask is not None: 
+                               mylogs.bp("testmask")
                                if use_masked_attn_scores > 0: 
                                    masked_attn_scores = mask * full_attn_mat
                                    if use_masked_attn_scores == 2:
                                        masked_attn_scores[masked_attn_scores != 0] = 1
                                    gen_conf["attn_mat"] = masked_attn_scores 
-                                   git_def = False 
-                                   if model_args.compose_method == "wavg":
-                                       git_def = True
-                                   gen_ignore_target=kwargs.get("gen_ignore_target",git_def)
                                    if any(item in rm 
                                            for item in 
                                            ["keep-source", "keep-target"]):
                                        mylogs.bp("keepsrc")
                                        gen_conf["attn_mask"] = mask 
-                                   elif gen_ignore_target: 
-                                       mask = model.encoder.make_attn_mask(1,1,"rem_target")
-                                       gen_conf["attn_mask"] = mask 
+                                   elif not gen_ignore_target: 
+                                       tmask = model.encoder.make_attn_mask(1,1,"keep_target")
+                                       gen_conf["attn_mask"] = mask | tmask 
                                else:
+                                   if not gen_ignore_target: 
+                                       tmask = model.encoder.make_attn_mask(1,1,"keep_target")
+                                       mask = mask | tmask 
                                    gen_conf["attn_mask"] = mask 
                                    if use_masked_attn_scores < 0:
                                        gen_conf["attn_mat"] = None

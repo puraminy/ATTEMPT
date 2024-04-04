@@ -1768,14 +1768,18 @@ class WinoGrande(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    labels_map = {
+            "map":{"0":"Choice1", "1":"Choice2"},
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+            }
 
     def load_dataset(self, split):
         return datasets.load_dataset('winogrande', "winogrande_xl", split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example["sentence"],
-                     "option0:", example["option1"],
-                     "option1:", example["option1"]]
+                     "Choice1:", example["option0"],
+                     "Choice2:", example["option1"]]
         tgt_texts = [str(int(example["answer"]) - 1)]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 

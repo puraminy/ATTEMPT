@@ -1440,7 +1440,7 @@ class T5Stack(T5PreTrainedModel):
                     elif mask_type == "keep":
                         attn_mask[i, 1:] = 0
                         attn_mask[i, index:to] = self.attn_mask_orig[i, index:to] 
-        return attn_mask
+        return attn_mask.long()
 
     def anneal(self, i_step):
          mylogs.bp("anneal")
@@ -1516,6 +1516,16 @@ class T5Stack(T5PreTrainedModel):
         mylogs.bp("att")
         if not self.training:
             mylogs.bp("all")
+
+        if not self.training: 
+           mylogs.bp("ccc")
+           if "keep-source" in self.gen_conf["mask_type"]:
+               mylogs.bp("keepsrc")
+           elif "keep-" in self.gen_conf["mask_type"]:
+               mylogs.bp("keepprompt")
+           if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+               attn_mask = self.gen_conf["attn_mask"] 
+
         batch_size = inputs_embeds.shape[0]
         private_prompt = None
         if self.use_private_prompts:
@@ -1926,7 +1936,7 @@ class T5Stack(T5PreTrainedModel):
            if "keep-source" in self.gen_conf["mask_type"]:
                mylogs.bp("keepsrc")
            elif "keep-" in self.gen_conf["mask_type"]:
-               mylogs.bp("keepprompt")
+               mylogs.bp("adtkeepprompt")
            if self.gen_conf is not None and "attn_mask" in self.gen_conf:
                attn_mask = self.gen_conf["attn_mask"] 
        mylogs.bp("adt")
@@ -2121,6 +2131,14 @@ class T5Stack(T5PreTrainedModel):
                         target_idx_list = torch.tensor(target_idx_list, device=device).long()
                         #target_idx = target_idx_list.repeat(batch_size, 1)
                         mylogs.bp("fwdmask")
+                        if not self.training: 
+                           mylogs.bp("ccc")
+                           if "keep-source" in self.gen_conf["mask_type"]:
+                               mylogs.bp("keepsrc")
+                           elif "keep-" in self.gen_conf["mask_type"]:
+                               mylogs.bp("keepprompt")
+                           if self.gen_conf is not None and "attn_mask" in self.gen_conf:
+                               attn_mask = self.gen_conf["attn_mask"] 
                         source_idx = source_idx_list.repeat(batch_size, 1)
                         attn_mask = attn_mask.repeat(batch_size, 1, 1)
                         sel_attn_mask = batched_index_select(attn_mask, 2, 
