@@ -2503,9 +2503,9 @@ def train(**kwargs):
                     gen_thresh_min, gen_thresh_max, gen_ntp)
             mylogs.bp("genm")
             full_attn_mat = None
-            use_masked_attn_scores = 0
+            use_masked_attn_scores = -1
             if "use_masked_attn" in main_vars:
-                use_masked_attn_scores = kwargs.get("use_masked_attn", 0)
+                use_masked_attn_scores = kwargs.get("use_masked_attn", -1)
             git_def = False 
             if model_args.compose_method == "wavg":
                git_def = True
@@ -2582,28 +2582,21 @@ def train(**kwargs):
                             gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
                             if mask is not None: 
                                mylogs.bp("testmask")
-                               if use_masked_attn_scores > 0: 
-                                   masked_attn_scores = mask * full_attn_mat
-                                   if use_masked_attn_scores == 2:
-                                       masked_attn_scores[masked_attn_scores != 0] = 1
-                                   gen_conf["attn_mat"] = masked_attn_scores 
-                                   if any(item in rm 
-                                           for item in 
-                                           ["keep-source", "keep-target"]):
-                                       mylogs.bp("keepsrc")
-                                       gen_conf["attn_mask"] = mask 
-                                   elif not gen_ignore_target: 
-                                       tmask = model.encoder.make_attn_mask(1,1,"keep_target")
-                                       gen_conf["attn_mask"] = mask | tmask 
-                               else:
-                                   if not gen_ignore_target: 
-                                       tmask = model.encoder.make_attn_mask(1,1,"keep_target")
-                                       mask = mask | tmask 
+                               if not gen_ignore_target: 
+                                   tmask = model.encoder.make_attn_mask(1,1,"keep_target")
+                                   mask = mask | tmask 
+                               if use_masked_attn_scores < 0:
                                    gen_conf["attn_mask"] = mask 
-                                   if use_masked_attn_scores < 0:
-                                       gen_conf["attn_mat"] = None
+                                   gen_conf["attn_mat"] = None
+                               else:
+                                   gen_conf["attn_mat"] = full_attn_mat
+                                   if use_masked_attn_scores == 0:
+                                       gen_conf["attn_mask"] = mask 
                                    else:
-                                       gen_conf["attn_mat"] = full_attn_mat
+                                       masked_attn_scores = mask * full_attn_mat
+                                       if use_masked_attn_scores == 2:
+                                           masked_attn_scores[masked_attn_scores != 0] = 1
+                                       gen_conf["attn_mat"] = masked_attn_scores 
 
                             task = task.split("_")[0]
                             ds_conf = task #data_args.test_dataset_config_name[idx]
