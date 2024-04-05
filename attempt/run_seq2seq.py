@@ -908,9 +908,14 @@ def train(**kwargs):
         train_prefix[tname] = [tname]
         test_prefix[tname] = test_prefix_list 
 
-    cross_prefix = kwargs.get("cross_prefix", False)
-    if cross_prefix:
-        for task in task_names:
+    cross_prefix = kwargs.get("cross_prefix", None)
+    if cross_prefix is not None:
+        ctasks = cross_prefix
+        if cross_prefix == "all": 
+            ctasks = task_names
+        if type(ctasks) != list:
+            ctasks = [cross_prefix]
+        for task in ctasks:
             for other in task_names:
                 if other != task:
                     if not task in test_prefix:
@@ -1996,7 +2001,7 @@ def train(**kwargs):
             shared=model_args.shared_attn)
 
     # Exit program if user wants to check some settings 
-    if preview and preview != "one" and preview != "run":
+    if preview and preview != "one" and preview != "run" and preview != "test":
         print("preview is ", preview)
         return
     # Saves training config.
@@ -2504,8 +2509,10 @@ def train(**kwargs):
             mylogs.bp("genm")
             full_attn_mat = None
             use_masked_attn_scores = -1
+            if model_args.compose_method == "mcat":
+                use_masked_attn_scores = 0
             if "use_masked_attn" in main_vars:
-                use_masked_attn_scores = kwargs.get("use_masked_attn", -1)
+                use_masked_attn_scores = kwargs.get("use_masked_attn", use_masked_attn_scores)
             git_def = False 
             if model_args.compose_method == "wavg":
                git_def = True
@@ -2524,10 +2531,6 @@ def train(**kwargs):
                             gmin = float(tmin) if tmin != 'none' else None
                             gmax = float(tmax) if tmax != 'none' else None
 
-                        model.encoder.attn_scores = torch.zeros(
-                            (attend_num, attend_num), device=device) 
-                        model.encoder.attn_mask_learned = torch.zeros(
-                            (attend_num, attend_num), device=device) 
                         mylogs.bp("pic")
                         rv = "Eval" if not reval else "Reval"
                         test_num = str(data_args.max_test_samples) 
@@ -2541,6 +2544,11 @@ def train(**kwargs):
                                 + "_num-" + test_num + "_" + str(ii) 
                         eval_folder = os.path.join(exp_folder, eval_folder_name)
                         Path(eval_folder).mkdir(parents=True, exist_ok=True)
+
+                        model.encoder.attn_scores = torch.zeros(
+                            (attend_num, attend_num), device=device) 
+                        model.encoder.attn_mask_learned = torch.zeros(
+                            (attend_num, attend_num), device=device) 
                         counter = 0
                         total_score = 0
                         if not rm in task_scores:
@@ -2598,15 +2606,20 @@ def train(**kwargs):
                                            masked_attn_scores[masked_attn_scores != 0] = 1
                                        gen_conf["attn_mat"] = masked_attn_scores 
 
-                            task = task.split("_")[0]
                             ds_conf = task #data_args.test_dataset_config_name[idx]
                             ds_name = task #data_args.test_dataset_name[idx]
+                            task = task.split("_")[0]
                             
                             ds_name = "none" if not ds_name else ds_name
                             ds_conf = "none" if not ds_conf else ds_conf
                             is_train = "train" if training_args.do_train else "eval"
                             save_to = os.path.join(eval_folder,
                                 ds_conf + "_results_" + is_train + "_" + ds_name + ".tsv")
+                            if preview == "test":
+                                print(save_to)
+                                ii += 1
+                                counter += 1
+                                continue
                             use_cache = False
                             if adapter_args.prompt_tuning: 
                                 if mask is not None: 

@@ -109,7 +109,7 @@ class AbstractTask(abc.ABC):
         self.counter = {} #counter for logging items
 
     def get_id(self):
-        return self.name 
+        return self.prefix 
 
     def get_max_target_length(self, tokenizer, default_max_length):
         ll = []
@@ -564,6 +564,8 @@ class AbstractTask(abc.ABC):
                        targets: List[str],
                        prefix: str = None,
                        extra_fields={}):
+        if prefix:
+            self.prefix = prefix
         if not prefix:
             prefix = self.prefix
         if not prefix:

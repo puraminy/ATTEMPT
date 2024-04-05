@@ -21,6 +21,7 @@
   "uma":"use_masked_attn",
   "alr":"attn_learning_rate",
   "lr":"learning_rate",
+  "cross":"cross_prefix",
   "plr":"prompt_learning_rate",
   "cmm":"compose_method",
   "gcmm":"gen_compose_method",
