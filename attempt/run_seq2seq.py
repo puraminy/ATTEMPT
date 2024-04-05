@@ -323,6 +323,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    exp_args = {}
    save_path = ""
    prev_exp_folder = ""
+   prev_save_path = ""
    log_path = inp_log_path
    if not log_path:
        log_path = mylogs.logPath 
@@ -332,6 +333,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
+        prev_save_path = exp_args["save_path"]
         exp_conf_name = Path(exp_conf).stem
         exp_args["conf"] = exp_conf_name
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
@@ -368,7 +370,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    mylogs.bp("start") 
    if experiment == "self":
        save_path = os.path.join(os.getcwd(), "output")
-   if not reval or new_exp_folder:
+   if prev_exp_folder and repeat:
+       save_path = prev_save_path
+   elif not reval or new_exp_folder:
        if new_exp_folder and save_path:
           relative_path = os.path.relpath(save_path, log_path)
           parts = relative_path.split(os.path.sep)
@@ -475,7 +479,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    mylogs.bp("prev")
    if prev_exp_folder and not "prompts_prefix" in main_vars:
        args["prompt_encoders_dir"] = prev_exp_folder
-   if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp:
+   if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp and not repeat:
        prev_folder = Path(prev_exp_folder)
        prev_exp_id = prev_folder.name
        eval_folders = glob.glob(
@@ -2509,8 +2513,10 @@ def train(**kwargs):
             mylogs.bp("genm")
             full_attn_mat = None
             use_masked_attn_scores = -1
+            ignore_zeros = False
             if model_args.compose_method == "mcat":
-                use_masked_attn_scores = 0
+                use_masked_attn_scores = 1
+                ignore_zeros = True
             if "use_masked_attn" in main_vars:
                 use_masked_attn_scores = kwargs.get("use_masked_attn", use_masked_attn_scores)
             git_def = False 
@@ -2554,7 +2560,7 @@ def train(**kwargs):
                         if not rm in task_scores:
                             task_scores[rm] = {}
                         gen_conf = {"rep_penalty":2.0}
-                        gen_conf["ignore_zeros"] = kwargs.get("gen_ignore_zeros", False)
+                        gen_conf["ignore_zeros"] = kwargs.get("gen_ignore_zeros", ignore_zeros)
                         gen_conf["gen_norm_method"] = norm_method
                         gen_conf["mask_type"] = rm # if mask is not None else "no-mask"
                         gen_conf["gen_thresh_min"] = gmin
