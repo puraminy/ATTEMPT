@@ -1051,15 +1051,19 @@ def show_df(df, summary=False):
         if not s_rows:
             s_rows = [sel_row]
         for s_row in s_rows:
-            row=df.iloc[s_row][row_id]
-            if from_main:
-                tdf = main_df[main_df[row_id] == row]
+            if row_id is None:
+                val=df.iloc[s_row][col]
+                values.append(val)
             else:
-                tdf = df[df[row_id] == row]
-            val=tdf.iloc[0][col]
-            values.append(val)
-            exp=tdf.iloc[0][row_id]
-            exprs.append(exp)
+                row=df.iloc[s_row][row_id]
+                if from_main:
+                    tdf = main_df[main_df[row_id] == row]
+                else:
+                    tdf = df[df[row_id] == row]
+                val=tdf.iloc[0][col]
+                values.append(val)
+                exp=tdf.iloc[0][row_id]
+                exprs.append(exp)
         return exprs, values 
 
 
@@ -1155,10 +1159,12 @@ def show_df(df, summary=False):
                     if crop:
                         imageBox = img.getbbox()
                         _image = img.crop(imageBox)
+                        _image = add_margin(_image, 10, 0, 0, 0, (255, 255, 255))
+                        c_imgs[key][i] = _image
                     elif img.width < max_width:
                         dif = max_width - img.width // 2
                         _image = add_margin(img, 0, dif, 0, dif, (255, 255, 255))
-                    c_imgs[key][i] = _image
+                        c_imgs[key][i] = _image
             imgs = c_imgs
         return imgs, fnames
 
@@ -2773,16 +2779,21 @@ def show_df(df, summary=False):
         if char in ["x"] or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
+            breakpoint()
             if "prefix" in df:
-                prefix = df.iloc[sel_row]['prefix'] 
-                exprs = [eid]
-                scores = [prefix]
+                _, scores = get_sel_rows(df, None, col="rouge_score", from_main=False) 
+                _, prefixes = get_sel_rows(df, None, col="prefix", from_main=False) 
+                exprs = [eid] * len(prefixes)
                 if "mask_type" in df:
-                    mask_types = [df.iloc[sel_row]['mask_type']] 
-                labels = [df.iloc[sel_row]['label']] 
+                    _, mask_types = get_sel_rows(df, None, col="mask_type", from_main=False) 
+                if "label" in df:
+                   _, labels = get_sel_rows(df, None, col="label", from_main=False) 
+                else:
+                    labels = ["x"] * len(exprs)
             else:
                 prefix = sel_cols[cur_col]
                 exprs, scores = get_sel_rows(df, col=prefix, from_main=False) 
+                prefixes = [prefix]*len(exprs)
                 if "mask_type" in df:
                     _, mask_types = get_sel_rows(df, col="mask_type", from_main=False) 
                 else:
@@ -2790,11 +2801,9 @@ def show_df(df, summary=False):
                 _, labels = get_sel_rows(df, col="label", from_main=False) 
 
 
-            info_cols.append(prefix)
-            consts["prefix"] = prefix
             _cols = ["pred_text1", "target_text"]
             dfs = []
-            for eid, acc, mt, label in zip(exprs, scores, mask_types, labels):
+            for eid, acc, mt, label, prefix in zip(exprs, scores, mask_types, labels, prefixes):
                 tdf = main_df.loc[(main_df.eid == eid) & (main_df.prefix == prefix), _cols]
                 canceled, val = False, "pred_text1" # list_values(sel_cols)
                 if not canceled:
@@ -2802,6 +2811,7 @@ def show_df(df, summary=False):
                     tdf = pd.crosstab(tdf[val], tdf[treatment])
                 tdf["preds"] = list(tdf.axes[0])
                 tdf["acc"] = acc
+                tdf["prefix"] = prefix 
                 tdf["eid"] = eid
                 tdf["label"] = label
                 tdf["mask_type"] = mt 
@@ -2857,31 +2867,35 @@ def show_df(df, summary=False):
            fig, ax = plt.subplots()
            cols = selected_cols 
            scol = sel_cols[cur_col]
-           if cmd in ['eplot','cplot']:
+           if not cols:
+               cols = ["label",scol, "All"]
+           if len(cols) < 3:
+               cols.append("All")
+           if cmd in ['eplot']:
                cols = ["label","num_train_epochs","All"] 
            elif cmd == 'nplot':
                cols = ["label","max_train_samples","All"] 
-           else:
-               cols = ["label",scol,"All"] 
            if cols:
                gcol = cols[0]
                xcol = cols[1]
                ycol = cols[2]
                gi = 0 
                name = ""
-               labels = {}
-               df[xcol] = df[xcol].astype(int)
+               labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
+               df[xcol] = df[xcol].astype(float)
                for key, grp in df.groupby([gcol]):
                      _label = key[0] if type(key) == tuple else key
                      label = _label
-                     if cmd == 'cplot':
+                     if label in labels:
+                         gi = labels[label]
+                     if cmd == 'cplot' and not label in labels:
                          label = rowinput("Order:Label [" + _label + "]:")
                          if not label:
                              label=_label
                          if ":" in label:
                              gi, label = label.split(":")
                          gi = int(gi)
-                         labels[gi] = label
+                         labels[label] = gi 
                      ax = grp.sort_values(xcol).plot.line(x=xcol, y=ycol, ax=ax,
                              linestyle="--",marker="o", 
                              label=label, color=colors[gi])
@@ -2889,7 +2903,7 @@ def show_df(df, summary=False):
                      if gi > len(colors) - 1: gi = 0
                      name += "-".join([str(k) for k in key]) + "_"
                if labels:
-                   desired_order = dict(sorted(labels.items())).values()
+                   desired_order = dict(sorted(labels.items(), key=lambda item: item[1])).keys() 
                    handles, labels = ax.get_legend_handles_labels()
                    ordered_handles=[handles[labels.index(label)] for label in desired_order]
                    ordered_labels = desired_order
@@ -2931,32 +2945,88 @@ def show_df(df, summary=False):
                 subprocess.run(["eog", pname])
         if cmd.startswith("anova"):
             to = ""
+            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
             canceled, val = False, "pred_text1" # list_values(sel_cols)
             if not canceled:
                 treatment = 'target_text' #sel_cols[cur_col]
                 df[val] = df[val].astype(float)
                 ax = sns.boxplot(x=treatment, y=val, data=df, color='#99c2a2')
                 ax = sns.swarmplot(x=treatment, y=val, data=df, color='#7d0013')
-                plt.show()
+                ax.set_xlabel("Class")
+                ax.set_ylabel("Prediction")
+                title = df.iloc[0]["prefix"]
                 # Ordinary Least Squares (OLS) model
                 model = ols(f'{val} ~ C({treatment})', data=df).fit()
                 backit(df, sel_cols)
                 sel_cols = ["sum_sq","df","F","PR(>F)"]
                 df = sm.stats.anova_lm(model, typ=2)
+                pval = "{:.2f}".format(df.iloc[0]["PR(>F)"])
+                df = df.round(2)
+                fval = df.iloc[0]["F"]
+                ax.set_title(title + "   F-Value:" + str(fval) + "  P-Value:" + str(pval))
+                plt.show()
         if cmd.startswith("banova"):
             to = ""
+            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
             canceled, val = False, "target_text" # list_values(sel_cols)
             if not canceled:
                 treatment = 'pred_text1' #sel_cols[cur_col]
                 df[val] = df[val].astype(float)
+                title = df.iloc[0]["prefix"]
                 ax = sns.boxplot(x=treatment, y=val, data=df, color='#99c2a2')
                 ax = sns.swarmplot(x=treatment, y=val, data=df, color='#7d0013')
-                plt.show()
+                ax.set_xlabel("Prediction")
+                ax.set_ylabel("Class")
                 # Ordinary Least Squares (OLS) model
                 model = ols(f'{val} ~ C({treatment})', data=df).fit()
                 backit(df, sel_cols)
                 sel_cols = ["sum_sq","df","F","PR(>F)"]
                 df = sm.stats.anova_lm(model, typ=2)
+                pval = "{:.2f}".format(df.iloc[0]["PR(>F)"])
+                df = df.round(2)
+                fval = df.iloc[0]["F"]
+                ax.set_title(title + "   F-Value:" + str(fval) + "  P-Value:" + str(pval))
+                plt.show()
+        if cmd.startswith("hanova"):
+            to = ""
+            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            for prefix in main_df["prefix"].unique():
+                if "stsb" in prefix and prefix != "stsb_stsb":
+                    df = main_df.loc[(main_df.prefix == prefix)] 
+                    if "_stsb" in prefix:
+                        val = 'pred_text1' #sel_cols[cur_col]
+                        treatment = "target_text"
+                    else:
+                        treatment = 'pred_text1' #sel_cols[cur_col]
+                        val = "target_text"
+
+                    df[val] = df[val].astype(float)
+                    samples = str(len(df))
+                    fig, ax = plt.subplots()
+                    ax = sns.boxplot(x=treatment, y=val, data=df, color='#99c2a2')
+                    ax = sns.swarmplot(x=treatment, y=val, data=df, color='#7d0013')
+                    if val == "target_text":
+                        ax.set_xlabel("Prediction")
+                        ax.set_ylabel("Class")
+                    else:
+                        ax.set_ylabel("Prediction")
+                        ax.set_xlabel("Class")
+                    # Ordinary Least Squares (OLS) model
+                    model = ols(f'{val} ~ C({treatment})', data=df).fit()
+                    backit(df, sel_cols)
+                    sel_cols = ["sum_sq","df","F","PR(>F)"]
+                    try:
+                        df = sm.stats.anova_lm(model, typ=2)
+                        pval = "{:.8f}".format(df.iloc[0]["PR(>F)"])
+                        df = df.round(2)
+                        fval = df.iloc[0]["F"]
+                    except:
+                        pval, fval = "na", "na"
+                    title = prefix.replace("_"," by ") 
+                    ax.set_title(title + "   F-Value:" + str(fval) + "  P-Value:" + str(pval))
+                    pic_dir = os.path.join(pics_dir, "pics", "cross")
+                    Path(pic_dir).mkdir(parents=True, exist_ok=True)
+                    plt.savefig(pic_dir + "/" + prefix + ".png")
         if cmd.startswith("rem"):
             if "@" in cmd:
                 exp_names = cmd.split("@")[2:]
