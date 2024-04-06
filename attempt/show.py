@@ -2160,7 +2160,10 @@ def show_df(df, summary=False):
                     expid = Path(path).name
                     folders = glob(os.path.join(str(parent), "Eval-"+ str(expid) + "*"))
                     for folder in folders:
-                        shutil.rmtree(folder)
+                        try:
+                            shutil.rmtree(folder)
+                        except:
+                            show_msg("not exist")
                         os.system(cmd)
                     shutil.rmtree(path)
                     os.system(cmd)
