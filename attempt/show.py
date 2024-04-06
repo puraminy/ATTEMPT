@@ -2165,7 +2165,10 @@ def show_df(df, summary=False):
                         except:
                             show_msg("not exist")
                         os.system(cmd)
-                    shutil.rmtree(path)
+                    try:
+                        shutil.rmtree(path)
+                    except:
+                        show_msg("not exist")
                     os.system(cmd)
                     mbeep()
         elif char == "T" or char == "U" or char == "Y":

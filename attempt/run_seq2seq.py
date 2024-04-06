@@ -370,7 +370,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    mylogs.bp("start") 
    if experiment == "self":
        save_path = os.path.join(os.getcwd(), "output")
-   if prev_exp_folder and repeat:
+   if prev_exp_folder and not new_exp_folder:
        save_path = prev_save_path
    elif not reval or new_exp_folder:
        if new_exp_folder and save_path:
@@ -409,7 +409,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            os.remove(save_path)
 
    if not save_path:
-       save_path = os.getcwd()
+       save_path = prev_save_path if prev_save_path else os.getcwd()
    Path(save_path).mkdir(exist_ok=True, parents=True)
    args = {}
    args["conf"] = exp_conf
@@ -612,7 +612,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        elif merge: 
            args["expid"] = str(exp_args["expid"]) 
        elif "-" in str(exp_args["expid"]):
-           args["expid"] = str(exp_args["expid"]).split("-")[-1] + "." + str(ii)
+           expid = str(exp_args["expid"]).replace("-rep","")
+           args["expid"] = expid.split("-")[-1] + "." + str(ii)
        else:
            args["expid"] = ii 
 
@@ -2452,7 +2453,7 @@ def train(**kwargs):
                 else:
                     num_masks = num_source_prompts
             col = 0
-            if num_masked_prompts > 0:
+            if num_masked_prompts > 0 and use_source_prompts:
                 for rm in range(mask_num_start, mask_num_start + num_masks):
                     col = rm + 1
                     mask = model.encoder.make_attn_mask(col, num_masked_prompts, mask_type)
@@ -2794,7 +2795,7 @@ def train(**kwargs):
                                     else:
                                         effect = -1*effect
                                         effect = min(effect, 50)
-                                    effect = max(effect, -50)
+                                    effect = max(effect, 0)
                                     task_index = y_labels.index(_task) 
                                     if col < len(selected_cols_idx[task_index]):  
                                         col_index = selected_cols_idx[task_index][col]
@@ -2809,8 +2810,10 @@ def train(**kwargs):
                     spec = str(gen_mask_counter)
                     if gen_mask_counter < len(masking_list):
                         spec = masking_list[gen_mask_counter]
-                    map_methods = {"mwavg":"MSUM","wavg":"SSUM","mcat":"MCAT"}
-                    spec = map_methods[model_args.compose_method]
+                    map_methods = {"mwavg":"MSUM","wavg":"SSUM","mcat":"MCAT", "pt":"PT"}
+                    sepc = model_args.compose_method
+                    if spec in map_methods:
+                        spec = map_methods[spec]
                     for test_key, effect_score in effect_scores.items(): 
                         scores = effect_scores[test_key]
                         column_means = torch.mean(scores[:-1], dim=0)
