@@ -1629,6 +1629,12 @@ def show_df(df, summary=False):
                 #pname=tdf.iloc[sel_row]["image"]
                 subprocess.Popen(["eog", dest])
         elif char == "L":
+            label = rowinput("label:")
+            s_rows = sel_rows
+            if not s_rows: s_rows = [sel_row]
+            for s_row in s_rows:
+                df.iloc[s_row, df.columns.get_loc('label')] = label
+        elif char == "L" and False:
             if len(register) == 0:
                 show_msg("Nothing in register!")
                 mbeep()
