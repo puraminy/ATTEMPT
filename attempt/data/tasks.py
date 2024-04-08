@@ -764,11 +764,11 @@ class SciTail(AbstractTask):
                            "test": "test"}
 
     def load_dataset(self, split):
+        return datasets.load_dataset('scitail', "snli_format", split=split)
         data_files = {"train":"train-00000-of-00001.parquet","test":"test-00000-of-00001.parquet"}
         return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/scitail", data_files=data_files, split=split)
 
         return datasets.load_from_disk("/home/ahmad/datasets/scitail")
-        return datasets.load_dataset('scitail', "snli_format", split=split)
 
     def preprocessor(self, example, prefix):
         label2id = {"entailment": "0", "neutral": "1"}
@@ -1379,10 +1379,10 @@ class MultiNLI(AbstractTask):
             }
 
     def load_dataset(self, split):
+        return datasets.load_dataset('multi_nli', split=split)
         data_files = {"train":"train-00000-of-00001.parquet"}
         #,"test":"validation-00000-of-00001.parquet"}
         return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/multinli", data_files=data_files, split=split)
-        return datasets.load_dataset('multi_nli', split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["premise:", example['premise'],

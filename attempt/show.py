@@ -7,7 +7,7 @@ from statsmodels.formula.api import ols
 from pandas.plotting import table
 # import dataframe_image as dfi
 
-from distutils.dir_util import copy_tree
+from distutils.dir_util import copy_tree, remove_tree
 import subprocess
 from functools import reduce
 import matplotlib.pyplot as plt
@@ -2138,23 +2138,28 @@ def show_df(df, summary=False):
                     for folder in folders:
                         new_folder = Path(folder).stem
                         new_folder = new_folder.replace(str(expid),new_folder_name)
-                        copy_tree(folder, os.path.join(str(new_parent), new_folder))
-                        os.system(cmd)
-                    copy_tree(path, new_path)
-                    os.system(cmd)
+                        if Path(folder).exists():
+                            copy_tree(folder, os.path.join(str(new_parent), new_folder))
+                            remove_tree(folder)
+                    if Path(path).exists():
+                        copy_tree(path, new_path)
+                        remove_tree(path)
                     mbeep()
             sel_rows = []
         elif char == "D":
             s_rows = sel_rows
+            ans = ""
             if not sel_rows:
                 s_rows = [sel_row]
+            irange = []
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 cond = f"(main_df['eid'] == '{exp}')"
                 tdf = main_df[main_df.eid == exp]
-                path=tdf.iloc[0]["output_dir"]
-                path = rowinput("Delete?", default=path)
-                if path:
+                path=tdf.iloc[0]["folder"]
+                if ans != "a":
+                    ans = rowinput("Delete? y) yes, a) all (" + path[:20] + "..." + path[-20:] + "):", default="y")
+                if False: 
                     parent = Path(path).parent
                     pname = Path(path).parent.name
                     expid = Path(path).name
@@ -2164,13 +2169,17 @@ def show_df(df, summary=False):
                             shutil.rmtree(folder)
                         except:
                             show_msg("not exist")
-                        os.system(cmd)
-                    try:
-                        shutil.rmtree(path)
-                    except:
-                        show_msg("not exist")
-                    os.system(cmd)
+                if not Path(path).exists():
+                    show_msg("not exist")
+                elif ans == "y" or ans == "a":
+                    main_df.drop(main_df[main_df.folder == path].index, inplace=True)
+                    irange.append(s_row)
+                    remove_tree(path)
                     mbeep()
+            df.drop(df.index[irange], inplace=True)
+            sel_rows = []
+            #df = df.loc[np.isin(np.arange(len(df)), irange)]
+
         elif char == "T" or char == "U" or char == "Y":
             s_rows = sel_rows
             if not sel_rows:
@@ -2785,7 +2794,6 @@ def show_df(df, summary=False):
         if char in ["x"] or cmd.startswith("cross"):
             backit(df, sel_cols)
             eid = df.iloc[sel_row]['eid'] 
-            breakpoint()
             if "prefix" in df:
                 _, scores = get_sel_rows(df, None, col="rouge_score", from_main=False) 
                 _, prefixes = get_sel_rows(df, None, col="prefix", from_main=False) 

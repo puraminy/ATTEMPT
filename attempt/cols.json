@@ -13,18 +13,19 @@
     "expname",
     "folder",
     "output_dir",
+    "max_train_samples",
+    "time",
     "use_private_prompts",
     "load_source_prompts",
     "load_private_prompts",
     "use_private_prompts",
     "use_source_prompts",
     "learn_source_prompts",
-    "max_train_samples",
     "add_target",
     "d_seed",
-    "trial",
-    "time"
+    "trial"
   ],
+  "ee":[],
   "extra_cols":[
     "mask_type",
     "temperature",

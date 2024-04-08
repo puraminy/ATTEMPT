@@ -2059,6 +2059,10 @@ def train(**kwargs):
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
 
+        if reval:
+            load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
+            load_model(load_model_dir, lsp=True) 
+
         if training_args.compute_time:
             torch.cuda.synchronize()  # wait for move to complete
             start = torch.cuda.Event(enable_timing=True)
