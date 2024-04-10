@@ -213,12 +213,11 @@ def save_df_as_image(df, path):
     fig = plot.get_figure()
     fig.savefig(path)
 
-def clean_file(s, d):
+def correct_path(s, d, path):
     with open(s, 'r') as f1:
         _dict = json.load(f1)
-        for c in ["tag","log_var","main_vars","full_tag"]:
-            if c in _dict:
-                del _dict[c]
+    _dict["output_dir"] = path 
+    _dict["save_path"] = str(Path(path).parent)
     with open(d, 'w') as f2:
         json.dump(_dict, f2, indent=3)
 
@@ -2116,7 +2115,7 @@ def show_df(df, summary=False):
             mode = "cfg"
             files = glob(os.path.join(home,"results","*.json"))
             #for f in files:
-            # clean_file(f)
+            # correct_path(f)
             fnames = [Path(f).stem for f in files]
             rows = []
             for fname,_file in zip(fnames, files):
@@ -2247,7 +2246,9 @@ def show_df(df, summary=False):
                 compose=tdf.iloc[0]["compose_method"]
                 epc=tdf.iloc[0]["num_train_epochs"]
                 tn=tdf.iloc[0]["max_train_samples"]
-                path=tdf.iloc[0]["output_dir"]
+                # path=tdf.iloc[0]["output_dir"]
+                rpath=tdf.iloc[0]["folder"]
+                path = str(Path(rpath).parent) + "/" + expid
                 js = os.path.join(path, "exp.json")
                 score = str(round(score,2)) if score else "noscore" 
                 fname = prefix + "-" + compose + "-" + str(epc) \
@@ -2277,7 +2278,7 @@ def show_df(df, summary=False):
                         dest = os.path.join(home, "results", fname)
 
                     shutil.copyfile(js, dest)
-                    # clean_file(js, dest)
+                    correct_path(js, dest, path)
                     mbeep()
                     if char in ["U", "Y"]:
                         to = "ahmad@10.42.0.2:" + dest 
@@ -2953,8 +2954,8 @@ def show_df(df, summary=False):
                gi = 0 
                name = ""
                labels = {}
-               if cmd == "cplot":
-                   labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
+               #if cmd == "cplot":
+               #    labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
                df[xcol] = df[xcol].astype(float)
                for key, grp in df.groupby([gcol]):
                      _label = key[0] if type(key) == tuple else key
