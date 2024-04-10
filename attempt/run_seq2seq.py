@@ -238,6 +238,13 @@ def cli():
     help="Remove the existing experiment folder"
 )
 @click.option(
+    "--label",
+    "-l",
+    default="",
+    type=str,
+    help="label for experiment"
+)
+@click.option(
     "--repeat",
     "-rep",
     is_flag=True,
@@ -309,7 +316,7 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, deep_check, merge, not_copy_prev_exp, 
+        debug, version, trial, rem, repeat, label, deep_check, merge, not_copy_prev_exp, 
         reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
    if debug:
        port = "1234"
@@ -417,6 +424,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    args["new_exp_folder"] = new_exp_folder
    args["load_path"] = "" 
+   args["label"] = label
    args["is_debug"] = debug
    if not reval:
       args["trial"] = trial

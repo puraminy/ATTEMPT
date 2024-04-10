@@ -250,6 +250,7 @@ def plot_bar(rep, folder, sel_col):
     return pname
 
 def score_colors(df,row,col, default=None):
+    df[col] = df[col].astype(float)
     max_val = df[col].max()
     if df.iloc[row][col] == max_val:
         return 136
@@ -257,6 +258,7 @@ def score_colors(df,row,col, default=None):
 
 def pivot_colors(df,row,col, default=None):
     rel_col = "n-" + col
+    df[col] = df[col].astype(float)
     max_val = df[col].max()
     if rel_col in df:
         if df.iloc[row][rel_col] <= 1:
@@ -380,9 +382,11 @@ def summarize(df):
     if 'sel_cols' in all_cols:
         sel_cols = all_cols['sel_cols'] 
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
-        extra_cols = all_cols['extra_cols']
+        extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
     if "compose_method" in df:
         rep_cols = rep_cols + extra_cols
+    if not "compose_method" in df:
+        df["compose_method"] = "PT"
 
     rels = df["prefix"].unique()
     if "xAttr" in rels:
@@ -420,7 +424,8 @@ def summarize(df):
             else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
             for col in pdf.columns]
     # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
-    pdf['label'] = pdf.apply(create_label, axis=1)
+    if not "label" in pdf:
+        pdf['label'] = pdf.apply(create_label, axis=1)
     pdf['ref'] = pdf.apply(
             lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
     pdf = pdf.round(2)
@@ -535,8 +540,6 @@ def add_cols(df):
         df['input_text'] = df['input_text'].str.split('>>').str[0]
         df['input_text'] = df['input_text'].str.strip()
 
-    if not "compose_method" in df:
-        df["compose_method"] = "PT"
     if not "plen" in df:
         df["plen"] = 8
     if not "blank" in df:
@@ -795,6 +798,12 @@ def show_df(df, summary=False):
         df['nr_score'] = df['rouge_score']
         df['nr_score'] = np.where((df['bert_score'] > 0.3) & (df['nr_score'] < 0.1), df['bert_score'], df['rouge_score'])
 
+
+    df['prefix'] = df['prefix'].str.replace("yelp_polarity", "yelp-polarity")
+    pattern = r'(^.+)_(\1$)'
+    # Use str.replace() with regex to replace matching patterns
+    df['prefix'] = df['prefix'].str.replace(pattern, r'\1', regex=True)
+
     #wwwwwwwwww
     colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
     context_map = {"g":"main", "G":"main", "X":"view", "r":"main"}
@@ -844,9 +853,13 @@ def show_df(df, summary=False):
         info_cols = all_cols['info_cols'] 
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         index_cols = all_cols['index_cols']
-        extra_cols = all_cols['extra_cols']
+        extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
     if "compose_method" in df:
         rep_cols = rep_cols + extra_cols
+    #if not "compose_method" in df:
+    #    df["compose_method"] = "PT"
+    if "label" in df:
+        rep_cols = rep_cols + ["label"]
 
     main_sel_cols = sel_cols.copy()
 
@@ -1634,6 +1647,14 @@ def show_df(df, summary=False):
             if not s_rows: s_rows = [sel_row]
             for s_row in s_rows:
                 df.iloc[s_row, df.columns.get_loc('label')] = label
+                exp=df.iloc[s_row]["eid"]
+                cond = f"(main_df['eid'] == '{exp}')"
+                tdf = main_df[main_df.eid == exp]
+                path=tdf.iloc[0]["path"]
+                if Path(path).is_file():
+                    tdf = pd.read_table(path)
+                    tdf["label"] = label
+                    tdf.to_csv(path, sep="\t", index=False)
         elif char == "L" and False:
             if len(register) == 0:
                 show_msg("Nothing in register!")
@@ -1894,7 +1915,7 @@ def show_df(df, summary=False):
             df = df.sort_values(by=sort, ascending=asc)
             selected_cols = []
             asc = not asc
-        if context == "grouping":
+        if char in ["m","s"] and context == "grouping":
             if not selected_cols:
                 selected_cols = ["label","max_train_samples"]
             if char == "m":
@@ -1908,10 +1929,12 @@ def show_df(df, summary=False):
             backit(df, sel_cols)
             context = "grouping"
             shortkeys["grouping"] = {"m":"show mean","s":"show std"}
+            cols = selected_cols.copy()
+            scol = sel_cols[cur_col]
             if not selected_cols:
-                selected_cols = ["label","max_train_samples"]
-            if len(selected_cols) > 0:
-                df = df.groupby(selected_cols, as_index=False).mean(numeric_only=True).reset_index()
+                cols = ["label", scol]
+            if len(cols) > 0:
+                df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
             selected_cols = []
         elif char in ["g", "u"]:
@@ -2146,15 +2169,21 @@ def show_df(df, summary=False):
                         new_folder = new_folder.replace(str(expid),new_folder_name)
                         if Path(folder).exists():
                             copy_tree(folder, os.path.join(str(new_parent), new_folder))
-                            remove_tree(folder)
+                            # remove_tree(folder)
                     if Path(path).exists():
                         copy_tree(path, new_path)
-                        remove_tree(path)
+                        # remove_tree(path)
                     mbeep()
             sel_rows = []
-        elif char == "D":
+        elif char == "d":
             s_rows = sel_rows
+            if not sel_rows:
+                s_rows = [sel_row]
+            df.drop(df.index[s_rows], inplace=True)
+            sel_rows = []
+        elif char == "D":
             ans = ""
+            s_rows = sel_rows
             if not sel_rows:
                 s_rows = [sel_row]
             irange = []
@@ -2192,13 +2221,18 @@ def show_df(df, summary=False):
                 s_rows = [sel_row]
             pfix = ""
             ignore_fname = False if char == "T" else True
+            dest_folder = "comp"
+            if char == "Y":
+                dest_folder = rowinput("Dest:")
             if char in ["U", "Y"]:
-                comp_path = "/home/ahmad/comp/"
-                shutil.rmtree(comp_path)
+                comp_path = "/home/ahmad/" + dest_folder
+                if Path(comp_path).exists():
+                    shutil.rmtree(comp_path)
                 Path(comp_path).mkdir(parents=True, exist_ok=True)
-                if char == "U":
-                    cmd = "sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/comp/*'"
-                    os.system(cmd)
+                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'mkdir -p /home/ahmad/{dest_folder}'"
+                os.system(cmd)
+                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/{dest_folder}/*'"
+                os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -2224,8 +2258,8 @@ def show_df(df, summary=False):
                     parent = Path(path).parent
                     pname = Path(path).parent.name
                     expid = Path(path).name
-                    if char in ["U", "Y"]:
-                        dest = os.path.join(home, "comp", "comp_" + prefix + ".json")
+                    if char in ["U","Y"]:
+                        dest = os.path.join(home, dest_folder, "comp_" + prefix + ".json")
                     elif "conf" in fname:
                         dest = os.path.join(home, "confs", fname)
                     elif "reval" in fname:
@@ -2245,7 +2279,7 @@ def show_df(df, summary=False):
                     shutil.copyfile(js, dest)
                     # clean_file(js, dest)
                     mbeep()
-                    if char == "U":
+                    if char in ["U", "Y"]:
                         to = "ahmad@10.42.0.2:" + dest 
                         cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
                         os.system(cmd)
@@ -2595,7 +2629,9 @@ def show_df(df, summary=False):
                sel_row = 0
                keep_cols.append(col)
         if char == "V":
-            sel_rows = range(len(df))
+            start = sel_rows[-1] if sel_rows else 0
+            end = sel_row if sel_rows else len(df) - 1
+            sel_rows = range(start, end + 1)
         if char == "V" and False:
             backit(df, sel_cols)
             sel_col = sel_cols[cur_col]
@@ -2772,6 +2808,21 @@ def show_df(df, summary=False):
             col = sel_cols[cur_col]
             if to == "num":
                 df[col] = df[col].astype(float)
+        if cmd.startswith("="):
+            label = cmd[1:]
+            s_rows = sel_rows
+            if not s_rows: s_rows = [sel_row]
+            col = sel_cols[cur_col]
+            for s_row in s_rows:
+                df.iloc[s_row, df.columns.get_loc(col)] = label
+                exp=df.iloc[s_row]["eid"]
+                cond = f"(main_df['eid'] == '{exp}')"
+                tdf = main_df[main_df.eid == exp]
+                path=tdf.iloc[0]["path"]
+                if Path(path).is_file():
+                    tdf = pd.read_table(path)
+                    tdf[col] = label
+                    tdf.to_csv(path, sep="\t", index=False)
         if char == "X":
            backit(df, sel_cols)
            exprs = []
@@ -2901,7 +2952,9 @@ def show_df(df, summary=False):
                ycol = cols[2]
                gi = 0 
                name = ""
-               labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
+               labels = {}
+               if cmd == "cplot":
+                   labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
                df[xcol] = df[xcol].astype(float)
                for key, grp in df.groupby([gcol]):
                      _label = key[0] if type(key) == tuple else key
@@ -3217,19 +3270,55 @@ def show_df(df, summary=False):
                 report = f.read()
             #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
             #    f.write("")
+            tdf = df.copy()
             cols = sel_cols
-            if selected_cols:
+            if cmd == "rep":
                 cols = selected_cols
-            latex_table=tabulate(df[cols].round(1),  #[rep_cols+score_cols], 
-                    headers='keys', tablefmt='latex_raw', showindex=False)
+
+            numeric_cols = [col for col in tdf.columns if pd.api.types.is_numeric_dtype(tdf[col])]
+            max_values = tdf[numeric_cols].max()
+            def format_with_bold_max(val, max_val):
+                if val == max_val:
+                    val = "{:.1f}".format(val) 
+                    return r'\textbf{' + str(val) + '}'
+                return "{:.1f}".format(val) 
+
+            for col in numeric_cols:
+                tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],))
+            
+            sorter = ['PT', 'MCAT', 'MSUM', 'SSUM'] 
+            tdf.sort_values(by="label", 
+                    key=lambda column: column.map(lambda e: sorter.index(e)), inplace=True)
+            tdf['method'] = ''
+
+            for idx, row in tdf.iterrows():
+                if idx == 0 or row['label'] != tdf.at[idx - 1, 'label']:
+                    tdf.at[idx, 'method'] = '\\multirow{3}{*}{' + row['label'] + '}'
+                    
+            cols.insert(0, "method")
+            cols.remove("label")
+
+            latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
+                    headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".1f")
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
+            latex_lines = latex_table.split('\n')
+            modified_latex_lines = []
+
+            for i, line in enumerate(latex_lines):
+                if i > 0 and '\\multirow{' in line:  
+                    modified_latex_lines.append(r'\hline')  
+                    modified_latex_lines.append(line)
+                else:
+                    modified_latex_lines.append(line)
+
+            latex_table = '\n'.join(modified_latex_lines)
             tname = rowinput("Table name:")
             with open(os.path.join(table_dir, tname + ".tex"), "w") as f:
                 f.write(latex_table)
             report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
             report = report.replace("mytable", "\n \\newpage mytable")
-            # df = pdf
+            # tdf = pdf
             # iiiiiiiiiiiii
             report = report.replace("mytable","")
             tex = f"{doc_dir}/report.tex"
