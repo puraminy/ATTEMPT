@@ -95,7 +95,7 @@ if [ -n "$_lt" ]; then
    _tasks="multinli#scitail#yelp-polarity#imdb#mrpc#paws"
 fi
 if [ -n "$_lst" ]; then
-   _tasks="rte#mnli#stsb#qnli"
+   _tasks="rte#mnli#stsb#qnli#mrpc"
 fi
 if [ -n "$_qt" ]; then
    _tasks="searchqa#triviaqa#nq#hotpotqa#commonsense_qa"
@@ -158,6 +158,7 @@ fi
 echo ""
 echo "================== Target Tasks: ================="
 echo $_tasks
+sep_tasks=$_tasks
 if [ -z "$_single" ]; then
    _tasks=$(echo "$_tasks" | sed "s/\#/@/g")
    echo "Multi Tasks: $_tasks"
@@ -187,6 +188,9 @@ if [ -n "$_tasks" ]; then
 fi
 if [ -n "$_src" ]; then
    params="${params} --@source_prompts=$_src"
+fi
+if [ -n "$_ex" ]; then
+   params="${params} --@exclude_tasks=$sep_tasks#none"
 fi
 if [ -n "$_reval" ]; then
    params="${params} --reval"

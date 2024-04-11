@@ -14,6 +14,7 @@ from PIL import Image
 import torch
 import logging
 logger = logging.getLogger(__name__)
+import numpy as np
 
 class PTLearningRateCallback(TrainerCallback):
     def on_log(self, args, state, control, logs = None, **kwargs):
@@ -116,11 +117,17 @@ class WBCallback(WandbCallback):
         ax1.set_title(title)
         if not type(scores) == list:
             scores = [scores]
+
+
+
         fig.set_size_inches(len(scores)*scores[0].size(1)*0.8, scores[0].size(0)*0.8)
         for ax, sc in zip(axes, scores):
             np_score = sc.detach().cpu().numpy()
+            zero_columns = np.where(np.all(np_score == 0, axis=0))[0]
+            mask = np.ones_like(np_score, dtype=bool)
+            mask[:, zero_columns] = False  # Set mask to False for zero columns
             sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
-                    cbar=cbar, 
+                    cbar=cbar, mask=mask, 
                     vmin = vmin, vmax=vmax,
                     # annot_kws={'rotation': 90}, 
                     xticklabels=x_labels,

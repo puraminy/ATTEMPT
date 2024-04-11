@@ -3271,10 +3271,14 @@ def show_df(df, summary=False):
                 report = f.read()
             #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
             #    f.write("")
-            tdf = df.copy()
             cols = sel_cols
             if cmd == "rep":
                 cols = selected_cols
+            if not sel_rows:
+                tdf = df.copy()
+                tdf = tdf[cols]
+            else:
+                tdf = df.iloc[sel_rows][cols]
 
             numeric_cols = [col for col in tdf.columns if pd.api.types.is_numeric_dtype(tdf[col])]
             max_values = tdf[numeric_cols].max()
@@ -3299,7 +3303,7 @@ def show_df(df, summary=False):
             cols.insert(0, "method")
             cols.remove("label")
 
-            latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
+            latex_table=tabulate(tdf,  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".1f")
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")

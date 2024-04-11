@@ -95,6 +95,18 @@ global_x_labels = []
 from scipy.stats import entropy
 
 
+def task_similarity(dif_ij, final_i, final_j, alpha=1.0):
+    # Compute the sigmoid transformation of the difference in scores
+    sigmoid_dif = 1 / (1 + torch.exp(-alpha * dif_ij))
+
+    # Compute the final score factor (geometric mean)
+    final_factor = (final_i * final_j) / (final_i + final_j)
+
+    # Combine the factors to calculate the similarity
+    similarity = sigmoid_dif * final_factor
+
+    return similarity
+
 def cosine_similarity(A, B, N):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     portion_A = torch.tensor(A[:N]).to(device).detach().clone()
@@ -2814,6 +2826,10 @@ def train(**kwargs):
                                         effect_scores[test_key][task_index, col_index]=effect
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
+                                    if "target" in rm:
+                                        dif = base_score - effect
+                                        effect_scores[test_key][task_index, -2] = dif 
+
                                     effect_scores[test_key][task_index, -1] = base_score 
                                     torch.set_printoptions(threshold=10_000)
                                     print(effect_scores[test_key]) 

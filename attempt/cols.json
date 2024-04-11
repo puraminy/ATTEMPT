@@ -30,6 +30,7 @@
     "mask_type",
     "temperature",
     "gen_thresh",
+    "attn_method",
     "compose_method",
     "route_method",
     "num_train_epochs",

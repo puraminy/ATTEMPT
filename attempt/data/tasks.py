@@ -789,6 +789,7 @@ class MRPC(AbstractTask):
     #labels_map = {"map":{"0":"unequal","1":"duplicate"}
     labels_map = {
             "map":{"0":"not_equivalent","1":"equivalent"},
+            "map1":{"0":"not_duplicate","1":"duplicate"},
       #      "map2":{"0":"not_equal","1":"duplicate"}
             }
     #labels_map = {"map":{"0":"F","1":"G"}
