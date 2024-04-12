@@ -647,6 +647,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if not merge:
            ee = round(float(args["expid"]))
            _output_dir = label + "-" + str(ee)
+           _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
            #if Path(output_dir).exists() and not repeat:
            #    mylogs.minfo(f"The folder {output_dir} already exists....")
@@ -658,7 +659,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    ee += 1 
                    _output_dir = label + str(ee)
                    output_dir = os.path.join(save_path, _output_dir)
-           args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(ee)
+           if label:
+               args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(ee)
+           else:
+               args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
        if repeat:
           args["expid"] += "-rep"
        args["output_dir"] = "%" + output_dir 
@@ -2372,6 +2376,7 @@ def train(**kwargs):
             mylogs.bp("save_image")
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
+            y_labels = [p.split("-")[0] for p in y_labels]
             if not p_labels:
                 p_labels = []
                 for pl in model.encoder.prompt_names:
@@ -2411,8 +2416,8 @@ def train(**kwargs):
             )
             if img_buf:
                 im = Image.open(img_buf)
-                # new_im = trim_image(im) 
-                new_im.save(fpath)
+                # im = trim_image(im) 
+                im.save(fpath)
                 #img_list.append(im)
 
             #new_im = combine_y(img_list)
