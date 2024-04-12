@@ -646,7 +646,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        #    output_dir = exp_args["output_dir"]
        if not merge:
            ee = round(float(args["expid"]))
-           _output_dir = str(ee)
+           _output_dir = label + "-" + str(ee)
            output_dir = os.path.join(save_path, _output_dir)
            #if Path(output_dir).exists() and not repeat:
            #    mylogs.minfo(f"The folder {output_dir} already exists....")
@@ -656,9 +656,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            if not reval:
                while Path(output_dir).exists():
                    ee += 1 
-                   _output_dir = str(ee)
+                   _output_dir = label + str(ee)
                    output_dir = os.path.join(save_path, _output_dir)
-           args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
+           args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(ee)
        if repeat:
           args["expid"] += "-rep"
        args["output_dir"] = "%" + output_dir 
@@ -2365,7 +2365,7 @@ def train(**kwargs):
 
         ################ Draw image
         def save_image(folder, model, score_dict, spec, p_labels=None, 
-                square=False, annot=True, vmin=None, vmax=None):
+                square=False, annot=True, vmin=None, vmax=None, mask_zeros=False):
             if not model_args.attn_tuning:
                 return
             targets = model.encoder.target_encoders_idx
@@ -2401,8 +2401,9 @@ def train(**kwargs):
                 annot=annot,
                 y_labels=y_labels,
                 x_labels=x_labels,
+                mask_zeros = mask_zeros,
                 #title = title,
-                title = spec + ("| remove" if "rem" in title else "")
+                title = spec + " (" + str(num_source_prompts) + ")" # + ("| remove" if "rem" in title else "")
                         #title  
                         #+ " | " + str(kwargs.gen_norm_method) \
                         #+ " | " + str(kwargs.gen_thresh_min) \
@@ -2410,7 +2411,7 @@ def train(**kwargs):
             )
             if img_buf:
                 im = Image.open(img_buf)
-                new_im = trim_image(im) 
+                # new_im = trim_image(im) 
                 new_im.save(fpath)
                 #img_list.append(im)
 
@@ -2826,7 +2827,7 @@ def train(**kwargs):
                                         effect_scores[test_key][task_index, col_index]=effect
                                     # elif not "keeponly" in rm:
                                     #    effect_scores[test_key][task_index, col] = score 
-                                    if "target" in rm:
+                                    if False: #"target" in rm:
                                         dif = base_score - effect
                                         effect_scores[test_key][task_index, -2] = dif 
 
@@ -2839,7 +2840,7 @@ def train(**kwargs):
                     if gen_mask_counter < len(masking_list):
                         spec = masking_list[gen_mask_counter]
                     map_methods = {"mwavg":"MSUM","wavg":"SSUM","mcat":"MCAT", "pt":"PT"}
-                    sepc = model_args.compose_method
+                    spec = model_args.compose_method
                     if spec in map_methods:
                         spec = map_methods[spec]
                     for test_key, effect_score in effect_scores.items(): 
@@ -2851,6 +2852,7 @@ def train(**kwargs):
                             save_image(eval_folder, model, 
                             {"effect_" + spec : scores.round(decimals=2)}, 
                             spec= spec,
+                            mask_zeros = True,
                             p_labels = mask_labels)
                     gen_mask_counter += 1
                 

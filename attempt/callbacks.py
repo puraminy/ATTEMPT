@@ -16,6 +16,34 @@ import logging
 logger = logging.getLogger(__name__)
 import numpy as np
 
+def reduce_consecutive_zeros(matrix):
+    # Find which columns are zero columns
+    is_zero_column = np.all(matrix == 0, axis=0)
+
+    # Initialize variables for reduced matrix
+    reduced_matrix = []
+    current_zero_sequence = False  # Flag to track if we are in a sequence of zero columns
+
+    for col_idx in range(matrix.shape[1]):
+        if is_zero_column[col_idx]:
+            # Current column is a zero column
+            if not current_zero_sequence:
+                # Start a new zero sequence
+                reduced_matrix.append(matrix[:, col_idx:col_idx+1])  # Add the zero column
+                current_zero_sequence = True
+        else:
+            # Current column is not a zero column
+            reduced_matrix.append(matrix[:, col_idx:col_idx+1])  # Add the non-zero column
+            current_zero_sequence = False  # Reset the zero sequence flag
+
+    # Stack the reduced matrix parts horizontally to form the final matrix
+    if reduced_matrix:
+        final_matrix = np.hstack(reduced_matrix)
+    else:
+        final_matrix = np.empty((matrix.shape[0], 0))  
+    return final_matrix
+
+
 class PTLearningRateCallback(TrainerCallback):
     def on_log(self, args, state, control, logs = None, **kwargs):
         model = kwargs.pop("model", None)
@@ -100,7 +128,7 @@ class WBCallback(WandbCallback):
         return img_buf
 
     @staticmethod
-    def save_image(scores, x_labels, y_labels, fpath="", 
+    def save_image(scores, x_labels, y_labels, fpath="", mask_zeros=False,
             annot=True,title="", df=None, img_h=6.5, cbar=True, vmin=None, vmax=None):
         # if not title: title = fpath
         mylogs.bp("save_image")
@@ -118,14 +146,14 @@ class WBCallback(WandbCallback):
         if not type(scores) == list:
             scores = [scores]
 
-
-
-        fig.set_size_inches(len(scores)*scores[0].size(1)*0.8, scores[0].size(0)*0.8)
         for ax, sc in zip(axes, scores):
             np_score = sc.detach().cpu().numpy()
-            zero_columns = np.where(np.all(np_score == 0, axis=0))[0]
-            mask = np.ones_like(np_score, dtype=bool)
-            mask[:, zero_columns] = False  # Set mask to False for zero columns
+            if mask_zeros:
+                np_score = reduce_consecutive_zeros(np_score)
+                zero_columns = np.where(np.all(np_score == 0, axis=0))[0]
+                mask = np.zeros_like(np_score, dtype=bool)
+                mask[:, zero_columns] = True  # Set mask to False for zero columns
+            fig.set_size_inches(np_score.shape[1]*0.8, np_score.shape[0]*0.8)
             sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
                     cbar=cbar, mask=mask, 
                     vmin = vmin, vmax=vmax,
