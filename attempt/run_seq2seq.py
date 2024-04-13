@@ -1554,11 +1554,17 @@ def train(**kwargs):
                         encoder_name = encoder.name.replace("source_", "")
                         load_prompt = False
                 if load_prompt: 
-                    is_loaded = encoder.load(prompts_dir, 
+                    is_loaded = encoder.load(os.getcwd(), 
                         prefix=prompts_prefix,
-                        ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
+                        ignore_if_prompt_not_exists=True,
                         length = adapter_args.num_prompt_tokens,
                         name=encoder_name)
+                    if not is_loaded:
+                        is_loaded = encoder.load(prompts_dir, 
+                            prefix=prompts_prefix,
+                            ignore_if_prompt_not_exists=ignore_if_prompt_not_exists,
+                            length = adapter_args.num_prompt_tokens,
+                            name=encoder_name)
                     if is_loaded:
                         logger.info("%s was loaded", encoder.name)
                     else:
@@ -2825,7 +2831,9 @@ def train(**kwargs):
                                     else:
                                         effect = -1*effect
                                         effect = min(effect, 50)
-                                    effect = max(effect, 0)
+                                    #effect = max(effect, 0)
+                                    if effect <= 0:
+                                        effect = -10
                                     task_index = y_labels.index(_task) 
                                     if col < len(selected_cols_idx[task_index]):  
                                         col_index = selected_cols_idx[task_index][col]
@@ -2840,6 +2848,7 @@ def train(**kwargs):
                                     torch.set_printoptions(threshold=10_000)
                                     print(effect_scores[test_key]) 
                     #### end of for
+                    # eeeeeeeeeeeeeeeeee
                     mylogs.bp("effect")
                     spec = str(gen_mask_counter)
                     if gen_mask_counter < len(masking_list):
@@ -2848,6 +2857,8 @@ def train(**kwargs):
                     spec = model_args.compose_method
                     if spec in map_methods:
                         spec = map_methods[spec]
+                    mask_labels.append("")
+                    mask_labels.append("total")
                     for test_key, effect_score in effect_scores.items(): 
                         scores = effect_scores[test_key]
                         column_means = torch.mean(scores[:-1], dim=0)
@@ -2858,6 +2869,7 @@ def train(**kwargs):
                             {"effect_" + spec : scores.round(decimals=2)}, 
                             spec= spec,
                             mask_zeros = True,
+                            vmin = kwargs.get("vmin", None),
                             p_labels = mask_labels)
                     gen_mask_counter += 1
                 

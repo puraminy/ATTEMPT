@@ -146,6 +146,7 @@ class WBCallback(WandbCallback):
         if not type(scores) == list:
             scores = [scores]
         mask = None
+        sns.set(font_scale=1.2)
         for ax, sc in zip(axes, scores):
             np_score = sc.detach().cpu().numpy()
             if mask_zeros:
@@ -153,6 +154,9 @@ class WBCallback(WandbCallback):
                 zero_columns = np.where(np.all(np_score == 0, axis=0))[0]
                 mask = np.zeros_like(np_score, dtype=bool)
                 mask[:, zero_columns] = True  # Set mask to False for zero columns
+                mm = (np_score == -10)
+                np_score[mm] = 0
+
             fig.set_size_inches(np_score.shape[1], np_score.shape[0])
             sns.heatmap(np_score, ax=ax, cmap="crest", annot=annot, 
                     cbar=cbar, mask=mask, 

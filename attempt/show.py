@@ -167,6 +167,17 @@ def latex_table(rep, rname, mdf, all_exps, sel_col, category, caption=""):
     return table
 
 
+def calculate_precision_recall(row):
+    TP = row  # True Positives (matches with corresponding target column)
+    FP = row.sum() - TP  # False Positives (sum of all matches - TP)
+    FN = ct.sum(axis=1)[row.name] - TP  # False Negatives (sum of matches for corresponding prediction - TP)
+
+    precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+    recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+
+    return pd.Series({'precision': precision, 'recall': recall})
+
+
 def create_label(row):
     label = 'PT'
     if not "compose_method" in row:
@@ -1704,7 +1715,7 @@ def show_df(df, summary=False):
             with open(conf,"r") as f:
                 infos = f.readlines()
             subwin(infos)
-        elif char == "l" and prev_char == "x":
+        elif char == "l" and prev_char == "x" and False:
             exp=df.iloc[sel_row]["eid"]
             exp = str(exp)
             logs = glob(str(exp) + "*.log")
@@ -1843,10 +1854,10 @@ def show_df(df, summary=False):
             backit(df, sel_cols)
             df = sel_df
         # png files
-        elif char == "l" and prev_char == "x":
+        elif char == "l" and False: 
             df = main_df.groupby(["l1_decoder", "template", "model", "prefix"], as_index=False).first()
             sel_cols = ["l1_decoder", "template", "model", "prefix"]
-        elif char == "z" and prev_char == "x":
+        elif char == "z" and False: 
             fav_df = fav_df.append(df.iloc[sel_row])
             mbeep()
             fav_df.to_csv(fav_path, sep="\t", index=False)
@@ -1931,7 +1942,7 @@ def show_df(df, summary=False):
             cols = selected_cols.copy()
             scol = sel_cols[cur_col]
             if not selected_cols:
-                cols = ["label", scol]
+                cols = ["label", "max_train_samples"]
             if len(cols) > 0:
                 df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
@@ -1949,7 +1960,8 @@ def show_df(df, summary=False):
                     group_col = col
                     cur_row = 0
                     sel_group = 0
-                    df = df.sort_values(by=[group_col, sort], ascending=[True, False])
+                    if sort in df:
+                        df = df.sort_values(by=[group_col, sort], ascending=[True, False])
         elif char == "A": 
             consts["options"] = "b: back"
             backit(df, sel_cols)
@@ -2224,8 +2236,8 @@ def show_df(df, summary=False):
             if char == "Y":
                 dest_folder = rowinput("Dest:")
             if char in ["U", "Y"]:
-                comp_path = "/home/ahmad/" + dest_folder
-                if Path(comp_path).exists():
+                comp_path = "/home/ahmad/temp/" + dest_folder
+                if dest_folder and Path(comp_path).exists():
                     shutil.rmtree(comp_path)
                 Path(comp_path).mkdir(parents=True, exist_ok=True)
                 cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'mkdir -p /home/ahmad/{dest_folder}'"
@@ -2260,7 +2272,7 @@ def show_df(df, summary=False):
                     pname = Path(path).parent.name
                     expid = Path(path).name
                     if char in ["U","Y"]:
-                        dest = os.path.join(home, dest_folder, "comp_" + prefix + ".json")
+                        dest = os.path.join(home, dest_folder, "exp_" + prefix + ".json")
                     elif "conf" in fname:
                         dest = os.path.join(home, "confs", fname)
                     elif "reval" in fname:
@@ -2880,25 +2892,59 @@ def show_df(df, summary=False):
                 canceled, val = False, "pred_text1" # list_values(sel_cols)
                 if not canceled:
                     treatment = 'target_text' #sel_cols[cur_col]
-                    tdf = pd.crosstab(tdf[val], tdf[treatment])
+                    tdf = pd.crosstab(tdf[val], tdf[treatment], margins=True)
                 tdf["preds"] = list(tdf.axes[0])
-                tdf["acc"] = acc
-                tdf["prefix"] = prefix 
-                tdf["eid"] = eid
-                tdf["label"] = label
-                tdf["mask_type"] = mt 
-                tdf["uid"] = str(mt) + " " + str(label) + " " + str(eid)
-                dfs.append(tdf)
+                count_columns = tdf.columns[tdf.columns != 'preds']
+                tdf['first_word'] = tdf['preds'].str.split().str[0]
+                tdf['group'] = tdf['first_word'].str[:5]
+                gdf = tdf.groupby('group').agg({
+                    'preds': lambda x: x.head(1),  # Preserve the first 'text' value in each group
+                    **{col: 'sum' for col in count_columns}  # Sum up the count columns
+                }).reset_index()
+
+                pr = {}
+                B = {}
+                for col in count_columns:
+                    gdf[col] = gdf[col].astype(int)
+                    for idx, row in gdf.iterrows():
+                        if row['preds'] == "All":
+                            B[col] = row[col]
+                        elif row['preds'].strip() == col:
+                            per = round(row[col] / B[col],2)
+                            if per is not None:
+                                per *= 100
+                                per = str(per) + "\%"
+                            pr[col] = per
+
+                pr["preds"] = "precision"
+                gdf.loc[len(gdf)] = pr
+                gdf = gdf.drop(index=0)
+
+                gdf["label"] = mt
+                gdf["acc"] = acc
+
+                #precision_recall_df = gdf.apply(calculate_precision_recall, axis=1)
+                #gdf = pd.concat([gdf, precision_recall_df], axis=1)
+
+                gdf["prefix"] = prefix 
+                gdf["eid"] = eid
+                #tdf["exp"] = label 
+                #tdf["uid"] = str(mt) + " " + str(label) + " " + str(eid)
+                dfs.append(gdf)
             df = pd.concat(dfs, ignore_index=True)
             all_sel_cols = ["preds"] + list(df.columns)
             sel_cols = all_sel_cols[:20] 
+            sel_cols.remove("prefix")
+            sel_cols.remove("eid")
+            sel_cols.remove("group")
+            sel_cols.remove("All")
             for col in sel_cols:
                col_widths[col] = len(col) + 2
             #adjust = False
             left = 0
             sel_rows= []
             context = "cross"
-            group_col = "uid"
+            group_col = "label"
         if cmd == "line" or (char == "h" and context == "pivot"):
              try:
                  cur_col_name = sel_cols[cur_col]
@@ -2933,7 +2979,7 @@ def show_df(df, summary=False):
             consts["Register"] = str(register)
         if cmd == "clear":
             register = {}
-        if cmd in ['nplot','eplot','plot', 'cplot']:
+        if cmd in ['nplot','eplot','plot', 'cplot','mplot']:
             #yyyyyyyy
            backit(df, sel_cols)
            fig, ax = plt.subplots()
@@ -2954,8 +3000,8 @@ def show_df(df, summary=False):
                gi = 0 
                name = ""
                labels = {}
-               #if cmd == "cplot":
-               #    labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
+               if cmd == "mplot":
+                  labels = {'MSUM': 0, 'SSUM': 1, 'MCAT': 2}
                df[xcol] = df[xcol].astype(float)
                for key, grp in df.groupby([gcol]):
                      _label = key[0] if type(key) == tuple else key
@@ -2971,7 +3017,7 @@ def show_df(df, summary=False):
                          gi = int(gi)
                          labels[label] = gi 
                      ax = grp.sort_values(xcol).plot.line(x=xcol, y=ycol, ax=ax,
-                             linestyle="--",marker="o", 
+                             linestyle="--",marker="o", lw=3, 
                              label=label, color=colors[gi])
                      gi += 1
                      if gi > len(colors) - 1: gi = 0
@@ -2986,7 +3032,8 @@ def show_df(df, summary=False):
                ax.set_xlim([0, xmax]) 
                ax.set_xbound(lower=0.0, upper=xmax)
                ax.set_xticks(df[xcol].unique())
-
+               if cmd == 'mplot': 
+                  cmd = 'cplot'
                if cmd == 'cplot':
                   name = rowinput("Title:", name)
                if cmd == 'cplot':
@@ -3064,6 +3111,8 @@ def show_df(df, summary=False):
         if cmd.startswith("hanova"):
             to = ""
             pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            dest_folder = rowinput("Dest Folder:")
+            pic_dir = os.path.join(pics_dir, "pics", dest_folder)
             for prefix in main_df["prefix"].unique():
                 if "stsb" in prefix and prefix != "stsb_stsb":
                     df = main_df.loc[(main_df.prefix == prefix)] 
@@ -3098,7 +3147,6 @@ def show_df(df, summary=False):
                         pval, fval = "na", "na"
                     title = prefix.replace("_"," by ") 
                     ax.set_title(title + "   F-Value:" + str(fval) + "  P-Value:" + str(pval))
-                    pic_dir = os.path.join(pics_dir, "pics", "cross")
                     Path(pic_dir).mkdir(parents=True, exist_ok=True)
                     plt.savefig(pic_dir + "/" + prefix + ".png")
         if cmd.startswith("rem"):
@@ -3258,7 +3306,7 @@ def show_df(df, summary=False):
             info_cols = []
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
-        if char == "l" or char == "Z" or cmd.startswith("rep"):
+        if char == "l" or char == "Z" or cmd.startswith("latex"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
             table_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
@@ -3271,39 +3319,60 @@ def show_df(df, summary=False):
                 report = f.read()
             #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
             #    f.write("")
-            cols = sel_cols
-            if cmd == "rep":
-                cols = selected_cols
             if not sel_rows:
                 tdf = df.copy()
-                tdf = tdf[cols]
             else:
-                tdf = df.iloc[sel_rows][cols]
+                tdf = df.iloc[sel_rows, :]
 
             numeric_cols = [col for col in tdf.columns if pd.api.types.is_numeric_dtype(tdf[col])]
             max_values = tdf[numeric_cols].max()
-            def format_with_bold_max(val, max_val):
+
+            def format_with_bold_max(val, max_val, col):
                 if val == max_val:
-                    val = "{:.1f}".format(val) 
-                    return r'\textbf{' + str(val) + '}'
-                return "{:.1f}".format(val) 
+                    if col == 'All':
+                        return r'\textbf{' + "{:.1f}".format(val) + '}'
+                    else:
+                        return r'\textbf{' + "{:.1f}".format(val) + '}'
+                else:
+                    if col == 'All':
+                        return "{:.1f}".format(val)
+                    else:
+                        return "{:.1f}".format(val)            
 
             for col in numeric_cols:
-                tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],))
+                tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],col))
             
-            sorter = ['PT', 'MCAT', 'MSUM', 'SSUM'] 
-            tdf.sort_values(by="label", 
-                    key=lambda column: column.map(lambda e: sorter.index(e)), inplace=True)
-            tdf['method'] = ''
+            #sorter = ['PT', 'MCAT', 'MSUM', 'SSUM'] 
+            #tdf.sort_values(by="label", 
+            #        key=lambda column: column.map(lambda e: sorter.index(e)), inplace=True)
 
-            for idx, row in tdf.iterrows():
-                if idx == 0 or row['label'] != tdf.at[idx - 1, 'label']:
-                    tdf.at[idx, 'method'] = '\\multirow{3}{*}{' + row['label'] + '}'
-                    
-            cols.insert(0, "method")
-            cols.remove("label")
+            cols = sel_cols
+            if selected_cols: 
+                cols = selected_cols
+            if "label" in cols:
+                tdf['method'] = ''
+                tdf['score'] = ''
+                for idx, row in tdf.iterrows():
+                    if sel_rows and idx not in sel_rows:
+                        continue
+                    if idx == 0 or row['label'] != tdf.at[idx - 1, 'label']:
+                        tdf.at[idx, 'method'] = '\\multirow{3}{*}{' + row['label'] + '}'
+                        if "acc" in cols:
+                            tdf.at[idx, 'score'] = '\\multirow{3}{*}{' + row['acc'] + '}'
+                        
+                    if "preds" in cols and row['preds'] == 'precision':
+                        tdf.at[idx, 'method'] = '\\rowcolor{gray!20}' + tdf.at[idx, 'method']
+ 
+                if "max_train_samples" in tdf:
+                    cols.insert(1, "max_train_samples")
+                    cols.remove("max_train_samples")
+                cols.insert(0, "method")
+                cols.remove("label")
+                if "acc" in cols:
+                    cols.remove("acc")
+                    cols.append("score")
 
-            latex_table=tabulate(tdf,  #[rep_cols+score_cols], 
+            latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".1f")
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
