@@ -2234,15 +2234,16 @@ def show_df(df, summary=False):
             ignore_fname = False if char == "T" else True
             dest_folder = "comp"
             if char == "Y":
-                dest_folder = rowinput("Dest:")
+                # dest_folder = rowinput("Dest:")
+                dest_folder = "comp2"
             if char in ["U", "Y"]:
                 comp_path = "/home/ahmad/temp/" + dest_folder
                 if dest_folder and Path(comp_path).exists():
                     shutil.rmtree(comp_path)
+                    cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/temp/{dest_folder}/*'"
+                    os.system(cmd)
                 Path(comp_path).mkdir(parents=True, exist_ok=True)
-                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'mkdir -p /home/ahmad/{dest_folder}'"
-                os.system(cmd)
-                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/{dest_folder}/*'"
+                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'mkdir -p /home/ahmad/temp/{dest_folder}'"
                 os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
@@ -2272,7 +2273,7 @@ def show_df(df, summary=False):
                     pname = Path(path).parent.name
                     expid = Path(path).name
                     if char in ["U","Y"]:
-                        dest = os.path.join(home, dest_folder, "exp_" + prefix + ".json")
+                        dest = os.path.join(comp_path, "exp_" + prefix + ".json")
                     elif "conf" in fname:
                         dest = os.path.join(home, "confs", fname)
                     elif "reval" in fname:
