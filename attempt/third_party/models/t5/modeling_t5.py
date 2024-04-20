@@ -1553,7 +1553,7 @@ class T5Stack(T5PreTrainedModel):
             if "gen_cmm" in self.gen_conf and self.gen_conf["gen_cmm"] is not None: 
                 compose_method = self.gen_conf["gen_cmm"]
 
-        if compose_method in ["wcp1","wsp1","wmp1"] or self.ignore_private:
+        if compose_method in ["wcp1","wsp1","wmp1"]: # or self.ignore_private:
             assert self.use_private_prompts is True, "use private prompts must be enabled"
             private_prompt = attend_to[:,-1,:,:]
             private_prompt = private_prompt.unsqueeze(1)
@@ -1750,8 +1750,17 @@ class T5Stack(T5PreTrainedModel):
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
         if compose_method in ["wavg","mwavg"]: 
-            soft_prompts = torch.einsum(
-                'bts, btsld -> btld', attn_sel_scores, attend_to_x)
+            if True: #not self.ignore_private:
+                soft_prompts = torch.einsum(
+                    'bts, btsld -> btld', attn_sel_scores, attend_to_x)
+            else:
+                s_attn_sel_scores = attn_sel_scores[:,:,:-1]
+                s_attend_to_x = attend_to_x[:,:,:-1,:,:]
+                assert self.use_private_prompts is True, "use private prompts must be enabled"
+                private_prompts = attend_to_x[:,:,-1,:,:]
+                soft_prompts = torch.einsum(
+                        'bts, btsld -> btld', s_attn_sel_scores, 
+                        s_attend_to_x)
         elif compose_method == "rcat":
             soft_prompts = torch.einsum(
                 'bts, btsld -> btsld', attn_sel_scores, attend_to_x)
