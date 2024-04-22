@@ -21,14 +21,17 @@ from attempt.maps import *
 import attempt.mylogs as mylogs
 from itertools import cycle, islice
 from random import shuffle
+from collections import defaultdict
+import random
 
 logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/datasets/super_glue.py"
 
+
 class AbstractTask(abc.ABC):
     name = NotImplemented
-    do_shuffle = True # My code
+    do_shuffle = True  # My code
     config = NotImplemented
     prefix = NotImplemented
     preprocessor: Callable = NotImplemented
@@ -42,22 +45,22 @@ class AbstractTask(abc.ABC):
     rel_nat = None
     samples_per_head = 1
     map_labels = True
-    labels_map = {"map":{}} # verbelizer
+    labels_map = {"map": {}}  # verbelizer
     use_gen_map = False
     general_map = {
-            "entailment":"estelzam",
-            "not_entailment":"adam",
-            "contradiction":"tazad",
-            "neutral":"khonsa",
-            "duplicate":"tekrar",
-            "not_duplicate":"natekrar",
-            "equivalent":"barabar",
-            "not_equivalent":"namosavi",
-            "acceptable":"paziresh",
-            "unacceptable":"napazir",
-            "positive":"mosbat",
-            "negative":"manfi"
-            }
+            "entailment": "estelzam",
+            "not_entailment": "adam",
+            "contradiction": "tazad",
+            "neutral": "khonsa",
+            "duplicate": "tekrar",
+            "not_duplicate": "natekrar",
+            "equivalent": "barabar",
+            "not_equivalent": "namosavi",
+            "acceptable": "paziresh",
+            "unacceptable": "napazir",
+            "positive": "mosbat",
+            "negative": "manfi"
+        }
     split_to_data_name = {}
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
@@ -76,20 +79,21 @@ class AbstractTask(abc.ABC):
         self.tokenizer = tokenizer
         self.prefix = task_args.get("prefix", self.name)
         self.use_cache_file = task_args.get("use_cache_file", True)
-        ## list of prompts
-        if task: 
+        self.equal_labels = task_args.get("equal_labels", True)
+        # list of prompts
+        if task:
             self.task_name = task
         if not self.rel_nat:
             self.rel_nat = task
         self.rel_tok = "<" + task + ">"
         self.rel_word = task
-        self.prompt_set = {} 
+        self.prompt_set = {}
         prompt_config = {}
         self.mapping = task_args.mapping
         if self.map_labels is True:
             self.labels_map["distinct"] = {}
             for i, label in enumerate(self.labels_list):
-               self.labels_map["distinct"][label] = self.name + str(i)
+                self.labels_map["distinct"][label] = self.name + str(i)
 
         if not self.mapping in self.labels_map and self.map_labels:
             self.mapping = "map"
@@ -106,19 +110,19 @@ class AbstractTask(abc.ABC):
 
         self.prompt_config = prompt_config
         self.task_args = task_args
-        self.counter = {} #counter for logging items
+        self.counter = {}  # counter for logging items
 
     def get_id(self):
-        return self.prefix 
+        return self.prefix
 
     def get_max_target_length(self, tokenizer, default_max_length):
         ll = []
         if self.labels_list is not None:
-           for label in self.labels_list:
-              if self.mapping in self.labels_map and self.labels_map[self.mapping]:
-                  label = self.labels_map[self.mapping][label]
-              ll.append(len(tokenizer.encode(label))) 
-           return max(ll) + 5
+            for label in self.labels_list:
+                if self.mapping in self.labels_map and self.labels_map[self.mapping]:
+                    label = self.labels_map[self.mapping][label]
+                ll.append(len(tokenizer.encode(label)))
+            return max(ll) + 5
         return default_max_length
 
     def check_n_obs(self, n_obs, total_size):
@@ -136,9 +140,41 @@ class AbstractTask(abc.ABC):
         generator.manual_seed(self.seed)
         return torch.randperm(num_samples, generator=generator).tolist()
 
+    def sample_equally_from_labels(self, dataset, n_obs):
+        # Step 1: Count label distribution in the dataset
+        label_counts = defaultdict(list)
+        for idx in range(len(dataset)):
+            sample = dataset[idx]
+            # Replace 'label' with your actual label field
+            label = sample['label']
+            if type(label) == float: 
+                label = round(label)
+            label_counts[label].append(idx)
+
+        # Step 2: Determine target number of samples per label
+        num_labels = len(label_counts)
+        samples_per_label = n_obs // num_labels  # Integer division
+
+        # Step 3: Sample equally from each label
+        sampled_indices = []
+        for label, indices in label_counts.items():
+            if len(indices) <= samples_per_label:
+                sampled_indices.extend(indices)
+            else:
+                sampled_indices.extend(
+                    random.sample(indices, samples_per_label))
+
+        # Shuffle the sampled indices
+        random.shuffle(sampled_indices)
+
+        # Select the sampled subset from the dataset
+        sampled_dataset = dataset.select(sampled_indices)
+
+        return sampled_dataset
+
     def subsample(self, dataset, n_obs=None, indices=None):
         """
-        Given a dataset returns the subsampled dataset.
+         Given a dataset returns the subsampled dataset.
         :param n_obs: the number of samples of the subsampled dataset.
         :param indices: indices to select the samples from, if not given, indices are computed
         from by shuffling the given dataset.
@@ -147,6 +183,9 @@ class AbstractTask(abc.ABC):
         num_samples = len(dataset)
         n_obs = self.check_n_obs(n_obs, num_samples)
         mylogs.bp("filter")
+        if self.equal_labels:
+            ds = self.sample_equally_from_labels(dataset, n_obs)
+            return ds
         if indices is None:
             indices = self.shuffled_indices(dataset)
         indices = indices[:n_obs]
@@ -156,13 +195,13 @@ class AbstractTask(abc.ABC):
     def get_data_path(self, split):
         path = self.data_path
         if not path.startswith("/"):
-            path= op.join(mylogs.home, self.data_path)
-        if split in self.split_to_data_name: 
-            ds_name = self.split_to_data_name[split] 
+            path = op.join(mylogs.home, self.data_path)
+        if split in self.split_to_data_name:
+            ds_name = self.split_to_data_name[split]
         else:
             ds_name = self.name
         path = op.join(path, ds_name)
-        #if split == "test":
+        # if split == "test":
         #    path = op.join(path, self.config)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
@@ -179,7 +218,7 @@ class AbstractTask(abc.ABC):
         else:
             raise ValueError("Unsupported dataset type. Cannot save.")
 
-    def load_dataset(self, split, n_obs = None):
+    def load_dataset(self, split, n_obs= None):
         return datasets.load_dataset(self.name, self.config, split=split)
 
     def get_split_indices(self, split, dataset, validation_size):
@@ -203,21 +242,25 @@ class AbstractTask(abc.ABC):
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
         tname = Path(directory).stem
-        fname = tname + "_" + split 
-        extension = ".csv" 
+        fname = tname + "_" + split
+        if self.equal_labels:
+            fname += "_eq"
+        extension = ".csv"
+        split_file = os.path.join(directory, fname + extension)
         obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
         if split == "train":
             if obs_str != "all":
-                outfile = os.path.join(directory, 
-                    fname + "_" + str(self.seed) + "_" + obs_str + extension)
+                outfile = os.path.join(directory,
+                                       fname + "_" + str(self.seed) + "_" + obs_str + extension)
             else:
-                outfile = os.path.join(directory, fname + "_" + obs_str + extension)
+                outfile = os.path.join(
+                    directory, fname + "_" + obs_str + extension)
         else:
-            outfile = os.path.join(directory, fname + "_" + obs_str + extension)
+            outfile = os.path.join(
+                directory, fname + "_" + obs_str + extension)
 
         if Path(outfile).is_file() and self.use_cache_file is True:
             file_name = outfile
-
 
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -225,7 +268,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
             if file_name is not None:
-                #dataset = datasets.load_dataset(
+                # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
                 df = df.dropna(how='all')
@@ -244,7 +287,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split="train", lang_code=lang)
             if file_name is not None:
-                #dataset = datasets.load_dataset(
+                # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
                 df = df.dropna(how='all')
@@ -261,50 +304,65 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             mylogs.bp("get")
-            if file_name is not None: # and split == "test":
-                mylogs.minfo("------------- LOADING FROM FILE:" + self.name + " ----------")
-                #dataset = datasets.load_dataset(
+            if file_name is not None:  # and split == "test":
+                mylogs.minfo("------------- LOADING FROM FILE:" + \
+                             self.name + " ----------")
+                # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
+            elif split_file is not None and Path(split_file).is_file(): 
+                mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
+                             self.name + " ----------")
+                # dataset = datasets.load_dataset(
+                #    'csv', data_files={split:file_name})[split]
+                df = pd.read_csv(split_file)
+                #df.label = df.label.astype(int)
+                df = df.dropna(how='all')
+                dataset = Dataset.from_pandas(df)
+                if n_obs is not None:
+                    dataset = self.subsample(dataset, n_obs)
             else:
-                mylogs.minfo("------------- LOADING Dataset :" + self.name + " ----------")
+                mylogs.minfo("------------- LOADING Dataset :" + \
+                             self.name + " ----------")
                 dataset = self.load_dataset(split=mapped_split)
+                if not Path(split_file).is_file():
+                    self.save_dataset(dataset, split_file)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
 
-        if not Path(outfile).is_file(): 
+        if not Path(outfile).is_file():
             self.save_dataset(dataset, outfile)
         return self.map_dataset(dataset, prefix)
 
-    #### my post proc
+    # my post proc
     def post_process(self, preds, labels):
         _preds, _labels = preds, labels
         if self.labels_map and self.mapping in self.labels_map:
-           d = self.labels_map[self.mapping]
-           _preds, _labels = [], []
-           keys = list(d.keys())
-           values = list(d.values())
-           for pp in preds:
-               if pp in values:
-                   _preds.append(keys[values.index(pp)])
-               else:
-                   _preds.append("-1")
-           for ll in labels:
-               if ll in values:
-                   _labels.append(keys[values.index(ll)])
-               else:
-                   _labels.append(ll)
+            d = self.labels_map[self.mapping]
+            _preds, _labels = [], []
+            keys = list(d.keys())
+            values = list(d.values())
+            for pp in preds:
+                if pp in values:
+                    _preds.append(keys[values.index(pp)])
+                else:
+                    _preds.append("-1")
+            for ll in labels:
+                if ll in values:
+                    _labels.append(keys[values.index(ll)])
+                else:
+                    _labels.append(ll)
         return _preds, _labels
 
-    ######### my template functions
-    def fill_prompt(self, template, name, place_holder, plen = 0, num_holder="_i"):
+    # my template functions
+    def fill_prompt(self, template, name, place_holder, plen= 0, num_holder="_i"):
         _pholder = place_holder
-        place_holder = place_holder.replace("task", self.get_id())  
-        place_holder = place_holder.replace("[", "<")  
-        place_holder = place_holder.replace("]", ">")  
+        place_holder = place_holder.replace("task", self.get_id())
+        place_holder = place_holder.replace("[", "<")
+        place_holder = place_holder.replace("]", ">")
         while _pholder in template:
             if num_holder in _pholder:
                 prompt = ""
@@ -314,9 +372,9 @@ class AbstractTask(abc.ABC):
                 for i in range(start, start + plen):
                     token = place_holder
                     if num_holder != "_1":
-                        token = token.replace(num_holder, "_" + str(i))  
+                        token = token.replace(num_holder, "_" + str(i))
                     else:
-                        token = token.replace(num_holder, "")  
+                        token = token.replace(num_holder, "")
                     prompt += " " + token
                     self.pcounter += 1
             else:
@@ -327,20 +385,22 @@ class AbstractTask(abc.ABC):
                     self.prompt_set[name] = []
                 if not token in self.prompt_set[name]:
                     self.prompt_set[name].append(token)
-            template = template.replace(_pholder,prompt, 1)
+            template = template.replace(_pholder, prompt, 1)
         return template
 
-    def get_prompt_length(self, pnum = 0, is_target = False):
+    def get_prompt_length(self, pnum= 0, is_target = False):
         mylogs.bp("plen")
         if is_target:
             tlength = self.prompt_config["target_length"]
-            if tlength is None: return 0
+            if tlength is None:
+                return 0
             if type(tlength) == list:
                 return tlength[pnum] if pnum < len(tlength) else tlength[-1]
             else:
                 return tlength
         plength = self.prompt_config["length"]
-        if plength is None: return 0
+        if plength is None:
+            return 0
         if type(plength) == list:
             return plength[pnum] if pnum < len(plength) else plength[-1]
         else:
@@ -350,7 +410,7 @@ class AbstractTask(abc.ABC):
         m = re.search(regex, template)
         pnum = 0
         self.pcounter = 0
-        while m: 
+        while m:
             if len(m.groups()) == 2:
                 name = m.groups()[0]
                 emb = m.groups()[1]
@@ -359,20 +419,20 @@ class AbstractTask(abc.ABC):
                     plen = int(emb)
                 num_holder = "_" + str(plen)
                 if emb == "i":
-                    plen = self.get_prompt_length(pnum) 
+                    plen = self.get_prompt_length(pnum)
                     num_holder = "_i"
                 elif emb == "j":
-                    plen = self.get_prompt_length(pnum) 
+                    plen = self.get_prompt_length(pnum)
                     num_holder = "_j"
                 elif emb == "k":
-                    plen = self.get_prompt_length(pnum, is_target=True) 
+                    plen = self.get_prompt_length(pnum, is_target=True)
                     num_holder = "_k"
                 place_holder = "[" + name + "_" + emb + "]"
                 if "task" in name:
                     tid = self.get_id()
                     name = name.replace("task", tid)
-                template = self.fill_prompt(template, name, place_holder, plen=plen, 
-                        num_holder=num_holder)
+                template = self.fill_prompt(template, name, place_holder, plen=plen,
+                                            num_holder=num_holder)
                 m = re.search(regex, template)
                 pnum += 1
         return template
@@ -380,7 +440,8 @@ class AbstractTask(abc.ABC):
     def insert_prompts(self, template):
         mylogs.bp("fill_prompt")
         template = self.fill_prompt_regex(template, "\[([@a-zA-Z-]+)_(\d+)\]")
-        template = self.fill_prompt_regex(template, "\[([@a-zA-Z\d-]+)_([a-zA-Z\?\d]+)\]")
+        template = self.fill_prompt_regex(
+            template, "\[([@a-zA-Z\d-]+)_([a-zA-Z\?\d]+)\]")
         return template
 
     def get_prompts(self):
@@ -389,73 +450,73 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (prefix) (nat) {target}" # {end}"
+        src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)"
+        target = "(mask) (prefix) (nat) {target}"  # {end}"
         return src, target
 
     def get_template(self):
         src, target = self.get_template_format()
         parts = self.template.split("-")
-        pcom = 0 # number of shared prompts among all tasks
+        pcom = 0  # number of shared prompts among all tasks
         mylogs.bp("template")
         for part in parts:
-            if part == "mask": 
-               src = src.replace("(mask)", "{mask} (mask)")
-               target = target.replace("(mask)","{mask} (mask)")
-            elif part == "unsup": 
-               src = src.replace("(mask)", "{mask}")
-               target = target.replace("(mask)","{mask}")
-            elif part == "unsupnat": 
-               target = target.replace("(mask)","{mask}")
+            if part == "mask":
+                src = src.replace("(mask)", "{mask} (mask)")
+                target = target.replace("(mask)", "{mask} (mask)")
+            elif part == "unsup":
+                src = src.replace("(mask)", "{mask}")
+                target = target.replace("(mask)", "{mask}")
+            elif part == "unsupnat":
+                target = target.replace("(mask)", "{mask}")
             elif part == "sup":
-               src = src.replace("(mask)", "")
-               target = target.replace("(mask)","")
+                src = src.replace("(mask)", "")
+                target = target.replace("(mask)", "")
             elif part == "pcom":
-               src = src.replace("(prompt)", "[com_i] (prompt) ",1)
-               pcom += 1
+                src = src.replace("(prompt)", "[com_i] (prompt) ", 1)
+                pcom += 1
             elif part == "pmask":
-               src = src.replace("(prompt)", "[tar-task_k] {mask} (prompt) ",1)
+                src = src.replace("(prompt)", "[tar-task_k] {mask} (prompt) ", 1)
             elif part == "ptar":
-               src = src.replace("(prompt)", "[tar-task_k] (prompt) ",1)
+                src = src.replace("(prompt)", "[tar-task_k] (prompt) ", 1)
             elif part == "p0" or part == "0":
-               src = src.replace("(prompt)", "",1)
+                src = src.replace("(prompt)", "", 1)
             elif part == "px0" or part == "0":
-               src = src.replace("(prefix)", "",1)
+                src = src.replace("(prefix)", "", 1)
             elif part == "px":
-               src = src.replace("(prefix)", "{prefix}",1)
+                src = src.replace("(prefix)", "{prefix}", 1)
             elif part == "pt":
-               src = src.replace("(prompt)", "[task_i] (prompt) ",1)
+                src = src.replace("(prompt)", "[task_i] (prompt) ", 1)
             elif part == "pnat":
-               src = src.replace("(prompt)", "{prompt_from_nat} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_from_nat} (prompt) ", 1)
             elif part == "pn":
-               src = src.replace("(prompt)", "{prompt_n} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_n} (prompt) ", 1)
             elif part == "pnt":
-               src = src.replace("(prompt)", "{prompt_nt} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_nt} (prompt) ", 1)
             elif part == "pnr":
-               src = src.replace("(prompt)", "{prompt_nr} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_nr} (prompt) ", 1)
             elif part == "psh":
-               src = src.replace("(prompt)", "{prompt_shared_tokens} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_shared_tokens} (prompt) ", 1)
             elif part == "psht":
-               src = src.replace("(prompt)", "{prompt_task_eq_shared} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_task_eq_shared} (prompt) ", 1)
             elif part == "pshr":
-               src = src.replace("(prompt)", "{prompt_shared_random} (prompt) ",1)
+                src = src.replace("(prompt)", "{prompt_shared_random} (prompt) ", 1)
             elif part == "nat_prefix":
-               src = src.replace("(nat_prefix)", "{rel_nat}", 1)
-            elif part == "nat_input" or part == "nat": 
-               src = src.replace("(nat)", "{rel_nat}", 1)
+                src = src.replace("(nat_prefix)", "{rel_nat}", 1)
+            elif part == "nat_input" or part == "nat":
+                src = src.replace("(nat)", "{rel_nat}", 1)
             elif part == "input_shared_words":
-               src = src.replace("(prefix)", "{rel_shared_words}:", 1)
-            elif part == "nat_target": 
-               target = target.replace("(nat)", "{rel_nat}", 1)
-            elif part == "target_shared_words": 
-               target = target.replace("(prefix)", "{rel_shared_words}:", 1)
+                src = src.replace("(prefix)", "{rel_shared_words}:", 1)
+            elif part == "nat_target":
+                target = target.replace("(nat)", "{rel_nat}", 1)
+            elif part == "target_shared_words":
+                target = target.replace("(prefix)", "{rel_shared_words}:", 1)
             else:
                 raise ValueError("Invalid part in template:" + part)
 
         # remove unused place holders
-        src = re.sub(r'\(.*?\)','',src)
-        src = re.sub(' +', ' ',src)
-        target = re.sub(r'\(.*?\)','',target)
+        src = re.sub(r'\(.*?\)', '',src)
+        src = re.sub(' +', ' ', src)
+        target = re.sub(r'\(.*?\)', '',target)
 
         return src, target, pcom
 
@@ -469,14 +530,16 @@ class AbstractTask(abc.ABC):
             data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else self.rel_nat
             rel_from_nat = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_from_nat = rel_from_nat.split()
-            num_prompts = self.task_args.setdefault("num_prompts",1)
+            num_prompts = self.task_args.setdefault("num_prompts", 1)
             task_comb = self.task_args.setdefault("task_comb", "none")
             tid = self.task_args["id"]
             prompt_n = []
             if task_comb == "none":
-                prompt_n = ["[p" + str(tid) + str(i) + "_i]" for i in range(num_prompts)]
+                prompt_n = [
+                    "[p" + str(tid) + str(i) + "_i]" for i in range(num_prompts)]
             elif task_comb == "comb":
-                prompt_n = ["[p" + str(ii) + "0_i]" for ii in range(1, tid + 1)]
+                prompt_n = [
+                    "[p" + str(ii) + "0_i]" for ii in range(1, tid + 1)]
                 prompt_n.extend(["[p" + str(tid) + "_i]"])
 
             data["prompt_n"] = " ".join(prompt_n)
@@ -484,7 +547,7 @@ class AbstractTask(abc.ABC):
             data["prompt_nr"] = " ".join(prompt_n)
 
             l = self.get_prompt_length(0)*(len(prompt_n) - pcom)
-            prompt_nt = "[task" + "_" + str(l) + "]" 
+            prompt_nt = "[task" + "_" + str(l) + "]"
             data["prompt_nt"] = prompt_nt
 
             prompt_from_nat = ["[task_" + w + "]" for w in rel_from_nat]
@@ -499,26 +562,28 @@ class AbstractTask(abc.ABC):
                 data["prompt_from_nat"] = " ".join(prompt_from_nat)
 
             if task in REL_TO_SHARED_TOKENS:
-                rel_with_shared_tokens = REL_TO_SHARED_TOKENS[task] 
+                rel_with_shared_tokens = REL_TO_SHARED_TOKENS[task]
             else:
-                rel_with_shared_tokens = task 
+                rel_with_shared_tokens = task
             rel_with_shared_tokens = rel_with_shared_tokens.split()
             data["rel_shared_words"] = " ".join(rel_with_shared_tokens)
-            # prompt shr creates same prompts for shared tokens of tasks, 
-            # the length of prompts 
+            # prompt shr creates same prompts for shared tokens of tasks,
+            # the length of prompts
             # is specified with i
-            prompt_shared_tokens = ["[" + w + "_i]" for w in rel_with_shared_tokens]
+            prompt_shared_tokens = [
+                "[" + w + "_i]" for w in rel_with_shared_tokens]
             data["prompt_shared_tokens"] = " ".join(prompt_shared_tokens)
-            # prompt is the same as prompt sh but the tokens are shuffled 
+            # prompt is the same as prompt sh but the tokens are shuffled
             shuffle(rel_with_shared_tokens)
-            prompt_shared_random = ["[" + w + "_j]" for w in rel_with_shared_tokens]
+            prompt_shared_random = [
+                "[" + w + "_j]" for w in rel_with_shared_tokens]
             data["prompt_shared_random"] = " ".join(prompt_shared_random)
-            # psht is for comparision. it uses task specific prompts with the length 
-            # of shared prompts concatenated to each other, 
+            # psht is for comparision. it uses task specific prompts with the length
+            # of shared prompts concatenated to each other,
             # however prompts for each tasks are distnict
             # it also substract the length of common or shared prompts among all tasks
             l = self.get_prompt_length(0)*(len(rel_with_shared_tokens) - pcom)
-            prompt_task_eq_shared = "[task" + "_" + str(l) + "]" 
+            prompt_task_eq_shared = "[task" + "_" + str(l) + "]"
             data["prompt_task_eq_shared"] = prompt_task_eq_shared
 
         return data
@@ -535,12 +600,12 @@ class AbstractTask(abc.ABC):
 
     def fill_template(self, data):
         mylogs.bp("fill")
-        src,tgt,pcom = self.get_template()
+        src, tgt,pcom = self.get_template()
 
         mask = "<extra_id_0>"
         data = self.extend_data(data, pcom=pcom)
         # data["mask"] = mask
-        data["end"] = "</s>" 
+        data["end"] = "</s>"
         data["prefix"] = self.name + ":"
         data = defdict(data)
         # fill the templates with data
@@ -551,13 +616,14 @@ class AbstractTask(abc.ABC):
         tgt_texts = self.replace_mask(tgt).format_map(data)
 
         src_texts = self.insert_prompts(src_texts)
-        return src_texts, tgt_texts 
+        return src_texts, tgt_texts
 
     def get_label_list(self):
         labels_list = []
         if self.labels_map and self.mapping:
             for label in self.labels_list:
-                labels_list.append("<" + self.labels_map[self.mapping][label] + ">")
+                labels_list.append(
+                    "<" + self.labels_map[self.mapping][label] + ">")
         return labels_list
 
     def seq2seq_format(self, sources: List[str],
@@ -574,8 +640,8 @@ class AbstractTask(abc.ABC):
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
-        if (self.map_labels and self.mapping in self.labels_map 
-            and self.labels_map[self.mapping]):
+        if (self.map_labels and self.mapping in self.labels_map
+                and self.labels_map[self.mapping]):
             labels_list = []
             for label in self.labels_list:
                 labels_list.append(self.labels_map[self.mapping][label])
@@ -583,13 +649,13 @@ class AbstractTask(abc.ABC):
             tt = []
             for label in targets:
                 assert label in self.labels_map[self.mapping], self.name + ":" + label \
-                        + ":" + str(self.labels_map)
+                    + ":" + str(self.labels_map)
                 # tt.append("<" + self.labels_map[label] + ">")
                 tt.append(self.labels_map[self.mapping][label])
-            targets = tt 
+            targets = tt
         else:
             labels_list = self.labels_list
-            
+
         add_prefix = self.task_args.setdefault("add_prefix", False)
         try:
             orig_src = ' '.join(sources)
@@ -599,14 +665,14 @@ class AbstractTask(abc.ABC):
             orig_src = ' '.join(sources)
             sources = [src_prefix]+sources if add_prefix else sources
         src = ' '.join(sources)
-        tgt =  ' '.join(targets)
+        tgt = ' '.join(targets)
         src = src.strip()
         tgt = tgt.strip()
 
         prompt_len = self.get_prompt_length()
         max_input_len = 511 - len(tgt) - prompt_len
         if self.multi_choice:
-            max_input_len -= 9 # for options tag
+            max_input_len -= 9  # for options tag
             max_input_len -= sum([len(l) + 1 for l in labels_list])
 
         if self.multi_choice:
@@ -619,25 +685,27 @@ class AbstractTask(abc.ABC):
                 'task': self.get_id(),
                 ** extra_fields}
         extra_fields = {}
-        extra_fields["event"] = orig_src 
-        extra_fields["tail"] = tgt 
+        extra_fields["event"] = orig_src
+        extra_fields["tail"] = tgt
         extra_fields["sel"] = False
-        extra_fields["split"] = self.split 
-        src_text, tgt_text = self.fill_template(data) 
+        extra_fields["split"] = self.split
+        src_text, tgt_text = self.fill_template(data)
         extra_fields["query"] = src_text
         extra_fields["resp"] = tgt_text
         extra_fields["target_text"] = tgt_text
         if not "examples" in self.counter:
             self.counter["examples"] = 1
         if self.counter["examples"] < 5:
-            mylogs.vlog.info(f"=========== Extra Fields | split={self.split} =========")
+            mylogs.vlog.info(
+                f"=========== Extra Fields | split={self.split} =========")
             mylogs.vlog.info("%s", extra_fields)
             self.counter["examples"] += 1
         mylogs.bp("format")
         return {'source': src_text,
-                'target': tgt_text, 
+                'target': tgt_text,
                 'task': self.name,
                 'extra_fields': extra_fields}
+
 
 class Squad(AbstractTask):
     name = "squad"
@@ -659,21 +727,19 @@ class Squad(AbstractTask):
         return self.seq2seq_format(source, target, prefix)
 
 
-
 class DROP(AbstractTask):
     name = "drop"
     metric = [metrics.squad]
 
     def load_dataset(self, split):
         if split == "train":
-            return datasets.load_dataset("json", field="history_690", 
-                    data_files=op.join(
+            return datasets.load_dataset("json", field="history_690",
+                                         data_files=op.join(
                         mylogs.home, "drop/drop_dataset/drop_dataset_train.json"))
         else:
             return datasets.load_dataset("json", field="history_690",
-                    data_files=op.join(
+                                         data_files=op.join(
                         mylogs.home, "drop/drop_dataset/drop_dataset_dev.json"))
-
 
     def preprocessor(self, example, prefix):
         answer = pad_punctuation(example['answers_spans']['spans'][0])
@@ -693,11 +759,11 @@ class PIQA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"map":{"0":"Choice1", "1":"Choice2", "0.0":"Choice1", "1.0":"Choice2"}}
+    labels_map = {"map": {"0":"Choice1", "1":"Choice2", "0.0":"Choice1", "1.0":"Choice2"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset('piqa', split=split)
-        path = op.join(mylogs.home, "piqa","final", split + ".csv")
+        path = op.join(mylogs.home, "piqa", "final", split + ".csv")
         # return datasets.load_dataset('csv', data_files=path)
         df = pd.read_csv(path)
         #df.label = df.label.astype(int)
@@ -717,7 +783,7 @@ class CommonsenseQA(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
-                           "test":"validation",
+                           "test": "validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
@@ -737,7 +803,7 @@ class SocialIQA(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
-                           "test":"validation",
+                           "test": "validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
@@ -756,16 +822,16 @@ class SciTail(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"0":"entailment", "1":"neutral"},
+            "map": {"0":"entailment", "1":"neutral"},
             # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
-            }
+        }
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "test"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('scitail', "snli_format", split=split)
-        data_files = {"train":"train-00000-of-00001.parquet","test":"test-00000-of-00001.parquet"}
+        data_files = {"train": "train-00000-of-00001.parquet","test":"test-00000-of-00001.parquet"}
         return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/scitail", data_files=data_files, split=split)
 
         return datasets.load_from_disk("/home/ahmad/datasets/scitail")
@@ -786,16 +852,16 @@ class MRPC(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    #labels_map = {"map":{"0":"unequal","1":"duplicate"}
+    # labels_map = {"map":{"0":"unequal","1":"duplicate"}
     labels_map = {
-            "map":{"0":"not_equivalent","1":"equivalent"},
-            "map1":{"0":"not_duplicate","1":"duplicate"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            }
-    #labels_map = {"map":{"0":"F","1":"G"}
+            "map": {"0":"not_equivalent","1":"equivalent"},
+            "map1": {"0":"not_duplicate","1":"duplicate"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+        }
+    # labels_map = {"map":{"0":"F","1":"G"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('glue', 'mrpc', split=split) 
+        return datasets.load_dataset('glue', 'mrpc', split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['sentence1'],
@@ -803,29 +869,33 @@ class MRPC(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
 class MRPC1(MRPC):
     name = "mrpc1"
-    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
-            "map":{"0":"not_equivalent","1":"equivalent"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            }
+            "map": {"0":"not_equivalent","1":"equivalent"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+        }
+
 
 class MRPC2(MRPC):
     name = "mrpc2"
-    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
-            "map":{"0":"not_equivalent","1":"equivalent"},
-            "map2":{"0":"not_duplicate","1":"duplicate"}
-            }
+            "map": {"0":"not_equivalent","1":"equivalent"},
+            "map2": {"0":"not_duplicate","1":"duplicate"}
+        }
+
 
 class MRPC3(MRPC):
     name = "mrpc3"
-    split_to_data_name = {"train":"mrpc", "test":"mrpc"}
+    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
-            "map":{"0":"not_equivalent","1":"equivalent"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            }
+            "map": {"0":"not_equivalent","1":"equivalent"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+        }
+
 
 class COLA(AbstractTask):
     name = "cola"
@@ -835,9 +905,10 @@ class COLA(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    #labels_map = {"map":{"0": "inadmissible", "1":"acceptable"}
-    labels_map = {"map":{"0": "unacceptable", "1":"acceptable"}}
-    #labels_map = {"map":{"0": "A", "1":"B"}
+    # labels_map = {"map":{"0": "inadmissible", "1":"acceptable"}
+    labels_map = {"map": {"0": "unacceptable", "1":"acceptable"}}
+    # labels_map = {"map":{"0": "A", "1":"B"}
+
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'cola',
                                      split=split)
@@ -847,6 +918,7 @@ class COLA(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
 class IMDB(AbstractTask):
     name = "imdb"
     labels_list = ["0", "1"]
@@ -855,7 +927,7 @@ class IMDB(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "train",
                            "test": "test"}
-    labels_map = {"map":{"0":"negative", "1":"positive"}}
+    labels_map = {"map": {"0":"negative", "1":"positive"}}
     rel_nat = "The sentiment is "
 
     def load_dataset(self, split):
@@ -876,8 +948,8 @@ class TweetEval(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     labels_map = {
-            "map":{"0":"negative", "1":"neutral", "2":"positive"},
-            }
+            "map": {"0":"negative", "1":"neutral", "2":"positive"},
+        }
     rel_nat = "The sentiment is"
 
     def load_dataset(self, split):
@@ -890,7 +962,6 @@ class TweetEval(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
-
 class SST2(AbstractTask):
     name = "sst2"
     use_gen_map = True
@@ -901,9 +972,9 @@ class SST2(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     labels_map = {
-            "map":{"0":"negative", "1":"positive"},
-            }
-    #labels_map = {"map":{"0":"bad", "1":"good"}
+            "map": {"0":"negative", "1":"positive"},
+        }
+    # labels_map = {"map":{"0":"bad", "1":"good"}
     # labels_map = {"map":{"0":"L", "1":"M"}
     #rel_nat = "As a result, they feel"
     rel_nat = "The sentiment is"
@@ -925,8 +996,8 @@ class YelpPolarity(AbstractTask):
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train", "test": "test"}
     labels_map = {
-            "map":{"0":"negative", "1":"positive"},
-            }
+            "map": {"0":"negative", "1":"positive"},
+        }
 
     def load_dataset(self, split):
         print(split)
@@ -976,6 +1047,7 @@ class STSB(AbstractTask):
         tgt_texts = [str(round_stsb_target(example['label']))]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
 class Atomic(AbstractTask):
     name = "atomic"
     map_labels = False
@@ -985,7 +1057,8 @@ class Atomic(AbstractTask):
     do_shuffle = True
     samples_per_head = 3
     rels = []
-    split_to_data_name = {"train":"atomic", "test":"atomic"}
+    split_to_data_name = {"train": "atomic", "test":"atomic"}
+
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         if not task_args.rels:
@@ -1007,10 +1080,12 @@ class Atomic(AbstractTask):
                 df = df.head(len(df) - 300)
         df = self.filter(df, split)
         df = self.preproc_df(df, split)
-        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
+        assert len(df) > 0, "data frame is empty for " + \
+                   split + " of " + self.name + " " + path
         df = self.postproc_df(df, split)
-        assert len(df) > 0, "data frame is empty for " + split + " of " + self.name + " " + path
-        
+        assert len(df) > 0, "data frame is empty for " + \
+                   split + " of " + self.name + " " + path
+
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
@@ -1050,56 +1125,59 @@ class Atomic(AbstractTask):
 
     def preproc_df(self, df, split):
         mylogs.bp("filter")
-        df["freqs"] = df.groupby(['input_text'])['input_text'].transform('count')
-        df['px'] = df[['input_text','prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
-        df['px_count'] = df[['input_text','prefix']].groupby(['input_text'])['prefix'].transform('nunique')
+        df["freqs"] = df.groupby(['input_text'])[
+                                 'input_text'].transform('count')
+        df['px'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
+        df['px_count'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform('nunique')
         print("len df:", len(df))
         # df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         print("len new df:", len(df))
-        sort_by = ["px_count","freqs","input_text", "prefix"] 
+        sort_by = ["px_count", "freqs","input_text", "prefix"] 
         if "sel" in df:
-            sort_by = ["sel", "freqs","input_text", "prefix"] 
+            sort_by = ["sel", "freqs", "input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
         i = 0
         for idx, row in df.iterrows():
-            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+            text = "{}   {}   {}".format(
+                row.input_text, row.prefix, row.target_text)
             mylogs.success(text, log=False)
             i += 1
             if i > 100:
-                break;
+                break
         return df
 
-
     def preproc_df2(self, df, split):
-        df["freqs"] = df.groupby(['prefix','input_text'])['input_text'].transform('count')
+        df["freqs"] = df.groupby(['prefix', 'input_text'])['input_text'].transform('count')
         print("len df:", len(df))
         df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         print("len new df:", len(df))
-        sort_by = ["freqs","input_text", "prefix"] 
+        sort_by = ["freqs", "input_text", "prefix"] 
         if "sel" in df:
             mylogs.bp("df")
-            sort_by = ["sel", "freqs","input_text", "prefix"] 
+            sort_by = ["sel", "freqs", "input_text", "prefix"] 
         df = df.sort_values(by=sort_by, ascending=False)
         i = 0
         for idx, row in df.iterrows():
-            text = "{}   {}   {}".format(row.input_text, row.prefix, row.target_text)
+            text = "{}   {}   {}".format(
+                row.input_text, row.prefix, row.target_text)
             mylogs.success(text)
             i += 1
             if i > 30:
-                break;
+                break
         return df
 
     def filter(self, df, split):
         cond = ""
         mylogs.bp("filter")
         df = df[~df["target_text"].str.contains('none', na=False)]
-        for val in self.rels: 
+        for val in self.rels:
             cond += f"| (df['prefix'] == '{val}') "
         cond = cond.strip("|")
-        if cond: df = df[eval(cond)]
+        if cond:
+            df = df[eval(cond)]
         return df
 
-    #### ppppppppppppppp 
+    # ppppppppppppppp
     def preprocessor(self, example, prefix):
         mylogs.bp("task_prep")
         src_texts = [str(example["input_text"])]
@@ -1109,21 +1187,26 @@ class Atomic(AbstractTask):
         extra_fields["rel"] = example["prefix"]
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
-        return self.seq2seq_format(src_texts, tgt_texts, 
-                prefix, extra_fields=extra_fields)
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
 
 class xIntent(Atomic):
     name = "xIntent"
 
+
 class isAfter(Atomic):
     name = "isAfter"
+
 
 class isBefore(Atomic):
     name = "isBefore"
 
+
 class AtomicRel(Atomic):
     name = "atomic-rels"
     samples_per_rel = 100
+
     def __init__(self, config, task_args, task=""):
         super().__init__(config, task_args)
         self.train_samples_per_rel = task_args.train_samples
@@ -1152,7 +1235,7 @@ class AtomicRel(Atomic):
         path = self.data_path
         self.split = split
         if not path.startswith("/"):
-            path= op.join(mylogs.home, self.data_path)
+            path = op.join(mylogs.home, self.data_path)
         if split == "test":
             path = op.join(path, self.config, 'test.tsv')
         else:
@@ -1160,70 +1243,87 @@ class AtomicRel(Atomic):
         return path
 
     def preprocessor(self, example, prefix):
-        src_texts = ["head:", str(example["input_text"]), 
-                    "tail:", str(example["target_text"])]
+        src_texts = ["head:", str(example["input_text"]),
+                     "tail:", str(example["target_text"])]
         tgt_texts = [example["prefix"].strip()]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
         extra_fields["sel"] = example["sel"] if "sel" in example else False
-        return self.seq2seq_format(src_texts, tgt_texts, 
-                prefix, extra_fields=extra_fields)
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
 
 class Causes(Atomic):
     name = "Causes"
 
+
 class xReason(Atomic):
     name = "xReason"
+
 
 class Desires(Atomic):
     do_split = True
     name = "Desires"
 
+
 class xAttr(Atomic):
     name = "xAttr"
+
 
 class xNeed(Atomic):
     name = "xNeed"
 
+
 class xReact(Atomic):
     name = "xReact"
 
+
 class oReact(Atomic):
     name = "oReact"
+
 
 class AtLocation(Atomic):
     name = "AtLocation"
     rel_nat = "is located at"
 
+
 class ObjectUse(Atomic):
     name = "ObjectUse"
     rel_nat = "is used for"
+
 
 class Desires(Atomic):
     name = "Desires"
     rel_nat = "desire"
 
+
 class CapableOf(Atomic):
     name = "CapableOf"
     rel_nat = "is capable of"
+
 
 class HasProperty(Atomic):
     name = "HasProperty"
     rel_nat = " has the property of "
 
+
 class isFilledBy(Atomic):
     name = "isFilledBy"
     rel_nat = "is filled by"
 
+
 class xWant(Atomic):
     name = "xWant"
+
 
 class oWant(Atomic):
     name = "oWant"
 
+
 class xEffect(Atomic):
     name = "xEffect"
+
 
 class oEffect(Atomic):
     name = "oEffect"
@@ -1251,14 +1351,14 @@ class QQP(AbstractTask):
     metric = [metrics.f1_score_with_invalid, metrics.accuracy]
     metric_names = ["f1", "accuracy"]
     labels_map = {
-            "map1":{"0":"not_equivalent","1":"equivalent"},
-            "map":{"0":"not_duplicate","1":"duplicate"},
-            "map2":{"0":"not_equal","1":"duplicate"},
-            "map3":{"0":"different","1":"duplicate"},
-            }
-    #labels_map = {"map":{"0":"unequal","1":"duplicate"}
-    #labels_map = {"map":{"0":"different","1":"identical"}
-    #labels_map = {"map":{"0":"F","1":"G"}
+            "map1": {"0":"not_equivalent","1":"equivalent"},
+            "map": {"0":"not_duplicate","1":"duplicate"},
+            "map2": {"0":"not_equal","1":"duplicate"},
+            "map3": {"0":"different","1":"duplicate"},
+        }
+    # labels_map = {"map":{"0":"unequal","1":"duplicate"}
+    # labels_map = {"map":{"0":"different","1":"identical"}
+    # labels_map = {"map":{"0":"F","1":"G"}
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
@@ -1284,28 +1384,29 @@ class MNLI(AbstractTask):
     metric_names = ["accuracy"]
     # labels_map = {"map":{"0":"en", "1":"neutral", "2": "contradicts"}
     labels_map = {
-            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"},
+            "map": {"0":"entailment", "1":"neutral", "2": "contradiction"},
             # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
-            }
+        }
     # labels_map = {"map":{"0":"0", "1":"1", "2": "2"}
     # labels_map = {"map":{"0":"C", "1":"D", "2": "E"}
-    rel_nat = "The logical relation between premise and hypothesis is " 
+    rel_nat = "The logical relation between premise and hypothesis is "
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'mnli', split=split)
 
     def preprocessor(self, example, prefix):
-        src_texts = ["sentence1:", example['premise'], 
+        src_texts = ["sentence1:", example['premise'],
                      "sentence2:", example["hypothesis"]]
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
+
 
 class ParsNLI(AbstractTask):
     name = "parsnli"
     labels_list = ["c", "e", "n"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    #labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
+    # labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
 
     def load_dataset(self, split):
         return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
@@ -1316,6 +1417,7 @@ class ParsNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
 class PAWS(AbstractTask):
     name = "paws"
     labels_list = ["0", "1"]
@@ -1325,14 +1427,14 @@ class PAWS(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"0":"not_equivalent","1":"equivalent"}
-            }
+            "map": {"0":"not_equivalent","1":"equivalent"}
+        }
 
     def load_dataset(self, split):
         return datasets.load_dataset("paws", "labeled_final", split=split)
-        return datasets.load_dataset(mylogs.home + '/paws/paws.py', 
-                'labeled_final', split=split)
-        path = op.join(mylogs.home,"paws", "final", split + ".tsv") 
+        return datasets.load_dataset(mylogs.home + '/paws/paws.py',
+                                     'labeled_final', split=split)
+        path = op.join(mylogs.home, "paws", "final", split + ".tsv") 
         df = pd.read_table(path)
         ds = Dataset.from_pandas(df)
         return ds
@@ -1353,8 +1455,8 @@ class SNLI(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"-1":"neutral", "0":"entailment", "1":"neutral", "2": "contradiction"}
-            }
+            "map": {"-1":"neutral", "0":"entailment", "1":"neutral", "2": "contradiction"}
+        }
 
     def load_dataset(self, split):
         return datasets.load_dataset('snli', split=split)
@@ -1376,13 +1478,13 @@ class MultiNLI(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"0":"entailment", "1":"neutral", "2": "contradiction"}
-            }
+            "map": {"0":"entailment", "1":"neutral", "2": "contradiction"}
+        }
 
     def load_dataset(self, split):
         return datasets.load_dataset('multi_nli', split=split)
-        data_files = {"train":"train-00000-of-00001.parquet"}
-        #,"test":"validation-00000-of-00001.parquet"}
+        data_files = {"train": "train-00000-of-00001.parquet"}
+        # ,"test":"validation-00000-of-00001.parquet"}
         return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/multinli", data_files=data_files, split=split)
 
     def preprocessor(self, example, prefix):
@@ -1403,38 +1505,40 @@ class QNLI(AbstractTask):
                            "test": "validation"}
     #rel_nat = "Can the question be answered by the passage?"
     rel_nat = "The logical relation between sentence and question is "
-    labels_map = {"map":{"0":"entailment", "1":"not_entailment"}}
-    #labels_map = {"map":{"0":"entails", "1":"irrelated"}
-    #labels_map = {"map":{"0":"yes", "1":"no"}
-    #labels_map = {"map":{"0":"C", "1":"D"}
+    labels_map = {"map": {"0":"entailment", "1":"not_entailment"}}
+    # labels_map = {"map":{"0":"entails", "1":"irrelated"}
+    # labels_map = {"map":{"0":"yes", "1":"no"}
+    # labels_map = {"map":{"0":"C", "1":"D"}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'qnli', split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["sentence1:", example['question'][:100],
-                "sentence2:", example["sentence"][:350]]
+                     "sentence2:", example["sentence"][:350]]
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class QNLI1(QNLI):
     name = "qnli1"
-    split_to_data_name = {"train":"qnli", "test":"qnli"}
+    split_to_data_name = {"train": "qnli", "test":"qnli"}
     labels_map = {
-            "map":{"0":"entailment","1":"not_entailment"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            "map4":{"0":"equivalent","1":"not_equivalent"}
-            }
+            "map": {"0":"entailment","1":"not_entailment"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+            "map4": {"0":"equivalent","1":"not_equivalent"}
+        }
+
 
 class QNLI2(QNLI):
     name = "qnli2"
-    split_to_data_name = {"train":"qnli", "test":"qnli"}
+    split_to_data_name = {"train": "qnli", "test":"qnli"}
     labels_map = {
-            "map":{"0":"entailment","1":"not_entailment"},
-            "map2":{"0":"not_duplicate","1":"duplicate"},
-            "map4":{"0":"equivalent","1":"not_equivalent"}
-            }
+            "map": {"0":"entailment","1":"not_entailment"},
+            "map2": {"0":"not_duplicate","1":"duplicate"},
+            "map4": {"0":"equivalent","1":"not_equivalent"}
+        }
+
 
 class RTE(AbstractTask):
     name = "rte"
@@ -1446,10 +1550,11 @@ class RTE(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     labels_map = {
-            "map":{"0":"entailment", "1":"not_entailment"},
+            "map": {"0":"entailment", "1":"not_entailment"},
             # "map2":{"0":"not_duplicate", "1":"duplicate"}
-            } # entailment nont_entailment
-    ## labels_map = {"map":{"0":"C", "1":"D"} # entailment nont_entailment
+        } # entailment nont_entailment
+    # labels_map = {"map":{"0":"C", "1":"D"} # entailment nont_entailment
+
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'rte',
                                      split=split)
@@ -1463,19 +1568,21 @@ class RTE(AbstractTask):
 
 class RTE1(RTE):
     name = "rte1"
-    split_to_data_name = {"train":"rte", "test":"rte"}
+    split_to_data_name = {"train": "rte", "test":"rte"}
     labels_map = {
-            "map":{"0":"entailment","1":"not_entailment"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            }
+            "map": {"0":"entailment","1":"not_entailment"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+        }
+
 
 class RTE2(RTE):
     name = "rte2"
-    split_to_data_name = {"train":"rte", "test":"rte"}
+    split_to_data_name = {"train": "rte", "test":"rte"}
     labels_map = {
-            "map":{"0":"entailment","1":"not_entailment"},
-      #      "map2":{"0":"not_equal","1":"duplicate"}
-            }
+            "map": {"0":"entailment","1":"not_entailment"},
+        #      "map2":{"0":"not_equal","1":"duplicate"}
+        }
+
 
 class WNLI(AbstractTask):
     name = "wnli"
@@ -1485,7 +1592,7 @@ class WNLI(AbstractTask):
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"map":{"0":"not_entailment", "1":"entailment"}}
+    labels_map = {"map": {"0":"not_entailment", "1":"entailment"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'wnli', split=split)
@@ -1506,7 +1613,8 @@ class SuperGLUEBoolQ(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
 
-    labels_map = {"map":{"0":"False", "1":"True"}}
+    labels_map = {"map": {"0":"False", "1":"True"}}
+
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'boolq', split=split)
 
@@ -1525,7 +1633,7 @@ class SuperGLUERTE(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"entailment", "1":"not_entailment"}}
+    labels_map = {"map": {"0":"entailment", "1":"not_entailment"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'rte', split=split)
@@ -1545,7 +1653,8 @@ class SuperGLUECB(AbstractTask):
                            "test": "validation"}
     metric = [metrics.mean_multiclass_f1(num_classes=3), metrics.accuracy]
     metric_names = ["f1_multiclass", "accuracy"]
-    labels_map = {"map":{"0":"entailment", "2":"neutral", "1": "contradiction"}}
+    labels_map = {"map": {"0":"entailment", "2":"neutral", "1": "contradiction"}}
+
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'cb', split=split)
 
@@ -1564,7 +1673,7 @@ class SuperGLUECOPA(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"Choice1", "1":"Choice2"}}
+    labels_map = {"map": {"0":"Choice1", "1":"Choice2"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'copa', split=split)
@@ -1585,9 +1694,9 @@ class SuperGLUEMultiRC(AbstractTask):
                            "validation": "validation",
                            "test": "validation"}
     metric = [metrics.multirc_f1_over_all_answers]
-              #metrics.mean_group_metric(metrics.exact_match)]
+               # metrics.mean_group_metric(metrics.exact_match)]
     metric_names = ["f1", "accuracy"]
-    labels_map = {"map":{"0":"False", "1":"True"}}
+    labels_map = {"map": {"0":"False", "1":"True"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'multirc', split=split)
@@ -1629,7 +1738,7 @@ class SuperGLUEWIC(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"False", "1":"True"}}
+    labels_map = {"map": {"0":"False", "1":"True"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset(super_glue, 'wic', split=split)
@@ -1641,14 +1750,17 @@ class SuperGLUEWIC(AbstractTask):
         tgt_texts = [str(example["label"])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
 from datasets import load_dataset, DownloadConfig
 
 download_config = DownloadConfig(
-        proxies={
+    proxies={
             "http": "http://fodev.org:8118",
             "https": "http://fodev.org:8118"
-            }
-        )
+        }
+    )
+
+
 class SuperGLUEWSCFixed(AbstractTask):
     # source: https://github.com/google-research/text-to-text-transfer-transformer/blob/master/t5/data/preprocessors.py
     """Convert WSC examples to text2text format.
@@ -1678,12 +1790,12 @@ class SuperGLUEWSCFixed(AbstractTask):
                            "test": "validation"}
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    labels_map = {"map":{"0":"False", "1":"True"}}
+    labels_map = {"map": {"0":"False", "1":"True"}}
 
     def load_dataset(self, split):
-        return datasets.load_dataset(super_glue, 
-                'wsc.fixed', split=split)
-        #, download_config=download_config)
+        return datasets.load_dataset(super_glue,
+                                     'wsc.fixed', split=split)
+        # , download_config=download_config)
 
     def _mark_span(self, text, span_str, span_idx, mark):
         pattern_tmpl = r'^((?:\S+\s){N})(W)'
@@ -1758,7 +1870,7 @@ class SuperGLUERecord(AbstractTask):
             num_answers = len(ex["answers"])
             answers = ex["answers"] if num_answers > 0 else ["<unk>"]
             for ans in answers:
-                fmt = self.seq2seq_format([inputs],[ans], prefix)
+                fmt = self.seq2seq_format([inputs], [ans], prefix)
                 new_batch["source"].extend([fmt["source"]])
                 new_batch["target"].extend([fmt["target"]])
                 new_batch["task"].extend([self.name])
@@ -1770,6 +1882,7 @@ class SuperGLUERecord(AbstractTask):
         return dataset.map(functools.partial(self.preprocessor, prefix=prefix),
                            batched=True, remove_columns=dataset.column_names)
 
+
 class WinoGrande(AbstractTask):
     name = "winogrande"
     labels_list = ['0', '1']
@@ -1779,9 +1892,9 @@ class WinoGrande(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     labels_map = {
-            "map":{"0":"Choice1", "1":"Choice2"},
+            "map": {"0":"Choice1", "1":"Choice2"},
             # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
-            }
+        }
 
     def load_dataset(self, split):
         return datasets.load_dataset('winogrande', "winogrande_xl", split=split)
@@ -1873,8 +1986,8 @@ class AutoTask:
         if task in TASK_MAPPING:
             return TASK_MAPPING[task](config, task_args, task, tokenizer)
         raise ValueError(
-            "Unrecognized task {} for AutoTask Model.\n" + \
+            "Unrecognized task {} for AutoTask Model.\n" +
             "Task name should be one of {}.".format(task,
-                ", ".join(c for c in TASK_MAPPING.keys())
+                                                    ", ".join(c for c in TASK_MAPPING.keys())
             )
         )

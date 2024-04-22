@@ -1032,6 +1032,7 @@ def train(**kwargs):
     task_args["data_seed"] = data_args.d_seed
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
+    task_args["equal_labels"] = kwargs.setdefault("equal_labels", False)
     task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
     task_args["train_samples"] = data_args.max_train_samples
@@ -1256,7 +1257,12 @@ def train(**kwargs):
     config.prompt_tuning = adapter_args.prompt_tuning #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
-    config.compose_method = model_args.compose_method #my option
+    compose_method = model_args.compose_method #my option
+    config.compose_method = compose_method 
+    compose_target = kwargs.get("compse_target", None)
+    if compose_target is None:
+        compose_target = "prod" if compose_method in ["mwavg","mcat"] else "sum"
+    config.compose_target = compose_target 
     config.select_method = model_args.select_method #my option
     config.target_share_temperature = model_args.target_share_temperature
     config.anneal_min = model_args.anneal_min # my option
@@ -1705,7 +1711,7 @@ def train(**kwargs):
     model = modify_model_after_init(
         model, training_args, adapter_args, adapter_config)
    
-    learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", False) 
+    learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", True) 
     learn_private_prompts = kwargs.setdefault("learn_private_prompts", True) 
     if adapter_args.prompt_tuning:
         for encoder in prompt_encoders: 
@@ -1714,6 +1720,7 @@ def train(**kwargs):
                     p.requires_grad = True
                 continue
             elif encoder.is_source:
+                mylogs.bp("learn")
                 if model_args.learn_source_prompts:
                     if encoder.is_private and not learn_private_prompts:
                         continue
@@ -1752,9 +1759,9 @@ def train(**kwargs):
     ########### rrrrrr
     hit_count = kwargs.setdefault("hc", 3)
     def preprocess_function(examples, max_target_length, task_id=None):
+        mylogs.bp("data")
         model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
                                  padding=padding, truncation=True)
-        mylogs.bp("data")
         if preview == "data":
             print("sourece: %s", examples["source"][:hit_count])
             print("target: %s", examples["target"][:hit_count])
@@ -2489,6 +2496,11 @@ def train(**kwargs):
                 else:
                     num_masks = num_source_prompts
             col = 0
+            if model_args.attend_input:
+                mylogs.bp("keepinp")
+                mask = model.encoder.make_attn_mask(col, 1, mask_type + "_input")
+                mkey = str(col) + "-" + mask_type + "-input"
+                gen_masks[mkey] = mask
             if num_masked_prompts > 0 and use_source_prompts:
                 for rm in range(mask_num_start, mask_num_start + num_masks):
                     col = rm + 1
@@ -2785,6 +2797,8 @@ def train(**kwargs):
                                 if len(torch.nonzero(learned_mask)) < 1:
                                     learned_mask = model.encoder.attn_mask_orig
                                 mask_matrix = learned_mask.index_select(0, targets)
+                            if rm != "no-mask":
+                                mylogs.bp("keepinp")
                             if multi_tasking:
                                 start = 0 if model_args.attend_input else 1 
                                 if model_args.add_target is True:
@@ -2805,7 +2819,9 @@ def train(**kwargs):
                                 mlabel =map_label[mlabel] if mlabel in map_label else mlabel
                                 mlabel = mlabel.replace("com","src")
                                 mask_labels.append(mlabel)
-                                col = int(col) - 1
+                                col = int(col)
+                                if col > 0 and not model_args.attend_input:
+                                    col = col - 1
                                 if col == 1:
                                     mylogs.bp("effect")
                                 selected_cols_idx = [

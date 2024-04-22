@@ -1144,6 +1144,7 @@ class T5Stack(T5PreTrainedModel):
         self.attend_input = config.attend_input
         self.add_target = config.add_target
         self.compose_method = config.compose_method
+        self.compose_target = config.compose_target
         self.select_method = config.select_method
         self.target_share_temperature = config.target_share_temperature
         self.bias = config.bias
@@ -1432,6 +1433,11 @@ class T5Stack(T5PreTrainedModel):
                     attn_mask[i, 1:nse+1] = 1
                 elif mask_type == "rem_source":
                     attn_mask[i, 1:nse+1] = 0
+                elif mask_type == "keep_input":
+                    attn_mask[i, :] = 0
+                    attn_mask[i, 0] = 1
+                elif mask_type == "rem_input":
+                    attn_mask[i, 0] = 0
                 else:
                     to = min(nse + 1, index + num_masked_prompts)
                     if mask_type == "rem":
@@ -1964,14 +1970,14 @@ class T5Stack(T5PreTrainedModel):
            target = mask * ts * target
        
        mylogs.bp("prod")
-       if self.compose_method in ["cat","concat"]:
+       if self.compose_target in ["cat","concat"]:
            soft_prompts = torch.cat([soft_prompts, target], dim=2)
-       elif self.compose_method in ["mwavg", "mcat"] or self.out_dim != self.model_dim:
+       elif self.compose_target in ["prod"] or self.out_dim != self.model_dim:
            _soft_prompts = soft_prompts.view(-1, 
                    soft_prompts.size(-2), soft_prompts.size(-1))
            _target = target_prompts.view(-1, target.size(-2), target.size(-1))
            soft_prompts = soft_prompts * target 
-       elif self.compose_method == "mscat":
+       elif self.compose_target == "mscat":
            btsld = soft_prompts.shape
            split_index = btsld[3] // 2  # Split index for the 's' dimension
            A_split = torch.split(soft_prompts, split_index, dim=3)
@@ -1984,7 +1990,7 @@ class T5Stack(T5PreTrainedModel):
        else:
            soft_prompts = soft_prompts + target 
 
-       #if self.compose_method == "mcat":
+       #if self.compose_target == "mcat":
        #    soft_prompts = self.layer_norm(soft_prompts)
        # attn_sel_scores = torch.cat(
        #        [attn_sel_scores, target_shares.reshape(batch_size, 1, 1)], dim=-1)
