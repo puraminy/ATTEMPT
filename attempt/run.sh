@@ -94,6 +94,9 @@ fi
 if [ -n "$_lt" ]; then
    _tasks="multinli#scitail#yelp-polarity#imdb#mrpc#paws"
 fi
+if [ -n "$_mt" ]; then
+   _tasks="stsb#mrpc#rte#cola#superglue-multirc#superglue-boolq#superglue-wic#superglue-wsc.fixed#superglue-cb"
+fi
 if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli#mrpc"
 fi

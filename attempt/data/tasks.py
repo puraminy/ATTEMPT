@@ -45,6 +45,7 @@ class AbstractTask(abc.ABC):
     rel_nat = None
     samples_per_head = 1
     map_labels = True
+    labels_list = None
     labels_map = {"map": {}}  # verbelizer
     use_gen_map = False
     general_map = {
@@ -90,7 +91,7 @@ class AbstractTask(abc.ABC):
         self.prompt_set = {}
         prompt_config = {}
         self.mapping = task_args.mapping
-        if self.map_labels is True:
+        if self.labels_list is not None and self.map_labels is True:
             self.labels_map["distinct"] = {}
             for i, label in enumerate(self.labels_list):
                 self.labels_map["distinct"][label] = self.name + str(i)
@@ -306,7 +307,7 @@ class AbstractTask(abc.ABC):
             mylogs.bp("get")
             if file_name is not None:  # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + \
-                             self.name + " ----------")
+                             file_name + " ----------")
                 # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(file_name)
@@ -315,7 +316,7 @@ class AbstractTask(abc.ABC):
                 dataset = Dataset.from_pandas(df)
             elif split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
-                             self.name + " ----------")
+                             split_file + " ----------")
                 # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(split_file)
@@ -684,23 +685,24 @@ class AbstractTask(abc.ABC):
                 'target': tgt,
                 'task': self.get_id(),
                 ** extra_fields}
-        extra_fields = {}
-        extra_fields["event"] = orig_src
-        extra_fields["tail"] = tgt
-        extra_fields["sel"] = False
-        extra_fields["split"] = self.split
+        ex_fields = {}
+        ex_fields["event"] = orig_src
+        ex_fields["tail"] = tgt
+        ex_fields["sel"] = False
+        ex_fields["split"] = self.split
         src_text, tgt_text = self.fill_template(data)
-        extra_fields["query"] = src_text
-        extra_fields["resp"] = tgt_text
-        extra_fields["target_text"] = tgt_text
+        ex_fields["query"] = src_text
+        ex_fields["resp"] = tgt_text
+        ex_fields["target_text"] = tgt_text
         if not "examples" in self.counter:
             self.counter["examples"] = 1
         if self.counter["examples"] < 5:
             mylogs.vlog.info(
                 f"=========== Extra Fields | split={self.split} =========")
-            mylogs.vlog.info("%s", extra_fields)
+            mylogs.vlog.info("%s", ex_fields)
             self.counter["examples"] += 1
         mylogs.bp("format")
+        extra_fields = ex_fields # {**extra_fields, **ex_fields}
         return {'source': src_text,
                 'target': tgt_text,
                 'task': self.name,
@@ -1874,7 +1876,8 @@ class SuperGLUERecord(AbstractTask):
                 new_batch["source"].extend([fmt["source"]])
                 new_batch["target"].extend([fmt["target"]])
                 new_batch["task"].extend([self.name])
-                exf = {**fmt["extra_fields"], **{"answers": ex["answers"]}}
+                #exf = {**fmt["extra_fields"], **{"answers": ex["answers"]}}
+                exf = {"answers": ex["answers"]}
                 new_batch["extra_fields"].extend([exf])
         return new_batch
 

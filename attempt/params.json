@@ -32,7 +32,7 @@
   "ex":"exclude_tasks",
   "inc":"include_tasks",
   "extest":"exclude_from_test_tasks",
-  "incex":"include_tasks_exclude_from_test",
+  "inex":"include_tasks_exclude_from_test",
   "b":"bias",
   "ws":"warmup_steps",
   "ts":"target_share",

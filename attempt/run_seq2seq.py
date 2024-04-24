@@ -2389,7 +2389,7 @@ def train(**kwargs):
             mylogs.bp("save_image")
             y_labels = [model.encoder.prompt_names[i] for i in targets]
             y_labels = [y.replace("tar-","") for y in y_labels]
-            y_labels = [p.split("-")[0] for p in y_labels]
+            y_labels = [p.split("-")[-1] for p in y_labels]
             if not p_labels:
                 p_labels = []
                 for pl in model.encoder.prompt_names:
@@ -2545,7 +2545,7 @@ def train(**kwargs):
         if not adapter_args.prompt_tuning:
             eval_folder = training_args.output_dir
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
-                task = task.split("_")[0]
+                task = task.split("_")[-1]
                 ds_conf = data_args.test_dataset_config_name[idx]
                 ds_name = data_args.test_dataset_name[idx]
                 ds_name = "none" if not ds_name else ds_name
