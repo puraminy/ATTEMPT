@@ -153,15 +153,15 @@ def f1_score_with_invalid(predictions, targets) -> dict:
       F1 score, where any prediction != 0 or 1 is counted as wrong.
     """
     def binary_reverse(labels):
-        return ['0' if label == '1' else '1' for label in labels]
+        return ['0' if label == '1' or label.lower() == 'true' else '1' for label in labels]
 
     targets, predictions = np.asarray(targets), np.asarray(predictions)
     # Get indices of invalid predictions.
-    invalid_idx_mask = np.logical_and(predictions != '0', predictions != '1')
+    invalid_idx_mask = np.logical_and(predictions != 'False', predictions != 'True')
     # For any prediction != 0 or 1, we set the prediction to the opposite of its corresponding target.
     predictions[invalid_idx_mask] = binary_reverse(targets[invalid_idx_mask])
     try:
-        return {"f1": 100 * sklearn.metrics.f1_score(targets, predictions, pos_label='0')}
+        return {"f1": 100 * sklearn.metrics.f1_score(targets, predictions, pos_label='False')}
         #targets = targets.astype(np.int32)
         #predictions = predictions.astype(np.int32)
         #return {"f1": 100 * sklearn.metrics.f1_score(targets, predictions)}

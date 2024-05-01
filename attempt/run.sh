@@ -108,7 +108,7 @@ if [ -n "$_ot" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
 #sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
-sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#stsb"
+sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-multirc"
 if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi

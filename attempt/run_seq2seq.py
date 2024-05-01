@@ -352,7 +352,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
-        prev_save_path = exp_args["save_path"]
+        prev_save_path = exp_args.get("save_path","")
         exp_conf_name = Path(exp_conf).stem
         exp_args["conf"] = exp_conf_name
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
@@ -370,7 +370,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    mylogs.bp("start")
    experiment = experiment.replace("#","-").replace("@","-").replace(":","-")
-   if exp_conf:
+   if exp_conf and "experiment" in exp_args:
        cc = 1
        exp_name = experiment
        while exp_name == exp_args["experiment"]:
@@ -904,6 +904,11 @@ def train(**kwargs):
         if not t in exclude_from_test_tasks:
             exclude_from_test_tasks.append(t)
 
+    if exclude_from_test_tasks is None:
+        exclude_from_test_tasks = []
+    if type(exclude_from_test_tasks) != list:
+        exclude_from_test_tasks = [exclude_from_test_tasks]
+
     if exclude_tasks or include_tasks:
         tasks = []
         for t in data_args.task_name + include_tasks:
@@ -1030,6 +1035,7 @@ def train(**kwargs):
 
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
+    task_args["map_labels"] = kwargs.setdefault("map_labels", True)
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
     task_args["equal_labels"] = kwargs.setdefault("equal_labels", False)
@@ -1799,21 +1805,26 @@ def train(**kwargs):
     column_names = ['source', 'target', 'extra_fields']
     performance_metrics = {}
     task_args = dotdict(task_args.copy())
+    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
     if training_args.do_train:
         # Load datasets from files if your target datasets are not in huggingface datasets.
         train_datasets = []
         max_target_lengths = []
         for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
                 data_args.dataset_config_name):
+            n_obs = data_args.max_train_samples 
+            if dataset_name in include_exclude_tasks:
+                n_obs = inex_training_samples
             for prefix in train_prefix[dataset_name]:
                 auto_task = AutoTask.get(dataset_name,
                                          dataset_config_name,
                                          task_args=task_args, tokenizer=tokenizer)
+                print("loading train dataset for " + prefix)
                 train_ds = auto_task.get(
                         split="train",
                         split_validation_test=training_args.split_validation_test,
                         prefix=prefix,
-                        n_obs=data_args.max_train_samples, 
+                        n_obs=n_obs,
                         lang=data_args.lang_name, file_name=data_args.train_file)
                 train_datasets.append(train_ds)
 
@@ -1943,6 +1954,7 @@ def train(**kwargs):
         target_prompt_learning_rate = prompt_learning_rate 
     if private_prompt_learning_rate is None:
         private_prompt_learning_rate = prompt_learning_rate 
+    shr_prompt_params = []
     src_prompt_params = []
     tgt_prompt_params = []
     pvt_prompt_params = []
@@ -1955,15 +1967,25 @@ def train(**kwargs):
                    p for n, p in encoder.named_parameters() if p.requires_grad and n != "A"]
            if para_list: 
                if encoder.is_source and not encoder.is_private:
-                   src_prompt_params.extend(para_list)
+                   if encoder.name in source_prompts:
+                       src_prompt_params.extend(para_list)
+                   else:
+                       shr_prompt_params.extend(para_list)
                elif encoder.is_private:
                    pvt_prompt_params.extend(para_list)
                else:
-                   tgt_prompt_params.extend(para_list)
+                   tname = encoder.name.replace("tar-","")
+                   if tname in exclude_from_test_tasks:
+                       src_prompt_params.extend(para_list)
+                   else:
+                       tgt_prompt_params.extend(para_list)
 
         src_prompt_params = set(src_prompt_params)
+        shr_prompt_params = set(shr_prompt_params)
         tgt_prompt_params = set(tgt_prompt_params)
         pvt_prompt_params = set(pvt_prompt_params)
+        grouped_params.append({'params': list(shr_prompt_params), 
+            'lr': prompt_learning_rate})
         grouped_params.append({'params': list(src_prompt_params), 
             'lr': source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
@@ -2231,10 +2253,6 @@ def train(**kwargs):
         test_datasets = {}
         max_target_lengths = []
         first_ds = ""
-        if exclude_from_test_tasks is None:
-            exclude_from_test_tasks = []
-        if type(exclude_from_test_tasks) != list:
-            exclude_from_test_tasks = [exclude_from_test_tasks]
         for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, 
                 data_args.test_dataset_config_name): 
             auto_task = AutoTask.get(
@@ -2286,7 +2304,7 @@ def train(**kwargs):
                     num_beams=data_args.num_beams,
                     metric_key_prefix="test", task=task)
 
-            if gen_conf["mask_type"].startswith("no-mask"):
+            if adapter_args.prompt_tuning and gen_conf["mask_type"].startswith("no-mask"):
                 no_mask_preds[task] = (predictions, labels, metrics)
             
             mylogs.bp("gen")
@@ -2471,7 +2489,8 @@ def train(**kwargs):
         mask_num_start = 0
         if masking_list:
             gen_masks_list = []
-        prompt_names = model.encoder.prompt_names
+        if adapter_args.prompt_tuning:
+            prompt_names = model.encoder.prompt_names
         for masking in masking_list:
             gen_masks = {}
             if not "-" in masking:

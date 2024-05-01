@@ -227,6 +227,146 @@ class MatPromptEncoder(PromptEncoder):
         ret_embeds = F.embedding(index_list, running_weight)
         return ret_embeds 
 
+class ResidualBlock(torch.nn.Module):
+    def __init__(self, in_features, out_features, hsize, activation):
+        super(ResidualBlock, self).__init__()
+        self.linear1 = torch.nn.Linear(in_features, hsize)
+        self.linear2 = torch.nn.Linear(hsize, out_features)
+        self.activation = activation
+
+    def forward(self, x):
+        out = self.activation(self.linear1(x))
+        out = self.linear2(out)
+        out = x + out  # Skip connection
+        return out
+
+
+class ResidualMLPPromptEncoder(PromptEncoder):
+    enc_type = "residual_mlp"
+
+    def __init__(self, num_layers=1, hidden_size=-1,
+                 nl="gelu", out_dim=-1, in_dim=-1, **kwargs):
+        super().__init__(**kwargs)
+        embedding_dim = self.embedding_dim
+        if out_dim == -1:
+            out_dim = embedding_dim
+        if in_dim == -1:
+            in_dim = embedding_dim
+        if nl is not None:
+            if nl.lower() == "gelu":
+                activation = torch.nn.GELU()
+            elif nl.lower() == "relu":
+                activation = torch.nn.ReLU()
+            elif nl.lower() == "silu":
+                activation = torch.nn.SiLU()
+            elif nl.lower() == "elu":
+                activation = torch.nn.ELU()
+            else:
+                activation = None
+        else:
+            activation = None
+        hsize = hidden_size if hidden_size > 1 else embedding_dim // 2
+        layers = [ResidualBlock(in_dim, out_dim, hsize, activation)]
+        for _ in range(num_layers - 1):
+            layers.append(ResidualBlock(hsize, hsize, activation))
+        # layers.append(torch.nn.Linear(hsize, out_dim))
+        self.mlp = torch.nn.Sequential(*layers)
+
+    def forward_step(self, index_list, tids=None, training=True):
+        embs = self.embedding(self.net_inps)
+        running_weight = self.mlp(embs)
+        ret_embeds = F.embedding(index_list, running_weight)
+        return ret_embeds
+
+
+class ResMLP(PromptEncoder):
+    enc_type = "MLP1"
+    def __init__(self,
+                 num_layers=1,
+                 enc_type = "mlp",
+                 hidden_size=-1,
+                 in_dim=-1,
+                 out_dim=-1,
+                 nl='relu', # activation function
+                 layer_norm=False,
+                 dropout=0.0,
+                 residual=True,
+                 **kwargs):
+        super().__init__(**kwargs)
+        assert enc_type in ['MLP1', 'MLP2', 'transformer', 'LSTM', 'LSTM1', 'LSTM2']
+        assert nl in ['relu','gelu', 'tanh', 'sigm']
+
+        self.enc_type = enc_type 
+        embedding_dim = self.embedding_dim
+        if out_dim == -1:
+            out_dim = embedding_dim
+
+        if in_dim == -1:
+            in_dim = embedding_dim
+        
+        hidden_size = hidden_size if hidden_size > 1 else embedding_dim // 2
+        if enc_type not in ['LSTM', 'LSTM1', 'LSTM2', 'transformer']:
+            layers = [nn.Linear(in_dim, hidden_size)]
+
+            if nl=='relu':
+                layers.append(nn.ReLU())
+            elif nl=='gelu':
+                layers.append(nn.GELU())
+            elif nl=='tanh':
+                layers.append(nn.Tanh())
+            elif nl=='sigm':
+                layers.append(nn.Sigmoid())
+
+            layers.append(nn.Linear(hidden_size, out_dim))
+
+            if dropout>0:
+                layers.append(nn.Dropout(p=dropout))
+            if layer_norm:
+                layers.append(nn.LayerNorm(out_dim))
+
+            if enc_type=='MLP2':
+                layers = layers + layers # repeat twice
+            self.module = torch.nn.Sequential(*layers)
+
+        elif enc_type in ['LSTM1', 'LSTM2', 'LSTM']:
+            self.lstm_head = torch.nn.LSTM(input_size=in_dim,
+                                           hidden_size=in_dim // 2,
+                                           num_layers=1 if enc_type=='LSTM1' else 2,
+                                           dropout=0.05,
+                                           bidirectional=True,
+                                           batch_first=True)
+            self.mlp_head = nn.Sequential(nn.Linear(in_dim, in_dim),
+                                          nn.ReLU(),
+                                          nn.Linear(out_dim, out_dim))
+
+        elif enc_type=='transformer':
+            device = 'cuda'
+            self.encoder_layer = nn.TransformerEncoderLayer(d_model=in_dim, nhead=2, dropout=0.05).to(device)
+            self.module = nn.TransformerEncoder(self.encoder_layer, num_layers=2).to(device)
+
+        self.residual = residual
+        if self.residual:
+            print('Using skip connection in MLP')
+
+    def forward_step(self, index_list, tids=None, training=True):
+        inputs = self.embedding(self.net_inps)
+        if self.enc_type=='LSTM':
+            output_embeds = self.mlp_head(self.lstm_head(inputs)[0]).squeeze()
+        elif self.enc_type in ['LSTM1', 'LSTM2']:
+            output_embeds = self.lstm_head(inputs)[0].squeeze()
+            if self.residual:
+                output_embeds += inputs
+            running_weight = output_embeds
+
+        if self.residual:
+            running_weight = self.module(inputs) + inputs
+        else:
+            running_weight = self.module(inputs)
+
+        ret_embeds = F.embedding(index_list, running_weight)
+        return ret_embeds
+
+
 class MLPPromptEncoder(PromptEncoder):
     enc_type = "mlp"
     def __init__(self, num_layers=1, hidden_size=-1, 
@@ -250,7 +390,7 @@ class MLPPromptEncoder(PromptEncoder):
                 nlf = None 
         else:
             nlf = None 
-        hsize = hidden_size if hidden_size > 1 else embedding_dim
+        hsize = hidden_size if hidden_size > 1 else embedding_dim // 2
         layers = [torch.nn.Linear(in_dim, hsize)]
         if nlf is not None:
             layers.append(nlf)
@@ -371,8 +511,33 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
             non_linear = _enc_type[3]
 
         # assert False, str(num_layers) + "-" + str(hidden_size) + "-" + str(non_linear)
-
-        prompt_encoder = MLPPromptEncoder(name = name,
+        if encoder_type == "mlp_res":
+            prompt_encoder = ResidualMLPPromptEncoder(name = name,
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens, 
+                length = length,
+                nl = non_linear,
+                in_dim = in_dim,
+                out_dim = out_dim,
+                is_source = is_source,
+                num_layers=num_layers, 
+                hidden_size=hidden_size)
+        elif encoder_type.startswith("mlpres"):
+            res_type = "MLP1"
+            if len(encoder_type.split("@")) > 1:
+                res_type = encoder_type.split("@")[-1]
+            prompt_encoder = ResMLP(name = name,
+                model=model, tokenizer=tokenizer,
+                prompt_tokens=prompt_tokens, 
+                length = length,
+                nl = non_linear,
+                in_dim = in_dim,
+                out_dim = out_dim,
+                is_source = is_source,
+                enc_type=res_type, 
+                hidden_size=hidden_size)
+        else:
+            prompt_encoder = MLPPromptEncoder(name = name,
                 model=model, tokenizer=tokenizer,
                 prompt_tokens=prompt_tokens, 
                 length = length,
