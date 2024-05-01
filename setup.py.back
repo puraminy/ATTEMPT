@@ -14,6 +14,15 @@ def setup_package():
         packages=setuptools.find_packages(
             exclude=['docs', 'tests', 'scripts', 'examples']),
         install_requires=[
+            'sentence-transformers==2.2.2',
+            'transformers==4.24.0',
+            'datasets==2.14.6',
+            'scikit-learn', 
+            'matplotlib==3.4.2',
+            'torch',
+            'tqdm==4.65.0', 
+            'deepdiff',
+            'rouge_score'
         ],
     )
 

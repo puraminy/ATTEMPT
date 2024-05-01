@@ -34,13 +34,52 @@ import time
 import json
 from tqdm import tqdm
 # from comet.utils.myutils import *
-from attempt.utils.utils import combine_x,combine_y,add_margin
+#from attempt.utils.utils import combine_x,combine_y,add_margin
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
-import sklearn
-import sklearn.metrics
-import attempt.metrics.metrics as mets
+#import sklearn
+#import sklearn.metrics
+#import attempt.metrics.metrics as mets
+
+def combine_x(images):
+    widths, heights = zip(*(i.size for i in images))
+
+    total_width = sum(widths)
+    max_height = max(heights)
+
+    new_im = Image.new('RGB', (total_width, max_height),(255, 255, 255))
+
+    x_offset = 0
+    for im in images:
+      new_im.paste(im, (x_offset,0))
+      x_offset += im.size[0]
+
+    return new_im
+
+def combine_y(images):
+    widths, heights = zip(*(i.size for i in images))
+
+    total_width = max(widths)
+    max_height = sum(heights)
+
+    new_im = Image.new('RGB', (total_width, max_height),(255, 255, 255) )
+
+    y_offset = 0
+    for im in images:
+      new_im.paste(im, (0, y_offset))
+      y_offset += im.size[1]
+
+    return new_im
+
+def add_margin(pil_img, top, right, bottom, left, color):
+    width, height = pil_img.size
+    new_width = width + right + left
+    new_height = height + top + bottom
+    result = Image.new(pil_img.mode, (new_width, new_height), color)
+    result.paste(pil_img, (left, top))
+    return result
+
 
 
 warnings.simplefilter(action='ignore', category=Warning)
@@ -2240,10 +2279,10 @@ def show_df(df, summary=False):
                 comp_path = "/home/ahmad/temp/" + dest_folder
                 if dest_folder and Path(comp_path).exists():
                     shutil.rmtree(comp_path)
-                    cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'rm /home/ahmad/temp/{dest_folder}/*'"
+                    cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'rm /home/ahmad/temp/{dest_folder}/*'"
                     os.system(cmd)
                 Path(comp_path).mkdir(parents=True, exist_ok=True)
-                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.2 'mkdir -p /home/ahmad/temp/{dest_folder}'"
+                cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'mkdir -p /home/ahmad/temp/{dest_folder}'"
                 os.system(cmd)
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
@@ -2294,7 +2333,7 @@ def show_df(df, summary=False):
                     correct_path(js, dest, path)
                     mbeep()
                     if char in ["U", "Y"]:
-                        to = "ahmad@10.42.0.2:" + dest 
+                        to = "ahmad@10.42.0.210:" + dest 
                         cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
                         os.system(cmd)
                     # subprocess.run(cmd.split())
