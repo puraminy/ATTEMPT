@@ -115,6 +115,15 @@ fi
 if [ -n "$_at" ]; then
    _tasks="${_tasks}#xAttr#xReact#xNeed#oWant#xWant#xIntent#isAfter#isBefore"
 fi
+if [ -n "$_apt" ]; then
+   _tasks="${_tasks}oWant#xWant#xIntent#xNeed"
+fi
+if [ -n "$_amt" ]; then
+   _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect"
+fi
+if [ -n "$_aft" ]; then
+   _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
+fi
 if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
 fi

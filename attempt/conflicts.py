@@ -41,7 +41,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert model_args.attn_tuning, " This option works for attention tuninng"
             if model_args.add_target is True:
                 assert model_args.attn_tuning is True, " This option works for attention tuninng"
-                assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts or kwargs.source_prompts or kwargs.use_prompt_set or kwargs.source_per_task, "add target needs source prompts"
+                # assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts or kwargs.source_prompts or kwargs.use_prompt_set or kwargs.source_per_task or not kwargs.use_source_prompts, "add target needs source prompts"
             if model_args.attend_target is True:
                 assert model_args.attn_tuning, " attend target True is for attention tuninng"
                 assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts or kwargs.source_prompts or kwargs.use_prompt_set, "add target needs source prompts"

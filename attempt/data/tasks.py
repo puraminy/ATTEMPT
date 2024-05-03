@@ -42,6 +42,7 @@ class AbstractTask(abc.ABC):
     do_split = False
     labels_list = None
     pcounter = 0
+    df_load = False
     rel_nat = None
     samples_per_head = 1
     map_labels = True
@@ -318,7 +319,15 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             mylogs.bp("get")
-            if file_name is not None:  # and split == "test":
+            if self.df_load:
+                mylogs.minfo("------------- LOADING DATA FRAME :" + \
+                             self.name + " ----------")
+                dataset = self.load_dataset(split=mapped_split)
+                if not Path(split_file).is_file():
+                    self.save_dataset(dataset, split_file)
+                if n_obs is not None:
+                    dataset = self.subsample(dataset, n_obs)
+            elif file_name is not None:  # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + \
                              file_name + " ----------")
                 # dataset = datasets.load_dataset(
@@ -1073,6 +1082,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
+    df_load = True
     samples_per_head = 3
     rels = []
     split_to_data_name = {"train": "atomic", "test":"atomic"}
