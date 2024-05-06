@@ -49,8 +49,7 @@
     "expid",
     "label",
     "compose_method",
-    "norm_method",
-    "mask_type"
+    "max_train_samples"
   ],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]

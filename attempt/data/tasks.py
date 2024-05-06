@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/datasets/super_glue.py"
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
@@ -76,6 +81,13 @@ class AbstractTask(abc.ABC):
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
+        if config is not None:
+            cpath = op.join(mylogs.home, "datasets", task, config + ".json")
+            if Path(cpath).is_file() and task_args.use_config:
+                with open(cpath) as f:
+                    targs = json.load(f)
+                task_args = {**task_args, **targs}
+                task_args = dotdict(task_args)
         self.data_path = task_args.data_path
         self.seed = task_args.data_seed
         self.template = task_args.template
@@ -214,8 +226,6 @@ class AbstractTask(abc.ABC):
         else:
             ds_name = self.name
         path = op.join(path, ds_name)
-        # if split == "test":
-        #    path = op.join(path, self.config)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
         file_path = op.join(path, split + '.tsv')
@@ -1197,7 +1207,8 @@ class Atomic(AbstractTask):
     def filter(self, df, split):
         cond = ""
         mylogs.bp("filter")
-        df = df[~df["target_text"].str.contains('none', na=False)]
+        df = df[~df["target_text"].str.contains('none', na=False) 
+                & (df["target_text"].str.len() >= 3)]
         for val in self.rels:
             cond += f"| (df['prefix'] == '{val}') "
         cond = cond.strip("|")
@@ -1264,10 +1275,7 @@ class AtomicRel(Atomic):
         self.split = split
         if not path.startswith("/"):
             path = op.join(mylogs.home, self.data_path)
-        if split == "test":
-            path = op.join(path, self.config, 'test.tsv')
-        else:
-            path = op.join(path, split + '.tsv')
+        path = op.join(path, split + '.tsv')
         return path
 
     def preprocessor(self, example, prefix):

@@ -1142,7 +1142,9 @@ class T5Stack(T5PreTrainedModel):
         self.use_source_prompts = config.use_source_prompts
         self.ignore_private = config.ignore_private
         self.attend_input = config.attend_input
+        self.add_input = config.add_input
         self.add_target = config.add_target
+        self.random_source = config.random_source
         self.compose_method = config.compose_method
         self.compose_target = config.compose_target
         self.select_method = config.select_method
@@ -1534,6 +1536,10 @@ class T5Stack(T5PreTrainedModel):
 
         batch_size = inputs_embeds.shape[0]
         private_prompt = None
+        avg_inputs_embeds = None
+        if self.attend_input or self.add_input:
+            pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
+            avg_inputs_embeds = pool2(inputs_embeds.permute(0,2,1)).permute(0,2,1)
         if self.use_private_prompts:
             private_prompt = src_prompts[:,-1,:,:]
             if self.attend_for == "private": 
@@ -1541,8 +1547,6 @@ class T5Stack(T5PreTrainedModel):
                 attend_to = src_prompts[:,:-1,:,:]
         if self.attend_input:
             #avg_inputs_embeds = avg_inputs_embeds.unsqueeze(1)
-            pool2 = torch.nn.AdaptiveMaxPool1d(self.src_prompt_dim)
-            avg_inputs_embeds = pool2(inputs_embeds.permute(0,2,1)).permute(0,2,1)
             src_prompts[:,0,:,:] = avg_inputs_embeds
             attend_to = src_prompts
         else:
@@ -1752,6 +1756,17 @@ class T5Stack(T5PreTrainedModel):
             pass
 
         target_shares = torch.ones(1, batch_size, device=device)
+
+        if self.random_source > 0:
+            num_cols = attn_sel_scores.size(-1)  
+            num_selected_cols = self.random_source  # Number of random columns to select
+            selected_cols_indices = random.sample(range(num_cols), num_selected_cols)
+
+            attn_sel_scores = attn_sel_scores[:, :, selected_cols_indices]
+            ttend_to_x = attend_to_x[:, :, selected_cols_indices, :, :]
+
+
+        
         if self.norm_method == "nothing":
             if self.attn_method == "const":
                 assert torch.all(attn_sel_scores == 1), "Attention scores must be all one"
@@ -1908,6 +1923,10 @@ class T5Stack(T5PreTrainedModel):
             x = self.attn_W_up(x)
             # x = self.layer_norm(x)
             soft_prompts = x.reshape(batch_size, num_targets,-1, self.model_dim) 
+
+        if self.add_input:
+            mylogs.bp("adinp")
+            soft_prompts = avg_inputs_embeds.unsqueeze(1) + soft_prompts 
         return soft_prompts, attn_sel_scores, attend_to_idx
 
     def add_target_prompts(self, target_prompts, soft_prompts, 

@@ -82,6 +82,9 @@ fi
 if [ -n "$_ast" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant"
 fi
+if [ -n "$_asst" ]; then
+   _tasks="xAttr#xIntent#xWant"
+fi
 if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
 fi
