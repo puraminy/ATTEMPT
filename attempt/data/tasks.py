@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/datasets/super_glue.py"
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
@@ -42,6 +47,7 @@ class AbstractTask(abc.ABC):
     do_split = False
     labels_list = None
     pcounter = 0
+    df_load = False
     rel_nat = None
     samples_per_head = 1
     map_labels = True
@@ -66,14 +72,22 @@ class AbstractTask(abc.ABC):
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
+    large_data_without_all_splits = []
     # small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
     #                                     "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
     #                                     "superglue-boolq", "xsum", "scitail"]
-    large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
-                                     "amazon-polarity", "yelp-polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
+    #large_data_without_all_splits = ["qqp", "qnli", "superglue-record", "sst2", "squad", "snli", "anli",
+    #                                 "amazon-polarity", "yelp-polarity", "winogrande", "newsqa", "searchqa", "triviaqa", "nq", "hotpotqa"]
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
+        if config is not None:
+            cpath = op.join(mylogs.home, "datasets", task, config + ".json")
+            if Path(cpath).is_file() and task_args.use_config:
+                with open(cpath) as f:
+                    targs = json.load(f)
+                task_args = {**task_args, **targs}
+                task_args = dotdict(task_args)
         self.data_path = task_args.data_path
         self.seed = task_args.data_seed
         self.template = task_args.template
@@ -101,6 +115,7 @@ class AbstractTask(abc.ABC):
         prompt_config["length"] = task_args.prompt_length
         prompt_config["target_length"] = task_args.target_prompt_length
         prompt_config["fixed_length"] = task_args.fixed_lenght_prompt
+        self.map_labels = self.map_labels and task_args.map_labels
         self.multi_choice = task_args.multi_choice
         self.map_style = task_args.map_style
         if self.map_style == "gen" and self.use_gen_map is True:
@@ -144,13 +159,18 @@ class AbstractTask(abc.ABC):
     def sample_equally_from_labels(self, dataset, n_obs):
         # Step 1: Count label distribution in the dataset
         label_counts = defaultdict(list)
-        for idx in range(len(dataset)):
+        all_indices = self.shuffled_indices(dataset) 
+        ii = 0
+        for idx in all_indices:
             sample = dataset[idx]
             # Replace 'label' with your actual label field
             label = sample['label']
             if type(label) == float: 
                 label = round(label)
             label_counts[label].append(idx)
+            ii += 1
+            if ii > 500 and n_obs < 100:
+                break
 
         # Step 2: Determine target number of samples per label
         num_labels = len(label_counts)
@@ -165,6 +185,10 @@ class AbstractTask(abc.ABC):
                 sampled_indices.extend(
                     random.sample(indices, samples_per_label))
 
+        rest = n_obs - len(sampled_indices)
+        if rest > 0:
+            rest_indices = random.sample(all_indices, rest)
+            sampled_indices.extend(rest_indices)
         # Shuffle the sampled indices
         random.shuffle(sampled_indices)
 
@@ -184,7 +208,7 @@ class AbstractTask(abc.ABC):
         num_samples = len(dataset)
         n_obs = self.check_n_obs(n_obs, num_samples)
         mylogs.bp("filter")
-        if self.equal_labels:
+        if self.equal_labels and n_obs < 1000:
             ds = self.sample_equally_from_labels(dataset, n_obs)
             return ds
         if indices is None:
@@ -202,8 +226,6 @@ class AbstractTask(abc.ABC):
         else:
             ds_name = self.name
         path = op.join(path, ds_name)
-        # if split == "test":
-        #    path = op.join(path, self.config)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
         file_path = op.join(path, split + '.tsv')
@@ -240,14 +262,16 @@ class AbstractTask(abc.ABC):
         # half, use one half as test set and one half as validation set.
         self.split = split
         mylogs.bp("get")
+        assert type(prefix) != list, prefix 
+        print("getting samples ... " + prefix)
         file_path = self.get_data_path(split)
         directory = os.path.dirname(file_path)
         tname = Path(directory).stem
-        fname = tname + "_" + split
-        if self.equal_labels:
-            fname += "_eq"
         extension = ".csv"
+        fname = tname + "_" + split
         split_file = os.path.join(directory, fname + extension)
+        if self.equal_labels and split != "test":
+            fname += "_eq"
         obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
         if split == "train":
             if obs_str != "all":
@@ -305,7 +329,15 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             mylogs.bp("get")
-            if file_name is not None:  # and split == "test":
+            if self.df_load:
+                mylogs.minfo("------------- LOADING DATA FRAME :" + \
+                             self.name + " ----------")
+                dataset = self.load_dataset(split=mapped_split)
+                if not Path(split_file).is_file():
+                    self.save_dataset(dataset, split_file)
+                if n_obs is not None:
+                    dataset = self.subsample(dataset, n_obs)
+            elif file_name is not None:  # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + \
                              file_name + " ----------")
                 # dataset = datasets.load_dataset(
@@ -652,7 +684,8 @@ class AbstractTask(abc.ABC):
                 assert label in self.labels_map[self.mapping], self.name + ":" + label \
                     + ":" + str(self.labels_map)
                 # tt.append("<" + self.labels_map[label] + ">")
-                tt.append(self.labels_map[self.mapping][label])
+                ans = self.labels_map[self.mapping][label]
+                tt.append(ans.strip())
             targets = tt
         else:
             labels_list = self.labels_list
@@ -691,6 +724,8 @@ class AbstractTask(abc.ABC):
         ex_fields["sel"] = False
         ex_fields["split"] = self.split
         src_text, tgt_text = self.fill_template(data)
+        src_text = src_text.strip()
+        tgt_text = tgt_text.strip()
         ex_fields["query"] = src_text
         ex_fields["resp"] = tgt_text
         ex_fields["target_text"] = tgt_text
@@ -1057,6 +1092,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
+    df_load = True
     samples_per_head = 3
     rels = []
     split_to_data_name = {"train": "atomic", "test":"atomic"}
@@ -1171,7 +1207,8 @@ class Atomic(AbstractTask):
     def filter(self, df, split):
         cond = ""
         mylogs.bp("filter")
-        df = df[~df["target_text"].str.contains('none', na=False)]
+        df = df[~df["target_text"].str.contains('none', na=False) 
+                & (df["target_text"].str.len() >= 3)]
         for val in self.rels:
             cond += f"| (df['prefix'] == '{val}') "
         cond = cond.strip("|")
@@ -1238,10 +1275,7 @@ class AtomicRel(Atomic):
         self.split = split
         if not path.startswith("/"):
             path = op.join(mylogs.home, self.data_path)
-        if split == "test":
-            path = op.join(path, self.config, 'test.tsv')
-        else:
-            path = op.join(path, split + '.tsv')
+        path = op.join(path, split + '.tsv')
         return path
 
     def preprocessor(self, example, prefix):
@@ -1690,7 +1724,7 @@ class SuperGLUECOPA(AbstractTask):
 
 class SuperGLUEMultiRC(AbstractTask):
     name = "superglue-multirc"
-    map_labels = False
+    map_labels = True
     labels_list = ['0', '1']
     split_to_data_split = {"train": "train",
                            "validation": "validation",
@@ -1900,12 +1934,12 @@ class WinoGrande(AbstractTask):
         }
 
     def load_dataset(self, split):
-        return datasets.load_dataset('winogrande', "winogrande_xl", split=split)
+        return datasets.load_dataset('/home/ahmad/datasets/winogrande/winogrande.py', "winogrande_xl", split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["sentence:", example["sentence"],
-                     "Choice1:", example["option0"],
-                     "Choice2:", example["option1"]]
+                     "Choice1:", example["option1"],
+                     "Choice2:", example["option2"]]
         tgt_texts = [str(int(example["answer"]) - 1)]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 

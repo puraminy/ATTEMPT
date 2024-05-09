@@ -352,7 +352,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
-        prev_save_path = exp_args["save_path"]
+        prev_save_path = exp_args.get("save_path","")
         exp_conf_name = Path(exp_conf).stem
         exp_args["conf"] = exp_conf_name
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
@@ -370,7 +370,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    mylogs.bp("start")
    experiment = experiment.replace("#","-").replace("@","-").replace(":","-")
-   if exp_conf:
+   if exp_conf and "experiment" in exp_args:
        cc = 1
        exp_name = experiment
        while exp_name == exp_args["experiment"]:
@@ -646,6 +646,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        #    output_dir = exp_args["output_dir"]
        if not merge:
            ee = round(float(args["expid"]))
+           eee = ee
            _output_dir = label + "-" + str(ee)
            _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
@@ -660,9 +661,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    _output_dir = label + str(ee)
                    output_dir = os.path.join(save_path, _output_dir)
            if label:
-               args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(ee)
+               args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(eee)
            else:
-               args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
+               args["expid"] = experiment.split("/")[-1] + "-" + str(eee)
        if repeat:
           args["expid"] += "-rep"
        args["output_dir"] = "%" + output_dir 
@@ -875,11 +876,29 @@ def train(**kwargs):
             print(exp_conf, file=f)
     mylogs.bp("conf")
 
+    #  dataset configs
+    ds_confs = kwargs.setdefault("ds_config", ["conf"])
+    if type(ds_confs) != list:
+        ds_confs = [ds_confs]
+
+    ds_combs = itertools.product(data_args.task_name, ds_confs)
+    _tasks = []
+    _confs = []
+    for comb in ds_combs:
+        _tasks.append(comb[0])
+        _confs.append(comb[1])
+
+    data_args.task_name = _tasks
+    data_args.dataset_config_name = _confs
+    data_args.eval_dataset_config_name = _confs
+    data_args.test_dataset_config_name = _confs
+
     trainer_shuffle = kwargs.setdefault("trainer_shuffle", False)
     bp = kwargs.setdefault("break_point","")
     # set other options
     if type(data_args.task_name) != list:
         data_args.task_name = [data_args.task_name]
+
     exclude_tasks = kwargs.setdefault("exclude_tasks", []) 
     if exclude_tasks is None:
         exclude_tasks = []
@@ -903,6 +922,11 @@ def train(**kwargs):
             include_tasks.append(t)
         if not t in exclude_from_test_tasks:
             exclude_from_test_tasks.append(t)
+
+    if exclude_from_test_tasks is None:
+        exclude_from_test_tasks = []
+    if type(exclude_from_test_tasks) != list:
+        exclude_from_test_tasks = [exclude_from_test_tasks]
 
     if exclude_tasks or include_tasks:
         tasks = []
@@ -938,7 +962,7 @@ def train(**kwargs):
         test_prefix[tname] = test_prefix_list 
 
     cross_prefix = kwargs.get("cross_prefix", None)
-    if cross_prefix is not None:
+    if cross_prefix:
         ctasks = cross_prefix
         if cross_prefix == "all": 
             ctasks = task_names
@@ -965,6 +989,7 @@ def train(**kwargs):
         rel_sh = REL_TO_SHARED_TOKENS[task_name] if task_name in REL_TO_SHARED_TOKENS else task_name
         task_source_prompts_set[tid].extend(rel_sh.split())
 
+    add_or_attend_input = model_args.attend_input or kwargs.get("add_input", False)
     nsp = 0
     inp_nsp = kwargs.setdefault("num_source_prompts", nsp) 
     source_per_task = kwargs.setdefault("source_per_task", False) 
@@ -995,7 +1020,7 @@ def train(**kwargs):
             num_target_prompts = 1
         if model_args.attend_target and ntp == 0:
             num_target_prompts += 1
-        if model_args.attend_input and ntp == 0:
+        if add_or_attend_input and ntp == 0:
             num_target_prompts += 1
         if use_private_prompts and ntp == 0:
             num_target_prompts += 1
@@ -1030,8 +1055,10 @@ def train(**kwargs):
 
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
+    task_args["map_labels"] = kwargs.setdefault("map_labels", True)
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
+    task_args["use_config"] = kwargs.setdefault("use_config", True)
     task_args["equal_labels"] = kwargs.setdefault("equal_labels", False)
     task_args["map_style"] = kwargs.setdefault("map_style", "map")
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
@@ -1053,30 +1080,11 @@ def train(**kwargs):
     # an option to explicitly specify the method of training 
     # (pt: prompt-tuning, ft:fine-tuning, px:prefix-tuning etc.)
     method = kwargs.setdefault("method", "")
-    ds_confs = kwargs.setdefault("ds_config", ["en"])
-    n_tasks = len(data_args.task_name)
-    _confs =["en"] * n_tasks
-    for i,c in enumerate(ds_confs):
-        _confs[i] = ds_confs[i]
     if kwargs.setdefault("adjust_epochs", True) and data_args.max_train_samples <= 10:
         num_epochs = training_args.num_train_epochs
         num_epochs *= 2
         training_args.num_train_epochs = num_epochs
     
-    data_args.dataset_config_name = _confs
-    data_args.eval_dataset_config_name = _confs
-
-    test_ds_confs = kwargs.setdefault("test_ds_config", ["test"])
-    test_ds_names = data_args.test_dataset_name
-    mylogs.bp("conf")
-    test_combs = itertools.product(test_ds_confs, test_ds_names)
-    _confs = []
-    _names = []
-    for c, n in test_combs:
-        _confs.append(c)
-        _names.append(n)
-    data_args.test_dataset_name = _names
-    data_args.test_dataset_config_name = _confs
 
     #if type(data_args.task_name) == list:
     #    model_args.multi_task = True
@@ -1201,9 +1209,9 @@ def train(**kwargs):
     tasks = data_args.task_name
     mylogs.bp("steps")
     total_samples = 0
-    for ti, task_name in enumerate(tasks, start=1):
+    for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
          t_args = dotdict(task_args.copy())
-         task = AutoTask.get(task_name, None, task_args=t_args, tokenizer= None)
+         task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer= None)
          total_samples += data_args.max_train_samples * task.samples_per_head
 
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
@@ -1280,10 +1288,12 @@ def train(**kwargs):
     config.attend_for = kwargs.setdefault("attend_for", "inp_target")
     config.use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     config.attend_input = model_args.attend_input #my option
+    config.add_input = kwargs.setdefault("add_input", False)
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
     config.bias = kwargs.setdefault("bias", None)
     config.add_target = model_args.add_target #my option
+    config.random_source = kwargs.setdefault("random_source", True)
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
     norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
@@ -1468,10 +1478,10 @@ def train(**kwargs):
         task_source_prompts_set ={}
         label_tokens = []
         #  tttttttttttt
-        for ti, task_name in enumerate(tasks, start=1):
+        for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
              task_args["id"] = ti
              t_args = dotdict(task_args.copy())
-             task = AutoTask.get(task_name, None, task_args=t_args, tokenizer=tokenizer)
+             task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer=tokenizer)
              p = task.get_prompts()
              # label_tokens.extend(task.get_label_list())
              prompts = {**prompts, **p}
@@ -1740,8 +1750,6 @@ def train(**kwargs):
     mylogs.bp("freeze")
 
     data_args.dataset_name = data_args.task_name
-    data_args.eval_dataset_name = data_args.eval_dataset_name
-    data_args.test_dataset_name = data_args.test_dataset_name
     data_args.dataset_config_name = data_args.dataset_config_name
     data_args.eval_dataset_config_name = data_args.eval_dataset_config_name
     data_args.test_dataset_config_name = data_args.test_dataset_config_name
@@ -1799,21 +1807,26 @@ def train(**kwargs):
     column_names = ['source', 'target', 'extra_fields']
     performance_metrics = {}
     task_args = dotdict(task_args.copy())
+    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
     if training_args.do_train:
         # Load datasets from files if your target datasets are not in huggingface datasets.
         train_datasets = []
         max_target_lengths = []
         for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
                 data_args.dataset_config_name):
+            n_obs = data_args.max_train_samples 
+            if dataset_name in include_exclude_tasks:
+                n_obs = inex_training_samples
             for prefix in train_prefix[dataset_name]:
                 auto_task = AutoTask.get(dataset_name,
                                          dataset_config_name,
                                          task_args=task_args, tokenizer=tokenizer)
+                print("loading train dataset for " + prefix)
                 train_ds = auto_task.get(
                         split="train",
                         split_validation_test=training_args.split_validation_test,
                         prefix=prefix,
-                        n_obs=data_args.max_train_samples, 
+                        n_obs=n_obs,
                         lang=data_args.lang_name, file_name=data_args.train_file)
                 train_datasets.append(train_ds)
 
@@ -1943,6 +1956,7 @@ def train(**kwargs):
         target_prompt_learning_rate = prompt_learning_rate 
     if private_prompt_learning_rate is None:
         private_prompt_learning_rate = prompt_learning_rate 
+    shr_prompt_params = []
     src_prompt_params = []
     tgt_prompt_params = []
     pvt_prompt_params = []
@@ -1955,15 +1969,25 @@ def train(**kwargs):
                    p for n, p in encoder.named_parameters() if p.requires_grad and n != "A"]
            if para_list: 
                if encoder.is_source and not encoder.is_private:
-                   src_prompt_params.extend(para_list)
+                   if encoder.name in source_prompts:
+                       src_prompt_params.extend(para_list)
+                   else:
+                       shr_prompt_params.extend(para_list)
                elif encoder.is_private:
                    pvt_prompt_params.extend(para_list)
                else:
-                   tgt_prompt_params.extend(para_list)
+                   tname = encoder.name.replace("tar-","")
+                   if tname in exclude_from_test_tasks:
+                       src_prompt_params.extend(para_list)
+                   else:
+                       tgt_prompt_params.extend(para_list)
 
         src_prompt_params = set(src_prompt_params)
+        shr_prompt_params = set(shr_prompt_params)
         tgt_prompt_params = set(tgt_prompt_params)
         pvt_prompt_params = set(pvt_prompt_params)
+        grouped_params.append({'params': list(shr_prompt_params), 
+            'lr': prompt_learning_rate})
         grouped_params.append({'params': list(src_prompt_params), 
             'lr': source_prompt_learning_rate})
         grouped_params.append({'params': list(tgt_prompt_params), 
@@ -2220,6 +2244,7 @@ def train(**kwargs):
     slen = len([e for e in model.prompt_encoders if e.is_source and not e.is_private]) 
     exp_info["slen"] = slen
     load_model_dir = kwargs.get("load_model_dir", training_args.output_dir)
+    use_test_config = kwargs.get("use_test_config", False)
     if reval: 
         load_model(load_model_dir, 
                 lsp=model_args.attn_tuning)
@@ -2231,19 +2256,20 @@ def train(**kwargs):
         test_datasets = {}
         max_target_lengths = []
         first_ds = ""
-        if exclude_from_test_tasks is None:
-            exclude_from_test_tasks = []
-        if type(exclude_from_test_tasks) != list:
-            exclude_from_test_tasks = [exclude_from_test_tasks]
         for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, 
                 data_args.test_dataset_config_name): 
+            if test_dataset in exclude_from_test_tasks:
+                continue
+            if not use_test_config and not test_dataset_config in ["en", "def"]:
+                continue
             auto_task = AutoTask.get(
                 test_dataset, test_dataset_config,
                 task_args=task_args, tokenizer=tokenizer)
-            if test_dataset in exclude_from_test_tasks:
-                continue
             for prefix in test_prefix[test_dataset]:
-                ds_key = test_dataset + "_" + prefix
+                if use_test_config:
+                    ds_key = test_dataset + "_" + test_dataset_config + "_" + prefix
+                else:
+                    ds_key = test_dataset  + "_" + prefix
                 if first_ds == "": first_ds = ds_key
                 test_datasets[ds_key]= auto_task.get(
                         split="test",
@@ -2267,7 +2293,7 @@ def train(**kwargs):
                 load_from_cache_file=not data_args.overwrite_cache,
             )
 
-        if has_extra:
+        if has_extra and first_ds:
             data_info["test"] = test_datasets[first_ds]['extra_fields'] if training_args.do_test else None
         logger.info("*** Test ***")
         
@@ -2286,7 +2312,7 @@ def train(**kwargs):
                     num_beams=data_args.num_beams,
                     metric_key_prefix="test", task=task)
 
-            if gen_conf["mask_type"].startswith("no-mask"):
+            if adapter_args.prompt_tuning and gen_conf["mask_type"].startswith("no-mask"):
                 no_mask_preds[task] = (predictions, labels, metrics)
             
             mylogs.bp("gen")
@@ -2410,7 +2436,10 @@ def train(**kwargs):
             
             x_labels = y_labels
             if not square:
-                if p_labels: x_labels = p_labels 
+                if p_labels: 
+                    x_labels = p_labels 
+            if add_or_attend_input:
+                x_labels.insert(0, "inp")
             img_buf = WBCallback.save_image(
                 scores=list(score_dict.values()), 
                 cbar=False,
@@ -2471,7 +2500,8 @@ def train(**kwargs):
         mask_num_start = 0
         if masking_list:
             gen_masks_list = []
-        prompt_names = model.encoder.prompt_names
+        if adapter_args.prompt_tuning:
+            prompt_names = model.encoder.prompt_names
         for masking in masking_list:
             gen_masks = {}
             if not "-" in masking:
@@ -2496,7 +2526,7 @@ def train(**kwargs):
                 else:
                     num_masks = num_source_prompts
             col = 0
-            if model_args.attend_input:
+            if add_or_attend_input:
                 mylogs.bp("keepinp")
                 mask = model.encoder.make_attn_mask(col, 1, mask_type + "_input")
                 mkey = str(col) + "-" + mask_type + "-input"
@@ -2742,7 +2772,7 @@ def train(**kwargs):
                                                 + " | {:.2f}".format(mean_score))
                             tlen = router_scores.size(0)
                             if multi_tasking:
-                                start = 0 if model_args.attend_input else 1 
+                                start = 0 if add_or_attend_input else 1 
                                 router_scores = router_scores[:,start:slen+tlen + 1]
                             save_image(eval_folder, model, {"router":router_scores}, 
                                         spec = norm_method + "-" + str(gmin) \
@@ -2771,14 +2801,14 @@ def train(**kwargs):
 
                             scores_matrix = scores_matrix.round(decimals=2)
                             if multi_tasking:
-                                start = 0 if model_args.attend_input else 1 
+                                start = 0 if add_or_attend_input else 1 
                                 if model_args.add_target is True:
                                     scores_matrix = scores_matrix[:,start:]
                                 else:
                                     scores_matrix = scores_matrix[:,start:slen+tlen + 1]
 
                             #if len(torch.nonzero(scores_matrix)) < 1:
-                            #    start = slen if model_args.attend_input else slen + 1 
+                            #    start = slen if add_or_attend_input else slen + 1 
                             #    scores_matrix[:tlen, start: start + tlen +1] = torch.eye(tlen)
                             save_image(eval_folder, model, {"score":scores_matrix}, 
                                         spec = norm_method + "-" + str(gmin) \
@@ -2800,7 +2830,7 @@ def train(**kwargs):
                             if rm != "no-mask":
                                 mylogs.bp("keepinp")
                             if multi_tasking:
-                                start = 0 if model_args.attend_input else 1 
+                                start = 0 if add_or_attend_input else 1 
                                 if model_args.add_target is True:
                                     mask_matrix = mask_matrix[:,start:]
                                 else:
@@ -2820,7 +2850,7 @@ def train(**kwargs):
                                 mlabel = mlabel.replace("com","src")
                                 mask_labels.append(mlabel)
                                 col = int(col)
-                                if col > 0 and not model_args.attend_input:
+                                if col > 0 and not add_or_attend_input:
                                     col = col - 1
                                 if col == 1:
                                     mylogs.bp("effect")
@@ -2928,7 +2958,7 @@ def train(**kwargs):
                             + "_" + model_args.attn_method,
                     img_h=6.5 if multi_tasking else 2.5,
                     df=None) 
-                if img_buf:
+                if img_buf and False:
                     cur_img = Image.open(img_buf)
                     #tags_img = tag_to_image(da, get_image=True)
                     #cur_img = combine_x([tags_img, cur_img])

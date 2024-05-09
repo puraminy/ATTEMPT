@@ -82,6 +82,9 @@ fi
 if [ -n "$_ast" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant"
 fi
+if [ -n "$_asst" ]; then
+   _tasks="xAttr#xIntent#xWant"
+fi
 if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
 fi
@@ -108,12 +111,21 @@ if [ -n "$_ot" ]; then
    _tasks="${_tasks}#multinli#piqa#newsqa#searchqa#triviaqa#nq#hotpotqa#social_i_qa#commonsense_qa#winogrande#scitail#yelp_polarity#tweet-eval#imdb"
 fi
 #sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-rte#superglue-copa"
-sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#stsb"
+sgtasks="superglue-wsc.fixed#superglue-wic#superglue-boolq#superglue-cb#superglue-multirc"
 if [ -n "$_sgt" ]; then
    _tasks="${_tasks}#${sgtasks}"
 fi
 if [ -n "$_at" ]; then
    _tasks="${_tasks}#xAttr#xReact#xNeed#oWant#xWant#xIntent#isAfter#isBefore"
+fi
+if [ -n "$_apt" ]; then
+   _tasks="${_tasks}oWant#xWant#xIntent#xNeed"
+fi
+if [ -n "$_amt" ]; then
+   _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect"
+fi
+if [ -n "$_aft" ]; then
+   _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
 fi
 if [ -n "$_aft" ]; then
    _tasks="${_tasks}#xAttr#xReact#oReact#xEffect#oEffect#oWant#xWant#xIntent#xNeed"
