@@ -8,12 +8,17 @@
     "expname",
     "prefix"
   ],
+  "ex_cols":[
+    "trial",
+    "temperature"
+  ],
   "rep_cols":[
     "expid",
     "expname",
     "folder",
     "output_dir",
     "max_train_samples",
+    "template",
     "time",
     "use_private_prompts",
     "load_source_prompts",
@@ -21,7 +26,9 @@
     "use_private_prompts",
     "use_source_prompts",
     "learn_source_prompts",
+    "load_prompts",
     "add_target",
+    "num_train_epochs",
     "d_seed",
     "trial"
   ],
@@ -47,10 +54,12 @@
   ],
   "index_cols":[
     "expid",
-    "label",
-    "compose_method",
-    "norm_method",
-    "mask_type"
+    "template",
+    "prompt_encoder_type",
+    "num_train_epochs",
+    "model_name_or_path",
+    "max_train_samples",
+    "num_prompt_tokens"
   ],
   "score_cols_m":["m_score"],
   "score_cols":["rouge_score","num_preds"]

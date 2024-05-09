@@ -432,13 +432,14 @@ def summarize(df):
         sel_cols = all_cols['sel_cols'] 
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
+        exclude_cols = all_cols['ex_cols'] if "ex_cols" in all_cols else []
     if "compose_method" in df:
         rep_cols = rep_cols + extra_cols
     if not "compose_method" in df:
         df["compose_method"] = "PT"
 
     rels = df["prefix"].unique()
-    if "xAttr" in rels:
+    if "xAttr" in rels or "xWant" in rels or any("xAttr" in rel for rel in rels):
         score_cols = ['rouge_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
@@ -449,6 +450,8 @@ def summarize(df):
     _agg = {}
     _rep_cols = []
     for c in rep_cols: 
+        if not c in mdf:
+            continue
         if c in score_cols: # or c in ["d_seed", "max_train_samples"]: 
             _agg[c] = "mean"
         elif c.endswith("score"): 
@@ -625,6 +628,8 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
     ii = 0
     dfs_val = {}
     for s_row in s_rows:
+        if s_row > len(df) - 1:
+            continue
         exp=df.iloc[s_row]["fid"]
         prefix=df.iloc[s_row]["prefix"]
         dfs_val["exp" + str(ii)] = exp
@@ -734,6 +739,8 @@ def show_df(df, summary=False):
     ROWS, COLS = std.getmaxyx()
     ch = 1
     left = 0
+    #text_win = cur.newpad(ROWS * 10, COLS * 10)
+    #text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
     max_row, max_col= text_win.getmaxyx()
     width = 15
     top = 10
@@ -746,7 +753,7 @@ def show_df(df, summary=False):
     sel_vals = []
     col_widths = load_obj("widths", "")
     def refresh():
-        text_win.refresh(0, left, 0, 0, ROWS-1, COLS-2)
+        text_win.refresh(0, left, 0, 0, ROWS-1, COLS-1)
     def fill_text_win(rows):
         text_win.erase()
         for row in rows:
@@ -887,6 +894,7 @@ def show_df(df, summary=False):
     index_cols = []
     dfs = []
     pivot_cols = ['prefix']
+    exclude_cols = []
     experiment_images = {}
 
     #sel_cols =  load_obj("sel_cols", context, [])
@@ -903,6 +911,7 @@ def show_df(df, summary=False):
         rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
         index_cols = all_cols['index_cols']
         extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
+        exclude_cols = all_cols['ex_cols'] if "ex_cols" in all_cols else []
     if "compose_method" in df:
         rep_cols = rep_cols + extra_cols
     #if not "compose_method" in df:
@@ -913,7 +922,7 @@ def show_df(df, summary=False):
     main_sel_cols = sel_cols.copy()
 
     rels = [] # df["prefix"].unique()
-    if "xAttr" in rels:
+    if any("xAttr" in rel for rel in rels):
         score_cols = ['rouge_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
@@ -1258,8 +1267,8 @@ def show_df(df, summary=False):
     extra = {"filter":[]}
     orig_df = main_df.copy()
     prev_char = ""
+    new_df = True
     while prev_char != "q":
-        text_win.clear()
         group_rows = []
         left = min(left, max_col  - width)
         left = max(left, 0)
@@ -1278,6 +1287,9 @@ def show_df(df, summary=False):
         cur_col = max(cur_col, -1)
         back_df = back[-1].df if len(back) > 0 else df
         if not hotkey:
+            # std.clear()
+            text_win.erase()
+            #text_win.clear()
             if adjust:
                 _, col_widths = row_print(df, col_widths={})
             text = "{:<5}".format(sel_row)
@@ -1302,7 +1314,11 @@ def show_df(df, summary=False):
             mprint(text, text_win) 
             #fffff
             infos,_ = row_print(df, col_widths, True)
-            refresh()
+            # refresh()
+            text_win.noutrefresh(0, left, 0, 0, ROWS-1, COLS -1)
+            # text_win.refresh(0, left, 0, 0, ROWS-1, COLS-2)
+            # cur.doupdate()
+            # cur.flushinp()
         if cur_col < len(sel_cols) and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
             if not df.empty:
@@ -1343,6 +1359,9 @@ def show_df(df, summary=False):
         else:
             cmd = ""
         if hotkey == "":
+            cur.doupdate()
+            if new_df:
+                cur.flash()
             ch = std.getch()
         else:
             ch, hotkey = ord(hotkey[0]), hotkey[1:]
@@ -1490,7 +1509,7 @@ def show_df(df, summary=False):
             col = sel_cols[cur_col]
             df = df.sort_values(by=col, ascending=asc)
             asc = not asc
-        elif char in ["+","\""]:
+        elif char in ["+","\""] or ch == cur.KEY_NPAGE:
             col = sel_cols[cur_col]
             if col in selected_cols:
                 selected_cols.remove(col)
@@ -1773,7 +1792,7 @@ def show_df(df, summary=False):
         elif char == "N" and prev_char == "x":
             backit(df,sel_cols)
             sel_cols=["pred_max_num","pred_max", "tag","prefix","rouge_score", "num_preds","bert_score"]
-        elif (char == "i" and not prev_char == "x" and hk=="G"):
+        elif (char == "j" and not prev_char == "x" and hk=="G"):
             backit(df,sel_cols)
             exp=df.iloc[sel_row]["fid"]
             cond = f"(main_df['{FID}'] == '{exp}')"
@@ -2295,15 +2314,17 @@ def show_df(df, summary=False):
                 tdf = main_df[main_df.eid == exp]
                 prefix=tdf.iloc[0]["expname"]
                 expid=tdf.iloc[0]["expid"]
-                compose=tdf.iloc[0]["compose_method"]
-                epc=tdf.iloc[0]["num_train_epochs"]
-                tn=tdf.iloc[0]["max_train_samples"]
                 # path=tdf.iloc[0]["output_dir"]
                 rpath=tdf.iloc[0]["folder"]
                 path = str(Path(rpath).parent) + "/" + expid
                 js = os.path.join(path, "exp.json")
-                score = str(round(score,2)) if score else "noscore" 
-                fname = prefix + "-" + compose + "-" + str(epc) \
+                fname = "exp"
+                if char == "Y":
+                    compose=tdf.iloc[0]["compose_method"]
+                    epc=tdf.iloc[0]["num_train_epochs"]
+                    tn=tdf.iloc[0]["max_train_samples"]
+                    score = str(round(score,2)) if score else "noscore" 
+                    fname = prefix + "-" + compose + "-" + str(epc) \
                         + "-" + str(tn) + "@" + score + "@.json"
                 if not ignore_fname:
                     fname = rowinput("prefix:", default=fname)
@@ -2420,7 +2441,8 @@ def show_df(df, summary=False):
             other_col = "target_text"
             if char =="i": 
                 pass
-            if "xAttr" in pcols:
+            if (any("xAttr" in rel for rel in pcols)
+               or any("xIntent" in rel for rel in pcols)):
                 group_col = "input_text"
                 on_col_list = ["input_text"] 
                 other_col = "pred_text1"
@@ -2660,7 +2682,6 @@ def show_df(df, summary=False):
                df = back_df
             else:
                 backit(df, sel_cols)
-            context = "filter"
             is_filtered = True
             col = sel_cols[cur_col]
             if col == "fid": col = FID
@@ -2768,8 +2789,12 @@ def show_df(df, summary=False):
             files.insert(0, "meld")
             subprocess.Popen(files)
         elif char == "m":
-            _,dirs = get_sel_rows(df, col="output_dir")
-            files = [os.path.join(d, "exp.json") for d in dirs]
+            exprs,dirs = get_sel_rows(df, row_id="expid", col="folder")
+            files = []
+            for expid, rpath in zip(exprs, dirs):
+                path = str(Path(rpath).parent) + "/" + str(expid)
+                js = os.path.join(path, "exp.json")
+                files.append(js)
             files.insert(0, "meld")
             subprocess.Popen(files)
         elif char == "m" and prev_char == "x":
@@ -3210,7 +3235,10 @@ def show_df(df, summary=False):
                     ss = int(char) - 1
                     if ss < len(score_cols):
                         score_col = score_cols[ss]
-                sel_cols = index_cols.copy() + ["All"] # + main_vars
+                scols = selected_cols
+                if not scols:
+                    scols = [sel_cols[cur_col]]
+                sel_cols = index_cols.copy() + ["All"] + scols 
                 sort_col = sort if sort else "All"
                 if score_col == score_cols[0]:
                     for col in df.columns:
@@ -3337,6 +3365,10 @@ def show_df(df, summary=False):
                 if col in sel_cols:
                     sel_cols.remove(col)
                 sel_cols.insert(i, col)
+
+            for col in exclude_cols:
+                if col in sel_cols:
+                    sel_cols.remove(col)
 
             if "time" in sel_cols:
                 sel_cols.remove("time")
@@ -3888,7 +3920,7 @@ def change_info(infos):
             mprint(str(line).replace("@","   "), info_bar, color=HL_COLOR)
             lnum += 1
     rows,cols = std.getmaxyx()
-    info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 2)
+    info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 1)
 si_hash = {}
 
 def list_values(vals,si=0, sels=[], is_combo=False):
@@ -4051,11 +4083,11 @@ def start(stdscr):
     height = rows - 1
     width = cols
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
-    text_win = cur.newpad(rows * 50, cols * 20)
+    text_win = cur.newpad(rows * 5, cols * 3)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
     cmd_win = cur.newwin(1, cols, rows - 1, 0)
 
-    info_bar = cur.newpad(rows*10, cols*20)
+    info_bar = cur.newpad(rows*3, cols*2)
     info_bar.bkgd(' ', cur.color_pair(HL_COLOR)) # | cur.A_REVERSE)
 
     cur.start_color()
@@ -4072,6 +4104,7 @@ def start(stdscr):
 
     reset_colors(theme)
     show_df(data_frame, summary=global_summary)
+    cur.flash()
 
 @click.command(context_settings=dict(
             ignore_unknown_options=True,
