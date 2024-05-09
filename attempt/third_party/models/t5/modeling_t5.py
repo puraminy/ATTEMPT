@@ -54,6 +54,7 @@ from typing import Dict, Any
 import attempt.mylogs as mylogs
 from attempt.callbacks import WBCallback
 from torch.nn.utils.rnn import pad_sequence
+import random
 ######### 
 # My utility function
 ############
@@ -1757,15 +1758,15 @@ class T5Stack(T5PreTrainedModel):
 
         target_shares = torch.ones(1, batch_size, device=device)
 
-        if self.random_source > 0:
+        if self.random_source > 0 and not self.training:
             num_cols = attn_sel_scores.size(-1)  
             num_selected_cols = self.random_source  # Number of random columns to select
+            num_selected_cols = min(num_selected_cols, num_cols)
             selected_cols_indices = random.sample(range(num_cols), num_selected_cols)
 
             attn_sel_scores = attn_sel_scores[:, :, selected_cols_indices]
-            ttend_to_x = attend_to_x[:, :, selected_cols_indices, :, :]
-
-
+            attend_to_x = attend_to_x[:, :, selected_cols_indices, :, :]
+            attend_to_idx = attend_to_idx[:, selected_cols_indices] 
         
         if self.norm_method == "nothing":
             if self.attn_method == "const":

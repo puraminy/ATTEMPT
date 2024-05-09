@@ -357,8 +357,7 @@ class ResMLP(PromptEncoder):
             if self.residual:
                 output_embeds += inputs
             running_weight = output_embeds
-
-        if self.residual:
+        elif self.residual:
             running_weight = self.module(inputs) + inputs
         else:
             running_weight = self.module(inputs)
@@ -422,20 +421,12 @@ class LSTMEmbeddingPromptEncoder(PromptEncoder):
             bidirectional=True,
             batch_first=True
         )
-        if num_layers == 2:
-            self.mlp = torch.nn.Sequential(
-                torch.nn.Linear(embedding_dim, embedding_dim),
-                torch.nn.ReLU(),
-                torch.nn.Linear(embedding_dim, hsize),
-                torch.nn.ReLU(),
-                torch.nn.Linear(hsize, embedding_dim)
-            )
-        else:
-            self.mlp = torch.nn.Sequential(
-                torch.nn.Linear(embedding_dim, hsize),
-                torch.nn.ReLU(),
-                torch.nn.Linear(hsize, embedding_dim)
-            )
+        activation = torch.nn.ReLU()
+        in_dim = out_dim = embedding_dim
+        layers = [ResidualBlock(in_dim, out_dim, hsize, activation)]
+        for _ in range(num_layers - 1):
+            layers.append(ResidualBlock(hsize, hsize, activation))
+        self.mlp = torch.nn.Sequential(*layers)
 
  #### llllllf
     def forward_step(self, index_list, tids=None, training=True):
@@ -502,13 +493,14 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
         encoder_type = "@".join([str(p) for p in encoder_type])
     prompt_encoder = None
     if encoder_type.startswith("mlp"):
-        _enc_type = encoder_type.split("@")
-        if len(_enc_type) > 1:
-            num_layers = int(_enc_type[1])
-        if len(_enc_type) > 2:
-            hidden_size = int(_enc_type[2])
-        if len(_enc_type) > 3:
-            non_linear = _enc_type[3]
+        if encoder_type in ["mlp", "mlp_res"]:
+            _enc_type = encoder_type.split("@")
+            if len(_enc_type) > 1:
+                num_layers = int(_enc_type[1])
+            if len(_enc_type) > 2:
+                hidden_size = int(_enc_type[2])
+            if len(_enc_type) > 3:
+                non_linear = _enc_type[3]
 
         # assert False, str(num_layers) + "-" + str(hidden_size) + "-" + str(non_linear)
         if encoder_type == "mlp_res":
@@ -524,7 +516,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 hidden_size=hidden_size)
         elif encoder_type.startswith("mlpres"):
             res_type = "MLP1"
-            if len(encoder_type.split("@")) > 1:
+            if len(encoder_type.split("@")) > 0:
                 res_type = encoder_type.split("@")[-1]
             prompt_encoder = ResMLP(name = name,
                 model=model, tokenizer=tokenizer,
@@ -581,7 +573,7 @@ def create_encoder(name, model, tokenizer, prompt_tokens,
                 is_source = is_source,
                 num_layers=num_layers, 
                 hidden_size=hidden_size)
-    prompt_encoder.enc_type = encoder_type
+    # prompt_encoder.enc_type = encoder_type
     return prompt_encoder, encoder_type
 
 

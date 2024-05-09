@@ -81,6 +81,7 @@ class AbstractTask(abc.ABC):
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
+        mylogs.bp("tinit")
         if config is not None:
             cpath = op.join(mylogs.home, "datasets", task, config + ".json")
             if Path(cpath).is_file() and task_args.use_config:
@@ -98,8 +99,8 @@ class AbstractTask(abc.ABC):
         # list of prompts
         if task:
             self.task_name = task
-        if not self.rel_nat:
-            self.rel_nat = task
+        # if not self.rel_nat:
+        #    self.rel_nat = task
         self.rel_tok = "<" + task + ">"
         self.rel_word = task
         self.prompt_set = {}
@@ -560,7 +561,7 @@ class AbstractTask(abc.ABC):
             task = self.name
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
-            data["rel_nat"] = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else self.rel_nat
+            data["rel_nat"] = self.rel_nat if self.rel_nat else REL_TO_PHRASE[task] 
             rel_from_nat = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_from_nat = rel_from_nat.split()
             num_prompts = self.task_args.setdefault("num_prompts", 1)
@@ -1232,7 +1233,7 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
-
+    rel_nat = " a"
 
 class isAfter(Atomic):
     name = "isAfter"
@@ -2022,9 +2023,13 @@ class AutoTask:
     def get(self, task, config, task_args=None, tokenizer=None):
         if task in TASK_MAPPING:
             return TASK_MAPPING[task](config, task_args, task, tokenizer)
-        raise ValueError(
-            "Unrecognized task {} for AutoTask Model.\n" +
-            "Task name should be one of {}.".format(task,
-                                                    ", ".join(c for c in TASK_MAPPING.keys())
-            )
+        else:
+            try:
+                return globals()[task](config, task_args, task, tokenizer)
+            except:
+                raise ValueError(
+                "Unrecognized task {} for AutoTask Model.\n" +
+                "Task name should be one of {}.".format(task,
+                                            ", ".join(c for c in TASK_MAPPING.keys())
+                )
         )

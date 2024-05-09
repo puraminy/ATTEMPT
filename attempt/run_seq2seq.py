@@ -880,6 +880,8 @@ def train(**kwargs):
     ds_confs = kwargs.setdefault("ds_config", ["conf"])
     if type(ds_confs) != list:
         ds_confs = [ds_confs]
+    if type(data_args.task_name) != list:
+        data_args.task_name = [data_args.task_name]
 
     ds_combs = itertools.product(data_args.task_name, ds_confs)
     _tasks = []
@@ -944,8 +946,8 @@ def train(**kwargs):
     use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
-    if not use_source_prompts:
-        model_args.compose_method = "pt"
+    #if not use_source_prompts:
+    #    model_args.compose_method = "pt"
 
     tasks = data_args.task_name
     train_prefix = {}
@@ -1600,6 +1602,8 @@ def train(**kwargs):
             encoders_prompts = task_prompts
         model.resize_token_embeddings(len(tokenizer))
         load_prompts = kwargs.setdefault("load_prompts", False) 
+        if training_args.do_train:
+            load_prompts = False
         attend_to_all = kwargs.setdefault("attend_to_all", True) 
         attend_to_all = attend_to_all and use_source_prompts
         target_prompts=[n for n,p in encoders_prompts.items() if p[0].startswith("<tar-")]  
@@ -2186,10 +2190,15 @@ def train(**kwargs):
                         prefix=str(opp),
                         router_prefix=router_prefix)
 
-        if kwargs.setdefault("save_model", False):
+        save_model = kwargs.setdefault("save_model", False)
+        if save_model:
             # save all model parameters and tokenizers 
             # regardless of whether they are updated or not.
-            trainer.save_model()
+            model_name = Path(model_name_or_path).stem
+            if save_model in kwargs:
+                save_model = kwargs[save_model]
+            pret_dir = op.join(mylogs.pretPath, model_name  + "-" + save_model) 
+            trainer.save_model(pret_dir)
 
         train_metrics = train_result.metrics
         max_train_samples = (
@@ -2261,7 +2270,7 @@ def train(**kwargs):
             if test_dataset in exclude_from_test_tasks:
                 continue
             if not use_test_config and not test_dataset_config in ["en", "def"]:
-                continue
+                test_dataset_config = "def"
             auto_task = AutoTask.get(
                 test_dataset, test_dataset_config,
                 task_args=task_args, tokenizer=tokenizer)
