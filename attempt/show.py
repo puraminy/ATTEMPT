@@ -633,7 +633,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         exp=df.iloc[s_row]["fid"]
         prefix=df.iloc[s_row]["prefix"]
         dfs_val["exp" + str(ii)] = exp
-        mlog.info("%s == %s", FID, exp)
+        # mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
         _cols = tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]
@@ -736,6 +736,7 @@ def show_df(df, summary=False):
     sel_row = 0
     cur_col = -1
     cur_row = 0
+    std.refresh()
     ROWS, COLS = std.getmaxyx()
     ch = 1
     left = 0
@@ -1263,6 +1264,7 @@ def show_df(df, summary=False):
     adjust = True
     show_consts = True
     show_extra = False
+    show_infos = True
     consts = {}
     extra = {"filter":[]}
     orig_df = main_df.copy()
@@ -1349,7 +1351,9 @@ def show_df(df, summary=False):
                 if type(val) == list:
                     val = "-".join(val)
                 infos.append("{:<5}:{}".format(key,val))
-        change_info(infos)
+        if True:  ##show_infos:
+            info_lines = change_info(infos)
+            show_infos = True
 
         prev_char = chr(ch)
         prev_cmd = cmd
@@ -1361,6 +1365,7 @@ def show_df(df, summary=False):
         if hotkey == "":
             cur.doupdate()
             if new_df:
+                cur.flushinp()
                 cur.flash()
             ch = std.getch()
         else:
@@ -1864,7 +1869,7 @@ def show_df(df, summary=False):
                 g_list = ["template", "model", "prefix"]
                 mm = main_df.groupby(g_list, as_index=False).first()
                 g_list.remove(col)
-                mlog.info("g_list: %s", g_list)
+                # mlog.info("g_list: %s", g_list)
                 g_df = mm.groupby(g_list, as_index=False)
                 sel_cols = [_type, "template", "model", "prefix"]
                 #_agg = {}
@@ -1949,7 +1954,7 @@ def show_df(df, summary=False):
             if col == "fid": col = FID
             if col == "fid":
                 sel_fid = exp
-            mlog.info("%s == %s", col, exp)
+            # mlog.info("%s == %s", col, exp)
             df = main_df[main_df[col] == exp]
             filter_df = df
             hotkey = hk
@@ -2316,7 +2321,7 @@ def show_df(df, summary=False):
                 expid=tdf.iloc[0]["expid"]
                 # path=tdf.iloc[0]["output_dir"]
                 rpath=tdf.iloc[0]["folder"]
-                path = str(Path(rpath).parent) + "/" + expid
+                path = str(Path(rpath).parent) + "/" + str(expid)
                 js = os.path.join(path, "exp.json")
                 fname = "exp"
                 if char == "Y":
@@ -2333,7 +2338,7 @@ def show_df(df, summary=False):
                     pname = Path(path).parent.name
                     expid = Path(path).name
                     if char in ["U","Y"]:
-                        dest = os.path.join(comp_path, "exp_" + prefix + ".json")
+                        dest = os.path.join(comp_path, "exp_" + str(prefix) + ".json")
                     elif "conf" in fname:
                         dest = os.path.join(home, "confs", fname)
                     elif "reval" in fname:
@@ -2428,6 +2433,7 @@ def show_df(df, summary=False):
             context= "comp"
             cur_col = -1
             sel_group = 0
+            show_infos = False
             s_rows = sel_rows
             if not sel_rows:
                 s_rows = group_rows
@@ -2692,7 +2698,7 @@ def show_df(df, summary=False):
                   cond = f"df['{col}'] == '{val}'"
                else:
                   cond = f"df['{col}'] == {val}"
-            mlog.info("cond %s, ", cond)
+            # mlog.info("cond %s, ", cond)
             if cond:
                df = df[eval(cond)]
                #df = df.reset_index()
@@ -3724,7 +3730,9 @@ def show_df(df, summary=False):
             cmd = cmd.split(".")[0]
             if cmd != "<ESC>":
                 if char == "}":
-                    df.to_csv(os.path.join(base_dir, cmd+".tsv"), sep="\t", index=False)
+                    dfname = os.path.join(base_dir, cmd+".tsv")
+                    df.to_csv(dfname, sep="\t", index=False)
+                    show_msg("written in " + dfname)
                 else:
                     dfname = cmd
                     char = "SS"
@@ -3783,7 +3791,7 @@ def render_mpl_table(data, wrate, col_width=3.0, row_height=0.625, font_size=14,
                      ax=None, **kwargs):
     if ax is None:
         size = (np.array(data.shape[::-1]) + np.array([0, 1])) * np.array([col_width, row_height])
-        mlog.info("Size %s", size)
+        # mlog.info("Size %s", size)
         fig, ax = plt.subplots(figsize=size)
         ax.axis('off')
 
@@ -3921,6 +3929,8 @@ def change_info(infos):
             lnum += 1
     rows,cols = std.getmaxyx()
     info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 1)
+    return lnum
+
 si_hash = {}
 
 def list_values(vals,si=0, sels=[], is_combo=False):
@@ -3969,7 +3979,7 @@ global_cmd = ""
 global_search = ""
 global_summary = False
 root_path = ""
-base_dir = os.path.join(home, "mt5-comet", "comet", "data", "atomic2020")
+base_dir = os.path.join(home, "datasets", "comet")
 data_frame = None
 
 def get_files(dfpath, dfname, dftype, summary, limit, file_id):
@@ -4075,19 +4085,19 @@ def get_files(dfpath, dfname, dftype, summary, limit, file_id):
 
 def start(stdscr):
     global info_bar, text_win, cmd_win, std, main_win, colors, dfname, STD_ROWS, STD_COLS
-    stdscr.refresh()
     std = stdscr
     now = datetime.now()
+    std.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
     rows, cols = std.getmaxyx()
     set_max_rows_cols(rows, cols) 
     height = rows - 1
     width = cols
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
-    text_win = cur.newpad(rows * 5, cols * 3)
+    text_win = cur.newpad(rows * 10, cols * 10)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
     cmd_win = cur.newwin(1, cols, rows - 1, 0)
 
-    info_bar = cur.newpad(rows*3, cols*2)
+    info_bar = cur.newpad(rows*10, cols*10)
     info_bar.bkgd(' ', cur.color_pair(HL_COLOR)) # | cur.A_REVERSE)
 
     cur.start_color()
