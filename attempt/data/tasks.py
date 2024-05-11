@@ -44,10 +44,10 @@ class AbstractTask(abc.ABC):
     metric_names = NotImplemented
     generation = False
     split_map = None
+    load_df = False
     do_split = False
     labels_list = None
     pcounter = 0
-    df_load = False
     rel_nat = None
     samples_per_head = 1
     map_labels = True
@@ -99,8 +99,8 @@ class AbstractTask(abc.ABC):
         # list of prompts
         if task:
             self.task_name = task
-        # if not self.rel_nat:
-        #    self.rel_nat = task
+        if not self.rel_nat:
+            self.rel_nat = task
         self.rel_tok = "<" + task + ">"
         self.rel_word = task
         self.prompt_set = {}
@@ -232,6 +232,36 @@ class AbstractTask(abc.ABC):
         file_path = op.join(path, split + '.tsv')
         return file_path
 
+    def get_stored_file(self, split, n_obs):
+        directory = self.data_path 
+        extension = ".csv"
+        fname = split
+        if not directory.startswith("/"):
+            directory = op.join(mylogs.home, self.data_path, self.name)
+        else:
+            directory = op.join(directory, self.name)
+
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        infile = None
+        if self.equal_labels and split != "test":
+            fname += "_eq"
+        obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
+        if split == "train":
+            if obs_str != "all":
+                outfile = os.path.join(directory,
+                                       fname + "_" + str(self.seed) + "_" + obs_str + extension)
+            else:
+                outfile = os.path.join(
+                    directory, fname + "_" + obs_str + extension)
+        else:
+            outfile = os.path.join(
+                directory, fname + "_" + obs_str + extension)
+
+        if Path(outfile).is_file() and self.use_cache_file is True:
+            infile = outfile
+
+        return directory, infile, outfile
+
     def save_dataset(self, dataset, output_filename):
         if isinstance(dataset, pd.DataFrame):
             # Save Pandas DataFrame to CSV
@@ -265,28 +295,8 @@ class AbstractTask(abc.ABC):
         mylogs.bp("get")
         assert type(prefix) != list, prefix 
         print("getting samples ... " + prefix)
-        file_path = self.get_data_path(split)
-        directory = os.path.dirname(file_path)
-        tname = Path(directory).stem
-        extension = ".csv"
-        fname = tname + "_" + split
-        split_file = os.path.join(directory, fname + extension)
-        if self.equal_labels and split != "test":
-            fname += "_eq"
-        obs_str = str(n_obs) if n_obs is not None and n_obs > 0 else "all"
-        if split == "train":
-            if obs_str != "all":
-                outfile = os.path.join(directory,
-                                       fname + "_" + str(self.seed) + "_" + obs_str + extension)
-            else:
-                outfile = os.path.join(
-                    directory, fname + "_" + obs_str + extension)
-        else:
-            outfile = os.path.join(
-                directory, fname + "_" + obs_str + extension)
-
-        if Path(outfile).is_file() and self.use_cache_file is True:
-            file_name = outfile
+        directory, file_name, outfile = self.get_stored_file(split, n_obs)
+        split_file = op.join(directory, self.name + "_" + split + ".csv")
 
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -330,15 +340,7 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             mylogs.bp("get")
-            if self.df_load:
-                mylogs.minfo("------------- LOADING DATA FRAME :" + \
-                             self.name + " ----------")
-                dataset = self.load_dataset(split=mapped_split)
-                if not Path(split_file).is_file():
-                    self.save_dataset(dataset, split_file)
-                if n_obs is not None:
-                    dataset = self.subsample(dataset, n_obs)
-            elif file_name is not None:  # and split == "test":
+            if file_name is not None:  # and split == "test":
                 mylogs.minfo("------------- LOADING FROM FILE:" + \
                              file_name + " ----------")
                 # dataset = datasets.load_dataset(
@@ -347,7 +349,7 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
-            elif split_file is not None and Path(split_file).is_file(): 
+            elif not self.load_df and split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
@@ -484,7 +486,7 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)"
+        src = "(prefix) (prompt) (nat_prefix) {source}. (prefix) (prompt) (nat) (prompt) (mask)"
         target = "(mask) (prefix) (nat) {target}"  # {end}"
         return src, target
 
@@ -670,7 +672,7 @@ class AbstractTask(abc.ABC):
             prefix = self.prefix
         if not prefix:
             prefix = self.name
-        src_prefix = "src-" + prefix
+        src_prefix = prefix
         src_prefix += ":"
         mylogs.bp("format")
         mylogs.bp(self.split + "frm")
@@ -726,7 +728,7 @@ class AbstractTask(abc.ABC):
         ex_fields["split"] = self.split
         src_text, tgt_text = self.fill_template(data)
         src_text = src_text.strip()
-        tgt_text = tgt_text.strip()
+        tgt_text = tgt_text.strip() + " </s>"
         ex_fields["query"] = src_text
         ex_fields["resp"] = tgt_text
         ex_fields["target_text"] = tgt_text
@@ -1093,7 +1095,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
-    df_load = True
+    load_df = True
     samples_per_head = 3
     rels = []
     split_to_data_name = {"train": "atomic", "test":"atomic"}
@@ -1166,7 +1168,7 @@ class Atomic(AbstractTask):
         mylogs.bp("filter")
         df["freqs"] = df.groupby(['input_text'])[
                                  'input_text'].transform('count')
-        df['px'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
+        # df['px'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
         df['px_count'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform('nunique')
         print("len df:", len(df))
         # df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
@@ -1307,6 +1309,8 @@ class Desires(Atomic):
 class xAttr(Atomic):
     name = "xAttr"
 
+class comet(Atomic):
+    name = "comet"
 
 class xNeed(Atomic):
     name = "xNeed"

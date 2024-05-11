@@ -24,6 +24,7 @@
   "ml":"map_labels",
   "maps":"map_style",
   "uma":"use_masked_attn",
+  "lr":"learning_rate",
   "alr":"attn_learning_rate",
   "inp":"attend_input",
   "adinp":"add_input",

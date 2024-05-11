@@ -181,7 +181,20 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         has_labels = "labels" in inputs
         inputs = self._prepare_inputs(inputs)
         # gen_inputs = inputs.clone().detach()
+
         gen_kwargs = {
+            "max_length":40,
+            "do_sample":True, 
+            "top_p":0.9, 
+            "top_k":10,
+            "num_beams":5,
+            "temperature": 1.0,
+            "num_return_sequences":1, 
+            "repetition_penalty":5.5,
+            "task": inputs["task"] if "task" in inputs else "all",
+        #    "bad_words_ids": bad_words_ids
+        }
+        gen_kwargs2 = {
             "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
             "num_beams": self._num_beams if self._num_beams is not None else self.model.config.num_beams,
             "task": inputs["task"] if "task" in inputs else "all",

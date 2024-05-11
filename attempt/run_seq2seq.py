@@ -48,6 +48,7 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 from torch.optim import AdamW
+from transformers.optimization import Adafactor
 import transformers
 from datasets import concatenate_datasets
 from typing import Optional, List
@@ -1242,7 +1243,7 @@ def train(**kwargs):
     if training_args.warmup_steps is not None:
         warmup_steps = training_args.warmup_steps
     else:
-        warmup_steps = 0.2 * steps
+        warmup_steps = 0.1 * steps
     total_steps = steps + warmup_steps + 5
     anneal_steps = 0.6*total_steps
     if model_args.anneal_rate is None: 
@@ -1264,6 +1265,7 @@ def train(**kwargs):
     mylogs.bp("config")
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
+    config.dropout_rate = kwargs.get("dropout", 0.1)
     config.prompt_tuning = adapter_args.prompt_tuning #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
@@ -2009,12 +2011,28 @@ def train(**kwargs):
         grouped_params.append({'params': other_params, 'lr': training_args.learning_rate})
     #### ooooo 
     mylogs.bp("opt")
-    if kwargs.opt_type == "sep":
+    opt_type = kwargs.get("opt_type","adam")
+    scheduler = None
+    if opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
                 source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
-    else:
+    elif opt_type == "adam":
         optim = AdamW(grouped_params, lr=learning_rate)
+    elif opt_type == "ada":
+        optim = Adafactor(
+            grouped_params,
+            lr=learning_rate,
+            eps=(1e-30, 1e-3),
+            clip_threshold=1.0,
+            decay_rate=-0.8,
+            beta1=None,
+            weight_decay=0.0,
+            relative_step=False,
+            scale_parameter=False,
+            warmup_init=False,
+        ) 
+    if scheduler is None:
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=warmup_steps, 
             num_training_steps=total_steps)
@@ -2034,7 +2052,7 @@ def train(**kwargs):
     callbacks = []
     if adapter_args.prompt_tuning:
        callbacks = [ptlr_callback, wb_callback, anneal_callback]
-    if kwargs.use_optimizer:
+    if kwargs.use_optimizer: #TODO remove condition and the else part 
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
