@@ -1059,6 +1059,7 @@ def train(**kwargs):
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
+    task_args["samples_per_head"] = kwargs.setdefault("samples_per_head", 3)
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
     task_args["use_config"] = kwargs.setdefault("use_config", True)
@@ -1073,7 +1074,16 @@ def train(**kwargs):
     task_args["prompt_length"] = kwargs.setdefault("prompt_length", 
                                     adapter_args.num_prompt_tokens)
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
-    task_args["template"] = data_args.template
+    input_template = data_args.template
+    if adapter_args.prompt_tuning and not "ptar" in input_template:
+        if input_template in ["unsup-nat", "sup-nat"]:
+            ptemp = "ptar"
+        else:
+            ptemp = "0-ptar"
+        prompt_template = kwargs.get("prompt_template", ptemp)
+        input_template = prompt_template + "-" + input_template 
+        kwargs["template"] = input_template
+    task_args["template"] = input_template 
     task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
     task_args["rels"] = data_args.task_name # if kwargs.rels == "tasks" else kwargs.rels
@@ -1215,7 +1225,7 @@ def train(**kwargs):
     for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
          t_args = dotdict(task_args.copy())
          task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer= None)
-         total_samples += data_args.max_train_samples * task.samples_per_head
+         total_samples += data_args.max_train_samples * task.samples_per_head_per_split["train"]
 
     training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
     steps = 0
@@ -1534,7 +1544,7 @@ def train(**kwargs):
 
         prompt_num_layers = kwargs.get("num_layers",1)
         prompt_hidden_size = kwargs.get("hidden_size", -1)
-        prompt_non_linear = kwargs.get("non_linear", "gelu")
+        prompt_non_linear = kwargs.get("non_linear", "relu")
         prompt_out_dim = kwargs.get("out_dim", -1)
         for prompt in source_prompts: 
             encoder_name = prompt
@@ -1952,6 +1962,10 @@ def train(**kwargs):
         
 
     ########### My Code
+    if "learning_rate" in main_vars:
+        model_args.prompt_learning_rate = training_args.learning_rate 
+        model_args.target_learning_rate = training_args.learning_rate 
+
     prompt_learning_rate = model_args.prompt_learning_rate 
     target_prompt_learning_rate = model_args.target_prompt_learning_rate 
     source_prompt_learning_rate = model_args.source_prompt_learning_rate 
@@ -1969,6 +1983,8 @@ def train(**kwargs):
     mylogs.bp("opt")
     learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning:
+        if "learning_rate" in main_vars:
+            target_prompt_learning_rate = learning_rate
         learning_rate = target_prompt_learning_rate
         for encoder in model.prompt_encoders:
            para_list =[
@@ -2011,13 +2027,14 @@ def train(**kwargs):
         grouped_params.append({'params': other_params, 'lr': training_args.learning_rate})
     #### ooooo 
     mylogs.bp("opt")
+    mylogs.bp("optim")
     opt_type = kwargs.get("opt_type","adam")
     scheduler = None
     if opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
                 source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
-    elif opt_type == "adam":
+    elif opt_type in ["adam", "regular"]:
         optim = AdamW(grouped_params, lr=learning_rate)
     elif opt_type == "ada":
         optim = Adafactor(
@@ -2050,7 +2067,7 @@ def train(**kwargs):
     anneal_callback = AnnealCallback() 
     ptlr_callback = PTLearningRateCallback()
     callbacks = []
-    if adapter_args.prompt_tuning:
+    if model_args.attn_tuning:
        callbacks = [ptlr_callback, wb_callback, anneal_callback]
     if kwargs.use_optimizer: #TODO remove condition and the else part 
         # Initialize our Trainer
@@ -2753,7 +2770,7 @@ def train(**kwargs):
                                                     ds_conf,"test.tsv")
                             mylogs.bp("rouge")
                             # TODO make it general not according to task names
-                            if "xAttr" in data_args.task_name: 
+                            if True: #"xAttr" in data_args.task_name: 
                               mscore = masking_scores[0]
                               if masking_scores[0]=="m_score": 
                                  mscore = "mean_rouge" 

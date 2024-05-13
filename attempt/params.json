@@ -2,7 +2,7 @@
   "tasks":"task_name",
   "t":"task_name",
   "d":"d_seed",
-  "ucf":"use_cache_file",
+  "cache":"use_cache_file",
   "uc":"use_config",
   "utc":"use_test_config",
   "dsc": "ds_config",
@@ -20,6 +20,7 @@
   "atmpr":"adjust_temperature",
   "ftmpr":"fixed_temperature",
   "temp":"template",
+  "ptemp":"prompt_template",
   "map":"mapping",
   "ml":"map_labels",
   "maps":"map_style",
@@ -85,8 +86,11 @@
   "ms":"masking_scores",
   "sep":"separate_eval",
   "sr":"save_router",
+  "nl":"non_linear",
+  "hs":"hidden_size",
   "usr":"use_saved_router",
   "ignore":"ignore_if_prompt_not_exists",
   "enctype":"prompt_encoder_type",
-  "tenctype":"target_encoder_type"
+  "tenctype":"target_encoder_type",
+  "sph":"samples_per_head"
 }

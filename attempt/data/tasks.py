@@ -49,7 +49,6 @@ class AbstractTask(abc.ABC):
     labels_list = None
     pcounter = 0
     rel_nat = None
-    samples_per_head = 1
     map_labels = True
     labels_list = None
     labels_map = {"map": {}}  # verbelizer
@@ -83,7 +82,7 @@ class AbstractTask(abc.ABC):
         self.config = config
         mylogs.bp("tinit")
         if config is not None:
-            cpath = op.join(mylogs.home, "datasets", task, config + ".json")
+            cpath = op.join(mylogs.home, "datasets", self.name, config + ".json")
             if Path(cpath).is_file() and task_args.use_config:
                 with open(cpath) as f:
                     targs = json.load(f)
@@ -563,7 +562,10 @@ class AbstractTask(abc.ABC):
             task = self.name
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
-            data["rel_nat"] = self.rel_nat if self.rel_nat else REL_TO_PHRASE[task] 
+            if self.rel_nat and self.rel_nat != self.name:
+                data["rel_nat"] = self.rel_nat  
+            else: 
+                data["rel_nat"] = REL_TO_PHRASE[task] 
             rel_from_nat = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_from_nat = rel_from_nat.split()
             num_prompts = self.task_args.setdefault("num_prompts", 1)
@@ -666,9 +668,9 @@ class AbstractTask(abc.ABC):
                        targets: List[str],
                        prefix: str = None,
                        extra_fields={}):
-        if prefix:
+        if prefix and not self.prefix:
             self.prefix = prefix
-        if not prefix:
+        if self.prefix:
             prefix = self.prefix
         if not prefix:
             prefix = self.name
@@ -1096,12 +1098,14 @@ class Atomic(AbstractTask):
     generation = True
     do_shuffle = True
     load_df = True
-    samples_per_head = 3
+    samples_per_head_per_split = {"train":1, "test":3}
     rels = []
     split_to_data_name = {"train": "atomic", "test":"atomic"}
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
+        train_sph = task_args.get("samples_per_head", 1)
+        self.samples_per_head_per_split["train"] = train_sph
         if not task_args.rels:
             self.rels = [self.name]
         else:
@@ -1119,7 +1123,7 @@ class Atomic(AbstractTask):
                 df = df.tail(300)
             else:
                 df = df.head(len(df) - 300)
-        df = self.filter(df, split)
+        # df = self.filter(df, split)
         df = self.preproc_df(df, split)
         assert len(df) > 0, "data frame is empty for " + \
                    split + " of " + self.name + " " + path
@@ -1127,6 +1131,7 @@ class Atomic(AbstractTask):
         assert len(df) > 0, "data frame is empty for " + \
                    split + " of " + self.name + " " + path
 
+        # df = self.filter(df, split)
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
@@ -1147,11 +1152,14 @@ class Atomic(AbstractTask):
         rows = []
         counter = {}
         df = self.df
+        samples_per_head = self.samples_per_head_per_split[self.split]
         for idx, row in df.iterrows():
+            if row.prefix != self.name:
+                continue
             if not row.input_text in counter:
                 counter[row.input_text] = 0
             counter[row.input_text] += 1
-            if counter[row.input_text] > self.samples_per_head:
+            if counter[row.input_text] > samples_per_head:
                 continue
             rows.append(row.to_dict())
             if len(counter) > n_obs:
@@ -1161,7 +1169,7 @@ class Atomic(AbstractTask):
         return ds
 
     def postproc_df(self, df, split):
-        df = df[df.prefix == self.name]
+        # df = df[df.prefix == self.name]
         return df
 
     def preproc_df(self, df, split):
@@ -1171,7 +1179,6 @@ class Atomic(AbstractTask):
         # df['px'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform(lambda x: ','.join(x))
         df['px_count'] = df[['input_text', 'prefix']].groupby(['input_text'])['prefix'].transform('nunique')
         print("len df:", len(df))
-        # df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
         print("len new df:", len(df))
         sort_by = ["px_count", "freqs","input_text", "prefix"] 
         if "sel" in df:
@@ -1184,26 +1191,6 @@ class Atomic(AbstractTask):
             mylogs.success(text, log=False)
             i += 1
             if i > 100:
-                break
-        return df
-
-    def preproc_df2(self, df, split):
-        df["freqs"] = df.groupby(['prefix', 'input_text'])['input_text'].transform('count')
-        print("len df:", len(df))
-        df = df.groupby(["prefix", "input_text"]).head(self.samples_per_head)
-        print("len new df:", len(df))
-        sort_by = ["freqs", "input_text", "prefix"] 
-        if "sel" in df:
-            mylogs.bp("df")
-            sort_by = ["sel", "freqs", "input_text", "prefix"] 
-        df = df.sort_values(by=sort_by, ascending=False)
-        i = 0
-        for idx, row in df.iterrows():
-            text = "{}   {}   {}".format(
-                row.input_text, row.prefix, row.target_text)
-            mylogs.success(text)
-            i += 1
-            if i > 30:
                 break
         return df
 
@@ -1235,7 +1222,22 @@ class Atomic(AbstractTask):
 
 class xIntent(Atomic):
     name = "xIntent"
-    rel_nat = " a"
+    rel_nat = "they intend"
+
+class xIntent2(Atomic):
+    name = "xIntent"
+    prefix = "xIntent"
+    rel_nat = "Intention:"
+
+class xIntent3(Atomic):
+    name = "xIntent"
+    prefix = "xIntent"
+    rel_nat = "Before, they intended to"
+
+class xAttr2(Atomic):
+    name = "xAttr"
+    prefix = "xAttr"
+    rel_nat = "Character:"
 
 class isAfter(Atomic):
     name = "isAfter"

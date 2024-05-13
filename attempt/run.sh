@@ -89,7 +89,7 @@ if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
 fi
 if [ -n "$_ust" ]; then
-   _tasks="xAttr#xReact#AtLocation#HasProperty#ObjectUse#CapableOf#isFilledBy"
+   _tasks="AtLocation#HasProperty#ObjectUse#CapableOf#isFilledBy"
 fi
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"

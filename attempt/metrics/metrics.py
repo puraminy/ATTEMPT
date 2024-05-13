@@ -342,7 +342,7 @@ def bert_score(bert_scorer, hyps, refs, device):
         return best_hyp_index, best_ref_index, top["score"] 
 
 rel_target_omits = {
-    "xIntent":"to",
+   # "xIntent":"to",
 }
 def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wandb=False):
     #try:
