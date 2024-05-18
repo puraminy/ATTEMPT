@@ -564,7 +564,7 @@ class AbstractTask(abc.ABC):
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
             if self.rel_nat and self.rel_nat != self.name:
                 data["rel_nat"] = self.rel_nat  
-            else: 
+            elif task in REL_TO_PHRASE: 
                 data["rel_nat"] = REL_TO_PHRASE[task] 
             rel_from_nat = REL_TO_PHRASE[task] if task in REL_TO_PHRASE else task
             rel_from_nat = rel_from_nat.split()
@@ -1106,10 +1106,11 @@ class Atomic(AbstractTask):
         super().__init__(config, task_args, task, tokenizer)
         train_sph = task_args.get("samples_per_head", 1)
         self.samples_per_head_per_split["train"] = train_sph
-        if not task_args.rels:
-            self.rels = [self.name]
-        else:
-            self.rels = task_args.rels
+        if not self.rels:
+            if not task_args.rels:
+                self.rels = [self.name]
+            else:
+                self.rels = task_args.rels
 
     def load_dataset(self, split):
         if split != "train" or self.do_split:
@@ -1249,44 +1250,69 @@ class isBefore(Atomic):
 
 class AtomicRel(Atomic):
     name = "atomic-rels"
-    samples_per_rel = 100
+    groups = {}
 
-    def __init__(self, config, task_args, task=""):
+    def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args)
-        self.train_samples_per_rel = task_args.train_samples
-        self.val_samples_per_rel = task_args.val_samples
-        self.test_samples_per_rel = task_args.test_samples
+        if self.groups:
+            rels = []
+            for g,l in self.groups.items():
+                rels.extend(l)
+            self.rels = rels
 
     def get_id(self):
         return "-".join(self.rels)
 
     def preproc_df(self, df, split):
-        if split == "train":
-            samples_per_rel = self.train_samples_per_rel
-        elif split == "validation":
-            samples_per_rel = self.val_samples_per_rel
-        else:
-            samples_per_rel = self.test_samples_per_rel
         print("len df:", len(df))
-        df = df.groupby(["prefix"]).head(samples_per_rel)
+        #df = df.groupby(["prefix"]).head(samples_per_rel)
+        df = super().preproc_df(df, split)
         print("len new df:", len(df))
-        return df
+        return df 
 
     def check_n_obs(self, n_obs, total_size):
         return total_size
 
-    def get_data_path(self, split):
-        path = self.data_path
-        self.split = split
-        if not path.startswith("/"):
-            path = op.join(mylogs.home, self.data_path)
-        path = op.join(path, split + '.tsv')
-        return path
+    def subsample(self, dataset, n_obs=None, indices=None):
+        mylogs.bp("subsample")
+        rows = []
+        counter = {}
+        pcounter = {}
+        df = self.df
+        samples_per_head = self.samples_per_head_per_split[self.split]
+        for idx, row in df.iterrows():
+            # print(len(rows), row.prefix, pcounter)
+            if len(rows) >= n_obs * len(self.rels):
+                break
+            if row.prefix not in self.rels:
+                continue
+            w = self.rels.count(row.prefix)
+            if not row.prefix in pcounter:
+                pcounter[row.prefix] = 0
+            if not row.input_text in counter:
+                counter[row.input_text] = 0
+            counter[row.input_text] += 1
+            if counter[row.input_text] > samples_per_head:
+                continue
+            pcounter[row.prefix] += 1
+            if pcounter[row.prefix] > n_obs * w: 
+                continue
+            rows.append(row.to_dict())
+        self.df = pd.DataFrame(data=rows)
+        ds = Dataset.from_pandas(self.df)
+        return ds
 
     def preprocessor(self, example, prefix):
+        group = relation = example["prefix"].strip()
         src_texts = ["head:", str(example["input_text"]),
                      "tail:", str(example["target_text"])]
-        tgt_texts = [example["prefix"].strip()]
+        if self.groups:
+            for g, members in self.groups.items():
+                if group in members:
+                    group = g
+                    break
+
+        tgt_texts = [group]
         extra_fields = {}
         extra_fields["event"] = example["input_text"]
         extra_fields["tail"] = example["target_text"]
@@ -1294,6 +1320,20 @@ class AtomicRel(Atomic):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
+
+class AtomicGroup(AtomicRel):
+    name = "atomic-groups"
+    groups = {
+           "Filling": ["Desires","CapableOf", "oReact","xReact", 
+               "HasProperty","xAttr","xAttr","xAttr","AtLocation", "ObjectUse"],
+           "Mapping": ["xIntent","xWant", "xEffect","xNeed", "isBefore", "isAfter"]
+           }
+
+class AtomicTestGroup(AtomicRel):
+    name = "atomic-test-groups"
+    groups = {
+           "Mapping": ["xReason", "Causes"]
+           }
 
 class Causes(Atomic):
     name = "Causes"
@@ -1975,6 +2015,8 @@ TASK_MAPPING = OrderedDict(
         ('xEffect', xEffect),
         ('oEffect', oEffect),
         ('atomic-rels', AtomicRel),
+        ('atomic-groups', AtomicGroup),
+        ('atomic-test-groups', AtomicTestGroup),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('mrpc1', MRPC1),

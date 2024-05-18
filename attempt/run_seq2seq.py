@@ -245,6 +245,19 @@ def cli():
     help="You can set it for continueing experiments with different versions (after some changes)"
 )
 @click.option(
+    "--skip",
+    "-skip",
+    is_flag=True,
+    help="Skip existing experiments"
+)
+@click.option(
+    "--save_conf",
+    "-conf",
+    default="",
+    type=str,
+    help="Save config for using later"
+)
+@click.option(
     "--rem",
     "-rem",
     is_flag=True,
@@ -329,7 +342,8 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, label, deep_check, merge, not_copy_prev_exp, 
+        debug, version, trial, skip, save_conf, rem, repeat, 
+        label, deep_check, merge, not_copy_prev_exp, 
         reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
    if debug:
        port = "1234"
@@ -592,6 +606,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    args["tag"] = ctags 
    args["merge"] = merge
+   args["save_conf"] = save_conf 
    y_labels = []
    exp_number = 1
    for comb in tot_comb:
@@ -817,6 +832,13 @@ def train(**kwargs):
     elif config_name == "attempt":
         config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
 
+    _dir = Path(__file__).parent
+    param_map = {}
+    param_file = os.path.join(_dir, "params.json")
+    if Path(param_file).is_file():
+       with open(param_file) as f:
+          param_map = json.load(f)
+
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
@@ -874,6 +896,10 @@ def train(**kwargs):
         expid = kwargs.get("expid", 1)
         exp_conf_name = "exp.json" if not merge else "exp_" + expid + ".json"
         with open(op.join(training_args.output_dir, exp_conf_name), "w") as f:
+            print(exp_conf, file=f)
+    save_conf = kwargs.get("save_conf","")
+    if save_conf:
+        with open(op.join(mylogs.confPath, "conf_" + save_conf + ".json"), "w") as f:
             print(exp_conf, file=f)
     mylogs.bp("conf")
 
@@ -1086,7 +1112,7 @@ def train(**kwargs):
     task_args["template"] = input_template 
     task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
-    task_args["rels"] = data_args.task_name # if kwargs.rels == "tasks" else kwargs.rels
+    task_args["rels"] = data_args.task_name if kwargs.rels == "tasks" else kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
     task_args["id"] = kwargs["expid"]
 
@@ -2230,9 +2256,20 @@ def train(**kwargs):
             # save all model parameters and tokenizers 
             # regardless of whether they are updated or not.
             model_name = Path(model_name_or_path).stem
-            if save_model in kwargs:
-                save_model = kwargs[save_model]
-            pret_dir = op.join(mylogs.pretPath, model_name  + "-" + save_model) 
+            parts = save_model.split("-")
+            save_model = model_name
+            for part in parts:
+                if part in param_map:
+                    part = param_map[part]
+                if part in kwargs:
+                    part = kwargs[part]
+                    if type(part) == list:
+                        part="@".join([str(s) for s in part])
+                    save_model += "-" + part 
+                else:
+                    save_model += "-" + part
+            save_model += "-" + str(data_args.max_train_samples)
+            pret_dir = op.join(mylogs.pretPath, save_model) 
             trainer.save_model(pret_dir)
 
         train_metrics = train_result.metrics
