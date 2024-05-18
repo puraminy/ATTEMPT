@@ -73,6 +73,7 @@ class AbstractTask(abc.ABC):
     small_datasets_without_all_splits = []
     large_data_without_all_splits = []
     records_num = {"train":0, "test":0, "validation":0}
+    files = {"train":"", "test":"", "validation":""}
     # small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
     #                                     "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
     #                                     "superglue-boolq", "xsum", "scitail"]
@@ -267,6 +268,7 @@ class AbstractTask(abc.ABC):
         if Path(outfile).is_file() and self.use_cache_file is True:
             infile = outfile
 
+        self.files[split] = outfile
         return directory, infile, outfile
 
     def save_dataset(self, dataset, output_filename):
@@ -1357,6 +1359,25 @@ class AtomicRel(Atomic):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
+    def after_prediction(self, golds, preds):
+        mylogs.bp("after_pred")
+        n_obs = len(golds)
+        file_name = self.files["test"]
+        if file_name:
+            df = pd.read_csv(file_name)
+            for index, (pred, gold) in enumerate(zip(preds, golds)):
+                df.at[index, 'group'] = pred
+
+        outfile = file_name            
+        df.to_csv(outfile, index=False)
+     
+class FreeCS(Atomic):
+    name = "free-cs"
+    split_to_data_name = {"train": "free-rels", "test":"free-rels"}
+
+class FreeRel(AtomicRel):
+    name = "free-rels"
+    split_to_data_name = {"train": "omcs", "test":"omcs"}
 
 class AtomicGroup(AtomicRel):
     name = "atomic-groups"
@@ -1371,8 +1392,6 @@ class AtomicGroup(AtomicRel):
            "Mapping": ["xReason","oWant", "oEffect","isBefore"]
            }
 
-class AtomicGroupTrain(AtomicGroup):
-    name = "atomic-groups-train"
     def preprocessor(self, example, prefix):
         group = relation = example["prefix"].strip()
         rel_nat = ""
@@ -2106,8 +2125,9 @@ TASK_MAPPING = OrderedDict(
         ('xEffect', xEffect),
         ('oEffect', oEffect),
         ('atomic-rels', AtomicRel),
+        ('free-cs', FreeCS),
+        ('free-rels', FreeRel),
         ('atomic-groups', AtomicGroup),
-        ('atomic-groups-train', AtomicGroupTrain),
         ('omcs', OMCS),
         ('squad', Squad),
         ('mrpc', MRPC),
