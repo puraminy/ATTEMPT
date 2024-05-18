@@ -72,6 +72,7 @@ class AbstractTask(abc.ABC):
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
     large_data_without_all_splits = []
+    records_num = {"train":0, "test":0, "validation":0}
     # small_datasets_without_all_splits = ["cola", "wnli", "rte", "superglue-cb", "superglue-copa", "superglue-multirc",
     #                                     "superglue-wic", "superglue-wsc.fixed", "superglue-rte", "mrpc", "stsb",
     #                                     "superglue-boolq", "xsum", "scitail"]
@@ -130,6 +131,10 @@ class AbstractTask(abc.ABC):
 
     def get_id(self):
         return self.prefix
+
+    def after_prediction(self, preds, golds):
+        print("After Prediction")
+        return
 
     def get_max_target_length(self, tokenizer, default_max_length):
         ll = []
@@ -231,10 +236,13 @@ class AbstractTask(abc.ABC):
         file_path = op.join(path, split + '.tsv')
         return file_path
 
+    def get_fname(self, split):
+        return split
+
     def get_stored_file(self, split, n_obs):
         directory = self.data_path 
         extension = ".csv"
-        fname = split
+        fname = self.get_fname(split)
         if not directory.startswith("/"):
             directory = op.join(mylogs.home, self.data_path, self.name)
         else:
@@ -286,6 +294,9 @@ class AbstractTask(abc.ABC):
         return dataset.map(functools.partial(self.preprocessor, prefix=prefix),
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
+
+    def get_records_num(self, split):
+        return self.records_num[split]
 
     def get(self, split, prefix="", n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
@@ -368,8 +379,9 @@ class AbstractTask(abc.ABC):
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
 
-        if not Path(outfile).is_file():
+        if not Path(outfile).is_file() or not self.use_cache_file:
             self.save_dataset(dataset, outfile)
+        self.records_num[split] = len(dataset)
         return self.map_dataset(dataset, prefix)
 
     # my post proc
@@ -1111,6 +1123,8 @@ class Atomic(AbstractTask):
                 self.rels = [self.name]
             else:
                 self.rels = task_args.rels
+        if type(self.rels) != list:
+            self.rels = [self.rels]
 
     def load_dataset(self, split):
         if split != "train" or self.do_split:
@@ -1250,18 +1264,27 @@ class isBefore(Atomic):
 
 class AtomicRel(Atomic):
     name = "atomic-rels"
-    groups = {}
+    train_groups = {}
+    test_groups = {}
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args)
-        if self.groups:
-            rels = []
-            for g,l in self.groups.items():
-                rels.extend(l)
-            self.rels = rels
+        rels = task_args.rels
+        if type(rels) != list:
+            rels = [rels]
+        for g,l in self.train_groups.items():
+            rels.extend(l)
+        for g,l in self.test_groups.items():
+            rels.extend(l)
+        rels = list(set(rels))
+        self.rels = rels
 
     def get_id(self):
         return "-".join(self.rels)
+
+    def get_fname(self, split):
+        fname = split + "_" + "-".join(self.rels)
+        return fname.strip("_")
 
     def preproc_df(self, df, split):
         print("len df:", len(df))
@@ -1279,14 +1302,24 @@ class AtomicRel(Atomic):
         counter = {}
         pcounter = {}
         df = self.df
+        if self.split == "train":
+            groups = self.train_groups
+        else:
+            groups = self.test_groups
+        rels = []
+        for g,l in groups.items():
+            rels.extend(l)
+        if not rels:
+            rels = self.rels
+        assert len(rels) > 0, "rels is empty"
         samples_per_head = self.samples_per_head_per_split[self.split]
         for idx, row in df.iterrows():
             # print(len(rows), row.prefix, pcounter)
-            if len(rows) >= n_obs * len(self.rels):
+            if len(rows) >= n_obs * len(rels):
                 break
-            if row.prefix not in self.rels:
+            if row.prefix not in rels:
                 continue
-            w = self.rels.count(row.prefix)
+            w = rels.count(row.prefix)
             if not row.prefix in pcounter:
                 pcounter[row.prefix] = 0
             if not row.input_text in counter:
@@ -1306,8 +1339,12 @@ class AtomicRel(Atomic):
         group = relation = example["prefix"].strip()
         src_texts = ["head:", str(example["input_text"]),
                      "tail:", str(example["target_text"])]
-        if self.groups:
-            for g, members in self.groups.items():
+        if self.split == "train":
+            groups = self.train_groups
+        else:
+            groups = self.test_groups
+        if groups:
+            for g, members in groups.items():
                 if group in members:
                     group = g
                     break
@@ -1323,18 +1360,72 @@ class AtomicRel(Atomic):
 
 class AtomicGroup(AtomicRel):
     name = "atomic-groups"
-    groups = {
-           "Filling": ["Desires","CapableOf", "oReact","xReact", 
-               "HasProperty","xAttr","xAttr","xAttr","AtLocation", "ObjectUse"],
-           "Mapping": ["xIntent","xWant", "xEffect","xNeed", "isBefore", "isAfter"]
+    train_groups = {
+           "Filling": ["Desires","CapableOf","xReact", "Causes", 
+               "isFilledBy","AtLocation", "ObjectUse"],
+           "Mapping": ["xIntent","xWant", "xEffect","xNeed", "isAfter"]
+           }
+    test_groups = {
+           "Filling": ["NotDesires", "HinderedBy","oReact", "Causes", 
+               "HasProperty","MadeUpOf","AtLocation", "isFilledBy"],
+           "Mapping": ["xReason","oWant", "oEffect","isBefore"]
            }
 
-class AtomicTestGroup(AtomicRel):
-    name = "atomic-test-groups"
-    groups = {
-           "Mapping": ["xReason", "Causes"]
-           }
+class AtomicGroupTrain(AtomicGroup):
+    name = "atomic-groups-train"
+    def preprocessor(self, example, prefix):
+        group = relation = example["prefix"].strip()
+        rel_nat = ""
+        assert relation in REL_TO_PHRASE, "Relation " + relation + " has no natural phrase"
+        rel_nat = REL_TO_PHRASE[relation] 
+        src_texts = [str(example["input_text"]), rel_nat,
+                     str(example["target_text"])]
+        if example["target_text"] is None:
+            example["target_text"] = "none"
 
+        pos = str(len(example["input_text"])) + ":"
+        tgt_texts = [example["target_text"]]
+        extra_fields = {}
+        extra_fields["event"] = example["input_text"]
+        extra_fields["tail"] = example["target_text"]
+        extra_fields["sel"] = example["sel"] if "sel" in example else False
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
+class OMCS(AbstractTask):
+    metric = [metrics.rouge]
+    metric_names = ["rouge"]
+    name = "omcs"
+    do_shuffle = False
+    def preprocessor(self, example, prefix):
+        src_texts = [str(example["text"])]
+        tgt_texts = src_texts
+        extra_fields = {}
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
+    def after_prediction(self, golds, preds):
+        mylogs.bp("after_pred")
+        rows = []
+        for pred, gold in zip(preds, golds):
+            pred = pred.strip()
+            if not pred in gold:
+                continue
+            if len(pred) > 30:
+                continue
+            data = {}
+            data["input_text"] = gold.replace(pred,"")
+            data["target_text"] = pred
+            data["prefix"] = "omcs"
+            rows.append(data)
+
+        df = pd.DataFrame(data=rows)
+        n_obs = len(df)
+        print("len df:", n_obs)
+        directory, file_name, outfile = self.get_stored_file("train", n_obs)
+        outfile = outfile.replace(".csv", ".tsv")
+        df.to_csv(outfile, sep="\t", index=False)
+     
 class Causes(Atomic):
     name = "Causes"
 
@@ -2016,7 +2107,8 @@ TASK_MAPPING = OrderedDict(
         ('oEffect', oEffect),
         ('atomic-rels', AtomicRel),
         ('atomic-groups', AtomicGroup),
-        ('atomic-test-groups', AtomicTestGroup),
+        ('atomic-groups-train', AtomicGroupTrain),
+        ('omcs', OMCS),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('mrpc1', MRPC1),
