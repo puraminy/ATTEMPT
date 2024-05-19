@@ -45,6 +45,7 @@ class AbstractTask(abc.ABC):
     generation = False
     split_map = None
     load_df = False
+    df_format = ".csv"
     do_split = False
     labels_list = None
     pcounter = 0
@@ -234,7 +235,7 @@ class AbstractTask(abc.ABC):
         path = op.join(path, ds_name)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
-        file_path = op.join(path, split + '.tsv')
+        file_path = op.join(path, split + self.df_format)
         return file_path
 
     def get_fname(self, split):
@@ -1112,6 +1113,7 @@ class Atomic(AbstractTask):
     generation = True
     do_shuffle = True
     load_df = True
+    df_format= ".tsv" 
     samples_per_head_per_split = {"train":1, "test":3}
     rels = []
     split_to_data_name = {"train": "atomic", "test":"atomic"}
@@ -1128,19 +1130,29 @@ class Atomic(AbstractTask):
         if type(self.rels) != list:
             self.rels = [self.rels]
 
-    def load_dataset(self, split):
+    def read_df(self, split):
         if split != "train" or self.do_split:
             self.do_shuffle = False
         path = self.get_data_path(split)
-        df = pd.read_table(path)
+        if self.df_format == ".tsv":
+            df = pd.read_table(path)
+        else:
+            df = pd.read_csv(path)
         if self.do_split or (split == "test" and len(df) < 300):
             path = self.get_data_path("train")
-            df = pd.read_table(path)
+            if self.df_format == ".tsv":
+                df = pd.read_table(path)
+            else:
+                df = pd.read_csv(path)
             if split == "test":
                 df = df.tail(300)
             else:
                 df = df.head(len(df) - 300)
+        return df
+
+    def load_dataset(self, split):
         # df = self.filter(df, split)
+        df = self.read_df(split)
         df = self.preproc_df(df, split)
         assert len(df) > 0, "data frame is empty for " + \
                    split + " of " + self.name + " " + path
@@ -1369,11 +1381,23 @@ class AtomicRel(Atomic):
                 df.at[index, 'group'] = pred
 
         outfile = file_name            
+        df = df[["input_text","prefix","target_text","group"]]
         df.to_csv(outfile, index=False)
      
 class FreeCS(Atomic):
     name = "free-cs"
+    df_format= ".csv" 
     split_to_data_name = {"train": "free-rels", "test":"free-rels"}
+
+    def read_df(self, split):
+        if split != "train" or self.do_split:
+            self.do_shuffle = False
+        path = self.get_data_path(split)
+        if self.df_format == ".tsv":
+            df = pd.read_table(path)
+        else:
+            df = pd.read_csv(path)
+        return df
 
 class FreeRel(AtomicRel):
     name = "free-rels"
@@ -1435,15 +1459,14 @@ class OMCS(AbstractTask):
             data = {}
             data["input_text"] = gold.replace(pred,"")
             data["target_text"] = pred
-            data["prefix"] = "omcs"
+            data["prefix"] = "free-cs"
             rows.append(data)
 
         df = pd.DataFrame(data=rows)
         n_obs = len(df)
         print("len df:", n_obs)
         directory, file_name, outfile = self.get_stored_file("train", n_obs)
-        outfile = outfile.replace(".csv", ".tsv")
-        df.to_csv(outfile, sep="\t", index=False)
+        df.to_csv(outfile, index=False)
      
 class Causes(Atomic):
     name = "Causes"
