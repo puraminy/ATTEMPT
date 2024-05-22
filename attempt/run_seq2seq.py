@@ -1265,144 +1265,6 @@ def train(**kwargs):
             use_auth_token=True if model_args.use_auth_token else None,
         )
 
-    # Load training set
-    data_args.dataset_name = data_args.task_name
-    data_args.dataset_config_name = data_args.dataset_config_name
-    data_args.eval_dataset_config_name = data_args.eval_dataset_config_name
-    data_args.test_dataset_config_name = data_args.test_dataset_config_name
-    assert len(data_args.dataset_name) == len(data_args.dataset_config_name)
-    if data_args.eval_dataset_name is not None:
-        assert len(data_args.eval_dataset_name) == len(
-            data_args.eval_dataset_config_name)
-    if data_args.test_dataset_name is not None:
-        assert len(data_args.test_dataset_name) == len(
-            data_args.test_dataset_config_name)
-
-    # Temporarily set max_target_length for training.
-    #max_target_length = data_args.max_target_length
-    padding = "max_length" if data_args.pad_to_max_length else False
-    ########### rrrrrr
-    hit_count = kwargs.setdefault("hc", 3)
-    def preprocess_function(examples, max_target_length, task_id=None):
-        mylogs.bp("data")
-        model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
-                                 padding=padding, truncation=True)
-        if preview == "data":
-            print("sourece: %s", examples["source"][:hit_count])
-            print("target: %s", examples["target"][:hit_count])
-
-        if bp and bp in "data|examples":
-            logger.info("sourece: %s", examples["source"][:5])
-            logger.info("target: %s", examples["target"][:5])
-            logger.info("extra: %s", examples["extra_fields"][:5])
-            breakpoint()
-        # Setup the tokenizer for targets
-        mylogs.bp("encode")
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(
-                examples['target'], max_length=max_target_length, padding=padding, truncation=True)
-        #if preview == "data":
-        #    logger.info("target encoded: %s", labels)
-        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-        # padding in the loss.
-        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-            labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-            ]
-        model_inputs["labels"] = labels["input_ids"]
-        #if preview == "data":
-        #    logger.info("target encoded input ids: %s", labels["input_ids"])
-        if "task_ids" in examples["extra_fields"]:
-            model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
-        mylogs.bp("train_test_data")
-        model_inputs["extra_fields"] = examples['extra_fields']  
-        if task_id is not None:
-            model_inputs["task_ids"] = [
-                task_id for _ in examples['extra_fields']]
-        return model_inputs
-
-    column_names = ['source', 'target', 'extra_fields']
-    performance_metrics = {}
-    task_args = dotdict(task_args.copy())
-    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
-    if training_args.do_train:
-        # Load datasets from files if your target datasets are not in huggingface datasets.
-        train_datasets = []
-        max_target_lengths = []
-        for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
-                data_args.dataset_config_name):
-            n_obs = data_args.max_train_samples 
-            if dataset_name in include_exclude_tasks:
-                n_obs = inex_training_samples
-            for prefix in train_prefix[dataset_name]:
-                auto_task = AutoTask.get(dataset_name,
-                                         dataset_config_name,
-                                         task_args=task_args, tokenizer=tokenizer)
-                print("loading train dataset for " + prefix)
-                train_ds = auto_task.get(
-                        split="train",
-                        split_validation_test=training_args.split_validation_test,
-                        prefix=prefix,
-                        n_obs=n_obs,
-                        lang=data_args.lang_name, file_name=data_args.train_file)
-                train_datasets.append(train_ds)
-
-                mtl = auto_task.get_max_target_length(
-                                tokenizer=tokenizer, 
-                                default_max_length=data_args.max_target_length)
-                max_target_lengths.append(mtl)
-        for i, train_dataset in enumerate(train_datasets):
-            train_datasets[i] = train_datasets[i].map(
-                functools.partial(preprocess_function,
-                                  max_target_length=max_target_lengths[i]
-                                  #mycode adding task ids
-                                  ,task_id=i
-                                  ),
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                # if train_dataset != "superglue-record" else column_names+["answers"],
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-            )
-        if trainer_shuffle:
-            train_dataset = concatenate_datasets(train_datasets)
-        else:
-            mylogs.bp("myint")
-            train_dataset = my_interleave_datasets(train_datasets, 
-                batch_size=training_args.per_device_train_batch_size)
-    if preview == "data":
-       print("preview is data")
-       return "data_preview" 
-
-    if training_args.do_eval:
-        eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                    task_args=task_args, tokenizer=tokenizer).get(
-            split="validation",
-            split_validation_test=training_args.split_validation_test,
-            prefix=train_prefix[dataset_name],
-            n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
-            for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
-
-        max_target_lengths = [AutoTask.get(dataset_name, 
-            dataset_config_name,
-            task_args=task_args, tokenizer=tokenizer).get_max_target_length(
-            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
-            for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
-
-        for k, name in enumerate(eval_datasets):
-            eval_datasets[name] = eval_datasets[name].map(
-                functools.partial(preprocess_function,
-                                  max_target_length=max_target_lengths[k]),
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                # if name != "superglue-record" else column_names+["answers"],
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-            )
-
-    if preview == "template":
-        print("preview is template")
-        return
     # Set seed before initializing model.
     tasks = data_args.task_name
     mylogs.bp("steps")
@@ -1414,8 +1276,8 @@ def train(**kwargs):
         for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
              t_args = dotdict(task_args.copy())
              task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer= None)
-             assert task.get_records_num("train") != 0, "The number of records are zero"
-             total_samples += task.get_records_num("train")
+             assert task.get_records_num("train", data_args.max_train_samples) != 0, "The number of records are zero"
+             total_samples += task.get_records_num("train", data_args.max_train_samples)
 
         training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
 
@@ -1936,6 +1798,144 @@ def train(**kwargs):
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     mylogs.bp("freeze")
 
+    # Load training set
+    data_args.dataset_name = data_args.task_name
+    data_args.dataset_config_name = data_args.dataset_config_name
+    data_args.eval_dataset_config_name = data_args.eval_dataset_config_name
+    data_args.test_dataset_config_name = data_args.test_dataset_config_name
+    assert len(data_args.dataset_name) == len(data_args.dataset_config_name)
+    if data_args.eval_dataset_name is not None:
+        assert len(data_args.eval_dataset_name) == len(
+            data_args.eval_dataset_config_name)
+    if data_args.test_dataset_name is not None:
+        assert len(data_args.test_dataset_name) == len(
+            data_args.test_dataset_config_name)
+
+    # Temporarily set max_target_length for training.
+    #max_target_length = data_args.max_target_length
+    padding = "max_length" if data_args.pad_to_max_length else False
+    ########### rrrrrr
+    hit_count = kwargs.setdefault("hc", 3)
+    def preprocess_function(examples, max_target_length, task_id=None):
+        mylogs.bp("data")
+        model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
+                                 padding=padding, truncation=True)
+        if preview == "data":
+            print("sourece: %s", examples["source"][:hit_count])
+            print("target: %s", examples["target"][:hit_count])
+
+        if bp and bp in "data|examples":
+            logger.info("sourece: %s", examples["source"][:5])
+            logger.info("target: %s", examples["target"][:5])
+            logger.info("extra: %s", examples["extra_fields"][:5])
+            breakpoint()
+        # Setup the tokenizer for targets
+        mylogs.bp("encode")
+        with tokenizer.as_target_tokenizer():
+            labels = tokenizer(
+                examples['target'], max_length=max_target_length, padding=padding, truncation=True)
+        #if preview == "data":
+        #    logger.info("target encoded: %s", labels)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+        model_inputs["labels"] = labels["input_ids"]
+        #if preview == "data":
+        #    logger.info("target encoded input ids: %s", labels["input_ids"])
+        if "task_ids" in examples["extra_fields"]:
+            model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
+        mylogs.bp("train_test_data")
+        model_inputs["extra_fields"] = examples['extra_fields']  
+        if task_id is not None:
+            model_inputs["task_ids"] = [
+                task_id for _ in examples['extra_fields']]
+        return model_inputs
+
+    column_names = ['source', 'target', 'extra_fields']
+    performance_metrics = {}
+    task_args = dotdict(task_args.copy())
+    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
+    if training_args.do_train:
+        # Load datasets from files if your target datasets are not in huggingface datasets.
+        train_datasets = []
+        max_target_lengths = []
+        for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
+                data_args.dataset_config_name):
+            n_obs = data_args.max_train_samples 
+            if dataset_name in include_exclude_tasks:
+                n_obs = inex_training_samples
+            for prefix in train_prefix[dataset_name]:
+                auto_task = AutoTask.get(dataset_name,
+                                         dataset_config_name,
+                                         task_args=task_args, tokenizer=tokenizer)
+                print("loading train dataset for " + prefix)
+                train_ds = auto_task.get(
+                        split="train",
+                        split_validation_test=training_args.split_validation_test,
+                        prefix=prefix,
+                        n_obs=n_obs,
+                        lang=data_args.lang_name, file_name=data_args.train_file)
+                train_datasets.append(train_ds)
+
+                mtl = auto_task.get_max_target_length(
+                                tokenizer=tokenizer, 
+                                default_max_length=data_args.max_target_length)
+                max_target_lengths.append(mtl)
+        for i, train_dataset in enumerate(train_datasets):
+            train_datasets[i] = train_datasets[i].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[i]
+                                  #mycode adding task ids
+                                  ,task_id=i
+                                  ),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if train_dataset != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
+        if trainer_shuffle:
+            train_dataset = concatenate_datasets(train_datasets)
+        else:
+            mylogs.bp("myint")
+            train_dataset = my_interleave_datasets(train_datasets, 
+                batch_size=training_args.per_device_train_batch_size)
+    if preview == "data":
+       print("preview is data")
+       return "data_preview" 
+
+    if training_args.do_eval:
+        eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
+                                                    task_args=task_args, tokenizer=tokenizer).get(
+            split="validation",
+            split_validation_test=training_args.split_validation_test,
+            prefix=train_prefix[dataset_name],
+            n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
+            for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
+
+        max_target_lengths = [AutoTask.get(dataset_name, 
+            dataset_config_name,
+            task_args=task_args, tokenizer=tokenizer).get_max_target_length(
+            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
+            for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
+
+        for k, name in enumerate(eval_datasets):
+            eval_datasets[name] = eval_datasets[name].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[k]),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if name != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
+
+    if preview == "template":
+        print("preview is template")
+        return
     # Data collator
     label_pad_token_id = - \
         100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
