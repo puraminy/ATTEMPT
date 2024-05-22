@@ -6,6 +6,10 @@
   ],
   "sel_cols":[
     "expname",
+    "model_name_or_path",
+    "template",
+    "method",
+    "rouge_score",
     "prefix"
   ],
   "ex_cols":[
@@ -55,6 +59,7 @@
   "index_cols":[
     "expid",
     "template",
+    "method",
     "prompt_encoder_type",
     "num_train_epochs",
     "model_name_or_path",
