@@ -504,11 +504,22 @@ class AbstractTask(abc.ABC):
         target = "(mask) (prefix) (nat) {target}"  # {end}"
         return src, target
 
-    def get_template(self):
+    def get_template(self, template_type = None):
         src, target = self.get_template_format()
         parts = self.template.split("-")
         pcom = 0  # number of shared prompts among all tasks
         mylogs.bp("template")
+        if "per_sample" in parts:
+            parts.remove("per_sample")
+            if template_type == "Filling":
+                if "sup" in parts:
+                    parts.remove("sup")
+                parts.append("unsup")
+            if template_type == "Mapping":
+                if "unsup" in parts:
+                    parts.remove("unsup")
+                    parts.append("sup")
+            
         for part in parts:
             if part == "mask":
                 src = src.replace("(mask)", "{mask} (mask)")
@@ -653,7 +664,10 @@ class AbstractTask(abc.ABC):
 
     def fill_template(self, data):
         mylogs.bp("fill")
-        src, tgt,pcom = self.get_template()
+        template_type = None
+        if "group" in data:
+            template_type = data["group"]
+        src, tgt,pcom = self.get_template(template_type)
 
         mask = "<extra_id_0>"
         data = self.extend_data(data, pcom=pcom)
@@ -733,9 +747,11 @@ class AbstractTask(abc.ABC):
             src = src + " options:" + ",".join(labels_list)
 
         src = src[:max_input_len]
+        group = None if not "group" in extra_fields else extra_fields["group"]
 
         data = {'source': src,
                 'target': tgt,
+                "group" : group,
                 'task': self.get_id(),
                 ** extra_fields}
         ex_fields = {}
@@ -1241,6 +1257,8 @@ class Atomic(AbstractTask):
         src_texts = [str(example["input_text"])]
         tgt_texts = [str(example["target_text"])]
         extra_fields = {}
+        if "group" in example:
+            extra_fields["group"] = example["group"]
         extra_fields["event"] = example["input_text"]
         extra_fields["rel"] = example["prefix"]
         extra_fields["tail"] = example["target_text"]
@@ -1401,6 +1419,7 @@ class FreeCS(Atomic):
 
 class FreeRel(AtomicRel):
     name = "free-rels"
+    df_format = ".csv"
     split_to_data_name = {"train": "omcs", "test":"omcs"}
 
 class AtomicGroup(AtomicRel):
@@ -1465,6 +1484,7 @@ class OMCS(AbstractTask):
         df = pd.DataFrame(data=rows)
         n_obs = len(df)
         print("len df:", n_obs)
+        outfile = outfile.replace(".tsv",".csv")
         directory, file_name, outfile = self.get_stored_file("train", n_obs)
         df.to_csv(outfile, index=False)
      
