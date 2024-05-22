@@ -29,7 +29,7 @@ import pandas as pd
 import json
 
 TASK_TO_METRICS = {
-                   "default":["accuracy"],
+                   "default":["rouge"],
                    "atomic": ["rouge"],
                    "xIntent": ["rouge"],
                    "xAttr": ["rouge"],

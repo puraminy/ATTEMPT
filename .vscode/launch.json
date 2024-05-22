@@ -6,8 +6,8 @@
     "configurations": [
         {
             "name": "Python: Remote Attach",
-            "type": "python",
             "request": "attach",
+            "type": "python",
             "connect": {
                 "host": "localhost",
                 "port": 1234

@@ -320,6 +320,15 @@ def index_colors(df,row,col, default=None):
     index = df.iloc[row][col]
     return index
 
+def pred_colors(df,row,col, default=None):
+    pred = df.iloc[row][col]
+    pred = str(pred)
+    target = df.iloc[row]["target_text"]
+    terget = str(target)
+    if pred in target:
+        return WARNING_COLOR
+    return 81
+
 def cat_colors(df,row,col, default=None):
     cat = df.iloc[row][col]
     cat = str(cat)
@@ -421,7 +430,7 @@ def get_main_vars(df):
         main_vars = list(dict.fromkeys(mvars))
     return main_vars
 
-def summarize(df):
+def summarize(df, use_rouge):
     mdf = df #main_df
     file_dir = Path(__file__).parent
     with open(os.path.join(file_dir, 'cols.json'),'r') as f:
@@ -439,7 +448,7 @@ def summarize(df):
         df["compose_method"] = "PT"
 
     rels = df["prefix"].unique()
-    if "xAttr" in rels or "xWant" in rels or any("xAttr" in rel for rel in rels):
+    if use_rouge: 
         score_cols = ['rouge_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
@@ -713,19 +722,23 @@ class MyDF:
     info_cols = []
     sort = ""
     group_col = ""
+    is_filtered = False
     def __init__(self, df, context, sel_cols, cur_col,info_cols, 
-            sel_rows, sel_row, left, group_col, selected_cols, sort, **kwargs):
+            sel_rows, sel_row, cur_row, 
+            left, group_col, selected_cols, sort, is_filtered, **kwargs):
         self.df = df
         self.context = context
         self.sel_cols = sel_cols
         self.cur_col = cur_col
         self.info_cols = info_cols
         self.sel_rows = sel_rows
+        self.cur_row = cur_row
         self.sel_row = sel_row
         self.left = left
         self.group_col = group_col
         self.selected_cols = selected_cols
         self.sort = sort
+        self.is_filtered = is_filtered
 
 
 def show_df(df, summary=False):
@@ -817,6 +830,7 @@ def show_df(df, summary=False):
     back = []
     cur_df = None
     context = "main"
+    is_filtered = False
 
     def backit(df, sel_cols, cur_df = None):
         if len(sel_cols) < 2:
@@ -824,7 +838,7 @@ def show_df(df, summary=False):
             return
         if not cur_df:
             cur_df = MyDF(df, context, sel_cols, cur_col,info_cols, 
-                sel_rows, sel_row, left, group_col, selected_cols, sort)
+                sel_rows, sel_row, cur_row, left, group_col, selected_cols, sort, is_filtered)
         back.append(cur_df)
         general_keys["b"] = "back"
 
@@ -862,6 +876,7 @@ def show_df(df, summary=False):
     df['prefix'] = df['prefix'].str.replace(pattern, r'\1', regex=True)
 
     #wwwwwwwwww
+    use_rouge = True
     colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
     context_map = {"g":"main", "G":"main", "X":"view", "r":"main"}
     general_keys = {"l":"latex df"}
@@ -897,6 +912,7 @@ def show_df(df, summary=False):
     pivot_cols = ['prefix']
     exclude_cols = []
     experiment_images = {}
+    cond_set = {}
 
     #sel_cols =  load_obj("sel_cols", context, [])
     #info_cols = load_obj("info_cols", context, [])
@@ -923,7 +939,7 @@ def show_df(df, summary=False):
     main_sel_cols = sel_cols.copy()
 
     rels = [] # df["prefix"].unique()
-    if any("xAttr" in rel for rel in rels):
+    if use_rouge:
         score_cols = ['rouge_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
@@ -1326,7 +1342,7 @@ def show_df(df, summary=False):
             if not df.empty:
                 _sel_val = df.iloc[sel_row][_sel_col]
                 infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
-        for c in info_cols:
+        for c in sel_cols:
             if not c in df:
                 continue
             if "score" in c:
@@ -2131,7 +2147,7 @@ def show_df(df, summary=False):
                 group_sel_cols.insert(0, "prefix")
 
             df = grouping(df, FID)
-            sel_cols = ["expname","eid","prefix","rouge_score","num_preds"]
+            # sel_cols = ["expname","eid","prefix","rouge_score","num_preds"]
             if not "num_preds" in sel_cols:
                 sel_cols.append("num_preds")
             group_sel_cols = sel_cols.copy()
@@ -2321,8 +2337,10 @@ def show_df(df, summary=False):
                 expid=tdf.iloc[0]["expid"]
                 # path=tdf.iloc[0]["output_dir"]
                 rpath=tdf.iloc[0]["folder"]
+                if not str(expid).isnumeric():
+                    expid=Path(rpath).stem
                 path = str(Path(rpath).parent) + "/" + str(expid)
-                js = os.path.join(path, "exp.json")
+                js = os.path.join(rpath, "exp.json")
                 fname = "exp"
                 if char == "Y":
                     compose=tdf.iloc[0]["compose_method"]
@@ -2447,8 +2465,7 @@ def show_df(df, summary=False):
             other_col = "target_text"
             if char =="i": 
                 pass
-            if (any("xAttr" in rel for rel in pcols)
-               or any("xIntent" in rel for rel in pcols)):
+            if use_rouge:
                 group_col = "input_text"
                 on_col_list = ["input_text"] 
                 other_col = "pred_text1"
@@ -2465,7 +2482,7 @@ def show_df(df, summary=False):
                     for r2 in all_rows:
                         if r2 > r1:
                             _rows = [r1, r2]
-                            _df, sel_exp = find_common(df, filter_df, on_col_list, _rows, FID, char, tag_cols = index_cols)
+                            _df, sel_exp, _dfs = find_common(df, filter_df, on_col_list, _rows, FID, char, tag_cols = index_cols)
                             dfs.append(_df)
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
@@ -2480,7 +2497,7 @@ def show_df(df, summary=False):
                                                FID, char, _cols)
                 df = pd.concat(dfs).sort_index(kind='mergesort')
                 _all = len(df)
-                cdf=df.sort_values(by='input_text').drop_duplicates(subset=['input_text', 'pred_text1',"prefix"], keep=False)
+                cdf=df.sort_values(by='input_text').drop_duplicates(subset=['input_text', 'pred_text1'], keep="first")
                 _common = _all - len(cdf)
                 consts["Common"] = str(_common) + "| {:.2f}".format(_common / _all)
             else:
@@ -2519,15 +2536,16 @@ def show_df(df, summary=False):
                     sel_cols.remove("pred_text1")
                 ii = 0
                 _sort = []
-                for col in index_cols:
-                    if col in sel_cols:
-                        _sort.append(col)
-                        ii += 1
+                #for col in index_cols:
+                #    if col in sel_cols:
+                #       _sort.append(col)
+                #        ii += 1
                 sel_cols.insert(ii, "prefix")
                 sel_cols.insert(ii + 1, "pred_text1")
                 sel_cols = list(dict.fromkeys(sel_cols))
                 df = df.sort_values(by=["input_text","prefix"]+_sort, ascending=False)
                 unique_cols = info_cols.copy()
+                cond_colors["pred_text1"] = pred_colors
                 info_cols_back = info_cols.copy()
                 info_cols = []
 
@@ -2684,20 +2702,24 @@ def show_df(df, summary=False):
            group_col = ""
            keep_uniques = False
         elif is_enter(ch) or char in ["f"]:
-            if is_enter(ch) and context == "filter":
+            if is_enter(ch) and is_filtered:
                df = back_df
             else:
                 backit(df, sel_cols)
+                cond_set = {}
             is_filtered = True
             col = sel_cols[cur_col]
             if col == "fid": col = FID
             canceled, col, val = list_df_values(df, col, get_val=True)
-            cond = ""
             if not canceled:
                if type(val) == str:
-                  cond = f"df['{col}'] == '{val}'"
+                  cond_set[col] = f"(df['{col}'] == '{val}')"
                else:
-                  cond = f"df['{col}'] == {val}"
+                  cond_set[col] = f"(df['{col}'] == {val})"
+            cond = ""
+            for c,v in cond_set.items():
+                cond += v + " & "
+            cond = cond.strip(" & ")
             # mlog.info("cond %s, ", cond)
             if cond:
                df = df[eval(cond)]
@@ -2708,6 +2730,9 @@ def show_df(df, summary=False):
                extra["filter"].append(cond)
                sel_row = 0
                keep_cols.append(col)
+            if len(df) > 1:
+                sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
+                        keep_cols=keep_cols + pivot_cols + info_cols + pcols)
         if char == "V":
             start = sel_rows[-1] if sel_rows else 0
             end = sel_row if sel_rows else len(df) - 1
@@ -3241,10 +3266,10 @@ def show_df(df, summary=False):
                     ss = int(char) - 1
                     if ss < len(score_cols):
                         score_col = score_cols[ss]
-                scols = selected_cols
-                if not scols:
-                    scols = [sel_cols[cur_col]]
-                sel_cols = index_cols.copy() + ["All"] + scols 
+                #scols = selected_cols
+                #if not scols:
+                #    scols = [sel_cols[cur_col]]
+                #sel_cols = index_cols.copy() + ["All"] + scols 
                 sort_col = sort if sort else "All"
                 if score_col == score_cols[0]:
                     for col in df.columns:
@@ -3321,7 +3346,7 @@ def show_df(df, summary=False):
         if cmd.startswith("rep") or char == "Z" or char == "r": 
             if not global_summary:
                 backit(df, sel_cols)
-                pdf = summarize(df)
+                pdf = summarize(df, use_rouge=use_rouge)
             else:
                 pdf = df
             avg_col = "All"
@@ -3767,11 +3792,13 @@ def show_df(df, summary=False):
                 df = cur_df.df
                 sel_cols = cur_df.sel_cols 
                 sel_row = cur_df.sel_row
+                cur_row = cur_df.cur_row
                 sel_rows = cur_df.sel_rows
                 info_cols = cur_df.info_cols
                 context = cur_df.context
                 cur_col = cur_df.cur_col
                 left = cur_df.left
+                is_filtered = cur_df.is_filtered
                 group_col = cur_df.group_col
                 if back:
                     back_df = back[-1].df
@@ -3928,7 +3955,7 @@ def change_info(infos):
             mprint(str(line).replace("@","   "), info_bar, color=HL_COLOR)
             lnum += 1
     rows,cols = std.getmaxyx()
-    info_bar.refresh(0,0, rows -lnum - 1,0, rows-1, cols - 1)
+    info_bar.noutrefresh(0,0, rows -lnum - 1,0, rows-1, cols - 1)
     return lnum
 
 si_hash = {}

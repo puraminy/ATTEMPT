@@ -176,6 +176,8 @@ def get_key(win = None):
     #if hotkey == old_hotkey:
     #   hotkey = ""
     #   old_hotkey = "non-blank"
+    cur.flushinp()
+    cur.flash()
     if hotkey == "":
         ch = win.getch()
     else:
@@ -851,6 +853,8 @@ def open_submenu(sub_menu_win, options, sel, si, title, std):
             show_cursor()
             mprint("Search:" + st, sub_menu_win, end ="")
         sub_menu_win.refresh()
+        cur.flushinp()
+        cur.flash()
         ch = get_key(std)
 
     si = min(si, len(sel_range) - 1)
