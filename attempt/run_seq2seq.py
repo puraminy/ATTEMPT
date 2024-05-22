@@ -48,6 +48,7 @@ from transformers import (
     get_linear_schedule_with_warmup
 )
 from torch.optim import AdamW
+from transformers.optimization import Adafactor
 import transformers
 from datasets import concatenate_datasets
 from typing import Optional, List
@@ -244,6 +245,19 @@ def cli():
     help="You can set it for continueing experiments with different versions (after some changes)"
 )
 @click.option(
+    "--skip",
+    "-skip",
+    is_flag=True,
+    help="Skip existing experiments"
+)
+@click.option(
+    "--save_conf",
+    "-conf",
+    default="",
+    type=str,
+    help="Save config for using later"
+)
+@click.option(
     "--rem",
     "-rem",
     is_flag=True,
@@ -328,7 +342,8 @@ def cli():
 )
 @click.pass_context
 def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, label, deep_check, merge, not_copy_prev_exp, 
+        debug, version, trial, skip, save_conf, rem, repeat, 
+        label, deep_check, merge, not_copy_prev_exp, 
         reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
    if debug:
        port = "1234"
@@ -353,6 +368,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
         prev_save_path = exp_args.get("save_path","")
+        not_copy_prev_exp = not_copy_prev_exp or exp_args.get("not_copy_prev_exp", False)
         exp_conf_name = Path(exp_conf).stem
         exp_args["conf"] = exp_conf_name
         exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
@@ -435,6 +451,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    args["save_path"] = save_path
 
    args["new_exp_folder"] = new_exp_folder
+   args["not_copy_prev_exp"] = not_copy_prev_exp
    args["load_path"] = "" 
    args["label"] = label
    args["is_debug"] = debug
@@ -591,6 +608,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
 
    args["tag"] = ctags 
    args["merge"] = merge
+   args["save_conf"] = save_conf 
    y_labels = []
    exp_number = 1
    for comb in tot_comb:
@@ -816,6 +834,13 @@ def train(**kwargs):
     elif config_name == "attempt":
         config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
 
+    _dir = Path(__file__).parent
+    param_map = {}
+    param_file = os.path.join(_dir, "params.json")
+    if Path(param_file).is_file():
+       with open(param_file) as f:
+          param_map = json.load(f)
+
     exp_conf = json.dumps(kwargs, indent=2)
     mylogs.clog.info(exp_conf)
     preview = kwargs.setdefault("preview","")
@@ -873,6 +898,10 @@ def train(**kwargs):
         expid = kwargs.get("expid", 1)
         exp_conf_name = "exp.json" if not merge else "exp_" + expid + ".json"
         with open(op.join(training_args.output_dir, exp_conf_name), "w") as f:
+            print(exp_conf, file=f)
+    save_conf = kwargs.get("save_conf","")
+    if save_conf:
+        with open(op.join(mylogs.confPath, "conf_" + save_conf + ".json"), "w") as f:
             print(exp_conf, file=f)
     mylogs.bp("conf")
 
@@ -1058,6 +1087,7 @@ def train(**kwargs):
     task_args = {}
     task_args["data_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
+    task_args["samples_per_head"] = kwargs.setdefault("samples_per_head", 3)
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
     task_args["use_config"] = kwargs.setdefault("use_config", True)
@@ -1072,10 +1102,19 @@ def train(**kwargs):
     task_args["prompt_length"] = kwargs.setdefault("prompt_length", 
                                     adapter_args.num_prompt_tokens)
     task_args["fixed_length_prompt"] = adapter_args.fixed_length_prompt
-    task_args["template"] = data_args.template
+    input_template = data_args.template
+    if adapter_args.prompt_tuning and not "ptar" in input_template:
+        if input_template in ["unsup-nat", "sup-nat"]:
+            ptemp = "ptar"
+        else:
+            ptemp = "0-ptar"
+        prompt_template = kwargs.get("prompt_template", ptemp)
+        input_template = prompt_template + "-" + input_template 
+        kwargs["template"] = input_template
+    task_args["template"] = input_template 
     task_args["add_prefix"] = data_args.add_prefix
     task_args["data_path"] = data_args.data_path
-    task_args["rels"] = data_args.task_name # if kwargs.rels == "tasks" else kwargs.rels
+    task_args["rels"] = data_args.task_name if kwargs.rels == "tasks" else kwargs.rels
     task_args["task_comb"] = kwargs.task_comb
     task_args["id"] = kwargs["expid"]
 
@@ -1207,17 +1246,188 @@ def train(**kwargs):
         transformers.utils.logging.set_verbosity_info()
     logger.info("Training/evaluation parameters %s", training_args)
 
+    # Set tokenizer
+    #tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+    model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
+    load_path = kwargs.setdefault("load_path", "")
+    if not model_name_or_path.startswith("/") and load_path:
+        model_name_or_path = op.join(load_path, model_name_or_path)
+    if "mt5" in model_name_or_path:
+        tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
+    elif "pars" in model_name_or_path:
+        tokenizer = T5TokenizerFast.from_pretrained(model_name_or_path)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            use_fast=model_args.use_fast_tokenizer,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+
+    # Load training set
+    data_args.dataset_name = data_args.task_name
+    data_args.dataset_config_name = data_args.dataset_config_name
+    data_args.eval_dataset_config_name = data_args.eval_dataset_config_name
+    data_args.test_dataset_config_name = data_args.test_dataset_config_name
+    assert len(data_args.dataset_name) == len(data_args.dataset_config_name)
+    if data_args.eval_dataset_name is not None:
+        assert len(data_args.eval_dataset_name) == len(
+            data_args.eval_dataset_config_name)
+    if data_args.test_dataset_name is not None:
+        assert len(data_args.test_dataset_name) == len(
+            data_args.test_dataset_config_name)
+
+    # Temporarily set max_target_length for training.
+    #max_target_length = data_args.max_target_length
+    padding = "max_length" if data_args.pad_to_max_length else False
+    ########### rrrrrr
+    hit_count = kwargs.setdefault("hc", 3)
+    def preprocess_function(examples, max_target_length, task_id=None):
+        mylogs.bp("data")
+        model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
+                                 padding=padding, truncation=True)
+        if preview == "data":
+            print("sourece: %s", examples["source"][:hit_count])
+            print("target: %s", examples["target"][:hit_count])
+
+        if bp and bp in "data|examples":
+            logger.info("sourece: %s", examples["source"][:5])
+            logger.info("target: %s", examples["target"][:5])
+            logger.info("extra: %s", examples["extra_fields"][:5])
+            breakpoint()
+        # Setup the tokenizer for targets
+        mylogs.bp("encode")
+        with tokenizer.as_target_tokenizer():
+            labels = tokenizer(
+                examples['target'], max_length=max_target_length, padding=padding, truncation=True)
+        #if preview == "data":
+        #    logger.info("target encoded: %s", labels)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+        model_inputs["labels"] = labels["input_ids"]
+        #if preview == "data":
+        #    logger.info("target encoded input ids: %s", labels["input_ids"])
+        if "task_ids" in examples["extra_fields"]:
+            model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
+        mylogs.bp("train_test_data")
+        model_inputs["extra_fields"] = examples['extra_fields']  
+        if task_id is not None:
+            model_inputs["task_ids"] = [
+                task_id for _ in examples['extra_fields']]
+        return model_inputs
+
+    column_names = ['source', 'target', 'extra_fields']
+    performance_metrics = {}
+    task_args = dotdict(task_args.copy())
+    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
+    if training_args.do_train:
+        # Load datasets from files if your target datasets are not in huggingface datasets.
+        train_datasets = []
+        max_target_lengths = []
+        for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
+                data_args.dataset_config_name):
+            n_obs = data_args.max_train_samples 
+            if dataset_name in include_exclude_tasks:
+                n_obs = inex_training_samples
+            for prefix in train_prefix[dataset_name]:
+                auto_task = AutoTask.get(dataset_name,
+                                         dataset_config_name,
+                                         task_args=task_args, tokenizer=tokenizer)
+                print("loading train dataset for " + prefix)
+                train_ds = auto_task.get(
+                        split="train",
+                        split_validation_test=training_args.split_validation_test,
+                        prefix=prefix,
+                        n_obs=n_obs,
+                        lang=data_args.lang_name, file_name=data_args.train_file)
+                train_datasets.append(train_ds)
+
+                mtl = auto_task.get_max_target_length(
+                                tokenizer=tokenizer, 
+                                default_max_length=data_args.max_target_length)
+                max_target_lengths.append(mtl)
+        for i, train_dataset in enumerate(train_datasets):
+            train_datasets[i] = train_datasets[i].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[i]
+                                  #mycode adding task ids
+                                  ,task_id=i
+                                  ),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if train_dataset != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
+        if trainer_shuffle:
+            train_dataset = concatenate_datasets(train_datasets)
+        else:
+            mylogs.bp("myint")
+            train_dataset = my_interleave_datasets(train_datasets, 
+                batch_size=training_args.per_device_train_batch_size)
+    if preview == "data":
+       print("preview is data")
+       return "data_preview" 
+
+    if training_args.do_eval:
+        eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
+                                                    task_args=task_args, tokenizer=tokenizer).get(
+            split="validation",
+            split_validation_test=training_args.split_validation_test,
+            prefix=train_prefix[dataset_name],
+            n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
+            for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
+
+        max_target_lengths = [AutoTask.get(dataset_name, 
+            dataset_config_name,
+            task_args=task_args, tokenizer=tokenizer).get_max_target_length(
+            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
+            for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
+
+        for k, name in enumerate(eval_datasets):
+            eval_datasets[name] = eval_datasets[name].map(
+                functools.partial(preprocess_function,
+                                  max_target_length=max_target_lengths[k]),
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                # if name != "superglue-record" else column_names+["answers"],
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+            )
+
+    if preview == "template":
+        print("preview is template")
+        return
     # Set seed before initializing model.
     tasks = data_args.task_name
     mylogs.bp("steps")
     total_samples = 0
-    for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
-         t_args = dotdict(task_args.copy())
-         task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer= None)
-         total_samples += data_args.max_train_samples * task.samples_per_head
-
-    training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
+    warmup_steps = 0
+    total_steps = 1
     steps = 0
+    if training_args.do_train:
+        for ti, (task_name, config_name) in enumerate(zip(tasks, data_args.dataset_config_name), start=1):
+             t_args = dotdict(task_args.copy())
+             task = AutoTask.get(task_name, config_name, task_args=t_args, tokenizer= None)
+             assert task.get_records_num("train") != 0, "The number of records are zero"
+             total_samples += task.get_records_num("train")
+
+        training_args.per_device_train_batch_size = min(total_samples, training_args.per_device_train_batch_size)
+
+        steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
+        if training_args.warmup_steps is not None:
+            warmup_steps = training_args.warmup_steps
+        else:
+            warmup_steps = 0.1 * steps
+        total_steps = steps + warmup_steps + 5
+    
+    mylogs.bp("steps")
+    anneal_steps = 0.6*total_steps
     ftemp = kwargs.get("fixed_temperature", -1)
     if ftemp > 0 and "temperature" not in main_vars:
         model_args.temperature = ftemp
@@ -1235,25 +1445,11 @@ def train(**kwargs):
         #else:
         #    model_args.temperature = 2
         kwargs["temperature"] = model_args.temperature
-
-    if training_args.do_train:
-        steps = total_samples * training_args.num_train_epochs // (training_args.gradient_accumulation_steps * training_args.per_device_train_batch_size)
-    mylogs.bp("steps")
-    if training_args.warmup_steps is not None:
-        warmup_steps = training_args.warmup_steps
-    else:
-        warmup_steps = 0.2 * steps
-    total_steps = steps + warmup_steps + 5
-    anneal_steps = 0.6*total_steps
     if model_args.anneal_rate is None: 
         anneal_rate = (model_args.temperature - model_args.anneal_min)/(anneal_steps) 
     else:
         anneal_rate = model_args.anneal_rate
     # Load a model config
-    model_name_or_path =  model_args.config_name if model_args.config_name else model_args.model_name_or_path
-    load_path = kwargs.setdefault("load_path", "")
-    if not model_name_or_path.startswith("/") and load_path:
-        model_name_or_path = op.join(load_path, model_name_or_path)
     config = T5Config.from_pretrained(
         model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -1264,6 +1460,7 @@ def train(**kwargs):
     mylogs.bp("config")
     config.train_task_adapters = adapter_args.train_task_adapters
     config.prefix_tuning = adapter_args.prefix_tuning
+    config.dropout_rate = kwargs.get("dropout", 0.1)
     config.prompt_tuning = adapter_args.prompt_tuning #my option
     config.attn_tuning = model_args.attn_tuning
     config.attn_method = model_args.attn_method
@@ -1323,20 +1520,6 @@ def train(**kwargs):
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
 
-    # Set tokenizer
-    #tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
-    if "mt5" in model_name_or_path:
-        tokenizer = MT5TokenizerFast.from_pretrained(model_name_or_path)
-    elif "pars" in model_name_or_path:
-        tokenizer = T5TokenizerFast.from_pretrained(model_name_or_path)
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_name_or_path,
-            cache_dir=model_args.cache_dir,
-            use_fast=model_args.use_fast_tokenizer,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
 
     # Initialize the model
     model = T5ForConditionalGeneration.from_pretrained(
@@ -1532,7 +1715,7 @@ def train(**kwargs):
 
         prompt_num_layers = kwargs.get("num_layers",1)
         prompt_hidden_size = kwargs.get("hidden_size", -1)
-        prompt_non_linear = kwargs.get("non_linear", "gelu")
+        prompt_non_linear = kwargs.get("non_linear", "relu")
         prompt_out_dim = kwargs.get("out_dim", -1)
         for prompt in source_prompts: 
             encoder_name = prompt
@@ -1753,142 +1936,6 @@ def train(**kwargs):
     mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
     mylogs.bp("freeze")
 
-    data_args.dataset_name = data_args.task_name
-    data_args.dataset_config_name = data_args.dataset_config_name
-    data_args.eval_dataset_config_name = data_args.eval_dataset_config_name
-    data_args.test_dataset_config_name = data_args.test_dataset_config_name
-    assert len(data_args.dataset_name) == len(data_args.dataset_config_name)
-    if data_args.eval_dataset_name is not None:
-        assert len(data_args.eval_dataset_name) == len(
-            data_args.eval_dataset_config_name)
-    if data_args.test_dataset_name is not None:
-        assert len(data_args.test_dataset_name) == len(
-            data_args.test_dataset_config_name)
-
-    # Temporarily set max_target_length for training.
-    #max_target_length = data_args.max_target_length
-    padding = "max_length" if data_args.pad_to_max_length else False
-    ########### rrrrrr
-    hit_count = kwargs.setdefault("hc", 3)
-    def preprocess_function(examples, max_target_length, task_id=None):
-        mylogs.bp("data")
-        model_inputs = tokenizer(examples['source'], max_length=data_args.max_source_length,
-                                 padding=padding, truncation=True)
-        if preview == "data":
-            print("sourece: %s", examples["source"][:hit_count])
-            print("target: %s", examples["target"][:hit_count])
-
-        if bp and bp in "data|examples":
-            logger.info("sourece: %s", examples["source"][:5])
-            logger.info("target: %s", examples["target"][:5])
-            logger.info("extra: %s", examples["extra_fields"][:5])
-            breakpoint()
-        # Setup the tokenizer for targets
-        mylogs.bp("encode")
-        with tokenizer.as_target_tokenizer():
-            labels = tokenizer(
-                examples['target'], max_length=max_target_length, padding=padding, truncation=True)
-        #if preview == "data":
-        #    logger.info("target encoded: %s", labels)
-        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-        # padding in the loss.
-        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-            labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-            ]
-        model_inputs["labels"] = labels["input_ids"]
-        #if preview == "data":
-        #    logger.info("target encoded input ids: %s", labels["input_ids"])
-        if "task_ids" in examples["extra_fields"]:
-            model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
-        mylogs.bp("train_test_data")
-        model_inputs["extra_fields"] = examples['extra_fields']  
-        if task_id is not None:
-            model_inputs["task_ids"] = [
-                task_id for _ in examples['extra_fields']]
-        return model_inputs
-
-    column_names = ['source', 'target', 'extra_fields']
-    performance_metrics = {}
-    task_args = dotdict(task_args.copy())
-    inex_training_samples = kwargs.get("inex_training_samples", data_args.max_train_samples)
-    if training_args.do_train:
-        # Load datasets from files if your target datasets are not in huggingface datasets.
-        train_datasets = []
-        max_target_lengths = []
-        for dataset_name, dataset_config_name in zip(data_args.dataset_name, 
-                data_args.dataset_config_name):
-            n_obs = data_args.max_train_samples 
-            if dataset_name in include_exclude_tasks:
-                n_obs = inex_training_samples
-            for prefix in train_prefix[dataset_name]:
-                auto_task = AutoTask.get(dataset_name,
-                                         dataset_config_name,
-                                         task_args=task_args, tokenizer=tokenizer)
-                print("loading train dataset for " + prefix)
-                train_ds = auto_task.get(
-                        split="train",
-                        split_validation_test=training_args.split_validation_test,
-                        prefix=prefix,
-                        n_obs=n_obs,
-                        lang=data_args.lang_name, file_name=data_args.train_file)
-                train_datasets.append(train_ds)
-
-                mtl = auto_task.get_max_target_length(
-                                tokenizer=tokenizer, 
-                                default_max_length=data_args.max_target_length)
-                max_target_lengths.append(mtl)
-        for i, train_dataset in enumerate(train_datasets):
-            train_datasets[i] = train_datasets[i].map(
-                functools.partial(preprocess_function,
-                                  max_target_length=max_target_lengths[i]
-                                  #mycode adding task ids
-                                  ,task_id=i
-                                  ),
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                # if train_dataset != "superglue-record" else column_names+["answers"],
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-            )
-        if trainer_shuffle:
-            train_dataset = concatenate_datasets(train_datasets)
-        else:
-            mylogs.bp("myint")
-            train_dataset = my_interleave_datasets(train_datasets, 
-                batch_size=training_args.per_device_train_batch_size)
-    if preview == "data":
-       print("preview is data")
-       return "data_preview" 
-    if training_args.do_eval:
-        eval_datasets = {eval_dataset: AutoTask.get(eval_dataset, eval_dataset_config,
-                                                    task_args=task_args, tokenizer=tokenizer).get(
-            split="validation",
-            split_validation_test=training_args.split_validation_test,
-            prefix=train_prefix[dataset_name],
-            n_obs=data_args.max_val_samples, lang=data_args.lang_name, file_name=data_args.validation_file)
-            for eval_dataset, eval_dataset_config in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)}
-
-        max_target_lengths = [AutoTask.get(dataset_name, 
-            dataset_config_name,
-            task_args=task_args, tokenizer=tokenizer).get_max_target_length(
-            tokenizer=tokenizer, default_max_length=data_args.max_target_length)
-            for dataset_name, dataset_config_name in zip(data_args.eval_dataset_name, data_args.eval_dataset_config_name)]
-
-        for k, name in enumerate(eval_datasets):
-            eval_datasets[name] = eval_datasets[name].map(
-                functools.partial(preprocess_function,
-                                  max_target_length=max_target_lengths[k]),
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                # if name != "superglue-record" else column_names+["answers"],
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-            )
-
-    if preview == "template":
-        print("preview is template")
-        return
     # Data collator
     label_pad_token_id = - \
         100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
@@ -1950,6 +1997,10 @@ def train(**kwargs):
         
 
     ########### My Code
+    if "learning_rate" in main_vars:
+        model_args.prompt_learning_rate = training_args.learning_rate 
+        model_args.target_learning_rate = training_args.learning_rate 
+
     prompt_learning_rate = model_args.prompt_learning_rate 
     target_prompt_learning_rate = model_args.target_prompt_learning_rate 
     source_prompt_learning_rate = model_args.source_prompt_learning_rate 
@@ -1967,6 +2018,8 @@ def train(**kwargs):
     mylogs.bp("opt")
     learning_rate = training_args.learning_rate
     if adapter_args.prompt_tuning:
+        if "learning_rate" in main_vars:
+            target_prompt_learning_rate = learning_rate
         learning_rate = target_prompt_learning_rate
         for encoder in model.prompt_encoders:
            para_list =[
@@ -2009,12 +2062,29 @@ def train(**kwargs):
         grouped_params.append({'params': other_params, 'lr': training_args.learning_rate})
     #### ooooo 
     mylogs.bp("opt")
-    if kwargs.opt_type == "sep":
+    mylogs.bp("optim")
+    opt_type = kwargs.get("opt_type","adam")
+    scheduler = None
+    if opt_type == "sep":
         optim, scheduler = get_optimizer(model, steps,
                 source_prompt_learning_rate, 
                 model_args.attn_learning_rate, 0.01)
-    else:
+    elif opt_type in ["adam", "regular"]:
         optim = AdamW(grouped_params, lr=learning_rate)
+    elif opt_type == "ada":
+        optim = Adafactor(
+            grouped_params,
+            lr=learning_rate,
+            eps=(1e-30, 1e-3),
+            clip_threshold=1.0,
+            decay_rate=-0.8,
+            beta1=None,
+            weight_decay=0.0,
+            relative_step=False,
+            scale_parameter=False,
+            warmup_init=False,
+        ) 
+    if scheduler is None:
         scheduler = get_linear_schedule_with_warmup(
             optim, num_warmup_steps=warmup_steps, 
             num_training_steps=total_steps)
@@ -2032,9 +2102,9 @@ def train(**kwargs):
     anneal_callback = AnnealCallback() 
     ptlr_callback = PTLearningRateCallback()
     callbacks = []
-    if adapter_args.prompt_tuning:
+    if model_args.attn_tuning:
        callbacks = [ptlr_callback, wb_callback, anneal_callback]
-    if kwargs.use_optimizer:
+    if kwargs.use_optimizer: #TODO remove condition and the else part 
         # Initialize our Trainer
         trainer = Seq2SeqTrainer(
             model=model,
@@ -2195,9 +2265,20 @@ def train(**kwargs):
             # save all model parameters and tokenizers 
             # regardless of whether they are updated or not.
             model_name = Path(model_name_or_path).stem
-            if save_model in kwargs:
-                save_model = kwargs[save_model]
-            pret_dir = op.join(mylogs.pretPath, model_name  + "-" + save_model) 
+            parts = save_model.split("-")
+            save_model = model_name
+            for part in parts:
+                if part in param_map:
+                    part = param_map[part]
+                if part in kwargs:
+                    part = kwargs[part]
+                    if type(part) == list:
+                        part="@".join([str(s) for s in part])
+                    save_model += "-" + part 
+                else:
+                    save_model += "-" + part
+            save_model += "-" + str(data_args.max_train_samples)
+            pret_dir = op.join(mylogs.pretPath, save_model) 
             trainer.save_model(pret_dir)
 
         train_metrics = train_result.metrics
@@ -2265,6 +2346,7 @@ def train(**kwargs):
         test_datasets = {}
         max_target_lengths = []
         first_ds = ""
+        auto_tasks = {}
         for test_dataset, test_dataset_config in zip(data_args.test_dataset_name, 
                 data_args.test_dataset_config_name): 
             if test_dataset in exclude_from_test_tasks:
@@ -2280,6 +2362,7 @@ def train(**kwargs):
                 else:
                     ds_key = test_dataset  + "_" + prefix
                 if first_ds == "": first_ds = ds_key
+                auto_tasks[ds_key] = auto_task
                 test_datasets[ds_key]= auto_task.get(
                         split="test",
                         split_validation_test=training_args.split_validation_test,
@@ -2584,6 +2667,7 @@ def train(**kwargs):
         if not adapter_args.prompt_tuning:
             eval_folder = training_args.output_dir
             for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                auto_task = auto_tasks[task]
                 task = task.split("_")[-1]
                 ds_conf = data_args.test_dataset_config_name[idx]
                 ds_name = data_args.test_dataset_name[idx]
@@ -2593,7 +2677,8 @@ def train(**kwargs):
                 save_to = os.path.join(eval_folder,
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
-                df, scores, preds, golds = evaluate_test(task, test_dataset, save_to, ds_name)
+                df, scores, golds, preds = evaluate_test(task, test_dataset, save_to, ds_name)
+                auto_task.after_prediction(golds, preds)
         else:
             attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
             gen_combs = itertools.product(gnm, gcmm, 
@@ -2681,6 +2766,7 @@ def train(**kwargs):
                             orig_mask = model.encoder.attn_mask_orig 
                             orig_mask_matrix = orig_mask.index_select(0, targets)
                         for idx, (task, test_dataset) in enumerate(test_datasets.items()):
+                            auto_task = auto_tasks[task]
                             gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
                             if mask is not None: 
                                mylogs.bp("testmask")
@@ -2725,8 +2811,9 @@ def train(**kwargs):
                                         use_cache = True
                                         mylogs.minfo("Using cached predictions for " + task)
 
-                            df, scores, preds, golds = evaluate_test(task, test_dataset, 
+                            df, scores, golds, preds = evaluate_test(task, test_dataset, 
                                     save_to, ds_name, gen_conf, use_cache = use_cache)
+                            auto_task.after_prediction(golds, preds)
 
                             if mask is None:
                                 no_mask_test_files[task] = save_to
@@ -2735,7 +2822,7 @@ def train(**kwargs):
                                                     ds_conf,"test.tsv")
                             mylogs.bp("rouge")
                             # TODO make it general not according to task names
-                            if "xAttr" in data_args.task_name: 
+                            if True: #"xAttr" in data_args.task_name: 
                               mscore = masking_scores[0]
                               if masking_scores[0]=="m_score": 
                                  mscore = "mean_rouge" 

@@ -70,15 +70,16 @@ if not colab:
     logPath = os.path.join(home, "logs")
     resPath = os.path.join(home, "results") 
     pretPath = os.path.join(home, "pret") 
+    confPath = os.path.join(home, "confs") 
 else:
     home = "/content/drive/MyDrive/"
     pretPath = "/content/drive/MyDrive/pret"
     logPath = "/content/drive/MyDrive/logs"
     resPath = "/content/drive/MyDrive/logs/results"
+    confPath = "/content/drive/MyDrive/logs/confs"
 
 pp = Path(__file__).parent.parent.resolve()
 dataPath = os.path.join(pp, "data", "atomic2020")
-confPath = "base_confs" 
 
 Path(resPath).mkdir(exist_ok=True, parents=True)
 Path(logPath).mkdir(exist_ok=True, parents=True)

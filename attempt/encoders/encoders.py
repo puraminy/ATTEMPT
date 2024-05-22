@@ -245,7 +245,7 @@ class ResidualMLPPromptEncoder(PromptEncoder):
     enc_type = "residual_mlp"
 
     def __init__(self, num_layers=1, hidden_size=-1,
-                 nl="gelu", out_dim=-1, in_dim=-1, **kwargs):
+                 nl="relu", out_dim=-1, in_dim=-1, **kwargs):
         super().__init__(**kwargs)
         embedding_dim = self.embedding_dim
         if out_dim == -1:
@@ -265,7 +265,7 @@ class ResidualMLPPromptEncoder(PromptEncoder):
                 activation = None
         else:
             activation = None
-        hsize = hidden_size if hidden_size > 1 else embedding_dim // 2
+        hsize = hidden_size if hidden_size > 1 else embedding_dim # // 2
         layers = [ResidualBlock(in_dim, out_dim, hsize, activation)]
         for _ in range(num_layers - 1):
             layers.append(ResidualBlock(hsize, hsize, activation))
@@ -369,7 +369,7 @@ class ResMLP(PromptEncoder):
 class MLPPromptEncoder(PromptEncoder):
     enc_type = "mlp"
     def __init__(self, num_layers=1, hidden_size=-1, 
-            nl = "gelu", out_dim= -1, in_dim=-1, **kwargs):
+            nl = "relu", out_dim= -1, in_dim=-1, **kwargs):
         super().__init__(**kwargs)
         embedding_dim = self.embedding_dim
         if out_dim == -1:
@@ -389,7 +389,7 @@ class MLPPromptEncoder(PromptEncoder):
                 nlf = None 
         else:
             nlf = None 
-        hsize = hidden_size if hidden_size > 1 else embedding_dim // 2
+        hsize = hidden_size if hidden_size > 1 else embedding_dim # // 2
         layers = [torch.nn.Linear(in_dim, hsize)]
         if nlf is not None:
             layers.append(nlf)
@@ -480,7 +480,7 @@ def extend_tokenizer(tokenizer, tokens = []):
         tokenizer.add_special_tokens({"additional_special_tokens":added_tokens})
 
 def create_encoder(name, model, tokenizer, prompt_tokens, 
-        length=None, encoder_type="lstm", non_linear="gelu",
+        length=None, encoder_type="lstm", non_linear="relu",
         hidden_size=-1, num_layers=1, out_dim=-1, in_dim=-1,
         is_source = False, shared_mat=None):
     embedding_dim = model.config.hidden_size
