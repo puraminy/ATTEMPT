@@ -624,8 +624,8 @@ def add_cols(df):
         df["ftag"] = df["folder"].str.split("/").str[-1]
         df["ftag"] = df["ftag"].str.split("_").str[0]
 
-        df["model_temp"] = df["model_name_or_path"].str.split("-").str[1:2]
-        df["model_base"] = df["model_name_or_path"].str.split("-").str[0]
+        df["model_temp"] = df["model_name_or_path"].str.split("-").str[2]
+        df["model_base"] = df["model_name_or_path"].str.split("-").str[1]
 
     if False: #"expid" in df:
         df["fexpid"] = df["expid"]
@@ -3249,6 +3249,28 @@ def show_df(df, summary=False):
                     ax.set_title(title + "   F-Value:" + str(fval) + "  P-Value:" + str(pval))
                     Path(pic_dir).mkdir(parents=True, exist_ok=True)
                     plt.savefig(pic_dir + "/" + prefix + ".png")
+        if cmd.startswith("describe"):
+            df = df.groupby(selected_cols)['All'].describe()
+            sel_cols = df.columns
+        if cmd.startswith("agg"):
+            tdf = df.groupby(selected_cols)['All'].mean().unstack()
+            plt.figure(figsize=(10, 6))
+            sns.heatmap(tdf, annot=True, cmap='coolwarm')
+            plt.title('Heatmap of Mean Scores by Category1 and Category2')
+            plt.show()
+        if cmd.startswith("box"):
+            plt.figure(figsize=(12, 6))
+            sns.boxplot(x=selected_cols[0], y='All', hue=selected_cols[1], data=df)
+            plt.title('Boxplot of Scores by Category1 and Category2')
+            plt.show()
+        if cmd.startswith("bar"):
+            tdf = df.groupby(selected_cols)['All'].mean().unstack()
+            plt.figure(figsize=(10, 6))
+            tdf.plot(kind='bar')
+            plt.title('Bar Plot of Mean Scores by Category1 and Category2')
+            plt.xlabel('Category1')
+            plt.ylabel('Mean Scores')
+            plt.show()
         if cmd.startswith("rem"):
             if "@" in cmd:
                 exp_names = cmd.split("@")[2:]
