@@ -298,8 +298,8 @@ class AbstractTask(abc.ABC):
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
 
-    def get_records_num(self, split):
-        return self.records_num[split]
+    def get_records_num(self, split, n_obs):
+        return n_obs
 
     def get(self, split, prefix="", n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
@@ -1146,6 +1146,9 @@ class Atomic(AbstractTask):
         if type(self.rels) != list:
             self.rels = [self.rels]
 
+    def get_records_num(self, split, n_obs):
+        return n_obs*self.samples_per_head_per_split["train"]
+
     def read_df(self, split):
         if split != "train" or self.do_split:
             self.do_shuffle = False
@@ -1231,8 +1234,9 @@ class Atomic(AbstractTask):
         df = df.sort_values(by=sort_by, ascending=False)
         i = 0
         for idx, row in df.iterrows():
-            text = "{}   {}   {}".format(
-                row.input_text, row.prefix, row.target_text)
+            group = "" if not "group" in row else row["group"]
+            text = "{}:{} | {} | {} ".format(
+                row.prefix, group, row.input_text, row.target_text)
             mylogs.success(text, log=False)
             i += 1
             if i > 100:
@@ -1366,6 +1370,9 @@ class AtomicRel(Atomic):
         self.df = pd.DataFrame(data=rows)
         ds = Dataset.from_pandas(self.df)
         return ds
+
+    def get_records_num(self, split, n_obs):
+        return n_obs*len(self.rels)*self.samples_per_head_per_split["train"]
 
     def preprocessor(self, example, prefix):
         group = relation = example["prefix"].strip()
