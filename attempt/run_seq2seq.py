@@ -285,7 +285,8 @@ def cli():
 @click.option(
     "--merge",
     "-merge",
-    is_flag=True,
+    default="task_name",
+    type=str,
     help="Merge experiments in one folder"
 )
 @click.option(
@@ -607,6 +608,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        old_comb = comb.copy()
 
    args["tag"] = ctags 
+   mylogs.bp("merge")
    args["merge"] = merge
    args["save_conf"] = save_conf 
    y_labels = []
@@ -642,13 +644,19 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if max_exp > 0 and exps_done > max_exp:
            print(f"Max number of exp reached {max_exp} ")
            return
-       if not "expid" in exp_args: 
+       exp_dir = experiment.split("/")[-1] 
+       mylogs.bp("merge")
+       if merge:
+           merge = map_param(param_map, merge, key=True)
+       if not "expid" in exp_args or merge: 
            if merge:
-               args["expid"] = experiment.split("/")[-1] 
+               for (nn, vv) in mvars.items():
+                   if nn != merge:
+                       exp_dir += "_" + nn + "-" + str(vv)
+               exp_dir = str(hash(exp_dir))
+               args["expid"] = exp_dir 
            else:
                args["expid"] = ii 
-       elif merge: 
-           args["expid"] = str(exp_args["expid"]) 
        elif "-" in str(exp_args["expid"]):
            expid = str(exp_args["expid"]).replace("-rep","")
            args["expid"] = expid.split("-")[-1] + "." + str(ii)
@@ -662,7 +670,12 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        output_dir = save_path 
        #if exp_conf:
        #    output_dir = exp_args["output_dir"]
-       if not merge:
+       if merge:
+           ee = args["expid"]
+           _output_dir = label + "-" + str(ee)
+           _output_dir = _output_dir.strip("-")
+           output_dir = os.path.join(save_path, _output_dir)
+       else:
            ee = round(float(args["expid"]))
            eee = ee
            _output_dir = label + "-" + str(ee)
@@ -896,6 +909,7 @@ def train(**kwargs):
     merge = kwargs.get("merge", False)
     if not reval or new_exp_folder:
         expid = kwargs.get("expid", 1)
+        expid = str(expid)
         exp_conf_name = "exp.json" if not merge else "exp_" + expid + ".json"
         with open(op.join(training_args.output_dir, exp_conf_name), "w") as f:
             print(exp_conf, file=f)

@@ -623,6 +623,10 @@ def add_cols(df):
         df["expname"] = df["exp_name"].str.split("-").str[1]
         df["ftag"] = df["folder"].str.split("/").str[-1]
         df["ftag"] = df["ftag"].str.split("_").str[0]
+
+        df["model_temp"] = df["model_name_or_path"].str.split("-").str[1:2]
+        df["model_base"] = df["model_name_or_path"].str.split("-").str[0]
+
     if False: #"expid" in df:
         df["fexpid"] = df["expid"]
         df["expname"] = df["expid"].str.split("-").str[0]
