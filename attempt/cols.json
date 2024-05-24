@@ -34,6 +34,8 @@
     "add_target",
     "num_train_epochs",
     "d_seed",
+    "model_temp",
+    "model_base",
     "trial"
   ],
   "ee":[],
@@ -63,6 +65,8 @@
     "prompt_encoder_type",
     "num_train_epochs",
     "model_name_or_path",
+    "model_temp",
+    "model_base",
     "max_train_samples",
     "num_prompt_tokens"
   ],
