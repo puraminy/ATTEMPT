@@ -6,6 +6,7 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
+from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -1598,25 +1599,18 @@ def show_df(df, summary=False):
                     save_obj(sel_cols, "sel_cols", context)
         elif char in ["W"] and prev_char == "x":
             save_df(df)
-        elif char == "B" and prev_char == "x":
-            s_rows = sel_rows
-            if not s_rows:
-                s_rows = [sel_row]
-            if prev_char == "x":
-                s_rows = range(len(df))
-            for s_row in s_rows:
-                exp=df.iloc[s_row]["fid"]
-                _score=df.iloc[s_row]["bert_score"]
-                #if _score > 0:
-                #    continue
-                cond = f"(main_df['{FID}'] == '{exp}')"
-                tdf = main_df[main_df[FID] == exp]
-                #df = tdf[["pred_text1", "id", "bert_score","query", "template", "rouge_score", "fid","prefix", "input_text","target_text"]]
+        elif char == "B":
+            sel_rows = range(len(df))
+            exprs, scores = get_sel_rows(df, from_main=False) 
+            #if _score > 0:
+            #    continue
+            for exp in exprs:
+                tdf = main_df[main_df['eid'] == exp]
                 spath = tdf.iloc[0]["path"]
                 spath = str(Path(spath).parent)
                 tdf = do_score(tdf, "rouge-bert", spath, reval=True) 
                 tdf = tdf.reset_index()
-                #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
+            #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
             df = main_df
             hotkey = hk
         if char == "O":
