@@ -3257,7 +3257,23 @@ def show_df(df, summary=False):
             sns.boxplot(x=selected_cols[0], y='All', hue=selected_cols[1], data=df)
             plt.title('Boxplot of Scores by Category1 and Category2')
             plt.show()
-        if cmd.startswith("bar"):
+       if cmd.startswith("bar"):
+            tdf = df.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
+            palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
+            g = sns.FacetGrid(tdf, col='model_base', col_wrap=3, height=4, aspect=1.5)
+            g.map(sns.barplot, selected_cols[0], 'All', selected_cols[1], 
+                    palette=palette, ci=None)
+            g.set_axis_labels('Category1', 'Mean Scores')
+            g.set_titles('{col_name}')
+            # Rotate x labels for better readability
+            for ax in g.axes.flat:
+                for label in ax.get_xticklabels():
+                    label.set_rotation(45)
+            handles, labels = g.axes[0].get_legend_handles_labels()
+            g.fig.legend(handles, labels, title=selected_cols[1], 
+                    loc='upper left', bbox_to_anchor=(1.1, 0.5))
+            plt.show()
+        elif cmd.startswith("mbar"):
             tdf = df.groupby(selected_cols)['All'].mean().unstack()
             plt.figure(figsize=(10, 6))
             tdf.plot(kind='bar')

@@ -9,7 +9,6 @@ from logging import getLogger
 from .qa_utils import normalize_squad, qa_metrics
 import sklearn.metrics
 import functools
-from data.postprocessors import AutoPostProcessor
 
 ## My imports
 from pandas.plotting import table
@@ -302,6 +301,7 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
 
     def tasks_metrics(task):
         from data.tasks import TASK_MAPPING
+        from data.postprocessors import AutoPostProcessor
         task_metric = TASK_TO_METRICS[task] if task in TASK_TO_METRICS else ["rouge"] 
         post_processor = AutoPostProcessor.get(
             task, tokenizer, ignore_pad_token_for_loss)

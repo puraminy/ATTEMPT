@@ -52,6 +52,7 @@ class AbstractTask(abc.ABC):
     rel_nat = None
     map_labels = True
     labels_list = None
+    cache_file = True
     labels_map = {"map": {}}  # verbelizer
     use_gen_map = False
     general_map = {
@@ -96,7 +97,9 @@ class AbstractTask(abc.ABC):
         self.template = task_args.template
         self.tokenizer = tokenizer
         self.prefix = task_args.get("prefix", self.name)
-        self.use_cache_file = task_args.get("use_cache_file", True)
+        self.use_cache_file = self.cache_file 
+        if self.cache_file:
+            self.use_cache_file = task_args.get("use_cache_file", True)
         self.equal_labels = task_args.get("equal_labels", True)
         # list of prompts
         if task:
@@ -362,7 +365,7 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
-            elif not self.load_df and split_file is not None and Path(split_file).is_file(): 
+            elif self.use_cache_file and not self.load_df and split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
@@ -850,17 +853,50 @@ class PIQA(AbstractTask):
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
+class CommonsenseQA2(AbstractTask):
+    name = "commonsense-qa-2"
+    labels_list = ["yes", "no"]
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    split_to_data_split = {"train": "train",
+                           "test": "validation",
+                           "validation": "validation"}
+    rel_nat = "is it correct?"
+
+    def load_dataset(self, split):
+        path = "/home/ahmad/datasets/commonsense-qa-2/"
+        data_files = {
+                    "train": path + "train.json",
+                    "validation": path + "dev.json",
+                    "test": path + "dev.json"
+                    }
+
+        # Load the dataset from the jsonl files
+        return load_dataset('json', data_files=data_files, split=split)
+        # return load_dataset("tasksource/commonsense_qa_2.0")
+
+    def preprocessor(self, example, prefix):
+        src_texts = ["question:", example["question"]]
+        tgt_texts = [str(example["answer"])]
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+
 class CommonsenseQA(AbstractTask):
     name = "commonsense-qa"
     labels_list = ["0", "1", "2", "3", "4"]
     metric = [metrics.accuracy]
+    cache_file = False
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
                            "test": "validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset('commonsense_qa', split=split)
+        # return datasets.load_dataset('commonsense_qa', split=split)
+        data_files = {"train": "train-00000-of-00001.parquet",
+                      "test":"test-00000-of-00001.parquet",
+                      "validation":"test-00000-of-00001.parquet",
+                      }
+        return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/commonsense-qa/", data_files=data_files, split=split)
 
     def preprocessor(self, example, prefix):
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
@@ -873,19 +909,31 @@ class CommonsenseQA(AbstractTask):
 class SocialIQA(AbstractTask):
     name = "social-i-qa"
     labels_list = ["0", "1", "2"]
+    labels_map = {
+            "map": {"0":"choice0", "1":"choice1", "2": "choice3"},
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+        }
     metric = [metrics.accuracy]
+    rel_nat = "Correct answer is"
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train",
                            "test": "validation",
                            "validation": "validation"}
 
     def load_dataset(self, split):
-        return datasets.load_dataset(mylogs.home + '/datasets/social_i_qa.py', split=split)
+        # return load_dataset('social_i_qa.py', split=split)
+        return load_dataset(mylogs.home + '/datasets/social-i-qa/social_i_qa.py', split=split)
 
     def preprocessor(self, example, prefix):
         src_texts = ["question:", example['question'], "context:", example["context"], "|| choice0:",
-                     example["answerA"][0], "|| choice1:", example["answerB"][0], "|| choice2:", example["answerC"][0]]
-        tgt_texts = [str(int(example["label"]) - 1)]
+                     example["answerA"], "|| choice1:", example["answerB"], "|| choice2:", example["answerC"]]
+        # opt = str(int(example["label"] - 1))
+        opt = int(example["label"]) - 1
+        opt = str(opt)
+        options = {"0":"A","1":"B", "2":"C"}
+        ans = options[opt]
+        # tgt_texts = [example[ans]]
+        tgt_texts = [opt]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 
@@ -1376,7 +1424,10 @@ class AtomicRel(Atomic):
 
     def preprocessor(self, example, prefix):
         group = relation = example["prefix"].strip()
-        src_texts = ["head:", str(example["input_text"]),
+        rel_nat = ""
+        assert relation in REL_TO_PHRASE, "Relation " + relation + " has no natural phrase"
+        rel_nat = REL_TO_PHRASE[relation] 
+        src_texts = ["head:", str(example["input_text"]), relation,
                      "tail:", str(example["target_text"])]
         if self.split == "train":
             groups = self.train_groups
@@ -2218,6 +2269,7 @@ TASK_MAPPING = OrderedDict(
         ('hotpotqa', Squad),
         ("social-i-qa", SocialIQA),
         ("commonsense-qa", CommonsenseQA),
+        ("commonsense-qa-2", CommonsenseQA2),
         ("common-gen", CommonGen),
         ("winogrande", WinoGrande),
         ("scitail", SciTail),
