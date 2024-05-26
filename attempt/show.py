@@ -450,7 +450,7 @@ def summarize(df, use_rouge):
 
     rels = df["prefix"].unique()
     if use_rouge: 
-        score_cols = ['rouge_score','num_preds'] 
+        score_cols = ['bert_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
 
@@ -945,7 +945,7 @@ def show_df(df, summary=False):
 
     rels = [] # df["prefix"].unique()
     if use_rouge:
-        score_cols = ['rouge_score','num_preds'] 
+        score_cols = ['bert_score','num_preds'] 
     else:
         score_cols = ['m_score', 'num_preds'] 
 
@@ -1600,19 +1600,19 @@ def show_df(df, summary=False):
         elif char in ["W"] and prev_char == "x":
             save_df(df)
         elif char == "B":
-            sel_rows = range(len(df))
-            exprs, scores = get_sel_rows(df, from_main=False) 
+            exprs, scores = get_sel_rows(df, row_id="fid", col="bert_score", from_main=False) 
             #if _score > 0:
             #    continue
-            for exp in exprs:
-                tdf = main_df[main_df['eid'] == exp]
+            for exp, score in zip(exprs, scores):
+                tdf = main_df[main_df['fid'] == exp]
                 spath = tdf.iloc[0]["path"]
-                spath = str(Path(spath).parent)
-                tdf = do_score(tdf, "rouge-bert", spath, reval=True) 
-                tdf = tdf.reset_index()
-            #main_df.loc[eval(cond), "bert_score"] = tdf["bert_score"]
-            df = main_df
-            hotkey = hk
+                # spath = str(Path(spath).parent)
+                if str(score) != "nan" and score > 0:
+                    continue
+                scores = do_score(tdf, "rouge-bert", spath, reval=True) 
+                # main_df.loc[main_df.fid == exp, "bert_score"] = tdf["bert_score"]
+            # df = main_df
+            # hotkey = hk
         if char == "O":
             sel_exp=df.iloc[sel_row]["eid"]
             tdf = main_df[main_df['eid'] == sel_exp]
@@ -3257,7 +3257,7 @@ def show_df(df, summary=False):
             sns.boxplot(x=selected_cols[0], y='All', hue=selected_cols[1], data=df)
             plt.title('Boxplot of Scores by Category1 and Category2')
             plt.show()
-       if cmd.startswith("bar"):
+        if cmd.startswith("bar"):
             tdf = df.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
             palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
             g = sns.FacetGrid(tdf, col='model_base', col_wrap=3, height=4, aspect=1.5)

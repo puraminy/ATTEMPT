@@ -446,6 +446,10 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
                 best_ref = tails[ri]
                 #hyp_counter[hi] += 1
                 data["match_score"] = 0
+                data["top"] = best_ref
+                data["all_preds"] = "<br />".join(preds) 
+                data["top_pred"] = best_hyp
+                data["bert_score"] = float("{:.2f}".format(cur_score))
                 if best_hyp.strip() == best_ref:
                     data["match_score"] = 1
                     sum_match[scope] += 1
@@ -468,10 +472,6 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
                 label = nli_map[_max]
                 nli_counter[label] += 1
                 data["nli_group"] = label
-                data["top"] = best_ref
-                data["all_preds"] = "<br />".join(preds) 
-                data["top_pred"] = best_hyp
-                data["bert_score"] = float("{:.2f}".format(cur_score))
             #### BLUE score
             #tokenized_rs = []
             #for r in tails:
@@ -506,6 +506,9 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             inp_key = inp + rel
             mean_match[scope] = "{:.4f}".format(sum_match[scope] / counter[scope])
             data["rouge_score"] = rouge_score
+            #if reval or pd.isnull(row['rouge_score']):
+            #    for key, value in data.items():
+            #        df.loc[step, key] = value
             sum_rouge[scope] += rouge_score
             sum_rouge["all"] += rouge_score
             mean_rouge[scope] = "{:.4f}".format(sum_rouge[scope] / counter[scope])
@@ -521,22 +524,28 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             rows.append(data)
 
     scored_df = pd.DataFrame(rows)
-    if not reval:
+    if reval:
+        # Update existing rows with new scores
+        df = pd.merge(df, scored_df, on=["input_text", "prefix"], how="left", suffixes=('', '_new'))
+        #df["bert_score"] = df["bert_score_new"]
+        df['bert_score'] = df.apply(lambda row: row['bert_score_new'] if pd.notnull(row['bert_score_new']) else row['bert_score'], axis=1)
+        df.drop(columns=['bert_score_new'], inplace=True)
+    else:
         #merged_df = pd.concat([df, scored_df], axis=1)
-        merged_df = pd.merge(df, scored_df, on=["input_text","prefix"])
-        merged_df.reset_index(drop=True, inplace=True)
-
+        merged_df = pd.merge(df, scored_df, on=["input_text", "prefix"])
+        df = merged_df
+    df.reset_index(drop=True, inplace=True)
     mlog.info("Saving results %s", save_path)
     save_fname = now + "_full_results.tsv"
     if not save_path.endswith("tsv"):
         save_path = os.path.join(save_path, save_fname) 
     print("Saving results %s", save_path)
-    merged_df.to_csv(save_path, index=False, sep="\t")
+    df.to_csv(save_path, index=False, sep="\t")
 #################
     ret_scores = {}
     for sname, metric in zip(
-            ['mean_rouge'], # 'mean_bert', 'mean_match', 'mean_out'],
-            [mean_rouge]): #, mean_bert, mean_match, mean_out]):
+            ['mean_rouge',  'mean_bert', 'mean_match', 'mean_out'],
+            [mean_rouge, mean_bert, mean_match, mean_out]):
         s =0 
         ii = 0
         jj = 0

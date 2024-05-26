@@ -9,6 +9,7 @@
     "model_name_or_path",
     "template",
     "method",
+    "bert_score",
     "rouge_score",
     "prefix"
   ],
