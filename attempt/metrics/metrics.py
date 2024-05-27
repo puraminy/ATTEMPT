@@ -555,8 +555,9 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             ii += 1
             jj += counter[key]
 
-        ret_scores[sname] = s/ii
-        metric["AVG"] = "{:.2f}--{}".format(s/ii, jj)
+        mm = s/(1 if ii == 0 else ii)
+        ret_scores[sname] = mm 
+        metric["AVG"] = "{:.2f}--{}".format(mm, jj)
 
     mean_bert_str = json.dumps(mean_bert, indent=2)
     mean_out_str = json.dumps(mean_out, indent=2)

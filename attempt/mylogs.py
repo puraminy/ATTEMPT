@@ -201,6 +201,7 @@ def set_args(args):
     tlog.handlers.clear()
     tags = "_".join(list(get_tag(args["tag"]).values()))
     exp = str(args["expid"]) + "_" + tags 
+    exp = exp.strip("-")
     tHandler = logging.FileHandler(getFname(exp + "_time", 
         path=args["save_path"]), mode='w')
     tHandler.setFormatter(FORMAT)

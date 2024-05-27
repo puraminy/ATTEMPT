@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from datasets import Dataset
+from datasets import load_from_disk
 import collections
 import abc
 import os
@@ -244,15 +245,18 @@ class AbstractTask(abc.ABC):
     def get_fname(self, split):
         return split
 
+    def get_folder_path(self):
+        folder = self.data_path 
+        if not folder.startswith("/"):
+            folder = op.join(mylogs.home, self.data_path, self.name)
+        else:
+            folder = op.join(folder, self.name)
+        return folder 
+
     def get_stored_file(self, split, n_obs):
-        directory = self.data_path 
         extension = ".csv"
         fname = self.get_fname(split)
-        if not directory.startswith("/"):
-            directory = op.join(mylogs.home, self.data_path, self.name)
-        else:
-            directory = op.join(directory, self.name)
-
+        directory = self.get_folder_path()
         Path(directory).mkdir(parents=True, exist_ok=True)
         infile = None
         if self.equal_labels and split != "test":
@@ -275,13 +279,17 @@ class AbstractTask(abc.ABC):
         self.files[split] = outfile
         return directory, infile, outfile
 
-    def save_dataset(self, dataset, output_filename):
+    def save_dataset(self, dataset, output_filename, directory = ""):
         if isinstance(dataset, pd.DataFrame):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
         elif isinstance(dataset, Dataset):
-            dataset.to_pandas().to_csv(output_filename, index=False)
+            if not directory:
+                directory = self.get_folder_path()
+                directory = op.join(directory, self.split)
+            dataset.save_to_disk(directory)
+            # dataset.to_pandas().to_csv(output_filename, index=False)
         else:
             raise ValueError("Unsupported dataset type. Cannot save.")
 
@@ -376,17 +384,21 @@ class AbstractTask(abc.ABC):
                 dataset = Dataset.from_pandas(df)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
+                if not Path(outfile).is_file() and self.use_cache_file:
+                    self.save_dataset(dataset, outfile)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + \
                              self.name + " ----------")
-                dataset = self.load_dataset(split=mapped_split)
-                if not Path(split_file).is_file():
-                    self.save_dataset(dataset, split_file)
+                directory = self.get_folder_path()
+                directory = op.join(directory, mapped_split)
+                try:
+                    dataset = load_from_disk(directory)
+                except FileNotFoundError:
+                    dataset = self.load_dataset(split=mapped_split)
+                    self.save_dataset(dataset, split_file, directory)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
 
-        if not Path(outfile).is_file() or not self.use_cache_file:
-            self.save_dataset(dataset, outfile)
         self.records_num[split] = len(dataset)
         return self.map_dataset(dataset, prefix)
 
@@ -832,10 +844,11 @@ class PIQA(AbstractTask):
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
+    rel_nat = "Choose an option:"
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
-    labels_map = {"map": {"0":"Choice1", "1":"Choice2", "0.0":"Choice1", "1.0":"Choice2"}}
+    labels_map = {"map": {"0":"choice1", "1":"choice2", "0.0":"choice1", "1.0":"choice2"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset('piqa', split=split)
@@ -848,7 +861,7 @@ class PIQA(AbstractTask):
 
     def preprocessor(self, example, prefix):
         src_texts = ["question:", example['goal'], "choice1:",
-                     example["sol1"][0], "choice2:", example["sol2"][0]]
+                     example["sol1"], "choice2:", example["sol2"]]
         tgt_texts = [str(example["label"])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
@@ -886,12 +899,14 @@ class CommonsenseQA(AbstractTask):
     metric = [metrics.accuracy]
     cache_file = False
     metric_names = ["accuracy"]
+    rel_nat = "Which option is correct?"
     split_to_data_split = {"train": "train",
                            "test": "validation",
                            "validation": "validation"}
+    labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", "3":"choice4","4":"choice5"}}
 
     def load_dataset(self, split):
-        # return datasets.load_dataset('commonsense_qa', split=split)
+        return datasets.load_dataset('commonsense_qa', split=split)
         data_files = {"train": "train-00000-of-00001.parquet",
                       "test":"test-00000-of-00001.parquet",
                       "validation":"test-00000-of-00001.parquet",

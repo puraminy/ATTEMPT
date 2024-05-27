@@ -110,7 +110,8 @@ if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli#mrpc"
 fi
 if [ -n "$_qat" ]; then
-   _tasks="commonsense-qa-2#social-i-qa#sst2"
+   #_tasks="commonsense-qa-2#social-i-qa#sst2"
+   _tasks="piqa#commonsense-qa"
 fi
 if [ -n "$_qt" ]; then
    _tasks="searchqa#triviaqa#nq#hotpotqa#commonsense_qa"
