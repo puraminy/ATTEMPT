@@ -6,7 +6,10 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
-from metrics.metrics import do_score
+try:
+    from metrics.metrics import do_score
+except:
+    pass
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -431,7 +434,7 @@ def get_main_vars(df):
         main_vars = list(dict.fromkeys(mvars))
     return main_vars
 
-def summarize(df, use_rouge):
+def summarize(df, score_col=None):
     mdf = df #main_df
     file_dir = Path(__file__).parent
     with open(os.path.join(file_dir, 'cols.json'),'r') as f:
@@ -449,10 +452,10 @@ def summarize(df, use_rouge):
         df["compose_method"] = "PT"
 
     rels = df["prefix"].unique()
-    if use_rouge: 
-        score_cols = ['bert_score','num_preds'] 
+    if score_col is not None: 
+        score_cols = [score_col,'num_preds'] 
     else:
-        score_cols = ['m_score', 'num_preds'] 
+        score_cols = ['rouge_score', 'num_preds'] 
 
     main_vars = get_main_vars(df)
     rep_cols = main_vars + sel_cols + rep_cols + score_cols
@@ -881,7 +884,6 @@ def show_df(df, summary=False):
     df['prefix'] = df['prefix'].str.replace(pattern, r'\1', regex=True)
 
     #wwwwwwwwww
-    use_rouge = True
     colors = ['blue','teal','orange', 'red', 'purple', 'brown', 'pink','gray','olive','cyan']
     context_map = {"g":"main", "G":"main", "X":"view", "r":"main"}
     general_keys = {"l":"latex df"}
@@ -942,12 +944,14 @@ def show_df(df, summary=False):
         rep_cols = rep_cols + ["label"]
 
     main_sel_cols = sel_cols.copy()
+    settings = load_obj("settings", "gtasks", {})
 
     rels = [] # df["prefix"].unique()
+    use_rouge = settings["use_rouge"] if "use_rouge" in settings else False 
     if use_rouge:
-        score_cols = ['bert_score','num_preds'] 
+        score_cols = ['rouge_score','num_preds'] 
     else:
-        score_cols = ['m_score', 'num_preds'] 
+        score_cols = ['bert_score', 'num_preds'] 
 
     rep_cols = main_vars + sel_cols + rep_cols + score_cols
     rep_cols = list(dict.fromkeys(rep_cols))
@@ -960,7 +964,6 @@ def show_df(df, summary=False):
     dot_cols = {}
     selected_cols = []
     rep_cmp = load_obj("rep_cmp", "gtasks", {})
-    settings = load_obj("settings", "gtasks", {})
     capt_pos = settings["capt_pos"] if "capt_pos" in settings else "" 
     rname = settings.setdefault("rname", "rpp")
     task = ""
@@ -2463,10 +2466,9 @@ def show_df(df, summary=False):
             other_col = "target_text"
             if char =="i": 
                 pass
-            if use_rouge:
-                group_col = "input_text"
-                on_col_list = ["input_text"] 
-                other_col = "pred_text1"
+            group_col = "input_text"
+            on_col_list = ["input_text"] 
+            other_col = "pred_text1"
             if char =="t": 
                 on_col_list = ["target_text"] 
                 other_col = "pred_text1"
@@ -3247,31 +3249,108 @@ def show_df(df, summary=False):
             df = df.groupby(selected_cols)['All'].describe()
             sel_cols = df.columns
         if cmd.startswith("agg"):
+            if not selected_cols:
+                selected_cols = ["model_temp", "template"]
             tdf = df.groupby(selected_cols)['All'].mean().unstack()
             plt.figure(figsize=(10, 6))
             sns.heatmap(tdf, annot=True, cmap='coolwarm')
             plt.title('Heatmap of Mean Scores by Category1 and Category2')
             plt.show()
         if cmd.startswith("box"):
+            if not selected_cols:
+                selected_cols = ["model_temp", "template"]
             plt.figure(figsize=(12, 6))
             sns.boxplot(x=selected_cols[0], y='All', hue=selected_cols[1], data=df)
             plt.title('Boxplot of Scores by Category1 and Category2')
             plt.show()
-        if cmd.startswith("bar"):
-            tdf = df.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
-            palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
-            g = sns.FacetGrid(tdf, col='model_base', col_wrap=3, height=4, aspect=1.5)
+        if cmd.startswith("sbar"):
+            #tdf = df.groupby(selected_cols + ['model_base'])['All'].mean().unstack().reset_index()
+            if not selected_cols:
+                selected_cols = ["model_temp", "template"]
+            grouped = df.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
+            pivoted = grouped.pivot_table(index=selected_cols, columns='model_base', values='All').reset_index()
+            model_bases = df['model_base'].unique()
+            palette = sns.color_palette("husl", len(df[selected_cols[1]].unique()))
+            ncols = 3
+            nrows = (len(model_bases) + ncols - 1) // ncols
+            fig, axes = plt.subplots(nrows, ncols, figsize=(15, 5 * nrows), 
+                    constrained_layout=True)
+            axes = axes.flatten()
+            for idx, model_base in enumerate(model_bases):
+                ax = axes[idx]
+                subset = pivoted[[selected_cols[0], selected_cols[1], model_base]].dropna()
+
+                subset.plot(kind='bar', x=selected_cols[0], 
+                        y=model_base, ax=ax, label=model_base, color=palette[idx % len(palette)])
+
+                #subset = tdf[tdf['model_base'] == model_base]
+                #subset.plot(kind='bar', x=selected_cols[0], y=subset.columns[1:], ax=ax)
+
+                ax.set_title(f'Model Base: {model_base}')
+                ax.set_xlabel('Category1')
+                ax.set_ylabel('Mean Scores')
+                ax.legend(title='Category2')
+                ax.tick_params(axis='x', rotation=45)
+
+            for i in range(idx + 1, len(axes)):
+                fig.delaxes(axes[i])
+
+            plt.show()
+        elif cmd.startswith("bar"):
+            tdf = df.copy()
+            #rename_dict = {
+            #    "model_temp": 'model',
+            #}
+            #tdf = tdf.rename(columns=rename_dict)
+            if not selected_cols:
+                selected_cols = ["model_temp", "template"]
+
+            templates = tdf["template"].unique()
+
+            category1_mapping = {
+                    'none': '__', 'sup': 'LM', 
+                    'unsup': 'Denoising',"per_sample": "Mixed"
+                    }
+            if "unsup" in templates:
+                category2_order = ['Mapping', 'Prompting', 'MaskedMapping', 'MaskedPrompting']
+                category2_mapping = {
+                     'sup': 'Mapping', 'unsup': 'MaskedMapping',
+                     'sup-nat': 'Prompting', 'unsup-nat': 'MaskedPrompting'
+                    }
+            else:
+                category2_order = ['PrePT', 'PostPT', 'MaskedPrePT', 'MaskedPostPT']
+                category2_mapping = {
+                    '0-ptar-sup': 'PostPT', 
+                    'ptar-unsup-nat':'MaskedPrePT',
+                    'ptar-sup-nat': 'PrePT', '0-ptar-unsup': 'MaskedPostPT'
+                    }
+            category3_mapping = {
+                    'v1': 'T5-v1', 'base': 'T5-base',
+                    'lm': 'T5-lm' 
+                    }
+
+            category1_order = ['__', 'LM', 'Denoising', 'Mixed']
+            tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
+            tdf['template'] = tdf['template'].map(category2_mapping)
+            tdf['model_base'] = tdf['model_base'].map(category3_mapping)
+
+            facet_order = ['T5-v1', 'T5-lm', 'T5-base']  # specify the desired order
+
+            tdf = tdf.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
+            hue_palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
+            palette = ['orange','#B33', '#4cc', '#24f']
+            g = sns.FacetGrid(tdf, col='model_base', col_order=facet_order,
+                    col_wrap=3, height=4, aspect=1.5)
             g.map(sns.barplot, selected_cols[0], 'All', selected_cols[1], 
-                    palette=palette, ci=None)
-            g.set_axis_labels('Category1', 'Mean Scores')
+                    palette=palette, ci=None, 
+                    order=category1_order, hue_order=category2_order)
+            g.set_axis_labels("Pretrain Objective", 'Mean Scores')
             g.set_titles('{col_name}')
             # Rotate x labels for better readability
-            for ax in g.axes.flat:
-                for label in ax.get_xticklabels():
-                    label.set_rotation(45)
-            handles, labels = g.axes[0].get_legend_handles_labels()
-            g.fig.legend(handles, labels, title=selected_cols[1], 
-                    loc='upper left', bbox_to_anchor=(1.1, 0.5))
+            #for ax in g.axes.flat:
+            #    for label in ax.get_xticklabels():
+            #        label.set_rotation(45)
+            g.add_legend(loc='upper right') 
             plt.show()
         elif cmd.startswith("mbar"):
             tdf = df.groupby(selected_cols)['All'].mean().unstack()
@@ -3380,9 +3459,12 @@ def show_df(df, summary=False):
                 cond_colors["cat"] = cat_colors
         # rrrrrrrrr
         if cmd.startswith("rep") or char == "Z" or char == "r": 
+            score_col = None
+            if sel_cols[cur_col].endswith("_score"):
+                score_col = sel_cols[cur_col]
             if not global_summary:
                 backit(df, sel_cols)
-                pdf = summarize(df, use_rouge=use_rouge)
+                pdf = summarize(df, score_col=score_col)
             else:
                 pdf = df
             avg_col = "All"
@@ -3754,6 +3836,8 @@ def show_df(df, summary=False):
                         df[col] = val
         if ":=" in cmd:
             var, val = cmd.split(":=")
+            if type(val) == str and val.lower() == "true": val = True
+            if type(val) == str and val.lower() == "false": val = False 
             settings[var] = val
             save_obj(settings, "settings", "gtasks")
         elif "==" in cmd:
