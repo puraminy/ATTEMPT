@@ -45,6 +45,7 @@ class AbstractTask(abc.ABC):
     metric_names = NotImplemented
     generation = False
     split_map = None
+    use_df = False
     load_df = False
     df_format = ".csv"
     do_split = False
@@ -284,12 +285,13 @@ class AbstractTask(abc.ABC):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
+        elif isinstance(dataset, Dataset) and self.use_df:
+            dataset.to_pandas().to_csv(output_filename, index=False)
         elif isinstance(dataset, Dataset):
             if not directory:
                 directory = self.get_folder_path()
                 directory = op.join(directory, self.split)
             dataset.save_to_disk(directory)
-            # dataset.to_pandas().to_csv(output_filename, index=False)
         else:
             raise ValueError("Unsupported dataset type. Cannot save.")
 
@@ -373,7 +375,7 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
-            elif self.use_cache_file and not self.load_df and split_file is not None and Path(split_file).is_file(): 
+            elif self.use_cache_file and self.use_df and not self.load_df and split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
@@ -381,23 +383,30 @@ class AbstractTask(abc.ABC):
                 df = pd.read_csv(split_file)
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
+                if not Path(outfile).is_file() and self.use_cache_file:
+                    self.save_dataset(df, outfile)
                 dataset = Dataset.from_pandas(df)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
-                if not Path(outfile).is_file() and self.use_cache_file:
-                    self.save_dataset(dataset, outfile)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + \
                              self.name + " ----------")
-                directory = self.get_folder_path()
-                directory = op.join(directory, mapped_split)
-                try:
-                    dataset = load_from_disk(directory)
-                except FileNotFoundError:
+                if self.use_df and self.load_df:
+                    mylogs.bp("saveds")
                     dataset = self.load_dataset(split=mapped_split)
                     self.save_dataset(dataset, split_file, directory)
+                else:
+                    directory = self.get_folder_path()
+                    directory = op.join(directory, mapped_split)
+                    try:
+                        dataset = load_from_disk(directory)
+                    except FileNotFoundError:
+                        dataset = self.load_dataset(split=mapped_split)
+                        self.save_dataset(dataset, split_file, directory)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
+        if self.use_df and not Path(outfile).is_file() and self.use_cache_file:
+            self.save_dataset(dataset, outfile)
 
         self.records_num[split] = len(dataset)
         return self.map_dataset(dataset, prefix)
@@ -1191,6 +1200,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
+    use_df = True
     load_df = True
     df_format= ".tsv" 
     samples_per_head_per_split = {"train":1, "test":3}
@@ -1382,7 +1392,8 @@ class AtomicRel(Atomic):
         return "-".join(self.rels)
 
     def get_fname(self, split):
-        fname = split + "_" + "-".join(self.rels)
+        rels = sorted(self.rels)
+        fname = split + "_" + "-".join(rels)
         return fname.strip("_")
 
     def preproc_df(self, df, split):
@@ -1495,8 +1506,8 @@ class FreeRel(AtomicRel):
     df_format = ".csv"
     split_to_data_name = {"train": "omcs", "test":"omcs"}
 
-class AtomicGroup(AtomicRel):
-    name = "atomic-groups"
+class TaskClassifier(AtomicRel):
+    name = "task-clf"
     train_groups = {
            "Filling": ["Desires","CapableOf","xReact", "Causes", 
                "isFilledBy","AtLocation", "ObjectUse"],
@@ -1508,6 +1519,8 @@ class AtomicGroup(AtomicRel):
            "Mapping": ["xReason","oWant", "oEffect","isBefore"]
            }
 
+class Splitter(AtomicRel):
+    name = "splitter"
     def preprocessor(self, example, prefix):
         group = relation = example["prefix"].strip()
         rel_nat = ""
@@ -1527,10 +1540,13 @@ class AtomicGroup(AtomicRel):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
-class OMCS(AbstractTask):
+
+class SplitOMCS(AbstractTask):
     metric = [metrics.rouge]
     metric_names = ["rouge"]
-    name = "omcs"
+    name = "split-omcs"
+    use_df = True
+    load_df = False
     do_shuffle = False
     def preprocessor(self, example, prefix):
         src_texts = [str(example["text"])]
@@ -2243,8 +2259,9 @@ TASK_MAPPING = OrderedDict(
         ('atomic-rels', AtomicRel),
         ('free-cs', FreeCS),
         ('free-rels', FreeRel),
-        ('atomic-groups', AtomicGroup),
-        ('omcs', OMCS),
+        ('task-clf', TaskClassifier),
+        ('splitter', Splitter),
+        ('split-omcs', SplitOMCS),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('mrpc1', MRPC1),
