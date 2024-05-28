@@ -71,7 +71,8 @@ class AbstractTask(abc.ABC):
             "positive": "mosbat",
             "negative": "manfi"
         }
-    split_to_data_name = {}
+    split_folder = {}
+    split_prefix = {}
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
@@ -233,14 +234,17 @@ class AbstractTask(abc.ABC):
         path = self.data_path
         if not path.startswith("/"):
             path = op.join(mylogs.home, self.data_path)
-        if split in self.split_to_data_name:
-            ds_name = self.split_to_data_name[split]
+        if split in self.split_folder:
+            ds_name = self.split_folder[split]
         else:
             ds_name = self.name
         path = op.join(path, ds_name)
         Path(path).mkdir(parents=True, exist_ok=True)
         self.split = split
-        file_path = op.join(path, split + self.df_format)
+        split_prefix = ""
+        if split in self.split_prefix:
+            split_prefix = self.split_prefix[split]
+        file_path = op.join(path, split_prefix + split + self.df_format)
         return file_path
 
     def get_fname(self, split):
@@ -296,7 +300,20 @@ class AbstractTask(abc.ABC):
             raise ValueError("Unsupported dataset type. Cannot save.")
 
     def load_dataset(self, split, n_obs= None):
-        return datasets.load_dataset(self.name, self.config, split=split)
+        if self.use_df:
+            df = self.read_df(split)
+            assert len(df) > 0, "data frame is empty for " + \
+                       split + " of " + self.name + " " + path
+            df = self.postproc_df(df, split)
+            assert len(df) > 0, "data frame is empty for " + \
+                       split + " of " + self.name + " " + path
+
+            # df = self.filter(df, split)
+            ds = Dataset.from_pandas(df)
+            self.df = df
+            return ds
+        else:
+            return datasets.load_dataset(self.name, self.config, split=split)
 
     def get_split_indices(self, split, dataset, validation_size):
         indices = self.shuffled_indices(dataset)
@@ -313,6 +330,24 @@ class AbstractTask(abc.ABC):
 
     def get_records_num(self, split, n_obs):
         return n_obs
+
+    def postproc_df(self, df, split):
+        # df = df[df.prefix == self.name]
+        return df
+
+    def preproc_df(self, df, split):
+        # df = df[df.prefix == self.name]
+        return df
+
+    def read_df(self, split):
+        if split != "train" or self.do_split:
+            self.do_shuffle = False
+        path = self.get_data_path(split)
+        if self.df_format == ".tsv":
+            df = pd.read_table(path)
+        else:
+            df = pd.read_csv(path)
+        return df
 
     def get(self, split, prefix="", n_obs=None, split_validation_test=False, lang=None, file_name=None):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
@@ -1017,7 +1052,7 @@ class MRPC(AbstractTask):
 
 class MRPC1(MRPC):
     name = "mrpc1"
-    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
+    split_folder = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
             "map": {"0":"not_equivalent","1":"equivalent"},
         #      "map2":{"0":"not_equal","1":"duplicate"}
@@ -1026,7 +1061,7 @@ class MRPC1(MRPC):
 
 class MRPC2(MRPC):
     name = "mrpc2"
-    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
+    split_folder = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
             "map": {"0":"not_equivalent","1":"equivalent"},
             "map2": {"0":"not_duplicate","1":"duplicate"}
@@ -1035,7 +1070,7 @@ class MRPC2(MRPC):
 
 class MRPC3(MRPC):
     name = "mrpc3"
-    split_to_data_name = {"train": "mrpc", "test":"mrpc"}
+    split_folder = {"train": "mrpc", "test":"mrpc"}
     labels_map = {
             "map": {"0":"not_equivalent","1":"equivalent"},
         #      "map2":{"0":"not_equal","1":"duplicate"}
@@ -1205,7 +1240,7 @@ class Atomic(AbstractTask):
     df_format= ".tsv" 
     samples_per_head_per_split = {"train":1, "test":3}
     rels = []
-    split_to_data_name = {"train": "atomic", "test":"atomic"}
+    split_folder = {"train": "atomic", "test":"atomic"}
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
@@ -1489,29 +1524,21 @@ class AtomicRel(Atomic):
 class FreeCS(Atomic):
     name = "free-cs"
     df_format= ".csv" 
-    split_to_data_name = {"train": "free-rels", "test":"free-rels"}
+    split_folder = {"train": "free-rels", "test":"free-rels"}
 
-    def read_df(self, split):
-        if split != "train" or self.do_split:
-            self.do_shuffle = False
-        path = self.get_data_path(split)
-        if self.df_format == ".tsv":
-            df = pd.read_table(path)
-        else:
-            df = pd.read_csv(path)
-        return df
 
 class FreeRel(AtomicRel):
     name = "free-rels"
     df_format = ".csv"
-    split_to_data_name = {"train": "omcs", "test":"omcs"}
+    split_folder = {"train": "omcs", "test":"omcs"}
 
 class TaskClassifier(AtomicRel):
     name = "task-clf"
     train_groups = {
-           "Filling": ["Desires","CapableOf","xReact", "Causes", 
-               "isFilledBy","AtLocation", "ObjectUse"],
-           "Mapping": ["xIntent","xWant", "xEffect","xNeed", "isAfter"]
+           "Filling": ["Desires","CapableOf","xReact", "xAttr", 
+                   "Causes","AtLocation", "HasProperty", "ObjectUse", "MadeUpOf"],
+           "Mapping": ["xIntent","xWant", "xEffect","xNeed", 
+               "isAfter", "isBefore", "oWant", "HasSubEvent"]
            }
     test_groups = {
            "Filling": ["NotDesires", "HinderedBy","oReact", "Causes", 
@@ -1540,12 +1567,13 @@ class Splitter(AtomicRel):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
-
 class SplitOMCS(AbstractTask):
     metric = [metrics.rouge]
-    metric_names = ["rouge"]
-    name = "split-omcs"
     use_df = True
+    #split_folder = {"train": "omcs", "test":"omcs"}
+    #split_prefix = {"train": "omcs_", "test":"omcs_"}
+    metric_names = ["rouge"]
+    name = "omcs"
     load_df = False
     do_shuffle = False
     def preprocessor(self, example, prefix):
@@ -1573,8 +1601,8 @@ class SplitOMCS(AbstractTask):
         df = pd.DataFrame(data=rows)
         n_obs = len(df)
         print("len df:", n_obs)
-        outfile = outfile.replace(".tsv",".csv")
         directory, file_name, outfile = self.get_stored_file("train", n_obs)
+        outfile = outfile.replace(".tsv",".csv")
         df.to_csv(outfile, index=False)
      
 class Causes(Atomic):
@@ -1847,7 +1875,7 @@ class QNLI(AbstractTask):
 
 class QNLI1(QNLI):
     name = "qnli1"
-    split_to_data_name = {"train": "qnli", "test":"qnli"}
+    split_folder = {"train": "qnli", "test":"qnli"}
     labels_map = {
             "map": {"0":"entailment","1":"not_entailment"},
         #      "map2":{"0":"not_equal","1":"duplicate"}
@@ -1857,7 +1885,7 @@ class QNLI1(QNLI):
 
 class QNLI2(QNLI):
     name = "qnli2"
-    split_to_data_name = {"train": "qnli", "test":"qnli"}
+    split_folder = {"train": "qnli", "test":"qnli"}
     labels_map = {
             "map": {"0":"entailment","1":"not_entailment"},
             "map2": {"0":"not_duplicate","1":"duplicate"},
@@ -1893,7 +1921,7 @@ class RTE(AbstractTask):
 
 class RTE1(RTE):
     name = "rte1"
-    split_to_data_name = {"train": "rte", "test":"rte"}
+    split_folder = {"train": "rte", "test":"rte"}
     labels_map = {
             "map": {"0":"entailment","1":"not_entailment"},
         #      "map2":{"0":"not_equal","1":"duplicate"}
@@ -1902,7 +1930,7 @@ class RTE1(RTE):
 
 class RTE2(RTE):
     name = "rte2"
-    split_to_data_name = {"train": "rte", "test":"rte"}
+    split_folder = {"train": "rte", "test":"rte"}
     labels_map = {
             "map": {"0":"entailment","1":"not_entailment"},
         #      "map2":{"0":"not_equal","1":"duplicate"}
@@ -2261,7 +2289,7 @@ TASK_MAPPING = OrderedDict(
         ('free-rels', FreeRel),
         ('task-clf', TaskClassifier),
         ('splitter', Splitter),
-        ('split-omcs', SplitOMCS),
+        ('omcs', SplitOMCS),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('mrpc1', MRPC1),
