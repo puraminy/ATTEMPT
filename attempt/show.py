@@ -1545,6 +1545,7 @@ def show_df(df, summary=False):
             else:
                 selected_cols.append(col)
             consts["selected_cols"] = selected_cols
+            cur_col += 1
             mbeep()
         elif char == "-":
             backit(df, sel_cols)
@@ -3144,7 +3145,7 @@ def show_df(df, summary=False):
         if char == "H":
             name = ax.get_title()
             pname = rowinput("Plot name:", name[:30])
-            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
             if pname:
                 folder = ""
                 if "/" in pname:
@@ -3162,7 +3163,7 @@ def show_df(df, summary=False):
                 subprocess.run(["eog", pname])
         if cmd.startswith("anova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
             canceled, val = False, "pred_text1" # list_values(sel_cols)
             if not canceled:
                 treatment = 'target_text' #sel_cols[cur_col]
@@ -3184,7 +3185,7 @@ def show_df(df, summary=False):
                 plt.show()
         if cmd.startswith("banova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
             canceled, val = False, "target_text" # list_values(sel_cols)
             if not canceled:
                 treatment = 'pred_text1' #sel_cols[cur_col]
@@ -3206,7 +3207,7 @@ def show_df(df, summary=False):
                 plt.show()
         if cmd.startswith("hanova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
             dest_folder = rowinput("Dest Folder:")
             pic_dir = os.path.join(pics_dir, "pics", dest_folder)
             for prefix in main_df["prefix"].unique():
@@ -3308,7 +3309,7 @@ def show_df(df, summary=False):
             templates = tdf["template"].unique()
 
             category1_mapping = {
-                    'none': '__', 'sup': 'LM', 
+                    'none': '---', 'sup': 'LM', 
                     'unsup': 'Denoising',"per_sample": "Mixed"
                     }
             if "unsup" in templates:
@@ -3329,7 +3330,7 @@ def show_df(df, summary=False):
                     'lm': 'T5-lm' 
                     }
 
-            category1_order = ['__', 'LM', 'Denoising', 'Mixed']
+            category1_order = ['---', 'LM', 'Denoising', 'Mixed']
             tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
             tdf['template'] = tdf['template'].map(category2_mapping)
             tdf['model_base'] = tdf['model_base'].map(category3_mapping)
@@ -3344,8 +3345,9 @@ def show_df(df, summary=False):
             g.map(sns.barplot, selected_cols[0], 'All', selected_cols[1], 
                     palette=palette, ci=None, 
                     order=category1_order, hue_order=category2_order)
-            g.set_axis_labels("Pretrain Objective", 'Mean Scores')
+            g.set_axis_labels("", 'Mean Scores')
             g.set_titles('{col_name}')
+            g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', ha='center', va='center', fontsize=12)
             # Rotate x labels for better readability
             #for ax in g.axes.flat:
             #    for label in ax.get_xticklabels():
@@ -3530,7 +3532,7 @@ def show_df(df, summary=False):
         if char == "l" or char == "Z" or cmd.startswith("latex"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
-            table_dir = "/home/ahmad/Documents/Papers/Final_Paper2_Info/" #os.getcwd() 
+            table_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
             if len(score_cols) > 1:
                 # m_report = f"{_dir}/report_templates/report_colored_template.tex"
                 m_report = f"{_dir}/report_templates/report_template.tex"
@@ -3545,20 +3547,22 @@ def show_df(df, summary=False):
             else:
                 tdf = df.iloc[sel_rows, :]
 
+            tdf = tdf[sel_cols]
+
             numeric_cols = [col for col in tdf.columns if pd.api.types.is_numeric_dtype(tdf[col])]
             max_values = tdf[numeric_cols].max()
 
             def format_with_bold_max(val, max_val, col):
                 if val == max_val:
                     if col == 'All':
-                        return r'\textbf{' + "{:.1f}".format(val) + '}'
+                        return r'\textbf{' + "{:.2f}".format(val) + '}'
                     else:
-                        return r'\textbf{' + "{:.1f}".format(val) + '}'
+                        return r'\textbf{' + "{:.2f}".format(val) + '}'
                 else:
                     if col == 'All':
-                        return "{:.1f}".format(val)
+                        return "{:.2f}".format(val)
                     else:
-                        return "{:.1f}".format(val)            
+                        return "{:.2f}".format(val)            
 
             for col in numeric_cols:
                 tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],col))
@@ -3568,21 +3572,24 @@ def show_df(df, summary=False):
             #        key=lambda column: column.map(lambda e: sorter.index(e)), inplace=True)
 
             cols = sel_cols
+            method = 'model_name_or_path'
+            score_col = score_cols[0]
             if selected_cols: 
                 cols = selected_cols
+            cols += numeric_cols
             if "label" in cols:
-                tdf['method'] = ''
+                tdf[method] = ''
                 tdf['score'] = ''
                 for idx, row in tdf.iterrows():
                     if sel_rows and idx not in sel_rows:
                         continue
                     if idx == 0 or row['label'] != tdf.at[idx - 1, 'label']:
-                        tdf.at[idx, 'method'] = '\\multirow{3}{*}{' + row['label'] + '}'
+                        tdf.at[idx, method] = '\\multirow{3}{*}{' + row['label'] + '}'
                         if "acc" in cols:
                             tdf.at[idx, 'score'] = '\\multirow{3}{*}{' + row['acc'] + '}'
                         
                     if "preds" in cols and row['preds'] == 'precision':
-                        tdf.at[idx, 'method'] = '\\rowcolor{gray!20}' + tdf.at[idx, 'method']
+                        tdf.at[idx, method] = '\\rowcolor{gray!20}' + tdf.at[idx, method]
  
                 if "max_train_samples" in tdf:
                     cols.insert(1, "max_train_samples")
@@ -3594,9 +3601,15 @@ def show_df(df, summary=False):
                     cols.append("score")
 
             latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
-                    headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".1f")
+                    headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".2f")
+            def rotate_columns(latex_table, cols_to_rotate):
+                for col in cols_to_rotate:
+                    latex_table = latex_table.replace(col, f"\\rot{{{col}}}")
+                return latex_table
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
+            if "rot" in cmd:
+                latex_table = rotate_columns(latex_table, pcols)
             latex_lines = latex_table.split('\n')
             modified_latex_lines = []
 
