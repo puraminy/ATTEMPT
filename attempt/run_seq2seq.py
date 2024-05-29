@@ -659,6 +659,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                args["expid"] = ii 
        elif "-" in str(exp_args["expid"]):
            expid = str(exp_args["expid"]).replace("-rep","")
+           expid = expid.strip("-")
            args["expid"] = expid.split("-")[-1] + "." + str(ii)
        else:
            args["expid"] = ii 
@@ -675,6 +676,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            _output_dir = label + "-" + str(ee)
            _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
+           if Path(output_dir).exists():
+               print("Merging to ", output_dir)
        else:
            ee = round(float(args["expid"]))
            eee = ee
@@ -692,9 +695,13 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                    _output_dir = label + str(ee)
                    output_dir = os.path.join(save_path, _output_dir)
            if label:
-               args["expid"] = experiment.split("/")[-1] + "-" + label + "-" + str(eee)
+               expid = experiment.split("/")[-1] + "-" + label + "-" + str(eee)
+               expid = expid.strip("-")
+               args["expid"] = expid
            else:
-               args["expid"] = experiment.split("/")[-1] + "-" + str(eee)
+               expid = experiment.split("/")[-1] + "-" + str(eee)
+               expid = expid.strip("-")
+               args["expid"] = expid
        if repeat:
           args["expid"] += "-rep"
        args["output_dir"] = "%" + output_dir 

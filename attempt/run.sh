@@ -94,6 +94,9 @@ fi
 if [ -n "$_ust" ]; then
    _tasks="AtLocation#CapableOf#HasProperty#ObjectUse#isFilledBy#xAttr"
 fi
+if [ -n "$_atomic" ]; then
+   _tasks="AtLocation#CapableOf#HasProperty#ObjectUse#isFilledBy#xAttr#xIntent#xNeed#HasSubEvent#isAfter#isBefore#Causes#xReason#MadeUpOf#xEffect#oEffect"
+fi
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"
 fi
@@ -110,7 +113,8 @@ if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli#mrpc"
 fi
 if [ -n "$_qat" ]; then
-   _tasks="commonsense-qa-2#social-i-qa#sst2"
+   #_tasks="commonsense-qa-2#social-i-qa#sst2"
+   _tasks="piqa#commonsense-qa"
 fi
 if [ -n "$_qt" ]; then
    _tasks="searchqa#triviaqa#nq#hotpotqa#commonsense_qa"
@@ -207,7 +211,9 @@ fi
 
 ###################################
 params=""
-if [ -n "$_tasks" ]; then
+if [ -n "$_rels" ]; then
+   params="${params} --@rels=$_tasks"
+elif [ -n "$_tasks" ]; then
    params="${params} --@task_name=$_tasks"
 fi
 if [ -n "$_src" ]; then
