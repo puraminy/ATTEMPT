@@ -6,10 +6,7 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
-try:
-    from metrics.metrics import do_score
-except:
-    pass
+from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -1604,16 +1601,21 @@ def show_df(df, summary=False):
         elif char in ["W"] and prev_char == "x":
             save_df(df)
         elif char == "B":
-            exprs, scores = get_sel_rows(df, row_id="fid", col="bert_score", from_main=False) 
+            _score = "bleu_score"
+            scorers = "bleu"
+            #_score = "rouge_score"
+            #scorers = "rouge"
+            exprs, scores = get_sel_rows(df, row_id="fid", col=_score, from_main=False) 
             #if _score > 0:
             #    continue
             for exp, score in zip(exprs, scores):
                 tdf = main_df[main_df['fid'] == exp]
                 spath = tdf.iloc[0]["path"]
                 # spath = str(Path(spath).parent)
-                if str(score) != "nan" and score > 0:
-                    continue
-                scores = do_score(tdf, "rouge-bert", spath, reval=True) 
+                # if str(score) != "nan" and score > 0:
+                #    continue
+                # tdf = tdf.head(5)
+                scores = do_score(tdf, scorers, spath, reval=True) 
                 # main_df.loc[main_df.fid == exp, "bert_score"] = tdf["bert_score"]
             # df = main_df
             # hotkey = hk

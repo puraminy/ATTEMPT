@@ -418,7 +418,7 @@ class AbstractTask(abc.ABC):
                 df = pd.read_csv(split_file)
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
-                if not Path(outfile).is_file() and self.use_cache_file:
+                if not Path(outfile).is_file() and self.cache_file:
                     self.save_dataset(df, outfile)
                 dataset = Dataset.from_pandas(df)
                 if n_obs is not None:
@@ -440,7 +440,7 @@ class AbstractTask(abc.ABC):
                         self.save_dataset(dataset, split_file, directory)
                 if n_obs is not None:
                     dataset = self.subsample(dataset, n_obs)
-        if self.use_df and not Path(outfile).is_file() and self.use_cache_file:
+        if self.use_df and not Path(outfile).is_file() and self.cache_file:
             self.save_dataset(dataset, outfile)
 
         self.records_num[split] = len(dataset)
@@ -1241,6 +1241,7 @@ class Atomic(AbstractTask):
     samples_per_head_per_split = {"train":1, "test":3}
     rels = []
     split_folder = {"train": "atomic", "test":"atomic"}
+    start_row = 0
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
@@ -1309,7 +1310,10 @@ class Atomic(AbstractTask):
         counter = {}
         df = self.df
         samples_per_head = self.samples_per_head_per_split[self.split]
+        assert self.start_row < len(df), "start row is more than lenght of dataframe"
         for idx, row in df.iterrows():
+            if idx < self.start_row:
+                continue
             if row.prefix != self.name:
                 continue
             if not row.input_text in counter:
@@ -1410,12 +1414,18 @@ class AtomicRel(Atomic):
     name = "atomic-rels"
     train_groups = {}
     test_groups = {}
+    use_rel_nat = False
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args)
         rels = task_args.rels
+        if rels is None:
+            rels = []
         if type(rels) != list:
             rels = [rels]
+        if self.rels:
+            rels.extend(self.rels)
+        rels = list(set(rels))
         for g,l in self.train_groups.items():
             rels.extend(l)
         for g,l in self.test_groups.items():
@@ -1427,8 +1437,10 @@ class AtomicRel(Atomic):
         return "-".join(self.rels)
 
     def get_fname(self, split):
-        rels = sorted(self.rels)
-        fname = split + "_" + "-".join(rels)
+        fname = split
+        if self.rels:
+            rels = sorted(self.rels)
+            fname = split + "_" + "-".join(rels)
         return fname.strip("_")
 
     def preproc_df(self, df, split):
@@ -1457,6 +1469,7 @@ class AtomicRel(Atomic):
         if not rels:
             rels = self.rels
         assert len(rels) > 0, "rels is empty"
+        assert self.start_row < len(df), "start row is more than lenght of dataframe"
         samples_per_head = self.samples_per_head_per_split[self.split]
         for idx, row in df.iterrows():
             # print(len(rows), row.prefix, pcounter)
@@ -1467,13 +1480,17 @@ class AtomicRel(Atomic):
             w = rels.count(row.prefix)
             if not row.prefix in pcounter:
                 pcounter[row.prefix] = 0
+            if pcounter[row.prefix] < self.start_row:
+                pcounter[row.prefix] += 1
+                print("skipping", idx)
+                continue
             if not row.input_text in counter:
                 counter[row.input_text] = 0
             counter[row.input_text] += 1
             if counter[row.input_text] > samples_per_head:
                 continue
             pcounter[row.prefix] += 1
-            if pcounter[row.prefix] > n_obs * w: 
+            if pcounter[row.prefix] > self.start_row + n_obs * w: 
                 continue
             rows.append(row.to_dict())
         self.df = pd.DataFrame(data=rows)
@@ -1486,9 +1503,10 @@ class AtomicRel(Atomic):
     def preprocessor(self, example, prefix):
         group = relation = example["prefix"].strip()
         rel_nat = ""
-        assert relation in REL_TO_PHRASE, "Relation " + relation + " has no natural phrase"
-        rel_nat = REL_TO_PHRASE[relation] 
-        src_texts = ["head:", str(example["input_text"]), relation,
+        if self.use_rel_nat:
+            assert relation in REL_TO_PHRASE, "Relation " + relation + " has no natural phrase"
+            rel_nat = REL_TO_PHRASE[relation] 
+        src_texts = ["head:", str(example["input_text"]), rel_nat,
                      "tail:", str(example["target_text"])]
         if self.split == "train":
             groups = self.train_groups
@@ -1525,12 +1543,31 @@ class FreeCS(Atomic):
     name = "free-cs"
     df_format= ".csv" 
     split_folder = {"train": "free-rels", "test":"free-rels"}
+    split_prefix = {"train": "16000_", "test":""}
+    def preproc_df(self, df, split):
+        return df
+
+    def subsample(self, dataset, n_obs=None, indices=None):
+        df = self.df
+        df = df.head(n_obs)
+        ds = Dataset.from_pandas(df)
+        return ds
 
 
 class FreeRel(AtomicRel):
     name = "free-rels"
+    rels = ["free-cs"]
     df_format = ".csv"
     split_folder = {"train": "omcs", "test":"omcs"}
+    split_prefix = {"train": "omcs", "test":"16000_"}
+    def preproc_df(self, df, split):
+        return df
+
+    def subsample(self, dataset, n_obs=None, indices=None):
+        df = self.df
+        df = df.head(n_obs)
+        ds = Dataset.from_pandas(df)
+        return ds
 
 class TaskClassifier(AtomicRel):
     name = "task-clf"
@@ -1541,10 +1578,15 @@ class TaskClassifier(AtomicRel):
                "isAfter", "isBefore", "oWant", "HasSubEvent"]
            }
     test_groups = {
-           "Filling": ["NotDesires", "HinderedBy","oReact", "Causes", 
+           "Filling": ["NotDesires", "oReact", "Causes", 
                "HasProperty","MadeUpOf","AtLocation", "isFilledBy"],
-           "Mapping": ["xReason","oWant", "oEffect","isBefore"]
+           "Mapping": ["xReason","oWant", "HinderedBy", "oEffect","isBefore"]
            }
+
+class TaskClassifier2(TaskClassifier):
+    name = "task-clf2"
+    use_rel_nat = True
+    start_row= 500
 
 class Splitter(AtomicRel):
     name = "splitter"
@@ -1586,22 +1628,27 @@ class SplitOMCS(AbstractTask):
     def after_prediction(self, golds, preds):
         mylogs.bp("after_pred")
         rows = []
+        rows2 = []
         for pred, gold in zip(preds, golds):
             pred = pred.strip()
-            if not pred in gold:
-                continue
-            if len(pred) > 30:
-                continue
             data = {}
             data["input_text"] = gold.replace(pred,"")
             data["target_text"] = pred
             data["prefix"] = "free-cs"
-            rows.append(data)
+            if pred in gold:
+                rows.append(data)
+            else:
+                rows2.append(data)
 
         df = pd.DataFrame(data=rows)
         n_obs = len(df)
-        print("len df:", n_obs)
         directory, file_name, outfile = self.get_stored_file("train", n_obs)
+        outfile = outfile.replace(".tsv",".csv")
+        df.to_csv(outfile, index=False)
+
+        df = pd.DataFrame(data=rows2)
+        n_obs = len(df)
+        directory, file_name, outfile = self.get_stored_file("junc", n_obs)
         outfile = outfile.replace(".tsv",".csv")
         df.to_csv(outfile, index=False)
      
@@ -1660,6 +1707,9 @@ class HasProperty(Atomic):
     name = "HasProperty"
     rel_nat = " has the property of "
 
+class HasPropertyN(Atomic):
+    name = "HasProperty"
+    rel_nat = " has "
 
 class isFilledBy(Atomic):
     name = "isFilledBy"
@@ -2288,6 +2338,7 @@ TASK_MAPPING = OrderedDict(
         ('free-cs', FreeCS),
         ('free-rels', FreeRel),
         ('task-clf', TaskClassifier),
+        ('task-clf2', TaskClassifier2),
         ('splitter', Splitter),
         ('omcs', SplitOMCS),
         ('squad', Squad),

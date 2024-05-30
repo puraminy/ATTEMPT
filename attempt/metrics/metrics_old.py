@@ -20,7 +20,6 @@ from rouge import Rouge
 from attempt.mylogs import *
 import attempt.mylogs as mylogs
 from attempt.myutil import df_to_image
-from attempt.maps import REL_TO_PHRASE
 if not colab:
     from sentence_transformers import SentenceTransformer, util
 from tqdm import tqdm
@@ -316,76 +315,24 @@ def build_compute_metrics_fn(task_names, tokenizer, ignore_pad_token_for_loss):
 
     return {task: tasks_metrics(task) for task in task_names}
 
-
-def bleu_score5(scorer, preds, refs):
-    best_score = -float('inf')
-    best_pred = None
-
-    for pred in preds:
-        candidate_scores = scorer.score(references=refs, candidates=[pred] * len(refs))
-        max_score = max(candidate_scores)
-        if max_score > best_score:
-            best_score = max_score
-            best_pred = pred
-
-    return best_pred, best_score
-
-
-import math
-
-def bleu_score(scorer, hyps, refs, device, batch_size=20):
-    if scorer is None:
-        return 0, 0, 0.0
-
-    hyps = [p.strip() for p in hyps]
-    refs = [g.strip() for g in refs]
-
-    if len(hyps) != len(refs):
-        print("Warning: The number of hypotheses and references do not match!")
-
-    total_hyps = len(hyps)
-    scores = []
-
-    num_batches = math.ceil(total_hyps / batch_size)
-    for i in tqdm(range(num_batches), total=num_batches):
-        start_index = i * batch_size
-        end_index = min(start_index + batch_size, total_hyps)
-        batch_hyps = hyps[start_index:end_index]
-        batch_refs = refs[start_index:end_index]
-        
-        batch_scores = scorer.score(references=batch_refs, 
-                candidates=batch_hyps, batch_size=batch_size)
-        scores.extend(batch_scores)
-
-    return scores
-
-def bleu_score3(scorer, hyps, refs, device):
+def bleu_score(scorer, hyps, refs, device):
     if scorer == None:
         return 0, 0, 0.0
+
+    # Clean the input sentences
     hyps = [p.strip() for p in hyps]
     refs = [g.strip() for g in refs]
     
     # Compute BLEURT scores for each hypothesis-reference pair
     scores = scorer.score(references=refs, candidates=hyps)
-
-    return scores
-
-def bleu_score2(scorer, preds, refs, device):
-    if scorer == None:
-        return 0, 0, 0.0
-
-    best_score = -float('inf')
-    best_hyp_index = -1
-    best_ref_index = -1
-
-    for i, pred in enumerate(preds):
-        candidate_scores = scorer.score(references=refs, candidates=[pred] * len(refs))
-        for j, score in enumerate(candidate_scores):
-            if score > best_score:
-                best_score = score
-                best_hyp_index = i
-                best_ref_index = j
-
+    
+    # Find the pair with the highest BLEURT score
+    best_score = max(scores)
+    best_index = scores.index(best_score)
+    
+    best_hyp_index = best_index
+    best_ref_index = best_index
+    
     return best_hyp_index, best_ref_index, best_score
 
 ######## My functions
@@ -423,7 +370,7 @@ def bert_score(scorer, hyps, refs, device):
 rel_target_omits = {
    # "xIntent":"to",
 }
-def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wandb=False, scorer=None):
+def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wandb=False):
     #try:
     #    nltk_path = str(nltk.data.find("tokenizers/punkt"))
     #    mlog.info(f"using nltk from: {nltk_path}")
@@ -440,10 +387,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     if colab:
         scorers = scorers.replace("bert","")
     if "bert" in scorers:
-        if scorer is not None:
-            bert_scorer = scorer
-        else:
-            bert_scorer = SentenceTransformer(checkpoint)
+        bert_scorer = SentenceTransformer(checkpoint)
 
     checkpoint = f"{base_path}/bleurt-20"
     if not Path(checkpoint).exists():
@@ -452,10 +396,7 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
 
     bleu_scorer = None
     if "bleu" in scorers:
-        if scorer is not None:
-            bleu_scorer = scorer
-        else:
-            bleu_scorer = score.BleurtScorer(checkpoint)
+        bleu_scorer = score.BleurtScorer(checkpoint)
 
     rouge_scorer = None
     if "rouge" in scorers:
@@ -487,12 +428,13 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     hyp_counter = [0]*5
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    all_preds = []
+    all_predictions = []
     all_golds = []
     if not reval:
         mlog.info("Preparing iterator ...")
         mlog.info("Scoring....")
     if scorers:
+        rows = []
         pbar = tqdm(total=len(df), position=0, leave=True) #,dynamic_ncols=True)
         df = df.sort_values(by=["prefix","input_text"])
         preds = []
@@ -500,180 +442,142 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
         mylogs.bp("score")
         oldinp = df.iloc[0]["input_text"]
         rel =  df.iloc[0]["prefix"]
-        gold_set = [str(w).strip() for w in df["target_text"].unique()]
-        gp = {}
+        gold_set = [w.strip() for w in df["target_text"].unique()]
         for step, row in df.iterrows():
             oldrel = rel
             rel = row["prefix"]
-            rel_nat = REL_TO_PHRASE[rel]
             lang = row["langs"] 
-            scope = rel # + "_" + lang
-            if not scope in gp: 
-                gp[scope] = {}
-
+            scope = rel + "_" + lang
+            if not scope in sum_bert: 
+                sum_bert[scope] = 0
+                sum_rouge[scope] = 0
+                sum_bleu[scope] = 0
+                sum_match[scope] = 0
+                counter[scope] = 0
+                sum_out[scope] = 0
             #Compute embeddings
             cur_hyp = str(row["pred_text1"])
 
             inp = row["input_text"]
             tail = re.sub(r'<extra_.*?>','',str(row["target_text"]))
             tail = tail.strip()
-            ref_sent = tail # f"{inp} {rel_nat} {tail}" 
-            pred_sent = cur_hyp # f"{inp} {rel_nat} {cur_hyp}" 
-            all_preds.append(pred_sent)
-            all_golds.append(ref_sent)
-            pbar.update(1)
+            all_predictions.append(cur_hyp)
+            all_golds.append(tail)
             if oldinp == inp:
                 preds.append(cur_hyp)
                 tails.append(tail)
                 pbar.update()
                 continue
-            if not oldinp in gp[scope]:
-                gp[scope][oldinp] = {}
-            gp[scope][oldinp]["preds"] = preds
-            gp[scope][oldinp]["tails"] =tails 
+
+            data = {"prefix":oldrel, "input_text":oldinp}
+            counter[scope] += 1
+            counter["all"] += 1
             oldinp = inp
+            hi, ri = 0, 0
+            if bert_scorer is not None or bleu_scorer is not None:
+                if bert_scorer is not None:
+                    hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
+                    best_hyp = preds[hi]
+                    best_ref = tails[ri]
+                    data["bert_score"] = float("{:.2f}".format(cur_score))
+                    sum_bert[scope] += cur_score
+                    sum_bert["all"] += cur_score
+                    mean_bert[scope] = "{:.4f}".format(sum_bert[scope] / counter[scope])
+                    mean_bert["all"] = "{:.4f}".format(sum_bert["all"] / counter["all"])
+                if bleu_scorer is not None:
+                    hi, ri, cur_score = bleu_score(bleu_scorer, preds, tails, device)
+                    best_hyp = preds[hi]
+                    best_ref = tails[ri]
+                    data["bleu_score"] = float("{:.2f}".format(cur_score))
+                    sum_bleu[scope] += cur_score
+                    sum_bleu["all"] += cur_score
+                    mean_bleu[scope] = "{:.4f}".format(sum_bleu[scope] / counter[scope])
+                    mean_bleu["all"] = "{:.4f}".format(sum_bleu["all"] / counter["all"])
+                #hyp_counter[hi] += 1
+                data["match_score"] = 0
+                data["top"] = best_ref
+                data["all_preds"] = "<br />".join(preds) 
+                data["top_pred"] = best_hyp
+                if best_hyp.strip() == best_ref:
+                    data["match_score"] = 1
+                    sum_match[scope] += 1
+                    sum_match["all"] += 1
+                data["out_score"] = 0
+                if best_hyp.strip() not in gold_set:
+                    data["out_score"] = 1
+                    sum_out[scope] += 1
+                    sum_out["all"] += 1
+                mean_out[scope] = "{:.4f}".format(sum_out[scope] / counter[scope])
+                mean_out["all"] = "{:.4f}".format(sum_out["all"] / counter["all"])
+            if nli_model:
+                pair = (best_hyp, best_ref)
+                nli_scores = nli_model.predict(pair)  
+                _max  = nli_scores.argmax()
+                label = nli_map[_max]
+                nli_counter[label] += 1
+                data["nli_group"] = label
+            #### BLUE score
+            #tokenized_rs = []
+            #for r in tails:
+            #    tokenized_rs.append(word_tokenize(r))
+            #hypo = word_tokenize(top_hyp)
+            #bleu_score = 0.0
+            #try:
+            #    bleu_score = sentence_bleu(tokenized_rs, hypo, smoothing_function=smoothie)
+            #except ValueError: # TODO ZeroDivisionError
+            #    vlog.warning("math domain error in bleu, set to 0.0. generated sentence: {}".format(hypo))
+            #data["bleu_score"] = bleu_score 
+            #sum_bleu[scope] += bleu_score 
+            #mean_bleu[scope] = "{:.4f}".format(sum_bleu[scope] / counter[scope])
+            #### Rouge score
+            rouge_score = 0
+            if rel in rel_target_omits:
+                omit = rel_target_omits[rel]
+                preds = [p.replace(omit, "") for p in preds]
+                tails = [t.replace(omit,"") for t in tails]
+            if rouge_scorer and preds and tails:
+                try:
+                    _scores = []
+                    for _pred in preds:
+                        for _tail in tails:
+                            _score = rouge_scorer.get_scores(_pred, _tail, 
+                                                    avg=True, ignore_empty=True)
+                            _score = _score["rouge-l"]["f"]
+                            _scores.append(_score)
+                    rouge_score = max(_scores)
+                except:
+                    rouge_score = 0
+            inp_key = inp + rel
+            mean_match[scope] = "{:.4f}".format(sum_match[scope] / counter[scope])
+            data["rouge_score"] = rouge_score
+            #if reval or pd.isnull(row['rouge_score']):
+            #    for key, value in data.items():
+            #        df.loc[step, key] = value
+            sum_rouge[scope] += rouge_score
+            sum_rouge["all"] += rouge_score
+            mean_rouge[scope] = "{:.4f}".format(sum_rouge[scope] / counter[scope])
+            mean_rouge_all = sum_rouge["all"] / counter["all"]
+            mean_rouge["all"] = "{:.4f}".format(mean_rouge_all)
+            if bert_scorer is not None:
+                pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
+            else:
+                pbar.set_description(f"{scope:<20} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
             preds = [cur_hyp]
             tails = [tail]
-            
-
-        if len(df) > 0:
-            if not inp in gp[scope]:
-                gp[scope][inp] = {}
-            gp[scope][inp]["preds"] = preds
-            gp[scope][inp]["tails"] = tails 
-
-        scores = bleu_score(bleu_scorer, all_preds, all_golds, device)
-        rows = []
-        gg = 0
-        for rel, preds_tails in gp.items():
-            scope = rel
-            pbar = tqdm(total=len(preds_tails), position=0, leave=True) #,dynamic_ncols=True)
-            for inp, pt in preds_tails.items():
-                preds = pt["preds"]
-                tails = pt["tails"]
-                p_scores = scores[gg: gg + len(preds)]
-                gg += len(preds)
-                if not scope in sum_bert: 
-                    sum_bert[scope] = 0
-                    sum_rouge[scope] = 0
-                    sum_bleu[scope] = 0
-                    sum_match[scope] = 0
-                    counter[scope] = 0
-                    sum_out[scope] = 0
-                data = {"prefix":scope, "input_text":inp}
-                counter[scope] += 1
-                #if counter[scope] > 10:
-                #    break
-                counter["all"] += 1
-                hi, ri = 0, 0
-                if bert_scorer is not None or bleu_scorer is not None:
-                    if bert_scorer is not None:
-                        hi, ri, cur_score = bert_score(bert_scorer, preds, tails, device)
-                        best_hyp = preds[hi]
-                        best_ref = tails[ri]
-                        data["bert_score"] = float("{:.2f}".format(cur_score))
-                        sum_bert[scope] += cur_score
-                        sum_bert["all"] += cur_score
-                        mean_bert[scope] = "{:.4f}".format(sum_bert[scope] / counter[scope])
-                        mean_bert["all"] = "{:.4f}".format(sum_bert["all"] / counter["all"])
-                    if bleu_scorer is not None:
-                        # hi, ri, cur_score = bleu_score(bleu_scorer, preds, tails, device)
-                        cur_score = max(p_scores)
-                        hi = ri = p_scores.index(cur_score)
-                        best_hyp = preds[hi]
-                        best_ref = tails[ri]
-                        data["bleu_score"] = float("{:.2f}".format(cur_score))
-                        sum_bleu[scope] += cur_score
-                        sum_bleu["all"] += cur_score
-                        mean_bleu[scope] = "{:.4f}".format(sum_bleu[scope] / counter[scope])
-                        mean_bleu["all"] = "{:.4f}".format(sum_bleu["all"] / counter["all"])
-                    #hyp_counter[hi] += 1
-                    data["match_score"] = 0
-                    data["top"] = best_ref
-                    data["all_preds"] = "<br />".join(preds) 
-                    data["top_pred"] = best_hyp
-                    if best_hyp.strip() == best_ref:
-                        data["match_score"] = 1
-                        sum_match[scope] += 1
-                        sum_match["all"] += 1
-                    data["out_score"] = 0
-                    if best_hyp.strip() not in gold_set:
-                        data["out_score"] = 1
-                        sum_out[scope] += 1
-                        sum_out["all"] += 1
-                    mean_out[scope] = "{:.4f}".format(sum_out[scope] / counter[scope])
-                    mean_out["all"] = "{:.4f}".format(sum_out["all"] / counter["all"])
-                    mean_match[scope] = "{:.4f}".format(sum_match[scope] / counter[scope])
-                if nli_model:
-                    pair = (best_hyp, best_ref)
-                    nli_scores = nli_model.predict(pair)  
-                    _max  = nli_scores.argmax()
-                    label = nli_map[_max]
-                    nli_counter[label] += 1
-                    data["nli_group"] = label
-                #### BLUE score
-                #tokenized_rs = []
-                #for r in tails:
-                #    tokenized_rs.append(word_tokenize(r))
-                #hypo = word_tokenize(top_hyp)
-                #bleu_score = 0.0
-                #try:
-                #    bleu_score = sentence_bleu(tokenized_rs, hypo, smoothing_function=smoothie)
-                #except ValueError: # TODO ZeroDivisionError
-                #    vlog.warning("math domain error in bleu, set to 0.0. generated sentence: {}".format(hypo))
-                #data["bleu_score"] = bleu_score 
-                #sum_bleu[scope] += bleu_score 
-                #mean_bleu[scope] = "{:.4f}".format(sum_bleu[scope] / counter[scope])
-                #### Rouge score
-                rouge_score = 0
-                if rel in rel_target_omits:
-                    omit = rel_target_omits[rel]
-                    preds = [p.replace(omit, "") for p in preds]
-                    tails = [t.replace(omit,"") for t in tails]
-                if rouge_scorer and preds and tails:
-                    try:
-                        _scores = []
-                        for _pred in preds:
-                            for _tail in tails:
-                                _score = rouge_scorer.get_scores(_pred, _tail, 
-                                                        avg=True, ignore_empty=True)
-                                _score = _score["rouge-l"]["f"]
-                                _scores.append(_score)
-                        rouge_score = max(_scores)
-                    except:
-                        rouge_score = 0
-                inp_key = inp + rel
-                data["rouge_score"] = rouge_score
-                #if reval or pd.isnull(row['rouge_score']):
-                #    for key, value in data.items():
-                #        df.loc[step, key] = value
-                sum_rouge[scope] += rouge_score
-                sum_rouge["all"] += rouge_score
-                mean_rouge[scope] = "{:.4f}".format(sum_rouge[scope] / counter[scope])
-                mean_rouge_all = sum_rouge["all"] / counter["all"]
-                mean_rouge["all"] = "{:.4f}".format(mean_rouge_all)
-                if bert_scorer is not None:
-                    pbar.set_description(f"{scope:<20} :Bert:{mean_bert[scope]:<7} | {mean_bert['all']:<7} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
-                else:
-                    pbar.set_description(f"{scope:<20} Rouge {mean_rouge[scope]:<7}|{mean_rouge['all']:<7} ")
-                pbar.update()
-                rows.append(data)
+            pbar.update()
+            rows.append(data)
 
     scored_df = pd.DataFrame(rows)
     if reval:
-        columns_to_drop = [col for col in df.columns if col.endswith('_new')]
-        df.drop(columns=columns_to_drop, inplace=True)
-        df = pd.merge(df, scored_df, 
-                on=["input_text", "prefix"], how="left", suffixes=('', '_new'))
+        df = pd.merge(df, scored_df, on=["input_text", "prefix"], how="left", suffixes=('', '_new'))
         if "bert" in scorers:
             # Update existing rows with new scores
             #df["bert_score"] = df["bert_score_new"]
-            df['bert_score'] = df['bert_score_new'].fillna(df['bert_score'])
-            # df['bert_score'] = df.apply(lambda row: row['bert_score_new'] if pd.notnull(row['bert_score_new']) else row['bert_score'], axis=1)
+            df['bert_score'] = df.apply(lambda row: row['bert_score_new'] if pd.notnull(row['bert_score_new']) else row['bert_score'], axis=1)
             df.drop(columns=['bert_score_new'], inplace=True)
         if "bleu" in scorers:
-            df['bleu_score'] = df['bleu_score_new'].fillna(df['bleu_score'])
-            # df['bleu_score'] = df.apply(lambda row: row['bleu_score_new'] if pd.notnull(row['bleu_score_new']) else row['bleu_score'], axis=1)
+            df.drop(columns=['bleu_score_new'], inplace=True)
+            df['bleu_score'] = df.apply(lambda row: row['bleu_score_new'] if pd.notnull(row['bleu_score_new']) else row['bleu_score'], axis=1)
             df.drop(columns=['bleu_score_new'], inplace=True)
     else:
         #merged_df = pd.concat([df, scored_df], axis=1)
