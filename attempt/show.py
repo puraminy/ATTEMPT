@@ -6,7 +6,7 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
-from metrics.metrics import do_score
+#from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -300,7 +300,10 @@ def plot_bar(rep, folder, sel_col):
     return pname
 
 def score_colors(df,row,col, default=None):
-    df[col] = df[col].astype(float)
+    try:
+        df[col] = df[col].astype(float)
+    except:
+        return default
     max_val = df[col].max()
     if df.iloc[row][col] == max_val:
         return 136
@@ -308,7 +311,10 @@ def score_colors(df,row,col, default=None):
 
 def pivot_colors(df,row,col, default=None):
     rel_col = "n-" + col
-    df[col] = df[col].astype(float)
+    try:
+        df[col] = df[col].astype(float)
+    except:
+        return default
     max_val = df[col].max()
     if rel_col in df:
         if df.iloc[row][rel_col] <= 1:
@@ -431,7 +437,7 @@ def get_main_vars(df):
         main_vars = list(dict.fromkeys(mvars))
     return main_vars
 
-def summarize(df, score_col=None):
+def summarize(df, score_col=None, rename =True):
     mdf = df #main_df
     file_dir = Path(__file__).parent
     with open(os.path.join(file_dir, 'cols.json'),'r') as f:
@@ -455,7 +461,7 @@ def summarize(df, score_col=None):
         score_cols = ['rouge_score', 'num_preds'] 
 
     main_vars = get_main_vars(df)
-    rep_cols = main_vars + sel_cols + rep_cols + score_cols
+    rep_cols = rep_cols + score_cols #+ main_vars + sel_cols 
     rep_cols = list(dict.fromkeys(rep_cols))
     _agg = {}
     _rep_cols = []
@@ -471,8 +477,10 @@ def summarize(df, score_col=None):
             _rep_cols.append(c)
             _agg[c] = "first"
     gcol = _rep_cols
-    if not "eid" in rep_cols:
-        gcol += ["eid"] 
+    #if not "eid" in rep_cols:
+    #    gcol += ["eid"] 
+    #gcol.remove("eid")
+    #gcol.remove("folder")
     mdf[gcol] = mdf[gcol].fillna('none')
     pdf = mdf.pivot_table(index=gcol, columns=pivot_cols, 
             values=score_cols, aggfunc='mean', margins=True)
@@ -482,14 +490,14 @@ def summarize(df, score_col=None):
     # pdf['eid'] = mdf.groupby(gcol)['eid'].first()
     #pdf['cat'] = mdf.groupby(gcol)['cat'].first()
     pdf.reset_index(inplace=True)
-    pdf.columns = [col[1] if col[0] == score_cols[0] 
-            else col[0][0] + "-" + col[1] if col[0] in score_cols else col[0]
+    pdf.columns = [col[1] if col[0] == score_cols[0] and rename 
+            else col[0][0:2] + "-" + col[1] if col[0] in score_cols else col[0]
             for col in pdf.columns]
     # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
     if not "label" in pdf:
         pdf['label'] = pdf.apply(create_label, axis=1)
-    pdf['ref'] = pdf.apply(
-            lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
+    #pdf['ref'] = pdf.apply(
+    #        lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
     pdf = pdf.round(2)
     df = pdf.iloc[:-1]
     return df
@@ -1542,7 +1550,10 @@ def show_df(df, summary=False):
             else:
                 selected_cols.append(col)
             consts["selected_cols"] = selected_cols
-            cur_col += 1
+            if char == "+":
+                cur_col += 1
+            else:
+                cur_col -= 1
             mbeep()
         elif char == "-":
             backit(df, sel_cols)
@@ -2308,7 +2319,6 @@ def show_df(df, summary=False):
             df.drop(df.index[irange], inplace=True)
             sel_rows = []
             #df = df.loc[np.isin(np.arange(len(df)), irange)]
-
         elif char == "T" or char == "U" or char == "Y":
             s_rows = sel_rows
             if not sel_rows:
@@ -2319,15 +2329,18 @@ def show_df(df, summary=False):
             if char == "Y":
                 # dest_folder = rowinput("Dest:")
                 dest_folder = "comp2"
+            temp_path = "/home/ahmad/temp/"
+            comp_path = temp_path + dest_folder
+            Path(comp_path).mkdir(parents=True, exist_ok=True)
             if char in ["U", "Y"]:
-                comp_path = "/home/ahmad/temp/" + dest_folder
                 if dest_folder and Path(comp_path).exists():
                     shutil.rmtree(comp_path)
                     cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'rm /home/ahmad/temp/{dest_folder}/*'"
                     os.system(cmd)
-                Path(comp_path).mkdir(parents=True, exist_ok=True)
                 cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'mkdir -p /home/ahmad/temp/{dest_folder}'"
                 os.system(cmd)
+            adrfile = os.path.join(temp_path, "address.txt")
+            adr = open(adrfile,"w")
             for s_row in s_rows:
                 exp=df.iloc[s_row]["eid"]
                 score = ""
@@ -2341,6 +2354,7 @@ def show_df(df, summary=False):
                 expid=tdf.iloc[0]["expid"]
                 # path=tdf.iloc[0]["output_dir"]
                 rpath=tdf.iloc[0]["folder"]
+                print(rpath, file=adr)
                 if not str(expid).isnumeric():
                     expid=Path(rpath).stem
                 path = str(Path(rpath).parent) + "/" + str(expid)
@@ -2377,14 +2391,20 @@ def show_df(df, summary=False):
                                 pass
                         dest = os.path.join(home, "results", fname)
 
-                    shutil.copyfile(js, dest)
-                    correct_path(js, dest, path)
-                    mbeep()
-                    if char in ["U", "Y"]:
-                        to = "ahmad@10.42.0.210:" + dest 
-                        cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
-                        os.system(cmd)
+                    if Path(js).is_file():
+                        shutil.copyfile(js, dest)
+                        correct_path(js, dest, path)
+                        mbeep()
+                        if char in ["U", "Y"]:
+                            to = "ahmad@10.42.0.210:" + dest 
+                            cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
+                            os.system(cmd)
                     # subprocess.run(cmd.split())
+            adr.close()
+            if char in ["U", "Y"]:
+                to = "ahmad@10.42.0.210:" + temp_path 
+                cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{adrfile}" "{to}"'
+                os.system(cmd)
         elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
@@ -2716,12 +2736,18 @@ def show_df(df, summary=False):
             canceled, col, val = list_df_values(df, col, get_val=True)
             if not canceled:
                if type(val) == str:
-                  cond_set[col] = f"(df['{col}'] == '{val}')"
+                  if not col in cond_set:
+                      cond_set[col] = f"(df['{col}'] == '{val}')"
+                  else:
+                      cond_set[col] += f" | (df['{col}'] == '{val}')"
                else:
-                  cond_set[col] = f"(df['{col}'] == {val})"
+                  if not col in cond_set:
+                      cond_set[col] = f"(df['{col}'] == {val})"
+                  else:
+                      cond_set[col] += f" | (df['{col}'] == {val})"
             cond = ""
             for c,v in cond_set.items():
-                cond += v + " & "
+                cond += "(" + v + ") & "
             cond = cond.strip(" & ")
             # mlog.info("cond %s, ", cond)
             if cond:
@@ -3147,7 +3173,7 @@ def show_df(df, summary=False):
         if char == "H":
             name = ax.get_title()
             pname = rowinput("Plot name:", name[:30])
-            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/pics" #os.getcwd() 
             if pname:
                 folder = ""
                 if "/" in pname:
@@ -3165,7 +3191,7 @@ def show_df(df, summary=False):
                 subprocess.run(["eog", pname])
         if cmd.startswith("anova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/pics" #os.getcwd() 
             canceled, val = False, "pred_text1" # list_values(sel_cols)
             if not canceled:
                 treatment = 'target_text' #sel_cols[cur_col]
@@ -3187,7 +3213,7 @@ def show_df(df, summary=False):
                 plt.show()
         if cmd.startswith("banova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/pics" #os.getcwd() 
             canceled, val = False, "target_text" # list_values(sel_cols)
             if not canceled:
                 treatment = 'pred_text1' #sel_cols[cur_col]
@@ -3209,7 +3235,7 @@ def show_df(df, summary=False):
                 plt.show()
         if cmd.startswith("hanova"):
             to = ""
-            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
+            pics_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/pics" #os.getcwd() 
             dest_folder = rowinput("Dest Folder:")
             pic_dir = os.path.join(pics_dir, "pics", dest_folder)
             for prefix in main_df["prefix"].unique():
@@ -3356,6 +3382,29 @@ def show_df(df, summary=False):
             #        label.set_rotation(45)
             g.add_legend(loc='upper right') 
             plt.show()
+        elif cmd.startswith("scat"):
+            x = df[selected_cols[0]]
+            y = df[selected_cols[1]]
+            # sns.lmplot(x=selected_cols[0], y=selected_cols[1], data=df, ci=None)
+
+            plt.scatter(x, y, label='Data Points')
+
+            coefficients = np.polyfit(x, y, 1)
+            polynomial = np.poly1d(coefficients)
+            y_fit = polynomial(x)
+
+            plt.plot(x, y_fit, color='green', label='Fit Line')
+            xlabel = selected_cols[0]
+            ylabel = selected_cols[1]
+            xlabel = xlabel.replace('_', ' ').title()
+            ylabel = ylabel.replace('_', ' ').title()
+
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            plt.legend()
+
+            plt.title(xlabel + ' vs. ' + ylabel)
+            plt.show()
         elif cmd.startswith("mbar"):
             tdf = df.groupby(selected_cols)['All'].mean().unstack()
             plt.figure(figsize=(10, 6))
@@ -3396,9 +3445,9 @@ def show_df(df, summary=False):
                             sel_cols.append(col)
                 else:
                     for col in df.columns:
-                        if col.startswith(score_col[0] + "-"):
+                        if col.startswith(score_col[0:2] + "-"):
                             sel_cols.append(col)
-                    sort_col = score_col[0] + "-All"
+                    sort_col = score_col[0:2] + "-All"
                     if sort_col in sel_cols:
                         sel_cols.remove(sort_col)
                         sel_cols.insert(len(index_cols), sort_col)
@@ -3475,19 +3524,19 @@ def show_df(df, summary=False):
             context = "pivot"
             shortkeys["pivot"] = {"o":"open image", "h": "plot line"}
             score_col = score_cols[0]
-            pcols = []
             cond_colors["eid"] = index_colors
             cond_colors["All"] = score_colors
             cond_colors["time"] = time_colors
             cond_colors["expid"] = time_colors
+            pcols = []
             if not global_summary:
                 for col in pivot_cols:
                     pcols.extend(df[col].unique())
             else:
                 for col in df.columns:
-                    if "n-" in col:
-                        col = col.replace("n-","")
-                        pcols.extend(df[col].unique())
+                    if "nu-" in col:
+                        col = col.replace("nu-","")
+                        pcols.extend(col)
             for col in pcols:
                 cond_colors[col] = pivot_colors
 
@@ -3498,12 +3547,12 @@ def show_df(df, summary=False):
                     if col in df or col in pcols:
                         _sel_cols.append(col)
             else:
-                avg_col = score_col[0] + "-All"
+                avg_col = score_col[0:2] + "-All"
                 for col in pdf.columns:
-                    if col in df or col.startswith(score_col[0] + "-"):
+                    if col in df or col.startswith(score_col[0:2] + "-"):
                         _sel_cols.append(col)
-            df = pdf.sort_values(by="time", ascending=False)
-            sort = "time"
+            df = pdf.sort_values(by="All", ascending=False)
+            #sort = "time"
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             if len(df) > 1:
                 sel_cols, info_cols_back, tag_cols = remove_uniques(df, sel_cols, 
@@ -3534,7 +3583,7 @@ def show_df(df, summary=False):
         if char == "l" or char == "Z" or cmd.startswith("latex"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
-            table_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/" #os.getcwd() 
+            table_dir = "/home/ahmad/Documents/Papers/Applied_Int_paper/tables" #os.getcwd() 
             if len(score_cols) > 1:
                 # m_report = f"{_dir}/report_templates/report_colored_template.tex"
                 m_report = f"{_dir}/report_templates/report_template.tex"
@@ -3544,13 +3593,27 @@ def show_df(df, summary=False):
                 report = f.read()
             #with open(os.path.join(doc_dir, "report.tex"), "w") as f:
             #    f.write("")
-            if not sel_rows:
-                tdf = df.copy()
-            else:
-                tdf = df.iloc[sel_rows, :]
+            backit(df, sel_cols)
 
-            tdf = tdf[sel_cols]
-
+            exprs, _ = get_sel_rows(df, from_main=False) 
+            cond = False
+            for exp in exprs:
+                cond = cond | (group_df["eid"] == exp) 
+            bdf = group_df[cond]
+            pdf = summarize(bdf, score_col=score_col, rename=False)
+            pdf.reset_index(drop=True)
+            dfs = []
+            if not selected_cols:
+                selected_cols = ["model_base","model_temp","template"]
+            for score_col in ["rouge_score","bert_score","bleu_score"]:
+                sid = score_col[0:2] + "-"
+                cols = [col for col in pdf.columns if col.startswith(sid)]
+                tdf = pdf[selected_cols + cols]
+                tdf.columns = [col.replace(sid, "") for col in tdf.columns]
+                tdf["metric"] = score_col
+                dfs.append(tdf)
+            df = tdf = pd.concat(dfs, axis=0) #, ignore_index=True)
+            sel_cols = list(tdf.columns)
             numeric_cols = [col for col in tdf.columns if pd.api.types.is_numeric_dtype(tdf[col])]
             max_values = tdf[numeric_cols].max()
 
@@ -3566,41 +3629,98 @@ def show_df(df, summary=False):
                     else:
                         return "{:.2f}".format(val)            
 
-            for col in numeric_cols:
-                tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],col))
+            grouped = tdf.groupby('metric')
+
+            formatted_dfs = []
+            for name, group in grouped:
+                # Calculate max values for the group
+                max_values = group.max()
+                
+                # Apply bold formatting to each column
+                formatted_group = group.copy()
+                for col in numeric_cols: 
+                    max_value = max_values[col]
+                    formatted_group[col] = formatted_group[col].apply(format_with_bold_max, args=(max_value,col))
+                
+                formatted_dfs.append(formatted_group)
+
+            tdf = pd.concat(formatted_dfs)
+            tdf = tdf.reset_index()
+            rot_cols = pcols
+            if "template" in tdf:
+                templates = tdf["template"].unique()
+                category1_mapping = {
+                        'none': '---', 'sup': 'LM', 
+                        'unsup': 'Denoising',"per_sample": "Mixed"
+                        }
+                if any("ptar" in temp for temp in templates):
+                    category2_mapping = {
+                        '0-ptar-sup': 'PostPT', 
+                        'ptar-unsup-nat':'MaskedPrePT',
+                        'ptar-sup-nat': 'PrePT', '0-ptar-unsup': 'MaskedPostPT'
+                        }
+                else:
+                    category2_mapping = {
+                         'sup': 'Mapping', 'unsup': 'MaskedMapping',
+                         'sup-nat': 'Prompting', 'unsup-nat': 'MP'
+                        }
+                category3_mapping = {
+                        'v1': 'T5-v1', 'base': 'T5-base',
+                        'lm': 'T5-lm' 
+                        }
+                metric_mapping = {
+                        'bert_score': 'BERT', 'bleu_score': 'BLEURT',
+                        'rouge_score': 'Rouge' 
+                        }
+
+                tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
+                tdf['template'] = tdf['template'].map(category2_mapping)
+                tdf['model_base'] = tdf['model_base'].map(category3_mapping)
+                tdf['metric'] = tdf['metric'].map(metric_mapping)
+                rename_dict = {
+                    "model_base": 'model',
+                    "model_temp": 'objective',
+                }
+                tdf = tdf.rename(columns=rename_dict)
+                rot_cols.extend(["template"])
+            #for col in numeric_cols:
+            #    tdf[col] = tdf[col].apply(format_with_bold_max, args=(max_values[col],col))
             
             #sorter = ['PT', 'MCAT', 'MSUM', 'SSUM'] 
             #tdf.sort_values(by="label", 
             #        key=lambda column: column.map(lambda e: sorter.index(e)), inplace=True)
 
-            cols = sel_cols
+            cols = list(tdf.columns)
+            cols.remove("index")
             method = 'model_name_or_path'
-            score_col = score_cols[0]
-            if selected_cols: 
-                cols = selected_cols
-            cols += numeric_cols
-            if "label" in cols:
-                tdf[method] = ''
+            #score_col = score_cols[0]
+            #if selected_cols: 
+            #    cols = selected_cols
+            #cols += numeric_cols
+            group_col = "metric"
+            ng = str(len(sel_rows))
+            if group_col in tdf:
                 tdf['score'] = ''
+                tdf['group'] = ''
+                old_val = ''
                 for idx, row in tdf.iterrows():
-                    if sel_rows and idx not in sel_rows:
-                        continue
-                    if idx == 0 or row['label'] != tdf.at[idx - 1, 'label']:
-                        tdf.at[idx, method] = '\\multirow{3}{*}{' + row['label'] + '}'
+                    if row[group_col] != old_val: 
+                        old_val = str(row[group_col])
+                        tdf.at[idx, 'group'] ='\\multirow{' + ng + '}{*}{' + old_val + '}'
                         if "acc" in cols:
-                            tdf.at[idx, 'score'] = '\\multirow{3}{*}{' + row['acc'] + '}'
+                            tdf.at[idx, 'score'] = '\\multirow{' + ng + '}{*}{' + row['acc'] + '}'
                         
                     if "preds" in cols and row['preds'] == 'precision':
-                        tdf.at[idx, method] = '\\rowcolor{gray!20}' + tdf.at[idx, method]
+                        tdf.at[idx, method] = '\\rowcolor{gray!20}' + tdf.at[idx, group_col]
  
                 if "max_train_samples" in tdf:
                     cols.insert(1, "max_train_samples")
                     cols.remove("max_train_samples")
-                cols.insert(0, "method")
-                cols.remove("label")
                 if "acc" in cols:
                     cols.remove("acc")
                     cols.append("score")
+                tdf.drop(columns=[group_col], inplace=True)
+                tdf.rename(columns={'group':group_col}, inplace=True)
 
             latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
                     headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".2f")
@@ -3611,7 +3731,7 @@ def show_df(df, summary=False):
             #latex_table = latex_table.replace("tabular", "longtable")
             latex_table = latex_table.replace("_", "-")
             if "rot" in cmd:
-                latex_table = rotate_columns(latex_table, pcols)
+                latex_table = rotate_columns(latex_table, rot_cols)
             latex_lines = latex_table.split('\n')
             modified_latex_lines = []
 
