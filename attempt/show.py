@@ -437,22 +437,23 @@ def get_main_vars(df):
         main_vars = list(dict.fromkeys(mvars))
     return main_vars
 
-def summarize(df, score_col=None, rename =True):
+def summarize(df, rep_cols=None, score_col=None, rename =True):
     mdf = df #main_df
-    file_dir = Path(__file__).parent
-    with open(os.path.join(file_dir, 'cols.json'),'r') as f:
-        all_cols = json.load(f)
 
     pivot_cols = ["prefix"]
-    if 'sel_cols' in all_cols:
-        sel_cols = all_cols['sel_cols'] 
-        rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
-        extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
-        exclude_cols = all_cols['ex_cols'] if "ex_cols" in all_cols else []
-    if "compose_method" in df:
-        rep_cols = rep_cols + extra_cols
-    if not "compose_method" in df:
-        df["compose_method"] = "PT"
+    if not rep_cols:
+        file_dir = Path(__file__).parent
+        with open(os.path.join(file_dir, 'cols.json'),'r') as f:
+            all_cols = json.load(f)
+        if 'sel_cols' in all_cols:
+            sel_cols = all_cols['sel_cols'] 
+            rep_cols = all_cols['rep_cols'] if "rep_cols" in all_cols else sel_cols
+            extra_cols = all_cols['extra_cols'] if "extra_cols" in all_cols else []
+            exclude_cols = all_cols['ex_cols'] if "ex_cols" in all_cols else []
+        if "compose_method" in df:
+            rep_cols = rep_cols + extra_cols
+        if not "compose_method" in df:
+            df["compose_method"] = "PT"
 
     rels = df["prefix"].unique()
     if score_col is not None: 
@@ -1299,6 +1300,7 @@ def show_df(df, summary=False):
     orig_df = main_df.copy()
     prev_char = ""
     new_df = True
+    cur_sel_col = ""
     while prev_char != "q":
         group_rows = []
         left = min(left, max_col  - width)
@@ -1316,6 +1318,11 @@ def show_df(df, summary=False):
         #sel_group = min(sel_row, sel_group)
         cur_col = min(cur_col, len(sel_cols) - 1)
         cur_col = max(cur_col, -1)
+        if (cur_sel_col and sel_cols[cur_col] != cur_sel_col 
+                and cur_sel_col in sel_cols 
+                and not ch in [LEFT, RIGHT]):
+            cur_col = sel_cols.index(cur_sel_col)
+        cur_sel_col = sel_cols[cur_col]
         back_df = back[-1].df if len(back) > 0 else df
         if not hotkey:
             # std.clear()
@@ -3326,7 +3333,14 @@ def show_df(df, summary=False):
 
             plt.show()
         elif cmd.startswith("bar"):
-            tdf = df.copy()
+            if context == "main":
+                score_col = "rouge_score"
+                if sel_cols[cur_col].endswith("_score"):
+                    score_col = sel_cols[cur_col]
+                backit(df, sel_cols)
+                tdf = summarize(df, score_col=score_col)
+            else:
+                tdf = df.copy()
             #rename_dict = {
             #    "model_temp": 'model',
             #}
@@ -3364,8 +3378,10 @@ def show_df(df, summary=False):
             tdf['model_base'] = tdf['model_base'].map(category3_mapping)
 
             facet_order = ['T5-v1', 'T5-lm', 'T5-base']  # specify the desired order
+            if not "model_base" in selected_cols:
+                selected_cols.append("model_base")
 
-            tdf = tdf.groupby(selected_cols + ['model_base'])['All'].mean().reset_index()
+            tdf = tdf.groupby(selected_cols)['All'].mean().reset_index()
             hue_palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
             palette = ['orange','#B33', '#4cc', '#24f']
             g = sns.FacetGrid(tdf, col='model_base', col_order=facet_order,
@@ -3517,7 +3533,7 @@ def show_df(df, summary=False):
                 score_col = sel_cols[cur_col]
             if not global_summary:
                 backit(df, sel_cols)
-                pdf = summarize(df, score_col=score_col)
+                pdf = summarize(df, rep_cols=selected_cols, score_col=score_col)
             else:
                 pdf = df
             avg_col = "All"
@@ -3551,7 +3567,10 @@ def show_df(df, summary=False):
                 for col in pdf.columns:
                     if col in df or col.startswith(score_col[0:2] + "-"):
                         _sel_cols.append(col)
-            df = pdf.sort_values(by="All", ascending=False)
+            if "time" in pdf:
+                df = pdf.sort_values(by="time", ascending=False)
+            else:
+                df = pdf.sort_values(by="All", ascending=False)
             #sort = "time"
             sel_cols = list(dict.fromkeys(sel_cols + _sel_cols))
             if len(df) > 1:
