@@ -637,7 +637,7 @@ class AbstractTask(abc.ABC):
                 target = target.replace("(nat)", "{rel_nat}", 1)
             elif part == "target_shared_words":
                 target = target.replace("(prefix)", "{rel_shared_words}:", 1)
-            else:
+            elif not part.startswith("v"): 
                 raise ValueError("Invalid part in template:" + part)
 
         # remove unused place holders
@@ -763,10 +763,14 @@ class AbstractTask(abc.ABC):
         # src_texts = src_texts.replace("{mask}", mask)
         src = self.replace_mask(src)
         tgt = self.replace_mask(tgt)
+        ex_fields["query_template"] = src 
+        ex_fields["resp_template"] = tgt 
         src_texts = src.format_map(data)
         tgt_texts = tgt.format_map(data)
 
         src_texts = self.insert_prompts(src_texts)
+        ex_fields["query"] = src_texts
+        ex_fields["resp"] = tgt_texts
         return src_texts, tgt_texts, ex_fields
 
     def get_label_list(self):
@@ -844,8 +848,6 @@ class AbstractTask(abc.ABC):
         src_text, tgt_text, ex_fields = self.fill_template(data, ex_fields)
         src_text = src_text.strip()
         tgt_text = tgt_text.strip() + " </s>"
-        ex_fields["query"] = src_text
-        ex_fields["resp"] = tgt_text
         ex_fields["target_text"] = tgt_text
         if not "examples" in self.counter:
             self.counter["examples"] = 1
@@ -1140,26 +1142,36 @@ class Sentiment(AbstractTask):
         "negative": ["bad", "poor"]
     }
     verbalizer = {
-    "positive": ["good", "awesome", "excellent", 
-        "fantastic", "great", "amazing", "wonderful", 
-        "superb", "outstanding", "impressive", "spectacular"],
+    "positive": ["good", "awesome", "excellent", "fantastic", 
+        "great", "amazing", "wonderful", "superb", "outstanding", "impressive", "spectacular"],
     "negative": ["bad", "terrible", "awful", "horrible", 
-        "poor", "dreadful", "lousy", "unpleasant", "subpar", "abysmal", "atrocious"]
+        "poor", "dreadful", "lousy", "unpleasant", "subpar", "abysmal", "atrocious"],
+    "neutral": ["okay", "fine", "average", "mediocre", 
+        "acceptable", "standard", "fair", "decent", "satisfactory", "adequate", "uninspiring"]
     }
 
     rel_vnat = "My opinion is "
-    target_pos = "none"
+    target_pos = 0 
     rel_nat = "My opinion is "
+
     def fill_verbalizer(self, data, target):
         label = data["target"].strip()
-        random_choice = random.choice(self.verbalizer[label])
-        vtarget = " {mask} " +  random_choice
-        if self.target_pos == "none":
-            target_list = [vtarget] 
-        elif self.target_pos == "end":
-            target_list = [vtarget, target] 
-        else:
-            target_list = [target, vtarget] 
+        vtarget = ""
+        vcounter = self.rel_vnat 
+        if not "{mask}" in vcounter:
+            vcounter += " {mask}"
+        target_list = []
+        while "{mask}" in vcounter:
+            random_choice = random.choice(self.verbalizer[label])
+            vtarget = " {mask} " +  random_choice
+            target_list.append(vtarget)
+            vcounter = vcounter.replace("{mask}","",1)
+
+        pos = self.target_pos
+        if pos == -1:
+            target_list.append(target) 
+        elif pos > 0:
+            target_list.insert(pos -1, target) 
         target = " ".join(target_list)
         return target, random_choice
 
@@ -1176,7 +1188,7 @@ class Sentiment(AbstractTask):
             removed_text = ' '.join(removed_words)
             return cleaned_text, removed_text
 		# Apply the cleaning function to each row in 'pred_text1'
-        if self.target_pos == "none":
+        if self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
             df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
         else:
@@ -1200,16 +1212,7 @@ class IMDB(Sentiment):
         "positive": ["good","great"],
         "negative": ["bad", "poor"]
     }
-    verbalizer = {
-    "positive": ["good", "awesome", "excellent", 
-        "fantastic", "great", "amazing", "wonderful", 
-        "superb", "outstanding", "impressive", "spectacular"],
-    "negative": ["bad", "terrible", "awful", "horrible", 
-        "poor", "dreadful", "lousy", "unpleasant", "subpar", "abysmal", "atrocious"]
-    }
-
     rel_vnat = "My opinion is {mask}"
-    target_pos = "none"
     rel_nat = "My opinion is "
 
     def load_dataset(self, split):
@@ -1233,8 +1236,9 @@ class TweetEval(Sentiment):
             "map": {"0":"negative", "1":"neutral", "2":"positive"},
         }
     # rel_nat = "The sentiment is"
-    rel_vnat = "The tweet sounds {mask} "
-    rel_nat = "The tweet is "
+    rel_vnat = "It sounds {mask}, I feel "
+    target_pos = 1 
+    rel_nat = "It sounds "
 
     def load_dataset(self, split):
         return datasets.load_dataset('tweet_eval', 'sentiment',
@@ -1265,9 +1269,9 @@ class SST2(Sentiment):
     # labels_map = {"map":{"0":"bad", "1":"good"}
     # labels_map = {"map":{"0":"L", "1":"M"}
     #rel_nat = "As a result, they feel"
-    rel_vnat = "It sounds {mask}, They feel "
-    target_pos = "end"
-    rel_nat = "They feel "
+    rel_vnat = "It sounds {mask}"
+    target_pos = -1 
+    rel_nat = "It sounds "
 
     def load_dataset(self, split):
         return datasets.load_dataset('glue', 'sst2',
@@ -1646,8 +1650,9 @@ class AtomicRel(Atomic):
 class FreeCS(Atomic):
     name = "free-cs"
     df_format= ".csv" 
-    split_folder = {"train": "free-rels", "test":"free-rels"}
-    split_prefix = {"train": "16000_", "test":""}
+    #split_folder = {"train": "free-rels", "test":"free-rels"}
+    #split_prefix = {"train": "16000_", "test":""}
+    split_folder = {"train": "sent", "test":"sent"}
     def preproc_df(self, df, split):
         return df
 
@@ -1713,21 +1718,13 @@ class Splitter(AtomicRel):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
-class SplitOMCS(AbstractTask):
+class SplitDS(AbstractTask):
     metric = [metrics.rouge]
     use_df = True
-    #split_folder = {"train": "omcs", "test":"omcs"}
-    #split_prefix = {"train": "omcs_", "test":"omcs_"}
     metric_names = ["rouge"]
-    name = "omcs"
+    name = None
     load_df = False
     do_shuffle = False
-    def preprocessor(self, example, prefix):
-        src_texts = [str(example["text"])]
-        tgt_texts = src_texts
-        extra_fields = {}
-        return self.seq2seq_format(src_texts, tgt_texts,
-                                   prefix, extra_fields=extra_fields)
 
     def after_scoring(self, df, golds, preds):
         mylogs.bp("after_pred")
@@ -1755,7 +1752,25 @@ class SplitOMCS(AbstractTask):
         directory, file_name, outfile = self.get_stored_file("junc", n_obs)
         outfile = outfile.replace(".tsv",".csv")
         df.to_csv(outfile, index=False)
-     
+
+class SplitOMCS(SplitDS):
+    name = "omcs"
+    def preprocessor(self, example, prefix):
+        src_texts = [str(example["text"])]
+        tgt_texts = src_texts
+        extra_fields = {}
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
+
+class SplitSent(SplitDS):
+    name = "sent"
+    def preprocessor(self, example, prefix):
+        src_texts = [str(example["text"])]
+        tgt_texts = src_texts
+        extra_fields = {}
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
 class Causes(Atomic):
     name = "Causes"
     rel_nat = "Sometimes {source} causes"
@@ -2459,6 +2474,7 @@ TASK_MAPPING = OrderedDict(
         ('task-clf2', TaskClassifier2),
         ('splitter', Splitter),
         ('omcs', SplitOMCS),
+        ('sent', SplitSent),
         ('squad', Squad),
         ('mrpc', MRPC),
         ('mrpc1', MRPC1),

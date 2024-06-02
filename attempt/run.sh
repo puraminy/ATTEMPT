@@ -92,7 +92,7 @@ if [ -n "$_wino" ]; then
    _tasks="winogrande"
 fi
 if [ -n "$_sentv" ]; then
-   _tasks="sst2"
+   _tasks="tweet-eval"
 fi
 if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
