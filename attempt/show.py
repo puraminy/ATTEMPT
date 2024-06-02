@@ -462,7 +462,7 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
         score_cols = ['rouge_score', 'num_preds'] 
 
     main_vars = get_main_vars(df)
-    rep_cols = rep_cols + score_cols #+ main_vars + sel_cols 
+    rep_cols = rep_cols + score_cols + main_vars + sel_cols 
     rep_cols = list(dict.fromkeys(rep_cols))
     _agg = {}
     _rep_cols = []
@@ -478,8 +478,8 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
             _rep_cols.append(c)
             _agg[c] = "first"
     gcol = _rep_cols
-    #if not "eid" in rep_cols:
-    #    gcol += ["eid"] 
+    if not "eid" in rep_cols:
+        gcol += ["eid"] 
     #gcol.remove("eid")
     #gcol.remove("folder")
     mdf[gcol] = mdf[gcol].fillna('none')
@@ -2456,7 +2456,8 @@ def show_df(df, summary=False):
         elif (char == "i" or char == "j") and context == "pivot": 
             backit(df, sel_cols)
             context = "prefix"
-            col = sel_cols[cur_col]
+            if char == "j":
+                col = sel_cols[cur_col]
             s_rows = sel_rows
             if not sel_rows: s_rows = [sel_row]
             dfs = []
@@ -2542,7 +2543,7 @@ def show_df(df, summary=False):
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
                     task = df.iloc[0]["prefix"]
-                sel_cols=orig_tag_cols + ["num_preds","prefix","bert_score", "out_score","pred_text1","top_pred", "top", "target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["num_preds","prefix","bert_score", "out_score","pred_text1","top_pred", "vpred", "vtarget", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         main_vars, keep_cols=["pred_text1"])
                 #unique_cols = info_cols.copy()
@@ -2553,7 +2554,7 @@ def show_df(df, summary=False):
                 info_cols = ["input_text","prefix"]
                 df = df.reset_index()
             if len(df) > 1:
-                sel_cols=orig_tag_cols + ["eid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "rouge_score"]
+                sel_cols=orig_tag_cols + ["eid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "vpred", "vtarget", "rouge_score"]
                 ii = 0
                 for col in index_cols:
                     if col in sel_cols:
@@ -2731,8 +2732,8 @@ def show_df(df, summary=False):
            df_conds = [] 
            group_col = ""
            keep_uniques = False
-        elif is_enter(ch) or char in ["f"]:
-            if is_enter(ch) and is_filtered:
+        elif is_enter(ch) or char in ["f", "F"]:
+            if (is_enter(ch) or char == "f") and is_filtered:
                df = back_df
             else:
                 backit(df, sel_cols)
@@ -2743,12 +2744,12 @@ def show_df(df, summary=False):
             canceled, col, val = list_df_values(df, col, get_val=True)
             if not canceled:
                if type(val) == str:
-                  if not col in cond_set:
+                  if not col in cond_set or is_enter(ch):
                       cond_set[col] = f"(df['{col}'] == '{val}')"
                   else:
                       cond_set[col] += f" | (df['{col}'] == '{val}')"
                else:
-                  if not col in cond_set:
+                  if not col in cond_set or is_enter(ch):
                       cond_set[col] = f"(df['{col}'] == {val})"
                   else:
                       cond_set[col] += f" | (df['{col}'] == {val})"
@@ -3355,15 +3356,17 @@ def show_df(df, summary=False):
                     'unsup': 'Denoising',"per_sample": "Mixed"
                     }
             if "unsup" in templates:
-                category2_order = ['Mapping', 'Prompting', 'MaskedMapping', 'MaskedPrompting']
+                category2_order = ['Mapping', 'Prompting', 
+                        'MaskedMapping', 'MaskedPrompting', "MaskedVPrompting"]
                 category2_mapping = {
                      'sup': 'Mapping', 'unsup': 'MaskedMapping',
-                     'sup-nat': 'Prompting', 'unsup-nat': 'MaskedPrompting'
+                     'sup-nat': 'Prompting', 'unsup-nat': 'MaskedPrompting',
+                     'unsup-vnat': 'MaskedVPrompting' 
                     }
             else:
-                category2_order = ['PrePT', 'PostPT', 'MaskedPrePT', 'MaskedPostPT']
+                category2_order = ['PreSup','PrePT', 'PostPT', 'MaskedPrePT', 'MaskedPostPT']
                 category2_mapping = {
-                    '0-ptar-sup': 'PostPT', 
+                    '0-ptar-sup': 'PostPT', "ptar-sup":"PreSup", 
                     'ptar-unsup-nat':'MaskedPrePT',
                     'ptar-sup-nat': 'PrePT', '0-ptar-unsup': 'MaskedPostPT'
                     }
