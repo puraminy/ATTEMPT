@@ -7,6 +7,8 @@
   "sel_cols":[
     "expname",
     "model_name_or_path",
+    "model_base",
+    "model_temp",
     "template",
     "method",
     "bleu_score",
@@ -17,6 +19,11 @@
   "ex_cols":[
     "trial",
     "temperature"
+  ],
+  "rep_cols2":[
+    "model_base",
+    "model_temp",
+    "template"
   ],
   "rep_cols":[
     "expid",
