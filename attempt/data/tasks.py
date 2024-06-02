@@ -52,11 +52,14 @@ class AbstractTask(abc.ABC):
     labels_list = None
     pcounter = 0
     rel_nat = None
+    rel_nats = {}
+    rel_nat_key = None
+    rel_vnats = {} # verbalizer version
     rel_vnat = None
     map_labels = True
     labels_list = None
     cache_file = True
-    labels_map = {"map": {}}  # verbalizer
+    labels_map = {"map": {}}  
     verbalizer = {}
     use_gen_map = False
     general_map = {
@@ -637,7 +640,9 @@ class AbstractTask(abc.ABC):
                 target = target.replace("(nat)", "{rel_nat}", 1)
             elif part == "target_shared_words":
                 target = target.replace("(prefix)", "{rel_shared_words}:", 1)
-            elif not part.startswith("v"): 
+            elif part.startswith("v"): 
+                self.rel_nat_key = part
+            else:
                 raise ValueError("Invalid part in template:" + part)
 
         # remove unused place holders
@@ -656,8 +661,12 @@ class AbstractTask(abc.ABC):
             task = self.name
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
-            if self.rel_vnat and self.rel_vnat != self.name:
+            if self.rel_vnats and self.rel_nat_key:
+                data["rel_vnat"] = self.rel_vnats[self.rel_nat_key]  
+            elif self.rel_vnat and self.rel_vnat != self.name:
                 data["rel_vnat"] = self.rel_vnat  
+            if self.rel_nats and self.rel_nat_key:
+                data["rel_nat"] = self.rel_nats[self.rel_nat_key]  
             if self.rel_nat and self.rel_nat != self.name:
                 data["rel_nat"] = self.rel_nat  
             elif task in REL_TO_PHRASE: 
@@ -1236,6 +1245,10 @@ class TweetEval(Sentiment):
             "map": {"0":"negative", "1":"neutral", "2":"positive"},
         }
     # rel_nat = "The sentiment is"
+    rel_vnats = {
+            "v1":"It sounds {mask}, I think",
+            "v2":"It sounds {mask}, I guess",
+    }
     rel_vnat = "It sounds {mask}, I feel "
     target_pos = 1 
     rel_nat = "It sounds "
