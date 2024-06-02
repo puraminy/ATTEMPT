@@ -85,17 +85,29 @@ fi
 if [ -n "$_pht" ]; then
    _tasks="xNeed#xIntent#xWant"
 fi
-if [ -n "$_clt" ]; then
-   _tasks="mnli#qnli#sst2"
+if [ -n "$_sent" ]; then
+   _tasks="yelp-polarity#tweet-eval#imdb"
+fi
+if [ -n "$_wino" ]; then
+   _tasks="winogrande"
+fi
+if [ -n "$_sentv" ]; then
+   _tasks="sst2"
 fi
 if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
 fi
 if [ -n "$_ust" ]; then
-   _tasks="AtLocation#CapableOf#HasProperty#ObjectUse#isFilledBy#xAttr"
+   _tasks="xAttr#AtLocation#CapableOf#HasProperty#ObjectUse#isFilledBy"
+fi
+if [ -n "$_tst" ]; then
+   _tasks="AtLocation2#AtLocation"
+fi
+if [ -n "$_time" ]; then
+   _tasks="isBefore#isAfter"
 fi
 if [ -n "$_atomic" ]; then
-   _tasks="AtLocation#CapableOf#HasProperty#ObjectUse#isFilledBy#xAttr#xIntent#xNeed#HasSubEvent#isAfter#isBefore#Causes#xReason#MadeUpOf#xEffect#oEffect"
+   _tasks="ObjectUse#AtLocation#MadeUpOf#HasProperty#CapableOf#Desires#NotDesires#isAfter#HasSubEvent#isBefore#HinderedBy#Causes#xReason#isFilledBy#xNeed#xAttr#xEffect#xReact#xWant#xIntent#oEffect#oReact#oWant"
 fi
 if [ -n "$_gt" ]; then
    _tasks="${_tasks}#mnli#qnli#rte#stsb#qqp#mrpc"

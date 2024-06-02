@@ -224,6 +224,13 @@ def cli():
     help="The name of an experiment multi-valued variables for which you want to log some data in a logfile names varied with the different values of the varibale"
 )
 @click.option(
+    "--last_var",
+    "-last",
+    type=str,
+    default="",
+    help="The name of multi-valued variable you want to be the most nesting loop in combination of expeiments."
+)
+@click.option(
     "--debug",
     "-d",
     default="",
@@ -342,7 +349,8 @@ def cli():
     help="The directory to save all experiments"
 )
 @click.pass_context
-def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
+def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, 
+        log_var, last_var, main_vars, 
         debug, version, trial, skip, save_conf, rem, repeat, 
         label, deep_check, merge, not_copy_prev_exp, 
         reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
@@ -490,6 +498,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        _vvv = _vv.split("#")
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
+   if last_var:
+       last_var = map_param(param_map, last_var)
+       last_var = "@" + last_var
+       var_dict[last_var] = var_dict.pop(last_var)
    _mvars = []
    mylogs.bp("mvar")
    if main_vars and "--" in main_vars:
@@ -584,7 +596,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
+   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -651,9 +663,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        if not "expid" in exp_args or merge: 
            if merge:
                for (nn, vv) in mvars.items():
-                   if nn != merge:
+                   if nn != merge and not nn in not_conf:
                        exp_dir += "_" + nn + "-" + str(vv)
-               exp_dir = str(hash(exp_dir))
+               # exp_dir = str(hash(exp_dir))
+               exp_dir = str(str2int(exp_dir))[:5]
                args["expid"] = exp_dir 
            else:
                args["expid"] = ii 
@@ -677,6 +690,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
            if Path(output_dir).exists():
+               if skip is True:
+                   print("The experiment already exists, skipping!!")
+                   continue
                print("Merging to ", output_dir)
        else:
            ee = round(float(args["expid"]))
@@ -2412,7 +2428,7 @@ def train(**kwargs):
         
         no_mask_preds = {}
         # multi-task evaluations
-        def evaluate_test(task, test_dataset, save_to, ds_name, 
+        def evaluate_test(task, test_dataset, save_to, ds_name, auto_task, 
                 gen_conf = {}, use_cache=False):
             mylogs.bp("ttt")
             if use_cache and task in no_mask_preds:
@@ -2445,6 +2461,7 @@ def train(**kwargs):
             df["time"] = mylogs.now 
             df["date"] = mylogs.today 
             df["query"] = ""
+            df["vtarget"] = ""
             df["langs"] = "en2en"
             for k,v in metrics.items():
                 df[k] = v
@@ -2477,6 +2494,9 @@ def train(**kwargs):
                     label = label.strip()
                 else:
                     label = extra["target_text"].strip()
+                if "vtarget" in extra:
+                    vtarget = extra["vtarget"]
+                    df.at[i, "vtarget"] = vtarget 
                 golds.append(label)
                 df.at[i, "target_text"] = label 
                 sel = False
@@ -2516,7 +2536,9 @@ def train(**kwargs):
                 if mm == 0:
                     df["m_score"] = round(float(v),1) 
                 mm += 1
+            df = auto_task.before_scoring(df)
             scores = do_score(df, "rouge", save_to, use_wandb=use_wandb)
+            auto_task.after_scoring(df, golds, preds)
             return df, scores, golds, preds
 
         ################ Draw image
@@ -2698,8 +2720,8 @@ def train(**kwargs):
                 save_to = os.path.join(eval_folder,
                      ds_conf + "_results_" + is_train + "_" + ds_name + \
                      str(kwargs.trial) + "_" + mylogs.now + "_1.tsv")
-                df, scores, golds, preds = evaluate_test(task, test_dataset, save_to, ds_name)
-                auto_task.after_prediction(golds, preds)
+                df, scores, golds, preds = evaluate_test(task, test_dataset, save_to, 
+                        ds_name, auto_task)
         else:
             attend_num =len(model.encoder.prompt_encoders) + 1 # one for input
             gen_combs = itertools.product(gnm, gcmm, 
@@ -2833,8 +2855,7 @@ def train(**kwargs):
                                         mylogs.minfo("Using cached predictions for " + task)
 
                             df, scores, golds, preds = evaluate_test(task, test_dataset, 
-                                    save_to, ds_name, gen_conf, use_cache = use_cache)
-                            auto_task.after_prediction(golds, preds)
+                                    save_to, ds_name, auto_task, gen_conf, use_cache = use_cache)
 
                             if mask is None:
                                 no_mask_test_files[task] = save_to

@@ -505,7 +505,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
         for step, row in df.iterrows():
             oldrel = rel
             rel = row["prefix"]
-            rel_nat = REL_TO_PHRASE[rel]
+            rel_nat = "rel_nat" if "rel_nat" in row else "" 
+            if not rel_nat and rel in REL_TO_PHRASE: rel_nat = REL_TO_PHRASE[rel]
             lang = row["langs"] 
             scope = rel # + "_" + lang
             if not scope in gp: 
@@ -517,8 +518,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
             inp = row["input_text"]
             tail = re.sub(r'<extra_.*?>','',str(row["target_text"]))
             tail = tail.strip()
-            ref_sent = tail # f"{inp} {rel_nat} {tail}" 
-            pred_sent = cur_hyp # f"{inp} {rel_nat} {cur_hyp}" 
+            ref_sent =  f"{inp} {rel_nat} {tail}" 
+            pred_sent =  f"{inp} {rel_nat} {cur_hyp}" 
             all_preds.append(pred_sent)
             all_golds.append(ref_sent)
             pbar.update(1)

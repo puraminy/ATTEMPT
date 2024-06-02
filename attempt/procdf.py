@@ -38,10 +38,18 @@ def main():
     # Parse arguments
     args = parser.parse_args()
     directory = args.path
-    directory = os.path.join("/home/ahmad/logs", directory)
+    if directory == "adr":
+        with open("/home/ahmad/temp/address.txt") as f:
+            dirs = f.readlines()
+    else:
+        directory = os.path.join("/home/ahmad/logs", directory)
+        dirs = [directory]
 
     # Find and process TSV files
-    find_and_process_tsv_files(directory)
+    for directory in dirs:
+        directory = directory.strip()
+        print("Processing " + directory)
+        find_and_process_tsv_files(directory)
 
 if __name__ == "__main__":
     main()
