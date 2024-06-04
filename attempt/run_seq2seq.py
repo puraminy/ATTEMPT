@@ -1240,17 +1240,19 @@ def train(**kwargs):
     Path(wandb_dir).mkdir(parents=True, exist_ok=True)
     experiment = kwargs.experiment
     tags_dict = mylogs.get_tag(tag, kwargs)
-    wandb.init(
-      # Set the project where this run will be logged
-      project= experiment.replace("#","-").replace(":","-").replace("/","-")[:100], 
-      name=title,
-      dir=wandb_dir,
-      settings=wandb.Settings(symlink=False),
-      # Track hyperparameters and run metadata
-      config=tags_dict
-    )
-    if wandb.run is not None:
-      exp_info["runid"] = wandb.run.id
+    if use_wandb:
+        import wandb
+        wandb.init(
+          # Set the project where this run will be logged
+          project= experiment.replace("#","-").replace(":","-").replace("/","-")[:100], 
+          name=title,
+          dir=wandb_dir,
+          settings=wandb.Settings(symlink=False),
+          # Track hyperparameters and run metadata
+          config=tags_dict
+        )
+        if wandb.run is not None:
+          exp_info["runid"] = wandb.run.id
 
     _tag = mylogs.get_tag(tag)  
     exp_info["tag"] = list(_tag.values())
