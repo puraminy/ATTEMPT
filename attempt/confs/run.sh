@@ -1,4 +1,4 @@
-alias retrain="python3 ../run_seq2seq.py --do_train=True"
+alias retrain="python3 ../run_seq2seq.py run "
 
 # Train Splitter
 
