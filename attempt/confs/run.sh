@@ -1,7 +1,4 @@
-alias barun="bash /home/ahmad/ATTEMPT/attempt/run.sh"
-alias abarun="bash /home/ahmad/Asai/ATTEMPT/attempt/run.sh"
-alias retrain="barun _re --do_train=True"
-alias procdf="python3 /home/ahmad/ATTEMPT/attempt/procdf.py"
+alias retrain="python3 ../run_seq2seq.py --do_train=True"
 
 # Train Splitter
 
