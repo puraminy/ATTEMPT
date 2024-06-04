@@ -932,7 +932,8 @@ def train(**kwargs):
 
     # sssssssss
     torch.autograd.set_detect_anomaly(True)
-    training_args.report_to = kwargs.get("report_to", "wandb")
+    if use_wandb:
+        training_args.report_to = kwargs.get("report_to", "wandb")
 
     new_exp_folder = kwargs.get("new_exp_folder","")
     kwargs = overwrite_conf(kwargs)
