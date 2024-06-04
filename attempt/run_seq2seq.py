@@ -81,7 +81,6 @@ from metrics.metrics import do_score
 from encoders.encoders import *
 from optim import *
 from PIL import Image
-import wandb
 from deepdiff import DeepDiff
 
 os.environ['MKL_THREADING_LAYER'] = 'GNU'
@@ -881,6 +880,8 @@ def train(**kwargs):
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     config_name = kwargs.setdefault("config","base")
     use_wandb = kwargs.get("use_wandb", False)
+    if use_wandb:
+        import wandb
     home = mylogs.home
     config_file = ""
     if config_name == "base":
