@@ -11,7 +11,7 @@ alias retrain="python3 ../run_seq2seq.py run "
 # reval FT -conf classify-omcs --t=free-rels --tsn=16000 --model=t5-base-classifier-500 --cache=False 
 
 # Unsupervised Pre-Training using 8000 sample
-retrain FT -mod --t=free-cs -to fc-2 --cache=False --tn=8000 --ep=3 --tsn=100 --bs=24 --temp=sup --lr=0.0001 --model=t5-large --save=template-free
+retrain FT -mod --t=free-cs -to fc-2 --cache=False --tn=8000 --ep=3 --tsn=100 --bs=24 --temp=mixed#sup --lr=0.0001 --model=t5-large --save=template-free --do_test=False
 
 #retrain FT --t=free-cs -to fc-2 --cache=False --tn=8000 --ep=5 --tsn=100 --bs=16 --temp=unsup#mixed --lr=0.0001 --model=t5-large --save=template-free
 
