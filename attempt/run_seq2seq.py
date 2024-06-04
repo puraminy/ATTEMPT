@@ -378,6 +378,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
         confs = glob.glob(f"*cfgpat*")
         if not exp_conf and confs:
             exp_conf = confs[0]
+        print("Experiment config:", exp_conf)
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
