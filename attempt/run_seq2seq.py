@@ -375,7 +375,8 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
    if not log_path.startswith("/"):
        log_path = os.path.join(mylogs.logPath, log_path)
    if exp_conf or cfgpat:
-        confs = glob.glob(f"*cfgpat*")
+        print("Experiment pattern:", cfgpat)
+        confs = glob.glob(f"confs/*cfgpat*")
         if not exp_conf and confs:
             exp_conf = confs[0]
         print("Experiment config:", exp_conf)
