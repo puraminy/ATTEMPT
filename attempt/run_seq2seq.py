@@ -175,6 +175,8 @@ def cli():
 @cli.command(context_settings=dict(
             ignore_unknown_options=True,
             allow_extra_args=True,))
+
+@click.argument('cfgpat', help="Pattern for cfg files in current directory.")
 @click.option(
     "--experiment",
     "-exp",
@@ -349,7 +351,7 @@ def cli():
     help="The directory to save all experiments"
 )
 @click.pass_context
-def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, 
+def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars, 
         log_var, last_var, main_vars, 
         debug, version, trial, skip, save_conf, rem, repeat, 
         label, deep_check, merge, not_copy_prev_exp, 
@@ -372,7 +374,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars,
        log_path = mylogs.logPath 
    if not log_path.startswith("/"):
        log_path = os.path.join(mylogs.logPath, log_path)
-   if exp_conf:
+   if exp_conf or cfgpat:
+        confs = glob.glob(f"*cfgpat*")
+        if not exp_conf and confs:
+            exp_conf = confs[0]
         with open(exp_conf) as f:
             exp_args = json.load(f)
         prev_exp_folder = exp_args["output_dir"]
