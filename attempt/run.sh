@@ -92,7 +92,7 @@ if [ -n "$_wino" ]; then
    _tasks="winogrande"
 fi
 if [ -n "$_sentv" ]; then
-   _tasks="tweet-eval"
+   _tasks="AtLocation"
 fi
 if [ -n "$_as2t" ]; then
    _tasks="xAttr#xReact#xIntent#xWant#oWant#CapableOf#isFilledBy"
@@ -125,8 +125,7 @@ if [ -n "$_lst" ]; then
    _tasks="rte#mnli#stsb#qnli#mrpc"
 fi
 if [ -n "$_qat" ]; then
-   #_tasks="commonsense-qa-2#social-i-qa#sst2"
-   _tasks="piqa#commonsense-qa"
+   _tasks="commonsense-qa" #-2#social-i-qa#piqa"
 fi
 if [ -n "$_qt" ]; then
    _tasks="searchqa#triviaqa#nq#hotpotqa#commonsense_qa"

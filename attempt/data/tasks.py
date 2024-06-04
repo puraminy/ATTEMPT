@@ -24,6 +24,10 @@ from itertools import cycle, islice
 from random import shuffle
 from collections import defaultdict
 import random
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,7 @@ class AbstractTask(abc.ABC):
     split_map = None
     use_df = False
     load_df = False
+    cur_example = None
     df_format = ".csv"
     do_split = False
     labels_list = None
@@ -78,6 +83,7 @@ class AbstractTask(abc.ABC):
         }
     split_folder = {}
     split_prefix = {}
+    target_pos = -1
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
@@ -145,9 +151,6 @@ class AbstractTask(abc.ABC):
 
     def get_id(self):
         return self.prefix
-
-    def before_scoring(self, df):
-        return df
 
     def after_scoring(self, df, preds, golds):
         print("After Prediction")
@@ -257,7 +260,10 @@ class AbstractTask(abc.ABC):
         return file_path
 
     def get_fname(self, split):
-        return split
+        split_prefix = "" 
+        if split in self.split_prefix:
+            split_prefix = self.split_prefix[split]
+        return split_prefix + split
 
     def get_folder_path(self):
         folder = self.data_path 
@@ -362,7 +368,10 @@ class AbstractTask(abc.ABC):
         assert type(prefix) != list, prefix 
         print("getting samples ... " + prefix)
         directory, file_name, outfile = self.get_stored_file(split, n_obs)
-        split_file = op.join(directory, self.name + "_" + split + ".csv")
+        split_prefix = self.name + "_"
+        if split in self.split_prefix:
+            split_prefix = self.split_prefix[split]
+        split_file = op.join(directory, split_prefix + split + ".csv")
 
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -470,6 +479,60 @@ class AbstractTask(abc.ABC):
                 else:
                     _labels.append(ll)
         return _preds, _labels
+
+    def get_verbalizer_choice(self, label):
+        return random.choice(self.verbalizer[label])
+
+    def fill_verbalizer(self, data, target):
+        mylogs.bp("verb")
+        label = data["target"].strip()
+        vtarget = ""
+        vcounter = self.rel_vnat 
+        if not "{mask}" in vcounter:
+            vcounter += " {mask}"
+        target_list = []
+        pos = self.target_pos
+        random_choice = "none"
+        if pos != 100:
+            while "{mask}" in vcounter:
+                vcounter = vcounter.replace("{mask}","",1)
+                if "{mask}" in vcounter or pos == 0 or "{m-mask}" in vcounter:
+                    random_choice = self.get_verbalizer_choice(label) 
+                    vtarget = " {mask} " +  random_choice
+                    target_list.append(vtarget)
+
+        if pos == 10:
+            t = " {mask} " + target 
+            target_list.append(t) 
+        elif pos > 0:
+            t = " {mask} " + target 
+            target_list.insert(pos -1, t) 
+        target = " ".join(target_list)
+        return target, random_choice
+
+    def before_scoring(self, df):
+        if not "vnat" in self.template:
+            return df
+        valid_labels = self.labels_map["map"].values() 
+
+        def clean_text_and_extract_removed(text):
+            words = text.split()
+            cleaned_words = [word for word in words if word in valid_labels]
+            removed_words = [word for word in words if word not in valid_labels]
+            cleaned_text = ' '.join(cleaned_words)
+            removed_text = ' '.join(removed_words)
+            return cleaned_text, removed_text
+		# Apply the cleaning function to each row in 'pred_text1'
+        if self.target_pos == 0:
+            df["vpred"] = df["pred_text1"]
+            df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
+        else:
+            df[['pred_text1', 'vpred']] = df.apply(lambda row:  clean_text_and_extract_removed(row['pred_text1']), axis=1, result_type='expand')
+
+        # Filter out rows that do not have 'positive' or 'negative' after cleaning
+        # filtered_df = df[df["pred_text1"].isin(valid_labels)]
+
+        return df
 
     # my template functions
     def fill_prompt(self, template, name, place_holder, plen= 0, num_holder="_i"):
@@ -632,7 +695,10 @@ class AbstractTask(abc.ABC):
                 src = src.replace("(nat_prefix)", "{rel_nat}", 1)
             elif part == "nat_input" or part == "nat":
                 src = src.replace("(nat)", "{rel_nat}", 1)
-            elif part == "vnat":
+            elif part.startswith("vnat"):
+                if "_" in part:
+                    _,pos = part.split("_")
+                self.target_pos = int(pos)
                 src = src.replace("(nat)", "{rel_vnat}", 1)
             elif part == "input_shared_words":
                 src = src.replace("(prefix)", "{rel_shared_words}:", 1)
@@ -662,7 +728,8 @@ class AbstractTask(abc.ABC):
             data["rel_tok"] = REL_TO_TOKEN[task] if task in REL_TO_TOKEN else self.rel_tok
             data["rel_word"] = REL_TO_WORD[task] if task in REL_TO_WORD else self.rel_word
             if self.rel_vnats and self.rel_nat_key:
-                data["rel_vnat"] = self.rel_vnats[self.rel_nat_key]  
+                self.rel_vnat = self.rel_vnats[self.rel_nat_key]  
+                data["rel_vnat"] = self.rel_vnat 
             elif self.rel_vnat and self.rel_vnat != self.name:
                 data["rel_vnat"] = self.rel_vnat  
             if self.rel_nats and self.rel_nat_key:
@@ -733,16 +800,18 @@ class AbstractTask(abc.ABC):
 
     def replace_mask(self, text):
         # Replace {mask} with <extra_id_i>
-        mask_placeholder = "{mask}"
         mask_counter = 0
+        mask_placeholder = "{m-mask}"
+        if mask_placeholder in text:
+            replacement = f"<extra_id_0>"
+            text = text.replace(mask_placeholder, replacement)
+            mask_counter = 1
+        mask_placeholder = "{mask}"
         while mask_placeholder in text:
             replacement = f"<extra_id_{mask_counter}>"
             text = text.replace(mask_placeholder, replacement, 1)
             mask_counter += 1
         return text
-
-    def fill_verbalizer(self, data, target):
-        return target,""
 
     def fill_template(self, data, ex_fields):
         mylogs.bp("fill")
@@ -757,10 +826,11 @@ class AbstractTask(abc.ABC):
         if "rel_nat" in ex_data and "{source}" in ex_data["rel_nat"] and "{rel_nat}" in src:
             src = src.replace("{source}.","")
             src = src.replace("{rel_nat}", ex_data["rel_nat"])
-        if "rel_vnat" in ex_data and "vnat" in self.template and "{rel_vnat}" in src:
-            src = src.replace("{rel_vnat}", ex_data["rel_vnat"])
-            tgt,vtgt = self.fill_verbalizer(data, tgt)
-            ex_fields["vtarget"] = vtgt
+        if "target" in data:
+            if "rel_vnat" in ex_data and "vnat" in self.template and "{rel_vnat}" in src:
+                src = src.replace("{rel_vnat}", ex_data["rel_vnat"])
+                tgt,vtgt = self.fill_verbalizer(data, tgt)
+                ex_fields["vtarget"] = vtgt
 
         # data["mask"] = mask
         data["end"] = "</s>"
@@ -773,13 +843,13 @@ class AbstractTask(abc.ABC):
         src = self.replace_mask(src)
         tgt = self.replace_mask(tgt)
         ex_fields["query_template"] = src 
-        ex_fields["resp_template"] = tgt 
+        ex_fields["resp_template"] = src 
         src_texts = src.format_map(data)
         tgt_texts = tgt.format_map(data)
 
         src_texts = self.insert_prompts(src_texts)
         ex_fields["query"] = src_texts
-        ex_fields["resp"] = tgt_texts
+        ex_fields["resp"] = tgt_texts 
         return src_texts, tgt_texts, ex_fields
 
     def get_label_list(self):
@@ -917,16 +987,33 @@ class DROP(AbstractTask):
         return self.seq2seq_format(source, target, prefix)
 
 
-class PIQA(AbstractTask):
+class QA(AbstractTask):
+    rel_vnats = {
+            "v0": "{mask} is correct",
+            "v1": "The answer is {mask}, {mask} is correct",
+            "v3": "{mask}, the correct choice is {mask}",
+            "v2": "{mask}, so {mask} is correct",
+        }
+    rel_nat = "The correct answer is:"
+
+class PIQA(QA):
     name = "piqa"
     labels_list = ["0", "1"]
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
-    rel_nat = "Choose an option:"
     split_to_data_split = {"train": "train",
                            "validation": "validation",
                            "test": "validation"}
     labels_map = {"map": {"0":"choice1", "1":"choice2", "0.0":"choice1", "1.0":"choice2"}}
+
+    def get_verbalizer_choice(self, label):
+        example = self.cur_example
+        opt = int(example["label"]) 
+        opt = str(opt)
+        options = {"0":"sol1","1":"sol2"}
+        ans = options[opt]
+        ans = example[ans]
+        return ans
 
     def load_dataset(self, split):
         return datasets.load_dataset('piqa', split=split)
@@ -938,6 +1025,7 @@ class PIQA(AbstractTask):
         return ds
 
     def preprocessor(self, example, prefix):
+        self.cur_example = example
         src_texts = ["question:", example['goal'], "choice1:",
                      example["sol1"], "choice2:", example["sol2"]]
         tgt_texts = [str(example["label"])]
@@ -971,13 +1059,19 @@ class CommonsenseQA2(AbstractTask):
         tgt_texts = [str(example["answer"])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
-class CommonsenseQA(AbstractTask):
+
+
+class CommonsenseQA(QA):
     name = "commonsense-qa"
     labels_list = ["0", "1", "2", "3", "4"]
     metric = [metrics.accuracy]
     cache_file = False
     metric_names = ["accuracy"]
-    rel_nat = "Which option is correct?"
+    rel_vnats___temp = {
+            "v0": "{mask} is correct",
+            "v1": "The answer is {mask}, so {mask} is correct",
+            "v2": "{mask}, so {mask} is correct",
+        }
     split_to_data_split = {"train": "train",
                            "test": "validation",
                            "validation": "validation"}
@@ -991,16 +1085,14 @@ class CommonsenseQA(AbstractTask):
                       }
         return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/commonsense-qa/", data_files=data_files, split=split)
 
-    def preprocessor(self, example, prefix):
-        label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
-        src_texts = ["question:", example['question'], "choice1:", example["choices"]["text"][0], "choice2:", example["choices"]["text"][1],
-                     "choice3:", example["choices"]["text"][2], "choice4:", example["choices"]["text"][3], "choice5:", example["choices"]["text"][4]]
-        tgt_texts = [label2id[example["answerKey"]]]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+    def get_verbalizer_choice(self, label):
+        label2id = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
+        ansIndex = label2id[self.cur_example["answerKey"]]
+        ans = self.cur_example["choices"]["text"][ansIndex] 
+        return ans
 
-class CommonsenseQAS(CommonsenseQA):
-    name = "commonsense-qas"
     def preprocessor(self, example, prefix):
+        self.cur_example = example
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
         src_texts = ["choice1:", example["choices"]["text"][0], 
                      "choice2:", example["choices"]["text"][1],
@@ -1011,7 +1103,23 @@ class CommonsenseQAS(CommonsenseQA):
         tgt_texts = [label2id[example["answerKey"]]]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
-class SocialIQA(AbstractTask):
+class CommonsenseQAS(CommonsenseQA):
+    name = "commonsense-qas"
+    def preprocessor(self, example, prefix):
+        self.cur_example = example
+        label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
+        src_texts = [
+                     "question:", example['question'],
+                     "choice1:", example["choices"]["text"][0], 
+                     "choice2:", example["choices"]["text"][1],
+                     "choice3:", example["choices"]["text"][2], 
+                     "choice4:", example["choices"]["text"][3], 
+                     "choice5:", example["choices"]["text"][4], 
+                    ]
+        tgt_texts = [label2id[example["answerKey"]]]
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+
+class SocialIQA(QA):
     name = "social-i-qa"
     labels_list = ["0", "1", "2"]
     labels_map = {
@@ -1025,11 +1133,21 @@ class SocialIQA(AbstractTask):
                            "test": "validation",
                            "validation": "validation"}
 
+    def get_verbalizer_choice(self, label):
+        example = self.cur_example
+        opt = int(example["label"]) - 1
+        opt = str(opt)
+        options = {"0":"answerA","1":"answerB", "2":"answerC"}
+        ans = options[opt]
+        ans = example[ans]
+        return ans
+
     def load_dataset(self, split):
         # return load_dataset('social_i_qa.py', split=split)
         return load_dataset(mylogs.home + '/datasets/social-i-qa/social_i_qa.py', split=split)
 
     def preprocessor(self, example, prefix):
+        self.cur_example = example
         src_texts = ["question:", example['question'], "context:", example["context"], "|| choice0:",
                      example["answerA"], "|| choice1:", example["answerB"], "|| choice2:", example["answerC"]]
         # opt = str(int(example["label"] - 1))
@@ -1159,54 +1277,13 @@ class Sentiment(AbstractTask):
         "acceptable", "standard", "fair", "decent", "satisfactory", "adequate", "uninspiring"]
     }
 
+    rel_vnats = {
+            "v1": "It sounds {mask}",
+            "v2": "It sounds {mask}, so it's {mask}",
+        }
     rel_vnat = "My opinion is "
-    target_pos = 0 
+    target_pos = -1 
     rel_nat = "My opinion is "
-
-    def fill_verbalizer(self, data, target):
-        label = data["target"].strip()
-        vtarget = ""
-        vcounter = self.rel_vnat 
-        if not "{mask}" in vcounter:
-            vcounter += " {mask}"
-        target_list = []
-        while "{mask}" in vcounter:
-            random_choice = random.choice(self.verbalizer[label])
-            vtarget = " {mask} " +  random_choice
-            target_list.append(vtarget)
-            vcounter = vcounter.replace("{mask}","",1)
-
-        pos = self.target_pos
-        if pos == -1:
-            target_list.append(target) 
-        elif pos > 0:
-            target_list.insert(pos -1, target) 
-        target = " ".join(target_list)
-        return target, random_choice
-
-    def before_scoring(self, df):
-        if not "vnat" in self.template:
-            return df
-        valid_labels = self.labels_map["map"].values() 
-
-        def clean_text_and_extract_removed(text):
-            words = text.split()
-            cleaned_words = [word for word in words if word in valid_labels]
-            removed_words = [word for word in words if word not in valid_labels]
-            cleaned_text = ' '.join(cleaned_words)
-            removed_text = ' '.join(removed_words)
-            return cleaned_text, removed_text
-		# Apply the cleaning function to each row in 'pred_text1'
-        if self.target_pos == 0:
-            df["vpred"] = df["pred_text1"]
-            df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
-        else:
-            df[['pred_text1', 'vpred']] = df.apply(lambda row:  clean_text_and_extract_removed(row['pred_text1']), axis=1, result_type='expand')
-
-        # Filter out rows that do not have 'positive' or 'negative' after cleaning
-        # filtered_df = df[df["pred_text1"].isin(valid_labels)]
-
-        return df
 
 class IMDB(Sentiment):
     name = "imdb"
@@ -1221,7 +1298,7 @@ class IMDB(Sentiment):
         "positive": ["good","great"],
         "negative": ["bad", "poor"]
     }
-    rel_vnat = "My opinion is {mask}"
+    rel_vnat = "It sounds {mask}, so it's "
     rel_nat = "My opinion is "
 
     def load_dataset(self, split):
@@ -1245,12 +1322,7 @@ class TweetEval(Sentiment):
             "map": {"0":"negative", "1":"neutral", "2":"positive"},
         }
     # rel_nat = "The sentiment is"
-    rel_vnats = {
-            "v1":"It sounds {mask}, I think",
-            "v2":"It sounds {mask}, I guess",
-    }
     rel_vnat = "It sounds {mask}, I feel "
-    target_pos = 1 
     rel_nat = "It sounds "
 
     def load_dataset(self, split):
@@ -1663,9 +1735,10 @@ class AtomicRel(Atomic):
 class FreeCS(Atomic):
     name = "free-cs"
     df_format= ".csv" 
-    #split_folder = {"train": "free-rels", "test":"free-rels"}
-    #split_prefix = {"train": "16000_", "test":""}
-    split_folder = {"train": "sent", "test":"sent"}
+    split_folder = {"train": "free-rels", "test":"free-rels"}
+    #split_folder = {"train": "sent", "test":"sent"}
+    #split_prefix = {"train": "sup_", "test":"sup_"}
+    split_prefix = {"train": "8000_", "test":""}
     def preproc_df(self, df, split):
         return df
 
@@ -1775,11 +1848,12 @@ class SplitOMCS(SplitDS):
         return self.seq2seq_format(src_texts, tgt_texts,
                                    prefix, extra_fields=extra_fields)
 
-
 class SplitSent(SplitDS):
     name = "sent"
+    split_prefix = {"train": "omcs", "test":"sup_"}
     def preprocessor(self, example, prefix):
-        src_texts = [str(example["text"])]
+        text = str(example["text"])
+        src_texts = [text]
         tgt_texts = src_texts
         extra_fields = {}
         return self.seq2seq_format(src_texts, tgt_texts,

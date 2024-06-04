@@ -666,8 +666,9 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars,
                    if nn != merge and not nn in not_conf:
                        exp_dir += "_" + nn + "-" + str(vv)
                # exp_dir = str(hash(exp_dir))
-               exp_dir = str(str2int(exp_dir))[:5]
-               args["expid"] = exp_dir 
+               h =  str(str2int(exp_dir)) 
+               hash_dir = h[:3] + str(len(exp_dir)) + h[-2:]
+               args["expid"] = hash_dir
            else:
                args["expid"] = ii 
        elif "-" in str(exp_args["expid"]):
@@ -686,12 +687,16 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars,
        #    output_dir = exp_args["output_dir"]
        if merge:
            ee = args["expid"]
+           exp_file = args[merge]
            _output_dir = label + "-" + str(ee)
            _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
-           if Path(output_dir).exists():
+           if glob.glob(op.join(output_dir, f"*{exp_file}{trial}*.tsv")): 
                if skip is True:
                    print("The experiment already exists, skipping!!")
+                   print(exp_dir)
+                   print(output_dir)
+                   print("-----------------------------------------")
                    continue
                print("Merging to ", output_dir)
        else:
@@ -2504,7 +2509,7 @@ def train(**kwargs):
                     sel = extra["sel"] 
                 df.at[i, "sel"] = sel 
                 df.at[i, "query"] = extra["query"]  
-                df.at[i, "resp"] = label # extra["resp"]  
+                df.at[i, "resp"] =  extra["resp"]  
                 mylogs.bp("decode")
                 pred = tokenizer.decode(predictions[i], 
                         skip_special_tokens=skip_specials) 
