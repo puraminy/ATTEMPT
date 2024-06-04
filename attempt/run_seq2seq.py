@@ -176,7 +176,7 @@ def cli():
             ignore_unknown_options=True,
             allow_extra_args=True,))
 
-@click.argument('cfgpat', help="Pattern for cfg files in current directory.")
+@click.argument('cfgpat')
 @click.option(
     "--experiment",
     "-exp",
