@@ -882,10 +882,11 @@ def train(**kwargs):
     config_name = kwargs.setdefault("config","base")
     use_wandb = kwargs.get("use_wandb", False)
     home = mylogs.home
-    if config_name == "base":
-        config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
-    elif config_name == "attempt":
-        config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
+    config_file = ""
+    #if config_name == "base":
+    #    config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
+    #elif config_name == "attempt":
+    #    config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
 
     _dir = Path(__file__).parent
     param_map = {}
