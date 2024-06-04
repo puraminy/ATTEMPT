@@ -376,7 +376,10 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        log_path = os.path.join(mylogs.logPath, log_path)
    if exp_conf or cfgpat:
         print("Experiment pattern:", cfgpat)
-        confs = glob.glob(f"confs/*cfgpat*")
+        cur_path = os.getcwd()
+        print("Cur path:", cur_path)
+        confs = glob.glob(f"*{cfgpat}*")
+        print("Experiment matched confs:", confs)
         if not exp_conf and confs:
             exp_conf = confs[0]
         print("Experiment config:", exp_conf)
@@ -475,7 +478,9 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
       args["trial"] = trial
    if not download_model:
       args["load_path"] = mylogs.pretPath 
-   args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
+   if not experiment.startswith("%"):
+       experiment = "%" + experiment # % forces to reserve the value as it is  
+   args["experiment"] = experiment 
    args["version"] = version 
    args["break_point"] = break_point 
    args["preview"] = preview 
