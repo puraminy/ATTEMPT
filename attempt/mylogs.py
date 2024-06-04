@@ -72,11 +72,11 @@ if not colab:
     pretPath = os.path.join(home, "pret") 
     confPath = os.path.join(home, "confs") 
 else:
-    home = "/content/"
-    pretPath = "/content/pret"
-    logPath = "/content/logs"
-    resPath = "/content/logs/results"
-    confPath = "/content/logs/confs"
+    home = "/content/drive/MyDrive/"
+    pretPath = "/content/drive/MyDrive/pret"
+    logPath = "/content/drive/MyDrive/logs"
+    resPath = "/content/drive/MyDrive/logs/results"
+    confPath = "/content/drive/MyDrive/logs/confs"
 
 pp = Path(__file__).parent.parent.resolve()
 dataPath = os.path.join(pp, "data", "atomic2020")
