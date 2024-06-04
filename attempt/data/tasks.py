@@ -1026,11 +1026,26 @@ class PIQA(QA):
 
     def preprocessor(self, example, prefix):
         self.cur_example = example
-        src_texts = ["question:", example['goal'], "choice1:",
-                     example["sol1"], "choice2:", example["sol2"]]
+        src_texts = [
+                "choice1:", example["sol1"], 
+                "choice2:", example["sol2"],
+                "question:", example['goal'], 
+                ]
         tgt_texts = [str(example["label"])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+
+class PIQAS(PIQA):
+    name = "piqas"
+    def preprocessor(self, example, prefix):
+        self.cur_example = example
+        src_texts = [
+                "question:", example['goal'], 
+                "choice1:", example["sol1"], 
+                "choice2:", example["sol2"]
+                ]
+        tgt_texts = [str(example["label"])]
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class CommonsenseQA2(AbstractTask):
     name = "commonsense-qa-2"
@@ -1148,8 +1163,13 @@ class SocialIQA(QA):
 
     def preprocessor(self, example, prefix):
         self.cur_example = example
-        src_texts = ["question:", example['question'], "context:", example["context"], "|| choice0:",
-                     example["answerA"], "|| choice1:", example["answerB"], "|| choice2:", example["answerC"]]
+        src_texts = [
+                "context:", example["context"], 
+                "|| choice0:", example["answerA"], 
+                "|| choice1:", example["answerB"], 
+                "|| choice2:", example["answerC"],
+                "question:", example['question'], 
+                ]
         # opt = str(int(example["label"] - 1))
         opt = int(example["label"]) - 1
         opt = str(opt)
