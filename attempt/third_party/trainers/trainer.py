@@ -13,7 +13,7 @@ from transformers.trainer_utils import (
     EvalLoopOutput,
     denumpify_detensorize
 )
-from transformers.file_utils import is_torch_tpu_available
+# from transformers.file_utils import is_torch_tpu_available
 from transformers.trainer_pt_utils import (
     find_batch_size,
     nested_numpify,
