@@ -381,7 +381,7 @@ class AbstractTask(abc.ABC):
             split_prefix = self.split_prefix[split]
         split_file = op.join(directory, split_prefix + split + ".csv")
         save_ds = False
-        do_subsampe = True
+        do_subsample = True
         do_filter = True
         do_map = True
 
@@ -436,7 +436,7 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
-                do_subsampe = False
+                do_subsample = False
                 do_filter = False
                 do_map = True
                 save_ds = False
@@ -464,7 +464,7 @@ class AbstractTask(abc.ABC):
                     if Path(directory).exists() and self.use_cache_file:
                         try:
                             dataset = load_from_disk(directory)
-                            do_subsampe = False
+                            do_subsample = False
                             do_filter = False
                             do_map = False
                         except FileNotFoundError:
