@@ -1158,6 +1158,7 @@ def train(**kwargs):
     task_args["train_samples"] = data_args.max_train_samples
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
+    task_args["omit_part"] = kwargs.get("omit_part","")
     task_args["num_prompts"] = num_prompts 
     task_args["target_prompt_length"] = target_prompt_length 
     task_args["prompt_length"] = kwargs.setdefault("prompt_length", 

@@ -84,6 +84,9 @@ class AbstractTask(abc.ABC):
     split_folder = {}
     split_prefix = {}
     target_pos = -1
+    qpos = "start"
+    omit = ""
+    length_threshold = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
@@ -110,6 +113,8 @@ class AbstractTask(abc.ABC):
         self.seed = task_args.data_seed
         self.template = task_args.template
         self.tokenizer = tokenizer
+        self.omit = task_args.get("omit_part","")
+        self.length_threshold = task_args.get("length_threshold", self.length_threshold)
         prefix = self.prefix if self.prefix else self.name
         self.prefix = task_args.get("prefix", prefix)
         self.use_cache_file = self.cache_file 
@@ -339,6 +344,9 @@ class AbstractTask(abc.ABC):
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
 
+    def filter_dataset(self, example):
+        return True 
+
     def get_records_num(self, split, n_obs):
         return n_obs
 
@@ -372,6 +380,10 @@ class AbstractTask(abc.ABC):
         if split in self.split_prefix:
             split_prefix = self.split_prefix[split]
         split_file = op.join(directory, split_prefix + split + ".csv")
+        save_ds = False
+        do_subsampe = True
+        do_filter = True
+        do_map = True
 
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -416,7 +428,7 @@ class AbstractTask(abc.ABC):
 
             mylogs.bp("get")
             if file_name is not None:  # and split == "test":
-                mylogs.minfo("------------- LOADING FROM FILE:" + \
+                mylogs.minfo("------------- LOADING FROM DataFrame Stored FILE:" + \
                              file_name + " ----------")
                 # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
@@ -424,8 +436,12 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
+                do_subsampe = False
+                do_filter = False
+                do_map = True
+                save_ds = False
             elif self.use_cache_file and self.use_df and not self.load_df and split_file is not None and Path(split_file).is_file(): 
-                mylogs.minfo("------------- LOADING FROM Saved Train FILE:" + \
+                mylogs.minfo("------------- LOADING FROM Saved DataFrame Train FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
@@ -435,30 +451,42 @@ class AbstractTask(abc.ABC):
                 if not Path(outfile).is_file() and self.cache_file:
                     self.save_dataset(df, outfile)
                 dataset = Dataset.from_pandas(df)
-                if n_obs is not None:
-                    dataset = self.subsample(dataset, n_obs)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + \
                              self.name + " ----------")
                 if self.use_df and self.load_df:
                     mylogs.bp("saveds")
                     dataset = self.load_dataset(split=mapped_split)
-                    self.save_dataset(dataset, split_file, directory)
+                    save_ds = True 
                 else:
-                    directory = self.get_folder_path()
-                    directory = op.join(directory, mapped_split)
-                    try:
-                        dataset = load_from_disk(directory)
-                    except FileNotFoundError:
+                    # directory = self.get_folder_path()
+                    directory = outfile.replace(self.df_format,"") 
+                    if Path(directory).exists() and self.use_cache_file:
+                        try:
+                            dataset = load_from_disk(directory)
+                            do_subsampe = False
+                            do_filter = False
+                            do_map = False
+                        except FileNotFoundError:
+                            dataset = self.load_dataset(split=mapped_split)
+                            save_ds = True
+                    else:
                         dataset = self.load_dataset(split=mapped_split)
-                        self.save_dataset(dataset, split_file, directory)
-                if n_obs is not None:
-                    dataset = self.subsample(dataset, n_obs)
-        if self.use_df and not Path(outfile).is_file() and self.cache_file:
-            self.save_dataset(dataset, outfile)
+                        save_ds = True
 
         self.records_num[split] = len(dataset)
-        return self.map_dataset(dataset, prefix)
+        if do_map is True:
+            dataset = self.map_dataset(dataset, prefix)
+        if do_filter is True:
+            dataset = dataset.filter(functools.partial(self.filter_dataset),
+                    load_from_cache_file=False)
+        if do_subsample and n_obs is not None:
+            dataset = self.subsample(dataset, n_obs)
+        if self.use_df and not Path(outfile).is_file():
+            self.save_dataset(dataset, outfile)
+        elif save_ds is True:
+            self.save_dataset(dataset, split_file, directory)
+        return dataset
 
     # my post proc
     def post_process(self, preds, labels):
@@ -488,24 +516,31 @@ class AbstractTask(abc.ABC):
         label = data["target"].strip()
         vtarget = ""
         vcounter = self.rel_vnat 
-        if not "{mask}" in vcounter:
-            vcounter += " {mask}"
         target_list = []
         pos = self.target_pos
         random_choice = "none"
-        if pos != 100:
-            while "{mask}" in vcounter:
-                vcounter = vcounter.replace("{mask}","",1)
-                if "{mask}" in vcounter or pos == 0 or "{m-mask}" in vcounter:
-                    random_choice = self.get_verbalizer_choice(label) 
-                    vtarget = " {mask} " +  random_choice
-                    target_list.append(vtarget)
+        mask_placeholder = ""
+        if "{mask}" in vcounter:
+            mask_placeholder = " {mask} "
+            if pos != 100:
+                while "{mask}" in vcounter:
+                    vcounter = vcounter.replace("{mask}","",1)
+                    if "{mask}" in vcounter or pos == 0 or "{m-mask}" in vcounter:
+                        random_choice = self.get_verbalizer_choice(label) 
+                        vtarget = " {mask} " +  random_choice
+                        target_list.append(vtarget)
+        elif pos != 100:
+            while "{ans}" in vcounter:
+                random_choice = self.get_verbalizer_choice(label) 
+                vtarget = random_choice
+                target_list.append(vtarget)
+                vcounter = vcounter.replace("{ans}","",1)
 
         if pos == 10:
-            t = " {mask} " + target 
+            t = mask_placeholder + target 
             target_list.append(t) 
         elif pos > 0:
-            t = " {mask} " + target 
+            t = mask_placeholder + target 
             target_list.insert(pos -1, t) 
         target = " ".join(target_list)
         return target, random_choice
@@ -627,7 +662,7 @@ class AbstractTask(abc.ABC):
         return self.prompt_set
 
     def get_template_format(self):
-        src = "(prefix) (prompt) (nat_prefix) {source}. (prefix) (prompt) (nat) (prompt) (mask)"
+        src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)"
         target = "(mask) (prefix) (nat) {target}"  # {end}"
         return src, target
 
@@ -695,7 +730,18 @@ class AbstractTask(abc.ABC):
                 src = src.replace("(nat_prefix)", "{rel_nat}", 1)
             elif part == "nat_input" or part == "nat":
                 src = src.replace("(nat)", "{rel_nat}", 1)
+            elif part.startswith("omit"):
+                omit = ""
+                if "_" in part:
+                    _,omit = part.split("_")
+                self.omit = omit 
+            elif part.startswith("qpos"):
+                pos = "end"
+                if "_" in part:
+                    _,pos = part.split("_")
+                self.qpos = pos
             elif part.startswith("vnat"):
+                pos = 10
                 if "_" in part:
                     _,pos = part.split("_")
                 self.target_pos = int(pos)
@@ -988,13 +1034,59 @@ class DROP(AbstractTask):
 
 
 class QA(AbstractTask):
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
     rel_vnats = {
             "v0": "{mask} is correct",
             "v1": "The answer is {mask}, {mask} is correct",
             "v3": "{mask}, the correct choice is {mask}",
             "v2": "{mask}, so {mask} is correct",
+            "vs1": "{ans}, so the correct answer is ",
+            "vs2": "{ans}",
         }
-    rel_nat = "The correct answer is:"
+    rel_nat = "The correct choice is:"
+    qpos = "end"
+    omit = ""
+    length_threshold = 20
+    def filter_dataset(self, example):
+        accept = self.length_threshold is None or len(example['target']) < self.length_threshold
+        return accept
+
+    def seq2seq_format(self, src_texts, tgt_texts, prefix):
+        if self.qpos == "end":
+            src_texts.append(", " + self.question)
+        else:
+            src_texts.insert(0, self.question)
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
+
+class OpenBookQA(QA):
+    name = "openbook-qa"
+    labels_list = ["0", "1", "2", "3"]
+    labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", 
+        "3":"choice4"}}
+    def load_dataset(self, split):
+        return load_dataset("allenai/openbookqa", "additional", split=split)
+
+
+    def preprocessor(self, example, prefix):
+        self.cur_example = example
+        label2id = {"A": "0", "B": "1", "C": "2", "D": "3"}
+        labels = example["choices"]["label"]
+        self.question = "question:" + example['question_stem'].strip(".")
+        src_texts = ["choice1:", example["choices"]["text"][0], ",", 
+                     "choice2:", example["choices"]["text"][1], ",",
+                     "choice3:", example["choices"]["text"][2], ",", 
+                     "choice4:", example["choices"]["text"][3]]
+        if self.omit != "fact1":
+            src_texts.append(", fact:" + example["fact1"])
+        tgt_texts = [label2id[example["answerKey"]]]
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
+
+    def get_verbalizer_choice(self, label):
+        label2id = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
+        ansIndex = label2id[self.cur_example["answerKey"]]
+        ans = self.cur_example["choices"]["text"][ansIndex] 
+        return ans
 
 class PIQA(QA):
     name = "piqa"
@@ -1026,28 +1118,15 @@ class PIQA(QA):
 
     def preprocessor(self, example, prefix):
         self.cur_example = example
+        self.question = "question:" + example['goal'] 
         src_texts = [
-                "choice1:", example["sol1"], 
-                "choice2:", example["sol2"],
-                "question:", example['goal'], 
-                ]
-        tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
-
-
-class PIQAS(PIQA):
-    name = "piqas"
-    def preprocessor(self, example, prefix):
-        self.cur_example = example
-        src_texts = [
-                "question:", example['goal'], 
                 "choice1:", example["sol1"], 
                 "choice2:", example["sol2"]
                 ]
         tgt_texts = [str(example["label"])]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
-class CommonsenseQA2(AbstractTask):
+class CommonsenseQA2(QA):
     name = "commonsense-qa-2"
     labels_list = ["yes", "no"]
     metric = [metrics.accuracy]
@@ -1070,18 +1149,18 @@ class CommonsenseQA2(AbstractTask):
         # return load_dataset("tasksource/commonsense_qa_2.0")
 
     def preprocessor(self, example, prefix):
-        src_texts = ["question:", example["question"]]
+        self.question = "question:" + example["question"]
+        src_texts = [question]
         tgt_texts = [str(example["answer"])]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 
 class CommonsenseQA(QA):
     name = "commonsense-qa"
     labels_list = ["0", "1", "2", "3", "4"]
-    metric = [metrics.accuracy]
-    cache_file = False
-    metric_names = ["accuracy"]
+    labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", 
+        "3":"choice4","4":"choice5"}}
     rel_vnats___temp = {
             "v0": "{mask} is correct",
             "v1": "The answer is {mask}, so {mask} is correct",
@@ -1090,15 +1169,9 @@ class CommonsenseQA(QA):
     split_to_data_split = {"train": "train",
                            "test": "validation",
                            "validation": "validation"}
-    labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", "3":"choice4","4":"choice5"}}
 
     def load_dataset(self, split):
         return datasets.load_dataset('commonsense_qa', split=split)
-        data_files = {"train": "train-00000-of-00001.parquet",
-                      "test":"test-00000-of-00001.parquet",
-                      "validation":"test-00000-of-00001.parquet",
-                      }
-        return datasets.load_dataset("parquet", data_dir="/home/ahmad/datasets/commonsense-qa/", data_files=data_files, split=split)
 
     def get_verbalizer_choice(self, label):
         label2id = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
@@ -1109,30 +1182,14 @@ class CommonsenseQA(QA):
     def preprocessor(self, example, prefix):
         self.cur_example = example
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
+        self.question = "question:" + example['question'];
         src_texts = ["choice1:", example["choices"]["text"][0], 
                      "choice2:", example["choices"]["text"][1],
                      "choice3:", example["choices"]["text"][2], 
                      "choice4:", example["choices"]["text"][3], 
-                     "choice5:", example["choices"]["text"][4], 
-                     "question:", example['question']]
+                     "choice5:", example["choices"]["text"][4]]
         tgt_texts = [label2id[example["answerKey"]]]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
-
-class CommonsenseQAS(CommonsenseQA):
-    name = "commonsense-qas"
-    def preprocessor(self, example, prefix):
-        self.cur_example = example
-        label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
-        src_texts = [
-                     "question:", example['question'],
-                     "choice1:", example["choices"]["text"][0], 
-                     "choice2:", example["choices"]["text"][1],
-                     "choice3:", example["choices"]["text"][2], 
-                     "choice4:", example["choices"]["text"][3], 
-                     "choice5:", example["choices"]["text"][4], 
-                    ]
-        tgt_texts = [label2id[example["answerKey"]]]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
 class SocialIQA(QA):
     name = "social-i-qa"
@@ -1163,12 +1220,12 @@ class SocialIQA(QA):
 
     def preprocessor(self, example, prefix):
         self.cur_example = example
+        self.question = "question:" + example['question']
         src_texts = [
                 "context:", example["context"], 
                 "|| choice0:", example["answerA"], 
                 "|| choice1:", example["answerB"], 
-                "|| choice2:", example["answerC"],
-                "question:", example['question'], 
+                "|| choice2:", example["answerC"]
                 ]
         # opt = str(int(example["label"] - 1))
         opt = int(example["label"]) - 1
@@ -1177,7 +1234,7 @@ class SocialIQA(QA):
         ans = options[opt]
         # tgt_texts = [example[ans]]
         tgt_texts = [opt]
-        return self.seq2seq_format(src_texts, tgt_texts, prefix)
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SciTail(AbstractTask):
@@ -2613,6 +2670,7 @@ TASK_MAPPING = OrderedDict(
         ('multinli', MultiNLI),
         ('snli', SNLI),
         ('piqa', PIQA),
+        ('openbook-qa', OpenBookQA),
         ('drop', DROP),
         ('newsqa', Squad),
         ('searchqa', Squad),
@@ -2622,7 +2680,6 @@ TASK_MAPPING = OrderedDict(
         ("social-i-qa", SocialIQA),
         ("commonsense-qa", CommonsenseQA),
         ("commonsense-qa-2", CommonsenseQA2),
-        ("commonsense-qas", CommonsenseQAS),
         ("common-gen", CommonGen),
         ("winogrande", WinoGrande),
         ("scitail", SciTail),
