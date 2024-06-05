@@ -505,8 +505,11 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        _vv = x.split("=")
        if len(_vv) < 2:
            assert False, "invalid argument " + str(x) + "|" + str(_vv)
-       _vv = _vv[1].strip("#")
-       _vvv = _vv.split("#")
+       if _vv[0] != "@comment":
+           _vv = _vv[1].strip("#")
+           _vvv = _vv.split("#")
+       else:
+           _vvv = [_vv[1]]
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
    if last_var:
@@ -529,7 +532,8 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
            if False: #TODO temporary 
                assert var_name in exp_args, var_name +" must be in experiment variables (config)"
            var_item = var.split("=")[1]
-           var_item = var_item.strip("#").split("#")
+           if var_name != "comment":
+               var_item = var_item.strip("#").split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
        else:
@@ -607,7 +611,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size"]
+   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -885,9 +889,9 @@ def train(**kwargs):
     home = mylogs.home
     config_file = ""
     if config_name == "base":
-        config_file =f"{home}/ATTEMPT/attempt/configs/baselines/base.json"
+        config_file =f"base.json"
     elif config_name == "attempt":
-        config_file= f"{home}/ATTEMPT/attempt/configs/attempt/single_task.json"
+        config_file= f"single_task.json"
 
     _dir = Path(__file__).parent
     param_map = {}

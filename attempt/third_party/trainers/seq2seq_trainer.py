@@ -121,6 +121,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         print("Experiment: ", mylogs.args("exp_number"), "/", mylogs.args("total_exp"))
         print("Tags: ", mylogs.get_tag(as_str=True))
         print("Conf: ", mylogs.args("conf"))
+        print("Model: ", mylogs.args("model_name_or_path"))
         print("Batch Size: ", mylogs.args("per_device_train_batch_size"))
         print("Tasks: ", mylogs.args("task_name"), " minus ", mylogs.args("exclude_tasks"))
         print("Save in: ", mylogs.args("save_path"))
