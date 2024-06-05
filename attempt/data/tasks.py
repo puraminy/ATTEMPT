@@ -86,7 +86,7 @@ class AbstractTask(abc.ABC):
     target_pos = -1
     qpos = "start"
     omit = ""
-    length_threshold = None
+    len_thresh = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
     small_datasets_without_all_splits = []
@@ -114,7 +114,7 @@ class AbstractTask(abc.ABC):
         self.template = task_args.template
         self.tokenizer = tokenizer
         self.omit = task_args.get("omit_part","")
-        self.length_threshold = task_args.get("length_threshold", self.length_threshold)
+        self.len_thresh = task_args.get("len_thresh", self.len_thresh)
         prefix = self.prefix if self.prefix else self.name
         self.prefix = task_args.get("prefix", prefix)
         self.use_cache_file = self.cache_file 
@@ -982,7 +982,7 @@ class AbstractTask(abc.ABC):
             mylogs.vlog.info("%s", ex_fields)
             self.counter["examples"] += 1
         mylogs.bp("format")
-        extra_fields = ex_fields # {**extra_fields, **ex_fields}
+        extra_fields = {**extra_fields, **ex_fields}
         return {'source': src_text,
                 'target': tgt_text,
                 'task': self.name,
@@ -1047,9 +1047,13 @@ class QA(AbstractTask):
     rel_nat = "The correct choice is:"
     qpos = "end"
     omit = ""
-    length_threshold = 20
+    len_thresh = 12
+    def get_fname(self, split):
+        fname = super().get_fname(split)
+        return fname + "_len-" + str(self.len_thresh) 
+
     def filter_dataset(self, example):
-        accept = self.length_threshold is None or len(example['target']) < self.length_threshold
+        accept = len(example['extra_fields']["answer"]) < self.len_thresh
         return accept
 
     def seq2seq_format(self, src_texts, tgt_texts, prefix):
@@ -1057,7 +1061,10 @@ class QA(AbstractTask):
             src_texts.append(", " + self.question)
         else:
             src_texts.insert(0, self.question)
-        return super().seq2seq_format(src_texts, tgt_texts, prefix)
+        answer = self.get_verbalizer_choice()
+        extra_fields = {"answer": answer}
+        return super().seq2seq_format(src_texts, tgt_texts, prefix, 
+                extra_fields=extra_fields)
 
 class OpenBookQA(QA):
     name = "openbook-qa"
@@ -1082,7 +1089,7 @@ class OpenBookQA(QA):
         tgt_texts = [label2id[example["answerKey"]]]
         return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
-    def get_verbalizer_choice(self, label):
+    def get_verbalizer_choice(self, label=""):
         label2id = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
         ansIndex = label2id[self.cur_example["answerKey"]]
         ans = self.cur_example["choices"]["text"][ansIndex] 
@@ -1098,7 +1105,7 @@ class PIQA(QA):
                            "test": "validation"}
     labels_map = {"map": {"0":"choice1", "1":"choice2", "0.0":"choice1", "1.0":"choice2"}}
 
-    def get_verbalizer_choice(self, label):
+    def get_verbalizer_choice(self, label=""):
         example = self.cur_example
         opt = int(example["label"]) 
         opt = str(opt)
@@ -1173,7 +1180,7 @@ class CommonsenseQA(QA):
     def load_dataset(self, split):
         return datasets.load_dataset('commonsense_qa', split=split)
 
-    def get_verbalizer_choice(self, label):
+    def get_verbalizer_choice(self, label=""):
         label2id = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4}
         ansIndex = label2id[self.cur_example["answerKey"]]
         ans = self.cur_example["choices"]["text"][ansIndex] 
@@ -1205,7 +1212,7 @@ class SocialIQA(QA):
                            "test": "validation",
                            "validation": "validation"}
 
-    def get_verbalizer_choice(self, label):
+    def get_verbalizer_choice(self, label=""):
         example = self.cur_example
         opt = int(example["label"]) - 1
         opt = str(opt)
