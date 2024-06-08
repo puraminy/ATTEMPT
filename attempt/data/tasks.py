@@ -24,9 +24,9 @@ from itertools import cycle, islice
 from random import shuffle
 from collections import defaultdict
 import random
-import nltk
-nltk.download('punkt')
-from nltk.tokenize import sent_tokenize
+#import nltk
+#nltk.download('punkt')
+#from nltk.tokenize import sent_tokenize
 
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ class AbstractTask(abc.ABC):
     target_pos = -1
     qpos = "start"
     omit = ""
+    template_func = ""
     len_thresh = None
     split_to_data_split: Mapping[str, str] = \
         {"train": "train", "validation": "validation", "test": "test"}
@@ -113,7 +114,8 @@ class AbstractTask(abc.ABC):
         self.seed = task_args.data_seed
         self.template = task_args.template
         self.tokenizer = tokenizer
-        self.omit = task_args.get("omit_part","")
+        self.omit = task_args.get("omit_part",self.omit)
+        self.qpos = task_args.get("qpos",self.qpos)
         self.len_thresh = task_args.get("len_thresh", self.len_thresh)
         prefix = self.prefix if self.prefix else self.name
         self.prefix = task_args.get("prefix", prefix)
@@ -436,7 +438,7 @@ class AbstractTask(abc.ABC):
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
                 dataset = Dataset.from_pandas(df)
-                do_subsample = False
+                do_subsample = True
                 do_filter = False
                 do_map = True
                 save_ds = False
@@ -459,14 +461,12 @@ class AbstractTask(abc.ABC):
                     dataset = self.load_dataset(split=mapped_split)
                     save_ds = True 
                 else:
-                    # directory = self.get_folder_path()
-                    directory = outfile.replace(self.df_format,"") 
+                    directory = self.get_folder_path()
+                    directory = op.join(directory, split)
+                    # directory = outfile.replace(self.df_format,"") 
                     if Path(directory).exists() and self.use_cache_file:
                         try:
                             dataset = load_from_disk(directory)
-                            do_subsample = False
-                            do_filter = False
-                            do_map = False
                         except FileNotFoundError:
                             dataset = self.load_dataset(split=mapped_split)
                             save_ds = True
@@ -474,18 +474,18 @@ class AbstractTask(abc.ABC):
                         dataset = self.load_dataset(split=mapped_split)
                         save_ds = True
 
-        self.records_num[split] = len(dataset)
-        if do_map is True:
-            dataset = self.map_dataset(dataset, prefix)
-        if do_filter is True:
-            dataset = dataset.filter(functools.partial(self.filter_dataset),
-                    load_from_cache_file=False)
-        if do_subsample and n_obs is not None:
-            dataset = self.subsample(dataset, n_obs)
         if self.use_df and not Path(outfile).is_file():
             self.save_dataset(dataset, outfile)
         elif save_ds is True:
             self.save_dataset(dataset, split_file, directory)
+        self.records_num[split] = len(dataset)
+        dataset = self.map_dataset(dataset, prefix)
+        if do_filter is True:
+            do_subsample = True
+            dataset = dataset.filter(functools.partial(self.filter_dataset),
+                    load_from_cache_file=False)
+        if do_subsample and n_obs is not None:
+            dataset = self.subsample(dataset, n_obs)
         return dataset
 
     # my post proc
@@ -557,10 +557,13 @@ class AbstractTask(abc.ABC):
             cleaned_text = ' '.join(cleaned_words)
             removed_text = ' '.join(removed_words)
             return cleaned_text, removed_text
+        def match_text(row):
+            return row['target_text'] if row['pred_text1'] == row['vtarget'] else 'mistake'
 		# Apply the cleaning function to each row in 'pred_text1'
         if self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
-            df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
+            #df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
+            df["pred_text1"] = df.apply(match_text, axis=1) 
         else:
             df[['pred_text1', 'vpred']] = df.apply(lambda row:  clean_text_and_extract_removed(row['pred_text1']), axis=1, result_type='expand')
 
@@ -661,6 +664,16 @@ class AbstractTask(abc.ABC):
         self.fill_template(data, {})
         return self.prompt_set
 
+    def temp_mixed(self, template_type = None):
+        template = self.template
+        if template_type is None: 
+            return template
+        if template_type == "Filling":
+            template += "-unsup"
+        if template_type == "Mapping":
+            template += "-sup"
+        return template
+            
     def get_template_format(self):
         src = "(prefix) (prompt) (nat_prefix) {source} (prefix) (prompt) (nat) (prompt) (mask)"
         target = "(mask) (prefix) (nat) {target}"  # {end}"
@@ -668,23 +681,16 @@ class AbstractTask(abc.ABC):
 
     def get_template(self, template_type = None):
         src, target = self.get_template_format()
+        template = self.template
+        mylogs.bp("template")
+        if hasattr(self, template):
+            template_func = getattr(self, template)
+            self.template = template_func(template_type)
         parts = self.template.split("-")
         add_prefix = self.task_args.setdefault("add_prefix", False)
         if not "px" in parts and add_prefix:
             parts.insert(0, "px")
         pcom = 0  # number of shared prompts among all tasks
-        mylogs.bp("template")
-        if "mixed" in parts:
-            parts.remove("mixed")
-            if template_type == "Filling":
-                if "sup" in parts:
-                    parts.remove("sup")
-                parts.append("unsup")
-            if template_type == "Mapping":
-                if "unsup" in parts:
-                    parts.remove("unsup")
-                    parts.append("sup")
-            
         for part in parts:
             if part == "mask":
                 src = src.replace("(mask)", "{mask} (mask)")
@@ -866,6 +872,7 @@ class AbstractTask(abc.ABC):
             template_type = data["group"]
         src, tgt, pcom = self.get_template(template_type)
 
+        
         mask = "<extra_id_0>"
         ex_data = self.extend_data(data, pcom=pcom)
         data = {**data, **ex_data}
@@ -1040,21 +1047,32 @@ class QA(AbstractTask):
             "v0": "{mask} is correct",
             "v1": "The answer is {mask}, {mask} is correct",
             "v3": "{mask}, the correct choice is {mask}",
+            "v4": "{mask}, {mask}",
+            "v3so": "{mask}, so the correct choice is {mask}",
             "v2": "{mask}, so {mask} is correct",
-            "vs1": "{ans}, so the correct answer is ",
+            "vs1": "{ans}, the correct answer is ",
             "vs2": "{ans}",
         }
     rel_nat = "The correct choice is:"
     qpos = "end"
     omit = ""
-    len_thresh = 12
-    def get_fname(self, split):
-        fname = super().get_fname(split)
-        return fname + "_len-" + str(self.len_thresh) 
+    len_thresh = None
+    def temp_len(self, template_type):
+        example = self.cur_example
+        question =example['question_stem'] if "question_stem" in example else example["question"]
+        choices = example['choices']['text']
+        average_length = sum(len(choice.split(" ")) for choice in choices) / len(choices)
+        if not "?" in question:
+           template = "vnat_1-vs2"
+        elif average_length < 4:
+           template = "unsup-nat"
+        else:
+           template = "vnat_1-vs1"
+        return template
 
     def filter_dataset(self, example):
-        accept = len(example['extra_fields']["answer"]) < self.len_thresh
-        return accept
+        anslen = len(example['extra_fields']["answer"])
+        return self.len_thresh is None or anslen < self.len_thresh
 
     def seq2seq_format(self, src_texts, tgt_texts, prefix):
         if self.qpos == "end":
@@ -1348,6 +1366,7 @@ class COLA(AbstractTask):
 
 class Sentiment(AbstractTask):
     labels_map = {"map": {"0":"negative", "1":"positive"}}
+    use_df = False
     verbalizer2 = {
         "positive": ["good","great"],
         "negative": ["bad", "poor"]
@@ -1363,7 +1382,10 @@ class Sentiment(AbstractTask):
 
     rel_vnats = {
             "v1": "It sounds {mask}",
-            "v2": "It sounds {mask}, so it's {mask}",
+            "vs1": "{ans}, the opinion is ",
+            "v3": "{mask}, the opinion is {mask}",
+            "v2": "It sounds {mask}, the opinion is {mask}",
+            "vs2": "{ans}",
         }
     rel_vnat = "My opinion is "
     target_pos = -1 

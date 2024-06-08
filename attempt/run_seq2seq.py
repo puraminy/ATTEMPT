@@ -343,6 +343,13 @@ def cli():
     help="The name of a new directory for experiment when loading an existing config file"
 )
 @click.option(
+    "--copy_to",
+    "-copy",
+    default="",
+    type=str,
+    help="The name of directory to copy done experiments."
+)
+@click.option(
     "--inp_log_path",
     "-lp",
     default="",
@@ -354,7 +361,8 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
         log_var, last_var, main_vars, 
         debug, version, trial, skip, save_conf, rem, repeat, 
         label, deep_check, merge, not_copy_prev_exp, 
-        reval, test, use_wandb, download_model, max_exp, new_exp_folder, inp_log_path):
+        reval, test, use_wandb, download_model, max_exp, 
+        new_exp_folder, copy_to, inp_log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
@@ -464,6 +472,10 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
    if not save_path:
        save_path = prev_save_path if prev_save_path else os.getcwd()
    Path(save_path).mkdir(exist_ok=True, parents=True)
+   if copy_to:
+      copy_to = os.path.join(log_path, copy_to)
+      Path(copy_to).mkdir(exist_ok=True, parents=True)
+
    args = {}
    args["conf"] = exp_conf
    args["save_path"] = save_path
@@ -505,7 +517,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        _vv = x.split("=")
        if len(_vv) < 2:
            assert False, "invalid argument " + str(x) + "|" + str(_vv)
-       if _vv[0] != "@comment":
+       if not _vv[0].startswith("@comment"):
            _vv = _vv[1].strip("#")
            _vvv = _vv.split("#")
        else:
@@ -532,7 +544,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
            if False: #TODO temporary 
                assert var_name in exp_args, var_name +" must be in experiment variables (config)"
            var_item = var.split("=")[1]
-           if var_name != "comment":
+           if not var_name.startswith("comment"):
                var_item = var_item.strip("#").split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
@@ -611,7 +623,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"]
+   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -711,6 +723,10 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
                    print("The experiment already exists, skipping!!")
                    print(exp_dir)
                    print(output_dir)
+                   if copy_to:
+                      print("Copying to ", copy_to)
+                      shutil.copytree(output_dir, 
+                           os.path.join(copy_to, Path(output_dir).name))
                    print("-----------------------------------------")
                    continue
                print("Merging to ", output_dir)
@@ -913,6 +929,7 @@ def train(**kwargs):
     if config_file and config_file.endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
+        config_file = op.join(mylogs.home, "ATTEMPT","attempt","confs", config_file)
         model_args, data_args, training_args, adapter_args = parser.parse_json_file(
             json_file=config_file)
     else:
@@ -1159,6 +1176,8 @@ def train(**kwargs):
     task_args["val_samples"] = data_args.max_val_samples
     task_args["test_samples"] = data_args.max_test_samples
     task_args["omit_part"] = kwargs.get("omit_part","")
+    task_args["qpos"] = kwargs.get("qpos","end") # position of question
+    task_args["len_thresh"] = kwargs.get("len_thresh", None) # position of question
     task_args["num_prompts"] = num_prompts 
     task_args["target_prompt_length"] = target_prompt_length 
     task_args["prompt_length"] = kwargs.setdefault("prompt_length", 
@@ -2324,7 +2343,8 @@ def train(**kwargs):
                         prefix=str(opp),
                         router_prefix=router_prefix)
 
-        save_model = kwargs.setdefault("save_model", False)
+        save_model_default = data_args.max_train_samples > 2000
+        save_model = kwargs.setdefault("save_model", save_model_default)
         if save_model:
             # save all model parameters and tokenizers 
             # regardless of whether they are updated or not.

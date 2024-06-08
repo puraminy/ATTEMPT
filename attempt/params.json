@@ -12,6 +12,7 @@
   "rs":"random_source",
   "gmin":"gen_thresh_min",
   "omit":"omit_part",
+  "lent":"len_thresh",
   "gmax":"gen_thresh_max",
   "nm":"norm_method",
   "gnm":"gen_norm_method",
