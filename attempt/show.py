@@ -218,6 +218,40 @@ def calculate_precision_recall(row):
     return pd.Series({'precision': precision, 'recall': recall})
 
 
+def recalc_rouge(df, spath):
+   def match_text(row):
+      return 1. if row['vtarget'] in row['vpred'] else 0. 
+   df["rouge_score"] = df.apply(match_text, axis=1)
+   df.to_csv(spath, index=False, sep="\t")
+   return df["rouge_score"].mean()
+
+
+def remove_choice(text):
+    # Regular expression to match 'Choice' followed by any number of digits
+    pattern = re.compile(r'choice\d+')
+    # Substitute the matched patterns with an empty string
+    cleaned_text = pattern.sub('', text)
+    # Remove any extra whitespace that may result from the removal
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+    return cleaned_text
+
+def vpredin(df, spath):
+    def match_text(row):
+        # Remove ChoiceN from vpred and input_text
+        cleaned_vpred = remove_choice(str(row['vpred']))
+        cleaned_input_text = remove_choice(str(row['input_text']))
+        return 1.0 if cleaned_vpred in cleaned_input_text else 0.0
+
+    df["vpredin_score"] = df.apply(match_text, axis=1) * 100
+    df.to_csv(spath, index=False, sep="\t")
+    mean = df["vpredin_score"].mean()
+    return mean
+
+function_map = {
+        "recalc_rouge": recalc_rouge,
+        "vpredin": vpredin,
+        }
+
 def create_label(row):
     label = 'PT'
     if not "compose_method" in row:
@@ -417,7 +451,7 @@ def list_dfs(df, main_df, s_rows, FID):
         mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        tdf = tdf[["pred_text1", "exp_name", "id","hscore", "out_score", "bert_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
+        tdf = tdf[["pred_text1", "exp_name", "id","hscore", "out_score", "bert_score","query", "resp", "resp_template", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]]
         tdf = tdf.sort_values(by="rouge_score", ascending=False)
         sort = "rouge_score"
         dfs.append(tdf)
@@ -636,6 +670,7 @@ def add_cols(df):
 
         df["model_temp"] = df["model_name_or_path"].str.split("-").str[2]
         df["model_base"] = df["model_name_or_path"].str.split("-").str[1]
+        #df["model_base"] = df["model_name_or_path"].apply(lambda x: '-'.join(x.split('-')[1:2] + x.split('-')[-2:]))
 
     if False: #"expid" in df:
         df["fexpid"] = df["expid"]
@@ -659,7 +694,7 @@ def find_common(df, main_df, on_col_list, s_rows, FID, char, tag_cols):
         # mlog.info("%s == %s", FID, exp)
         cond = f"(main_df['{FID}'] == '{exp}') & (main_df['prefix'] == '{prefix}')"
         tdf = main_df[(main_df[FID] == exp) & (main_df['prefix'] == prefix)]
-        _cols = tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]
+        _cols = tag_cols + ["pred_text1", "top_pred", "top", "exp_name", "id","hscore", "bert_score", "out_score","query", "resp","resp_template", "template", "rouge_score", "fid","prefix", "input_text","target_text", "sel"]
         _cols = list(dict.fromkeys(_cols))
         _cols2 = [] 
         for col in _cols:
@@ -963,6 +998,12 @@ def show_df(df, summary=False):
     rep_cols = list(dict.fromkeys(rep_cols))
     back_sel_cols = sel_cols.copy()
 
+    if 'init_col' in all_cols:
+        init_col = all_cols['init_col']
+        if not init_col in sel_cols and init_col in df:
+            sel_cols.insert(1, init_col) 
+        cur_col = sel_cols.index(init_col) - 1
+
     sel_fid = "" 
     df_cond = True
     df_conds = []
@@ -1156,7 +1197,7 @@ def show_df(df, summary=False):
             if row_id is None:
                 val=df.iloc[s_row][col]
                 values.append(val)
-            else:
+            elif row_id in df:
                 row=df.iloc[s_row][row_id]
                 if from_main:
                     tdf = main_df[main_df[row_id] == row]
@@ -1294,13 +1335,13 @@ def show_df(df, summary=False):
     adjust = True
     show_consts = True
     show_extra = False
-    show_infos = True
+    show_infos = False
     consts = {}
     extra = {"filter":[]}
     orig_df = main_df.copy()
     prev_char = ""
     new_df = True
-    cur_sel_col = ""
+    cur_col_name = ""
     while prev_char != "q":
         group_rows = []
         left = min(left, max_col  - width)
@@ -1318,11 +1359,11 @@ def show_df(df, summary=False):
         #sel_group = min(sel_row, sel_group)
         cur_col = min(cur_col, len(sel_cols) - 1)
         cur_col = max(cur_col, -1)
-        if (cur_sel_col and sel_cols[cur_col] != cur_sel_col 
-                and cur_sel_col in sel_cols 
+        if (cur_col_name and sel_cols[cur_col] != cur_col_name 
+                and cur_col_name in sel_cols 
                 and not ch in [LEFT, RIGHT]):
-            cur_col = sel_cols.index(cur_sel_col)
-        cur_sel_col = sel_cols[cur_col]
+            cur_col = sel_cols.index(cur_col_name)
+        cur_col_name = sel_cols[cur_col]
         back_df = back[-1].df if len(back) > 0 else df
         if not hotkey:
             # std.clear()
@@ -1360,8 +1401,16 @@ def show_df(df, summary=False):
         if cur_col < len(sel_cols) and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
             if not df.empty:
+                if show_infos:
+                    _, _sel_val = get_sel_rows(df, col="query", from_main=True) 
+                    infos.append("resp:{}".format(_sel_val))
+                    infos.append("-------------------------")
+                    _, _sel_val = get_sel_rows(df, col="resp", from_main=True) 
+                    infos.append("resp:{}".format(_sel_val))
                 _sel_val = df.iloc[sel_row][_sel_col]
                 infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
+                if type(_sel_val) == str and len(_sel_val) > 50:
+                    show_infos = True
         for c in sel_cols:
             if not c in df:
                 continue
@@ -1387,9 +1436,8 @@ def show_df(df, summary=False):
                 if type(val) == list:
                     val = "-".join(val)
                 infos.append("{:<5}:{}".format(key,val))
-        if True:  ##show_infos:
+        if show_infos:
             info_lines = change_info(infos)
-            show_infos = True
 
         prev_char = chr(ch)
         prev_cmd = cmd
@@ -1475,10 +1523,10 @@ def show_df(df, summary=False):
             #if cur_col < 15 and all_sel_cols:
             #    sel_cols = all_sel_cols[:20]
             cur_col = min(len(sel_cols)-1, cur_col)
-            cur_sel_col = sel_cols[cur_col]
-            width = len(cur_sel_col) + 2
-            if cur_sel_col in col_widths:
-                width = col_widths[cur_sel_col]
+            cur_col_name = sel_cols[cur_col]
+            width = len(cur_col_name) + 2
+            if cur_col_name in col_widths:
+                width = col_widths[cur_col_name]
             _sw = sum([col_widths[x] if x in col_widths else len(x) + 2 
                 for x in sel_cols[:cur_col]])
             if _sw < left:
@@ -1490,10 +1538,10 @@ def show_df(df, summary=False):
             #    sel_cols = all_sel_cols[10:30]
             cur_col = min(len(sel_cols)-1, cur_col)
             cur_col = max(0,cur_col)
-            cur_sel_col = sel_cols[cur_col]
-            width = len(cur_sel_col) + 2
-            if cur_sel_col in col_widths:
-                width = col_widths[cur_sel_col]
+            cur_col_name = sel_cols[cur_col]
+            width = len(cur_col_name) + 2
+            if cur_col_name in col_widths:
+                width = col_widths[cur_col_name]
             _sw = sum([col_widths[x] if x in col_widths else len(x) + 2 
                 for x in sel_cols[:cur_col]])
             if _sw >= left + COLS - 10:
@@ -1541,7 +1589,8 @@ def show_df(df, summary=False):
         elif ch == cur.KEY_SHOME:
             left = 0 
         elif ch == cur.KEY_END:
-            cur_row = len(df) -1
+            # cur_row = len(df) -1
+            show_infos = not show_infos
         elif ch == cur.KEY_SLEFT:
             cur_row -= ROWS - 4
         elif char == "l" and prev_char == "l":
@@ -2048,6 +2097,7 @@ def show_df(df, summary=False):
                 df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
                 df = df.round(2)
             selected_cols = []
+            left = 0
         elif char in ["g", "u"]:
             context = "group_mode"
             if cur_col < len(sel_cols):
@@ -2073,9 +2123,10 @@ def show_df(df, summary=False):
                 df = df.groupby(col, as_index=False).mean(numeric_only=True).reset_index()
                 if "m_score" in df:
                     df = df.sort_values(by=["m_score"], ascending=False)
-                elif "avg" in df:
-                    df = df.sort_values(by=["avg"], ascending=False)
+                elif "All" in df:
+                    df = df.sort_values(by=["All"], ascending=False)
                 df = df.round(2)
+                left = 0
         elif char == "a" and False: 
             consts["options"] = "b: back"
             backit(df, sel_cols)
@@ -2151,6 +2202,7 @@ def show_df(df, summary=False):
             info_cols = load_obj("info_cols", context, [])
         elif char == "G":
             # backit(df, sel_cols)
+            # ggggggggggggggggggggggg
             context = "main"
             if FID == "input_text":
                 context = "inp2"
@@ -2158,7 +2210,7 @@ def show_df(df, summary=False):
             if False: #reset:
                 info_cols = ["bert_score", "num_preds"]
             if False: #col == "fid":
-                sel_cols = ["eid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
+                sel_cols = ["eid", "rouge_score"] + tag_cols + ["method", "trial", "prefix","num_preds", "bert_score", "out_score", "pred_max_num","pred_max", "steps","max_acc","best_step", "st_score", "learning_rate", "vpredin",  "num_targets", "num_inps", "train_records", "train_records_nunique", "group_records", "wrap", "frozen", "prefixed"] 
                 sel_cols = list(dict.fromkeys(sel_cols))
             reset = False
             group_sel_cols = sel_cols.copy()
@@ -2346,6 +2398,7 @@ def show_df(df, summary=False):
                     os.system(cmd)
                 cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'mkdir -p /home/ahmad/temp/{dest_folder}'"
                 os.system(cmd)
+                Path(comp_path).mkdir(parents=True, exist_ok=True)
             adrfile = os.path.join(temp_path, "address.txt")
             adr = open(adrfile,"w")
             for s_row in s_rows:
@@ -2364,8 +2417,8 @@ def show_df(df, summary=False):
                 print(rpath, file=adr)
                 if not str(expid).isnumeric():
                     expid=Path(rpath).stem
-                path = str(Path(rpath).parent) + "/" + str(expid)
-                js = os.path.join(rpath, "exp.json")
+                path = str(Path(rpath).parent) # + "/" + str(expid)
+                js = os.path.join(path,"conf_" + expid + ".json")
                 fname = "exp"
                 if char == "Y":
                     compose=tdf.iloc[0]["compose_method"]
@@ -2377,8 +2430,8 @@ def show_df(df, summary=False):
                 if not ignore_fname:
                     fname = rowinput("prefix:", default=fname)
                 if fname:
-                    parent = Path(path).parent
-                    pname = Path(path).parent.name
+                    parent = path 
+                    pname = Path(path).name
                     expid = Path(path).name
                     if char in ["U","Y"]:
                         dest = os.path.join(comp_path, "exp_" + str(prefix) + ".json")
@@ -2405,6 +2458,7 @@ def show_df(df, summary=False):
                         if char in ["U", "Y"]:
                             to = "ahmad@10.42.0.210:" + dest 
                             cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{js}" "{to}"'
+                            # cmd = f"sshpass -p 'a' ssh -t ahmad@10.42.0.210 'cp {js} {dest}"
                             os.system(cmd)
                     # subprocess.run(cmd.split())
             adr.close()
@@ -2412,6 +2466,8 @@ def show_df(df, summary=False):
                 to = "ahmad@10.42.0.210:" + temp_path 
                 cmd = f'sshpass -p "a" rsync -P -ae "ssh" -zarv "{adrfile}" "{to}"'
                 os.system(cmd)
+            std.clear()
+            hotkey = "]"
         elif char == "p" and False:
             pivot_cols = sel_cols[cur_col]
             consts["pivot col"] = pivot_cols
@@ -2518,7 +2574,7 @@ def show_df(df, summary=False):
                 df = pd.concat(dfs,ignore_index=True)
                 #df = df.sort_values(by="int", ascending=False)
             elif len(s_rows) > 1:
-                sel_cols=orig_tag_cols + ["num_preds","eid","bert_score", "out_score","pred_text1","target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["num_preds","eid","bert_score", "out_score","pred_text1","target_text","input_text","vpred","vtarget","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
                 unique_cols = info_cols.copy()
                 sel_cols = list(dict.fromkeys(sel_cols))
@@ -2543,7 +2599,7 @@ def show_df(df, summary=False):
                 df = main_df[main_df[FID] == exp]
                 if "prefix" in df:
                     task = df.iloc[0]["prefix"]
-                sel_cols=orig_tag_cols + ["num_preds","prefix","bert_score", "out_score","pred_text1","top_pred", "vpred", "vtarget", "top", "target_text","input_text","rouge_score","prefix"]
+                sel_cols=orig_tag_cols + ["num_preds","prefix","bert_score", "out_score","pred_text1","top_pred", "vpred", "query", "resp", "vtarget", "top", "target_text","input_text","rouge_score","prefix"]
                 sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, 
                         main_vars, keep_cols=["pred_text1"])
                 #unique_cols = info_cols.copy()
@@ -2551,7 +2607,7 @@ def show_df(df, summary=False):
                 # df = df[sel_cols]
                 df = df.sort_values(by="input_text", ascending=False)
                 sort = "input_text"
-                info_cols = ["input_text","prefix"]
+                info_cols = ["query", "resp", "prefix"]
                 df = df.reset_index()
             if len(df) > 1:
                 sel_cols=orig_tag_cols + ["eid","prefix", "bert_score","pred_text1", "target_text", "top_pred", "input_text", "vpred", "vtarget", "rouge_score"]
@@ -2820,6 +2876,7 @@ def show_df(df, summary=False):
         elif ch == cur.KEY_SDC:
             #col = sel_cols[cur_col]
             #sel_cols.remove(col)
+            show_infos = not show_infos 
             if info_cols:
                 col = info_cols.pop()
             #save_obj(sel_cols, "sel_cols", context)
@@ -3334,7 +3391,7 @@ def show_df(df, summary=False):
 
             plt.show()
         elif cmd.startswith("bar"):
-            if context == "main":
+            if False: #context == "main":
                 score_col = "rouge_score"
                 if sel_cols[cur_col].endswith("_score"):
                     score_col = sel_cols[cur_col]
@@ -3347,54 +3404,105 @@ def show_df(df, summary=False):
             #}
             #tdf = tdf.rename(columns=rename_dict)
             if not selected_cols:
-                selected_cols = ["model_temp", "template"]
+                selected_cols = ["model_base", "model_temp", "template"]
+            for col in selected_cols:
+                tdf[col] = tdf[col].fillna('none')
 
-            templates = tdf["template"].unique()
+            cat_col = selected_cols[0]
+            num_cats = tdf[cat_col].nunique()
+            templates = tdf[selected_cols[-1]].unique()
+            category1_order = tdf[selected_cols[1]].unique()
+            category2_order = templates
+            facet_order = tdf[cat_col].unique()
+            convert_labels = True #settings.get("convert_labels", False)
 
-            category1_mapping = {
+            palette = ['orange','#B33', '#4cc', '#24f', 'pink','#909', '#b7d99c', '#293']
+            if convert_labels and "model_temp" in selected_cols:
+                category1_mapping = {
                     'none': '---', 'sup': 'LM', 
-                    'unsup': 'Denoising',"per_sample": "Mixed"
+                    'unsup': 'Denoising',"mixed": "Mixed"
                     }
-            if "unsup" in templates:
-                category2_order = ['Mapping', 'Prompting', 
-                        'MaskedMapping', 'MaskedPrompting', "MaskedVPrompting"]
-                category2_mapping = {
-                     'sup': 'Mapping', 'unsup': 'MaskedMapping',
-                     'sup-nat': 'Prompting', 'unsup-nat': 'MaskedPrompting',
-                     'unsup-vnat': 'MaskedVPrompting' 
-                    }
+                category1_order = ['---', 'LM', 'Denoising', 'Mixed']
+                tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
+            if convert_labels and "template" in selected_cols:
+                if any("ptar" in t for t in templates):
+                    category2_order = ['PrePT', 'PostPT', 
+                            'MaskedPrePT', 'MaskedPostPT',
+                            'PreAnswerPT','PostAnswerPT',
+                            'PreMaskedAnswerPT','PostMaskedAnswerPT']
+                    category2_mapping = {
+                        '0-ptar-sup': 'PostPT', 
+                        "ptar-sup":"PreSup", 
+                        'ptar-unsup-nat':'MaskedPrePT',
+                        'ptar-sup-nat': 'PrePT', 
+                        '0-ptar-unsup': 'MaskedPostPT',
+                        '0-ptar-vnat-v3': 'MaskedAnswerPT', 
+                        '0-ptar-vnat_1-vs1': 'AnswerPT',
+                        'ptar-vnat_0-v4':'PreMaskedAnswerPT',
+                        '0-ptar-vnat_0-v4':'PostMaskedAnswerPT',
+                        'ptar-vnat_0-vs2':'PreAnswerPT',
+                        '0-ptar-vnat_0-vs2':'PostAnswerPT',
+                        }
+                else:
+                    category2_order = [
+                            'Mapping', 
+                            'Prompting', 
+                            'MaskedMapping', 
+                            'MaskedPrompting', 
+                            "AnswerPrompting", 
+                            "AnswerPromptingCH",
+                            "MaskedAnswerPrompting",
+                            "MaskedAnswerPromptingCH",
+                            ]
+                    category2_mapping = {
+                         'sup': 'Mapping', 
+                         'unsup': 'MaskedMapping',
+                         'sup-nat': 'Prompting', 
+                         'unsup-nat': 'MaskedPrompting',
+                         'vnat-v3': 'MaskedAnswerPromptingCH',
+                         'vnat_1-vs2': "AnswerPromptingCH",
+                         'vnat_0-v4': "MaskedAnswerPrompting",
+                         'vnat_0-vs2': "AnswerPrompting",
+                         # 'vnat_1-vs2': "Predict Choice Number",
+                        }
+                cat2_mapping ={k:v for k,v in category2_mapping.items() if k in templates}
+                category2_order = [v for v in category2_order if v in cat2_mapping.values()]
+                tdf['template'] = tdf['template'].map(cat2_mapping)
+            if "qpos" in selected_cols:
+                category3_mapping = {
+                        'start': 'question position: start',
+                        'end': 'question position: end',
+                        }
+
+                facet_order = category3_mapping.values() 
+                tdf['qpos'] = tdf['qpos'].map(category3_mapping)
+                palette = ['#4cc', 'teal', 'orange', '#24f', '#b7d99c', '#293']
+            if "model_base" in selected_cols:
+                category3_mapping = {
+                        'v1': 'T5-v1', 'base': 'T5-base',
+                        'lm': 'T5-lm', 'large': 'T5-large' 
+                        }
+
+                facet_order = ['T5-base', 'T5-large']  # specify the desired order
+                tdf['model_base'] = tdf['model_base'].map(category3_mapping)
+
+                # facet_order = ['T5-v1', 'T5-lm', 'T5-base']  # specify the desired order
+
+            if cur_col_name.endswith("_score"):
+                score_col = cur_col_name
             else:
-                category2_order = ['PreSup','PrePT', 'PostPT', 'MaskedPrePT', 'MaskedPostPT']
-                category2_mapping = {
-                    '0-ptar-sup': 'PostPT', "ptar-sup":"PreSup", 
-                    'ptar-unsup-nat':'MaskedPrePT',
-                    'ptar-sup-nat': 'PrePT', '0-ptar-unsup': 'MaskedPostPT'
-                    }
-            category3_mapping = {
-                    'v1': 'T5-v1', 'base': 'T5-base',
-                    'lm': 'T5-lm' 
-                    }
-
-            category1_order = ['---', 'LM', 'Denoising', 'Mixed']
-            tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
-            tdf['template'] = tdf['template'].map(category2_mapping)
-            tdf['model_base'] = tdf['model_base'].map(category3_mapping)
-
-            facet_order = ['T5-v1', 'T5-lm', 'T5-base']  # specify the desired order
-            if not "model_base" in selected_cols:
-                selected_cols.append("model_base")
-
-            tdf = tdf.groupby(selected_cols)['All'].mean().reset_index()
-            hue_palette = sns.color_palette("husl", len(tdf[selected_cols[1]].unique()))
-            palette = ['orange','#B33', '#4cc', '#24f']
-            g = sns.FacetGrid(tdf, col='model_base', col_order=facet_order,
-                    col_wrap=3, height=4, aspect=1.5)
-            g.map(sns.barplot, selected_cols[0], 'All', selected_cols[1], 
+                score_col = 'All' if context == "pivot" else 'rouge_score'
+            tdf = tdf.groupby(selected_cols)[score_col].mean().reset_index()
+            hue_palette = sns.color_palette("husl", len(tdf[selected_cols[-1]].unique()))
+            g = sns.FacetGrid(tdf, col=cat_col, col_order=facet_order,
+                    col_wrap=num_cats, height=4, aspect=1.5)
+            g.map(sns.barplot, selected_cols[1], score_col, selected_cols[-1], 
                     palette=palette, ci=None, 
                     order=category1_order, hue_order=category2_order)
             g.set_axis_labels("", 'Mean Scores')
             g.set_titles('{col_name}')
-            g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', ha='center', va='center', fontsize=12)
+            g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', 
+                    ha='center', va='center', fontsize=12)
             # Rotate x labels for better readability
             #for ax in g.axes.flat:
             #    for label in ax.get_xticklabels():
@@ -3432,6 +3540,20 @@ def show_df(df, summary=False):
             plt.xlabel('Category1')
             plt.ylabel('Mean Scores')
             plt.show()
+        elif cmd.startswith("apply"):
+            _, function_name = cmd.split("@")
+            if not function_name in function_map:
+                show_msg("There is no funciton named " + function_name)
+            elif "fid" in df: 
+                exprs, scores= get_sel_rows(df, row_id="fid", col="rouge_score", from_main=False) 
+                s_rows = sel_rows
+                if not s_rows:
+                    s_rows = [sel_row]
+                for s_row, exp, score in zip(s_rows, exprs, scores):
+                    tdf = main_df[main_df['fid'] == exp]
+                    spath = tdf.iloc[0]["path"]
+                    function_map[function_name](tdf,spath)
+            mbeep()
         if cmd.startswith("rem"):
             if "@" in cmd:
                 exp_names = cmd.split("@")[2:]
@@ -4226,6 +4348,7 @@ def change_info(infos):
     h,w = info_bar.getmaxyx()
     w = 80
     lnum = 0
+    infos.insert(0, "-"*30)
     for msg in infos:
         lines = textwrap.wrap(msg, width=w, placeholder=".")
         for line in lines: 
