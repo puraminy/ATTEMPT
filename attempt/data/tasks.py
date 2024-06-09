@@ -558,9 +558,9 @@ class AbstractTask(abc.ABC):
             removed_text = ' '.join(removed_words)
             return cleaned_text, removed_text
         def match_text(row):
-            return row['target_text'] if row['pred_text1'] == row['vtarget'] else 'mistake'
+            return row['target_text'] if row['vtarget'] in row['pred_text1'] else 'mistake'
 		# Apply the cleaning function to each row in 'pred_text1'
-        if self.target_pos == 0:
+        if True: #self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
             #df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
             df["pred_text1"] = df.apply(match_text, axis=1) 
@@ -760,6 +760,8 @@ class AbstractTask(abc.ABC):
                 target = target.replace("(prefix)", "{rel_shared_words}:", 1)
             elif part.startswith("v"): 
                 self.rel_nat_key = part
+            elif part.startswith("tr"): 
+                pass # for different tirals
             else:
                 raise ValueError("Invalid part in template:" + part)
 
@@ -1047,13 +1049,13 @@ class QA(AbstractTask):
             "v0": "{mask} is correct",
             "v1": "The answer is {mask}, {mask} is correct",
             "v3": "{mask}, the correct choice is {mask}",
-            "v4": "{mask}, {mask}",
+            "v4": "{mask}",
             "v3so": "{mask}, so the correct choice is {mask}",
             "v2": "{mask}, so {mask} is correct",
-            "vs1": "{ans}, the correct answer is ",
+            "vs1": "{ans}, the correct choice is ",
             "vs2": "{ans}",
         }
-    rel_nat = "The correct choice is:"
+    rel_nat = "The correct choice is "
     qpos = "end"
     omit = ""
     len_thresh = None
@@ -1063,11 +1065,11 @@ class QA(AbstractTask):
         choices = example['choices']['text']
         average_length = sum(len(choice.split(" ")) for choice in choices) / len(choices)
         if not "?" in question:
-           template = "vnat_1-vs2"
+           template = "vnat_0-vs2"
         elif average_length < 4:
-           template = "unsup-nat"
+           template = "vnat_0-v4"
         else:
-           template = "vnat_1-vs1"
+           template = "vnat_0-vs2"
         return template
 
     def filter_dataset(self, example):
