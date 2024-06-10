@@ -1401,16 +1401,16 @@ def show_df(df, summary=False):
         if cur_col < len(sel_cols) and len(sel_cols) > 0:
             _sel_col = sel_cols[cur_col]
             if not df.empty:
-                if show_infos:
+                _sel_val = df.iloc[sel_row][_sel_col]
+                infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
+                col_cond = type(_sel_val) == str and len(_sel_val) > 50
+                if show_infos and not col_cond:
                     _, _sel_val = get_sel_rows(df, col="query", from_main=True) 
                     infos.append("resp:{}".format(_sel_val))
                     infos.append("-------------------------")
                     _, _sel_val = get_sel_rows(df, col="resp", from_main=True) 
                     infos.append("resp:{}".format(_sel_val))
-                _sel_val = df.iloc[sel_row][_sel_col]
-                infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
-                if type(_sel_val) == str and len(_sel_val) > 50:
-                    show_infos = True
+                show_infos = col_cond 
         for c in sel_cols:
             if not c in df:
                 continue
@@ -1668,8 +1668,8 @@ def show_df(df, summary=False):
         elif char in ["W"] and prev_char == "x":
             save_df(df)
         elif char == "B":
-            _score = "bleu_score"
-            scorers = "bleu"
+            _score = "bert_score"
+            scorers = "bert"
             #_score = "rouge_score"
             #scorers = "rouge"
             exprs, scores = get_sel_rows(df, row_id="fid", col=_score, from_main=False) 
@@ -3445,22 +3445,23 @@ def show_df(df, summary=False):
                         }
                 else:
                     category2_order = [
-                            'Mapping', 
-                            'Prompting', 
-                            'MaskedMapping', 
-                            'MaskedPrompting', 
+                         #   'Mapping', 
+                         #   'Prompting', 
+                         #   'MaskedMapping', 
+                         #   'MaskedPrompting', 
                             "AnswerPrompting", 
-                            "AnswerPromptingCH",
+                            "ChoicePrompting",
                             "MaskedAnswerPrompting",
-                            "MaskedAnswerPromptingCH",
+                            "MaskedChoicePrompting",
                             ]
+                    palette = ['pink','#909', '#b7d99c', '#293']
                     category2_mapping = {
                          'sup': 'Mapping', 
                          'unsup': 'MaskedMapping',
                          'sup-nat': 'Prompting', 
                          'unsup-nat': 'MaskedPrompting',
-                         'vnat-v3': 'MaskedAnswerPromptingCH',
-                         'vnat_1-vs2': "AnswerPromptingCH",
+                         'vnat-v3': 'MaskedChoicePrompting',
+                         'vnat_1-vs2': "ChoicePrompting",
                          'vnat_0-v4': "MaskedAnswerPrompting",
                          'vnat_0-vs2': "AnswerPrompting",
                          # 'vnat_1-vs2': "Predict Choice Number",
