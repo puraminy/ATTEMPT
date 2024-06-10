@@ -623,7 +623,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"]
+   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"] + [v for v in var_names if v.startswith("comment")]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -2423,7 +2423,7 @@ def train(**kwargs):
         load_model(load_model_dir, 
                 lsp=model_args.attn_tuning)
     for k,v in kwargs.items():
-        if not k in exp_info:
+        if not k in exp_info and not k.startswith("comment"):
             exp_info[k] = v
     if training_args.do_test:
         mylogs.bp("test_prefix")
