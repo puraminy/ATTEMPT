@@ -9,9 +9,8 @@ alias retrain="python3 ../run_seq2seq.py run "
 
 # Apply Classifier
 # reval FT -conf classify-omcs --t=free-rels --tsn=16000 --model=t5-base-classifier-500 --cache=False 
-task=commonsense-qa
 
-retrain FT -to ft-cs-full-g --tn=9741 --tsn=-1 --d=123 $task \
+retrain FT -mod -to ft-cs-full-g --tn=9741 --tsn=-1 --d=123 --t="commonsense-qa" \
       --qpos="end" \
       --omit="fact1" \
       --comment-temp="sup" \
