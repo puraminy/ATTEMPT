@@ -929,7 +929,7 @@ def train(**kwargs):
     if config_file and config_file.endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        config_file = op.join(mylogs.home, "ATTEMPT","attempt","confs", config_file)
+        config_file = op.join(_dir,"confs", config_file)
         model_args, data_args, training_args, adapter_args = parser.parse_json_file(
             json_file=config_file)
     else:
