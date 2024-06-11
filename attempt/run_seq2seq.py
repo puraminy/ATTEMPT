@@ -2344,6 +2344,8 @@ def train(**kwargs):
                         router_prefix=router_prefix)
 
         save_model_default = data_args.max_train_samples > 2000
+        if save_model_default:
+            save_model_default = "template"
         save_model = kwargs.setdefault("save_model", save_model_default)
         if save_model:
             # save all model parameters and tokenizers 

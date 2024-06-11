@@ -9,6 +9,23 @@ alias retrain="python3 ../run_seq2seq.py run "
 
 # Apply Classifier
 # reval FT -conf classify-omcs --t=free-rels --tsn=16000 --model=t5-base-classifier-500 --cache=False 
+task=commonsense-qa
+
+retrain FT -to ft-cs-full-g --tn=9741 --tsn=-1 --d=123 $task \
+      --qpos="end" \
+      --omit="fact1" \
+      --comment-temp="sup" \
+      --temp="vnat_0-vs2"  \
+      --comment-op-temp="vnat_1-vs2#vnat_0-vs2"  \
+      --comment="#vnat_1-vs1#unsup-nat" \
+      --commenttemp="vnat-v3#vnat_1-vs2#temp_len#sup#vnat_1-vs1#sup#sup-nat#unsup#unsup-nat" \
+      --ep=3 -skip \
+      --lr=0.0001 \
+      --model=t5-large \
+      --bs=4 --tbs=10 --opt_type=ada --sph=3 --cache=True _single -merge=task_name  -last=task_name
+
+exit
+
 
 # Unsupervised Pre-Training using 8000 sample
 retrain FT -mod --t=free-cs -to fc-2 --cache=False --tn=8000 --ep=3 --tsn=100 --bs=24 --temp=mixed#sup --lr=0.0001 --model=t5-large --save=template-free --do_test=False
