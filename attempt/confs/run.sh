@@ -21,7 +21,7 @@ retrain FT -mod -to ft-cs-full-g --tn=9741 --tsn=-1 --d=123 --t="commonsense-qa"
       --ep=3 -skip \
       --lr=0.0001 \
       --model=t5-large \
-      --bs=4 --tbs=10 --opt_type=ada --sph=3 --cache=True _single -merge=task_name  -last=task_name
+      --bs=4 --tbs=10 --opt_type=ada --sph=3 --cache=True -merge=task_name  -last=task_name
 
 exit
 
