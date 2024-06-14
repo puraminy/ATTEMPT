@@ -30,7 +30,7 @@ import json
 
 
 
-#from bleurt import score
+from bleurt import score
 import tensorflow as tf
 
 
@@ -663,6 +663,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     scored_df = pd.DataFrame(rows)
     if reval:
         columns_to_drop = [col for col in df.columns if col.endswith('_new')]
+        if "bleu" in scorers:
+            df["bleu_score"] = 0
         df.drop(columns=columns_to_drop, inplace=True)
         df = pd.merge(df, scored_df, 
                 on=["input_text", "prefix"], how="left", suffixes=('', '_new'))

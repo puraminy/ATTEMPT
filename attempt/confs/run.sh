@@ -9,12 +9,13 @@ alias retrain="python3 ../run_seq2seq.py run "
 
 # Apply Classifier
 # reval FT -conf classify-omcs --t=free-rels --tsn=16000 --model=t5-base-classifier-500 --cache=False 
-
-retrain FT -mod -to ft-cs-full-g --tn=9741 --tsn=-1 --d=123 --t="commonsense-qa" \
+# cs 9741
+retrain FT -mod -to ft-cs-full-g --tn=4950 --tsn=-1 --d=123 --t="openbook-qa" \
       --qpos="end" \
       --omit="fact1" \
       --comment-temp="sup" \
-      --temp="vnat_0-vs2"  \
+      --comment-temp="vnat_0-vs2"  \
+      --temp="unsup-nat"  \
       --comment-op-temp="vnat_1-vs2#vnat_0-vs2"  \
       --comment="#vnat_1-vs1#unsup-nat" \
       --commenttemp="vnat-v3#vnat_1-vs2#temp_len#sup#vnat_1-vs1#sup#sup-nat#unsup#unsup-nat" \

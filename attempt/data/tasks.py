@@ -437,8 +437,9 @@ class AbstractTask(abc.ABC):
                 df = pd.read_csv(file_name)
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
+                self.df = df
                 dataset = Dataset.from_pandas(df)
-                do_subsample = True
+                do_subsample = False
                 do_filter = False
                 do_map = True
                 save_ds = False
@@ -549,6 +550,12 @@ class AbstractTask(abc.ABC):
         if not "vnat" in self.template:
             return df
         valid_labels = self.labels_map["map"].values() 
+        def preserve_choices(text):
+            pattern = r'choice\d*'
+            matches = re.findall(pattern, text)
+            preserved_text = ' '.join(matches)
+			
+            return preserved_text.strip() 
 
         def clean_text_and_extract_removed(text):
             words = text.split()
@@ -557,13 +564,35 @@ class AbstractTask(abc.ABC):
             cleaned_text = ' '.join(cleaned_words)
             removed_text = ' '.join(removed_words)
             return cleaned_text, removed_text
+        def remove_choice(text):
+            # Regular expression to match 'Choice' followed by any number of digits
+            pattern = re.compile(r'choice\d*')
+            # Substitute the matched patterns with an empty string
+            cleaned_text = pattern.sub('', text)
+            # Remove any extra whitespace that may result from the removal
+            cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+            return cleaned_text.strip()
+
+        def match_text1(row):
+            pred = preserve_choices(row["pred_text1"]) 
+            cleaned_vpred = remove_choice(str(row['vpred']))
+            cleaned_vtarget = remove_choice(str(row['vtarget']))
+            cond1 = pred == row['target_text'].strip() 
+            cond2 = cleaned_vpred in cleaned_vtarget
+            return row['target_text'] if cond1 or cond2 else 'mistake'
+
         def match_text(row):
-            return row['target_text'] if row['vtarget'] in row['pred_text1'] else 'mistake'
+            cleaned_vpred = remove_choice(str(row['vpred']))
+            cleaned_vtarget = remove_choice(str(row['vtarget']))
+            return row['target_text'] if cleaned_vtarget in cleaned_vpred else 'mistake'
 		# Apply the cleaning function to each row in 'pred_text1'
         if True: #self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
             #df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
-            df["pred_text1"] = df.apply(match_text, axis=1) 
+            if "v3" in self.template:
+                df["pred_text1"] = df.apply(match_text1, axis=1) 
+            else:
+                df["pred_text1"] = df.apply(match_text, axis=1) 
         else:
             df[['pred_text1', 'vpred']] = df.apply(lambda row:  clean_text_and_extract_removed(row['pred_text1']), axis=1, result_type='expand')
 
@@ -703,6 +732,7 @@ class AbstractTask(abc.ABC):
             elif part == "sup":
                 src = src.replace("(mask)", "")
                 target = target.replace("(mask)", "")
+                self.qpos = "start"
             elif part == "pcom":
                 src = src.replace("(prompt)", "[com_i] (prompt) ", 1)
                 pcom += 1
@@ -1556,6 +1586,7 @@ class Atomic(AbstractTask):
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         train_sph = task_args.get("samples_per_head", 1)
+        self.start_row = task_args.get("start_row", 0)
         self.samples_per_head_per_split["train"] = train_sph
         if not self.rels:
             if not task_args.rels:
@@ -1599,6 +1630,13 @@ class Atomic(AbstractTask):
         ds = Dataset.from_pandas(df)
         self.df = df
         return ds
+
+    def temp_flex(self, template_type):
+        if self.name in ["ObjectUse", "AtLocation", "MadeUpOf" ,"HasProperty",
+                "CapableOf","Desires","NotDesires","xAttr","xReact","oReact","isFilledBy"]:
+            return "unsup-nat"
+        else:
+            return "sup-nat"
 
     def check_n_obs2(self, n_obs, total_size):
         if n_obs < 0:
