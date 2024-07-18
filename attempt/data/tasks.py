@@ -39,6 +39,15 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+def serialize_column(value):
+    try:
+        # Try to convert the value to JSON
+        json_value = json.dumps(value)
+        return json_value
+    except (TypeError, OverflowError):
+        # If it fails, return the original value
+        return value
+
 class AbstractTask(abc.ABC):
     name = None
     do_shuffle = True  # My code
@@ -312,7 +321,14 @@ class AbstractTask(abc.ABC):
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
         elif isinstance(dataset, Dataset) and self.use_df:
-            dataset.to_pandas().to_csv(output_filename, index=False)
+            df = dataset.to_pandas()
+            # Detect columns that need serialization
+            for column in df.columns:
+                # Check if the column contains at least one dictionary
+                if any(isinstance(val, dict) for val in df[column]):
+                    # Serialize the entire column
+                    df[column] = df[column].apply(serialize_column) 
+            df.to_csv(output_filename, index=False)
         elif isinstance(dataset, Dataset):
             if not directory:
                 directory = self.get_folder_path()
