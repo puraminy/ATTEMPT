@@ -217,30 +217,67 @@ def calculate_precision_recall(row):
 
     return pd.Series({'precision': precision, 'recall': recall})
 
-
-def recalc_rouge(df, spath):
+def recalc_rouge2(df, spath):
    def match_text(row):
-      return 1. if row['vtarget'] in row['vpred'] else 0. 
+      return 1. if str(row['vpred']) == str(row['target_text']) else 0. 
+   df["rouge_score"] = df.apply(match_text, axis=1)
+   df.to_csv(spath, index=False, sep="\t")
+   return df["rouge_score"].mean()
+
+def recalc_rouge3(df, spath):
+   def match_text(row):
+      return 1. if str(row['pred_text1']) == str(row['target_text']) else 0. 
    df["rouge_score"] = df.apply(match_text, axis=1)
    df.to_csv(spath, index=False, sep="\t")
    return df["rouge_score"].mean()
 
 
+
+def recalc_rouge(df, spath):
+   def match_text(row):
+      cleaned_vpred = remove_choice(str(row['vpred']))
+      return 1. if cleaned_vpred in str(row['vtarget']) else 0. 
+   df["rouge_score"] = df.apply(match_text, axis=1)
+   df.to_csv(spath, index=False, sep="\t")
+   return df["rouge_score"].mean()
+
+def preserve_choices(text):
+    pattern = r'choice\d*'
+    matches = re.findall(pattern, text)
+    preserved_text = ' '.join(matches)
+    return preserved_text.strip() 
+
 def remove_choice(text):
     # Regular expression to match 'Choice' followed by any number of digits
-    pattern = re.compile(r'choice\d+')
+    pattern = re.compile(r'\bchoice\d*\b', re.IGNORECASE)
     # Substitute the matched patterns with an empty string
     cleaned_text = pattern.sub('', text)
     # Remove any extra whitespace that may result from the removal
     cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
     return cleaned_text
 
+def recalc_v3(df, spath):
+   def match_text1(row):
+       pred = preserve_choices(row["pred_text1"])
+       cleaned_vpred = remove_choice(str(row['vpred']))
+       cleaned_vtarget = remove_choice(str(row['vtarget']))
+       cond1 = pred == row['target_text'].strip()
+       if len(cleaned_vpred.split()) > 2:
+           cond2 = cleaned_vpred in cleaned_vtarget
+       else:
+           cond2 = cleaned_vtarget in cleaned_vpred
+       return 1. if cond1 or cond2 else 0.
+
+   df["rouge_score"] = df.apply(match_text1, axis=1)
+   df.to_csv(spath, index=False, sep="\t")
+   return df["rouge_score"].mean()
+
 def vpredin(df, spath):
     def match_text(row):
         # Remove ChoiceN from vpred and input_text
         cleaned_vpred = remove_choice(str(row['vpred']))
         cleaned_input_text = remove_choice(str(row['input_text']))
-        return 1.0 if cleaned_vpred in cleaned_input_text else 0.0
+        return 0.0 if cleaned_vpred in cleaned_input_text else 1.0
 
     df["vpredin_score"] = df.apply(match_text, axis=1) * 100
     df.to_csv(spath, index=False, sep="\t")
@@ -249,6 +286,9 @@ def vpredin(df, spath):
 
 function_map = {
         "recalc_rouge": recalc_rouge,
+        "recalc_rouge2": recalc_rouge2,
+        "recalc_rouge3": recalc_rouge3,
+        "recalc_v3": recalc_v3,
         "vpredin": vpredin,
         }
 
@@ -473,7 +513,6 @@ def get_main_vars(df):
 
 def summarize(df, rep_cols=None, score_col=None, rename =True):
     mdf = df #main_df
-
     pivot_cols = ["prefix"]
     if not rep_cols:
         file_dir = Path(__file__).parent
@@ -637,9 +676,45 @@ def add_cols(df):
     if not "bert_score" in df:
        df["bert_score"] = 0
 
+    df["model_temp"] = df["model_name_or_path"].str.split("-").str[2]
+    df["model_base"] = df["model_name_or_path"].str.split("-").str[1]
     #if "fid" in df:
     #    df = df.rename(columns={"fid":"expid"})
 
+    template_mapping = {
+         'sup': 'Mapping', 
+         'unsup': 'MaskedMapping',
+         'sup-nat': 'Prompting', 
+         'unsup-nat': 'MaskedPrompting',
+         'vnat-v3': 'MaskedChoicePrompting',
+         'vnat_1-vs2': "ChoicePrompting",
+         'vnat_0-v4': "MaskedAnswerPrompting",
+         'vnat_0-vs2': "AnswerPrompting",
+         '0-ptar-sup': 'PostPT', 
+         "ptar-sup":"PreSup", 
+         'ptar-unsup-nat':'MaskedPrePT',
+         'ptar-sup-nat': 'PrePT', 
+         '0-ptar-unsup': 'MaskedPostPT',
+         '0-ptar-vnat-v3': 'MaskedAnswerPT', 
+         '0-ptar-vnat_1-vs1': 'AnswerPT',
+         'ptar-vnat_0-v4':'PreMaskedAnswerPT',
+         '0-ptar-vnat_0-v4':'PostMaskedAnswerPT',
+         'ptar-vnat_0-vs2':'PreAnswerPT',
+         '0-ptar-vnat_0-vs2':'PostAnswerPT',
+         # 'vnat_1-vs2': "Predict Choice Number",
+        }
+    templates = df["template"].unique()
+    if any("sup" in str(x) or "vnat" in str(x) for x in templates):
+        df['template'] = df['template'].map(template_mapping)
+    model_temp_mapping = {
+        'none': '---', 
+        'sup': 'LM', 
+        'unsup': 'Denoising',
+        "mixed": "Mixed"
+        }
+    model_temps = df["model_temp"].unique()
+    if any("sup" in str(x) for x in model_temps):
+        df['model_temp'] = df['model_temp'].map(model_temp_mapping)
     if "input_text" in df:
         df['input_text'] = df['input_text'].str.replace('##','')
         df['input_text'] = df['input_text'].str.split('>>').str[0]
@@ -662,14 +737,16 @@ def add_cols(df):
     if "use_masked_attn" in df:
         df["use_masked_attn"] = df["use_masked_attn"].astype(str)
 
+    if True:
+        # df.loc[df["rouge_score"] < 1, ["rouge_score", "bert_score"]] *= 100
+        df["rouge_score"] = df["rouge_score"]*100 
+        df["bert_score"] = df["bert_score"]*100 
     if True: #"compose_method" in df:
         df["expid"] = df["exp_name"].str.split("-").str[1]
         df["expname"] = df["exp_name"].str.split("-").str[1]
         df["ftag"] = df["folder"].str.split("/").str[-1]
         df["ftag"] = df["ftag"].str.split("_").str[0]
 
-        df["model_temp"] = df["model_name_or_path"].str.split("-").str[2]
-        df["model_base"] = df["model_name_or_path"].str.split("-").str[1]
         #df["model_base"] = df["model_name_or_path"].apply(lambda x: '-'.join(x.split('-')[1:2] + x.split('-')[-2:]))
 
     if False: #"expid" in df:
@@ -1336,6 +1413,7 @@ def show_df(df, summary=False):
     show_consts = True
     show_extra = False
     show_infos = False
+    show_rest = False
     consts = {}
     extra = {"filter":[]}
     orig_df = main_df.copy()
@@ -1403,14 +1481,13 @@ def show_df(df, summary=False):
             if not df.empty:
                 _sel_val = df.iloc[sel_row][_sel_col]
                 infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
-                col_cond = type(_sel_val) == str and len(_sel_val) > 50
-                if show_infos and not col_cond:
+                show_rest = type(_sel_val) == str and len(_sel_val) > 50
+                if show_infos and not show_rest:
                     _, _sel_val = get_sel_rows(df, col="query", from_main=True) 
                     infos.append("resp:{}".format(_sel_val))
                     infos.append("-------------------------")
                     _, _sel_val = get_sel_rows(df, col="resp", from_main=True) 
                     infos.append("resp:{}".format(_sel_val))
-                show_infos = col_cond 
         for c in sel_cols:
             if not c in df:
                 continue
@@ -1436,7 +1513,7 @@ def show_df(df, summary=False):
                 if type(val) == list:
                     val = "-".join(val)
                 infos.append("{:<5}:{}".format(key,val))
-        if show_infos:
+        if show_infos or show_rest:
             info_lines = change_info(infos)
 
         prev_char = chr(ch)
@@ -2096,8 +2173,12 @@ def show_df(df, summary=False):
             if not selected_cols:
                 cols = ["label", "max_train_samples"]
             if len(cols) > 0:
-                df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
+                df = df.groupby(cols, as_index=False)["All"].agg(['mean', 'std']).reset_index()
+                # df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
+                # df.iloc[:, -2:] = df.iloc[:, -2:] * 100
                 df = df.round(2)
+                sel_cols = list(df.columns)
+                cond_colors["mean"] = score_colors
             selected_cols = []
             left = 0
         elif char in ["g", "u"]:
@@ -2122,13 +2203,18 @@ def show_df(df, summary=False):
                 show_msg("Please select a column")
             else:
                 col = sel_cols[cur_col]
-                df = df.groupby(col, as_index=False).mean(numeric_only=True).reset_index()
+                # df = df.groupby(col, as_index=False).mean(numeric_only=True).reset_index()
+                df = df.groupby(col)["All"].agg(['mean', 'std']).reset_index()
+                df.columns = ['_'.join(col).strip() 
+                        if isinstance(col, tuple) else col for col in df.columns]
                 if "m_score" in df:
                     df = df.sort_values(by=["m_score"], ascending=False)
                 elif "All" in df:
                     df = df.sort_values(by=["All"], ascending=False)
                 df = df.round(2)
+                sel_cols = list(df.columns)
                 left = 0
+                cond_colors["mean"] = score_colors
         elif char == "a" and False: 
             consts["options"] = "b: back"
             backit(df, sel_cols)
@@ -3419,12 +3505,19 @@ def show_df(df, summary=False):
             convert_labels = True #settings.get("convert_labels", False)
 
             palette = ['orange','#B33', '#4cc', '#24f', 'pink','#909', '#b7d99c', '#293']
-            if convert_labels and "model_temp" in selected_cols:
+            if  "model_temp" in selected_cols:
                 category1_mapping = {
-                    'none': '---', 'sup': 'LM', 
-                    'unsup': 'Denoising',"mixed": "Mixed"
+                    'none': '---', 
+                    'sup': 'LM', 
+                    'unsup': 'Denoising',
+                    "mixed": "Mixed"
                     }
-                category1_order = ['---', 'LM', 'Denoising', 'Mixed']
+                category1_order = [
+                        '---', 
+                        'LM', 
+                        'Denoising', 
+                        'Mixed'
+                        ]
                 tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
             if convert_labels and "template" in selected_cols:
                 if any("ptar" in t for t in templates):
@@ -3446,17 +3539,28 @@ def show_df(df, summary=False):
                         '0-ptar-vnat_0-vs2':'PostAnswerPT',
                         }
                 else:
+                    cat_color = {
+                            'Mapping':'orange', 
+                            'Prompting':'#B33', 
+                            'MaskedMapping':'#4cc', 
+                            'MaskedPrompting':'#24f', 
+                            "AnswerPrompting":'pink', 
+                            "ChoicePrompting":'#909',
+                            "MaskedAnswerPrompting":'#b7d99c',
+                            "MaskedChoicePrompting":'#283',
+                            }
+                
                     category2_order = [
-                         #   'Mapping', 
-                         #   'Prompting', 
-                         #   'MaskedMapping', 
-                         #   'MaskedPrompting', 
+                            #'Mapping', 
+                            #'Prompting', 
+                            #'MaskedMapping', 
+                            #'MaskedPrompting', 
                             "AnswerPrompting", 
-                            "ChoicePrompting",
+                            #"ChoicePrompting",
                             "MaskedAnswerPrompting",
-                            "MaskedChoicePrompting",
+                            #"MaskedChoicePrompting",
                             ]
-                    palette = ['pink','#909', '#b7d99c', '#293']
+                    palette = [v for k,v in cat_color.items() if k in category2_order]
                     category2_mapping = {
                          'sup': 'Mapping', 
                          'unsup': 'MaskedMapping',
@@ -3477,17 +3581,20 @@ def show_df(df, summary=False):
                         'end': 'question position: end',
                         }
 
-                facet_order = category3_mapping.values() 
-                tdf['qpos'] = tdf['qpos'].map(category3_mapping)
+                #facet_order = category3_mapping.values() 
+                #tdf['qpos'] = tdf['qpos'].map(category3_mapping)
+                category2_order = ["start","end"]
                 palette = ['#4cc', 'teal', 'orange', '#24f', '#b7d99c', '#293']
-            if "model_base" in selected_cols:
+                # palette = ['pink','#909', '#b7d99c', '#293']
+            if convert_labels and "model_base" in selected_cols:
                 category3_mapping = {
                         'v1': 'T5-v1', 'base': 'T5-base',
                         'lm': 'T5-lm', 'large': 'T5-large' 
                         }
 
-                facet_order = ['T5-base', 'T5-large']  # specify the desired order
+                facet_order = ['T5-large'] #, 'T5-large']  # specify the desired order
                 tdf['model_base'] = tdf['model_base'].map(category3_mapping)
+                palette = ['pink','#909', '#b7d99c', '#293']
 
                 # facet_order = ['T5-v1', 'T5-lm', 'T5-base']  # specify the desired order
 
@@ -3502,15 +3609,18 @@ def show_df(df, summary=False):
             g.map(sns.barplot, selected_cols[1], score_col, selected_cols[-1], 
                     palette=palette, ci=None, 
                     order=category1_order, hue_order=category2_order)
-            g.set_axis_labels("", 'Mean Scores')
+            g.set_axis_labels("Unsupervised Training Objective", 'Mean Scores')
             g.set_titles('{col_name}')
-            g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', 
-                    ha='center', va='center', fontsize=12)
+            #g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', 
+            #        ha='center', va='center', fontsize=12)
+            if "@" in cmd:
+                _, ll = cmd.split("@")
+                g.fig.text(0.05, 0.95, ll, ha='left', va='top', fontsize=12, transform=g.fig.transFigure)
             # Rotate x labels for better readability
             #for ax in g.axes.flat:
             #    for label in ax.get_xticklabels():
             #        label.set_rotation(45)
-            g.add_legend(loc='upper right') 
+            g.add_legend(loc='upper right', title_fontsize=14) 
             plt.show()
         elif cmd.startswith("scat"):
             x = df[selected_cols[0]]
@@ -3529,11 +3639,13 @@ def show_df(df, summary=False):
             xlabel = xlabel.replace('_', ' ').title()
             ylabel = ylabel.replace('_', ' ').title()
 
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            plt.legend()
+            plt.xlabel(xlabel, fontsize=16)
+            plt.ylabel(ylabel, fontsize=16)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
+            plt.legend(fontsize=16)
 
-            plt.title(xlabel + ' vs. ' + ylabel)
+            plt.title(xlabel + ' vs. ' + ylabel, fontsize=20)
             plt.show()
         elif cmd.startswith("mbar"):
             tdf = df.groupby(selected_cols)['All'].mean().unstack()

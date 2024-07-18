@@ -12,9 +12,8 @@
     "model_temp",
     "template",
     "method",
+    "qpos",
     "vpredin_score",
-    "bleu_score",
-    "bert_score",
     "rouge_score",
     "prefix"
   ],

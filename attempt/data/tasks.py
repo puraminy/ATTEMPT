@@ -346,6 +346,18 @@ class AbstractTask(abc.ABC):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
+<<<<<<< HEAD
+        elif isinstance(dataset, Dataset) and self.use_df:
+            df = dataset.to_pandas()
+            # Detect columns that need serialization
+            for column in df.columns:
+                # Check if the column contains at least one dictionary
+                if any(isinstance(val, dict) for val in df[column]):
+                    # Serialize the entire column
+                    df[column] = df[column].apply(serialize_column) 
+            df.to_csv(output_filename, index=False)
+=======
+>>>>>>> dcc6723e12b18d6784e0f00af96dff5b0f0515fa
         elif isinstance(dataset, Dataset):
             if save_df is True and not Path(output_filename).is_file():
                 df = dataset.to_pandas()
