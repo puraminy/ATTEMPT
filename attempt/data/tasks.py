@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import re
 import json
+import ast
 from attempt.maps import *
 import attempt.mylogs as mylogs
 from itertools import cycle, islice
@@ -28,7 +29,6 @@ import random
 #nltk.download('punkt')
 #from nltk.tokenize import sent_tokenize
 
-
 logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/datasets/super_glue.py"
@@ -38,6 +38,36 @@ class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+
+def convert_numpy(obj):
+    """Recursively convert numpy arrays to lists within dictionaries."""
+    if isinstance(obj, dict):
+        return {k: convert_numpy(v) for k, v in obj.items()}
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
+def serialize_column(value):
+    try:
+        # Convert numpy arrays within the value to lists
+        value = convert_numpy(value)
+        # Try to convert the value to JSON
+        json_value = json.dumps(value)
+        return json_value
+    except (TypeError, OverflowError):
+        # If it fails, return the original value
+        return value
+
+def deserialize_column(value):
+    try:
+        # Try to load the value from JSON
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        # If it fails, return the original value
+        raise ValueError("Type Error")
+        return value
 
 class AbstractTask(abc.ABC):
     name = None
@@ -50,6 +80,7 @@ class AbstractTask(abc.ABC):
     generation = False
     split_map = None
     use_df = False
+    use_processed_df = False
     load_df = False
     cur_example = None
     df_format = ".csv"
@@ -306,18 +337,26 @@ class AbstractTask(abc.ABC):
         self.files[split] = outfile
         return directory, infile, outfile
 
-    def save_dataset(self, dataset, output_filename, directory = ""):
+    def save_dataset(self, dataset, output_filename, directory = "", save_ds=True, save_df=True):
         if isinstance(dataset, pd.DataFrame):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
-        elif isinstance(dataset, Dataset) and self.use_df:
-            dataset.to_pandas().to_csv(output_filename, index=False)
         elif isinstance(dataset, Dataset):
+            if save_df is True and not Path(output_filename).is_file():
+                df = dataset.to_pandas()
+                # Detect columns that need serialization
+                for column in df.columns:
+                    # Check if the column contains at least one dictionary
+                    if any(isinstance(val, dict) for val in df[column]):
+                        # Serialize the entire column
+                        df[column] = df[column].apply(serialize_column)
+                df.to_csv(output_filename, index=False)
             if not directory:
                 directory = self.get_folder_path()
                 directory = op.join(directory, self.split)
-            dataset.save_to_disk(directory)
+            if save_ds:
+                dataset.save_to_disk(directory)
         else:
             raise ValueError("Unsupported dataset type. Cannot save.")
 
@@ -378,7 +417,7 @@ class AbstractTask(abc.ABC):
         assert type(prefix) != list, prefix 
         print("getting samples ... " + prefix)
         directory, file_name, outfile = self.get_stored_file(split, n_obs)
-        split_prefix = self.name + "_"
+        split_prefix = "" # self.name + "_"
         if split in self.split_prefix:
             split_prefix = self.split_prefix[split]
         split_file = op.join(directory, split_prefix + split + ".csv")
@@ -444,15 +483,19 @@ class AbstractTask(abc.ABC):
                 do_map = True
                 save_ds = False
             elif self.use_cache_file and self.use_df and not self.load_df and split_file is not None and Path(split_file).is_file(): 
-                mylogs.minfo("------------- LOADING FROM Saved DataFrame Train FILE:" + \
+                mylogs.minfo("------------- LOADING FROM Saved DataFrame Split FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
                 #    'csv', data_files={split:file_name})[split]
                 df = pd.read_csv(split_file)
                 #df.label = df.label.astype(int)
                 df = df.dropna(how='all')
-                if not Path(outfile).is_file() and self.cache_file:
-                    self.save_dataset(df, outfile)
+                for column in df.columns:
+                    # Check if the column contains at least one JSON string
+                    if any(isinstance(val, str) and val.startswith('{') for val in df[column]):
+                        # Deserialize the entire column
+                        df[column] = df[column].apply(deserialize_column)
+
                 dataset = Dataset.from_pandas(df)
             else:
                 mylogs.minfo("------------- LOADING Dataset :" + \
@@ -475,10 +518,7 @@ class AbstractTask(abc.ABC):
                         dataset = self.load_dataset(split=mapped_split)
                         save_ds = True
 
-        if self.use_df and not Path(outfile).is_file():
-            self.save_dataset(dataset, outfile)
-        elif save_ds is True:
-            self.save_dataset(dataset, split_file, directory)
+        self.save_dataset(dataset, split_file, directory, save_ds=save_ds)
         self.records_num[split] = len(dataset)
         dataset = self.map_dataset(dataset, prefix)
         if do_filter is True:
@@ -487,6 +527,8 @@ class AbstractTask(abc.ABC):
                     load_from_cache_file=False)
         if do_subsample and n_obs is not None:
             dataset = self.subsample(dataset, n_obs)
+        if self.use_processed_df and not Path(outfile).is_file():
+            self.save_dataset(dataset, outfile, save_df=True) 
         return dataset
 
     # my post proc
@@ -578,7 +620,7 @@ class AbstractTask(abc.ABC):
             cleaned_vpred = remove_choice(str(row['vpred']))
             cleaned_vtarget = remove_choice(str(row['vtarget']))
             cond1 = pred == row['target_text'].strip() 
-            cond2 = cleaned_vpred in cleaned_vtarget
+            cond2 = cleaned_vpred.strip() != '' and cleaned_vpred in cleaned_vtarget
             return row['target_text'] if cond1 or cond2 else 'mistake'
 
         def match_text(row):
@@ -1092,7 +1134,8 @@ class QA(AbstractTask):
     def temp_len(self, template_type):
         example = self.cur_example
         question =example['question_stem'] if "question_stem" in example else example["question"]
-        choices = example['choices']['text']
+        choices = example["choices"]
+        choices = choices['text']
         average_length = sum(len(choice.split(" ")) for choice in choices) / len(choices)
         if not "?" in question:
            template = "vnat_0-vs2"
@@ -1128,12 +1171,13 @@ class OpenBookQA(QA):
     def preprocessor(self, example, prefix):
         self.cur_example = example
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3"}
-        labels = example["choices"]["label"]
+        choices = example["choices"]
+        labels = choices["label"]
         self.question = "question:" + example['question_stem'].strip(".")
-        src_texts = ["choice1:", example["choices"]["text"][0], ",", 
-                     "choice2:", example["choices"]["text"][1], ",",
-                     "choice3:", example["choices"]["text"][2], ",", 
-                     "choice4:", example["choices"]["text"][3]]
+        src_texts = ["choice1:", choices["text"][0], ",", 
+                     "choice2:", choices["text"][1], ",",
+                     "choice3:", choices["text"][2], ",", 
+                     "choice4:", choices["text"][3]]
         if self.omit != "fact1":
             src_texts.append(", fact:" + example["fact1"])
         tgt_texts = [label2id[example["answerKey"]]]
@@ -1215,6 +1259,7 @@ class CommonsenseQA2(QA):
 
 class CommonsenseQA(QA):
     name = "commonsense-qa"
+    use_df = True
     labels_list = ["0", "1", "2", "3", "4"]
     labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", 
         "3":"choice4","4":"choice5"}}
@@ -1238,15 +1283,22 @@ class CommonsenseQA(QA):
 
     def preprocessor(self, example, prefix):
         self.cur_example = example
+        choices = example["choices"]
+        
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
         self.question = "question:" + example['question'];
-        src_texts = ["choice1:", example["choices"]["text"][0], 
-                     "choice2:", example["choices"]["text"][1],
-                     "choice3:", example["choices"]["text"][2], 
-                     "choice4:", example["choices"]["text"][3], 
-                     "choice5:", example["choices"]["text"][4]]
+        src_texts = ["choice1:", choices["text"][0], 
+                     "choice2:", choices["text"][1],
+                     "choice3:", choices["text"][2], 
+                     "choice4:", choices["text"][3], 
+                     "choice5:", choices["text"][4]]
         tgt_texts = [label2id[example["answerKey"]]]
         return super().seq2seq_format(src_texts, tgt_texts, prefix)
+
+class MaskedCommonsenseQA(CommonsenseQA):
+    split_prefix = {"train": "masked", "test":"masked_"}
+    use_df = True
+
 
 class SocialIQA(QA):
     name = "social-i-qa"
@@ -2748,6 +2800,7 @@ TASK_MAPPING = OrderedDict(
         ('hotpotqa', Squad),
         ("social-i-qa", SocialIQA),
         ("commonsense-qa", CommonsenseQA),
+        ("masked-csqa", MaskedCommonsenseQA),
         ("commonsense-qa-2", CommonsenseQA2),
         ("common-gen", CommonGen),
         ("winogrande", WinoGrande),

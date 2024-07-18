@@ -1668,7 +1668,7 @@ def show_df(df, summary=False):
         elif char in ["W"] and prev_char == "x":
             save_df(df)
         elif char == "B":
-            scorers = settings.get("scorer","bert")
+            scorers = settings.get("scorer","bleu")
             _score = scorers + "_score"
             if not _score in df:
                 df[_score] = 0
