@@ -511,17 +511,21 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
 
    all_vars = [map_param(param_map, x) for x in ctx.args]
    # all_vars = [x.strip("--") for x in ctx.args]
-   var_names = [x.split("=")[0] for x in all_vars]
+   mylogs.bp("vars")
+   var_names = [x.split("=")[0] for x in all_vars] 
+          # if not (x.split("=")[0].startswith("@comment") 
+          #     or x.split("=")[0].startswith("@c-"))]
    values = []
    for x in all_vars:
        _vv = x.split("=")
        if len(_vv) < 2:
            assert False, "invalid argument " + str(x) + "|" + str(_vv)
-       if not _vv[0].startswith("@comment"):
+       if not (_vv[0].startswith("@comment") or _vv[0].startswith("@c-")):
            _vv = _vv[1].strip("#")
            _vvv = _vv.split("#")
        else:
            _vvv = [_vv[1]]
+          #  continue
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
    if last_var:
@@ -544,7 +548,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
            if False: #TODO temporary 
                assert var_name in exp_args, var_name +" must be in experiment variables (config)"
            var_item = var.split("=")[1]
-           if not var_name.startswith("comment"):
+           if not var_name.startswith("comment") or var_name.startswith("c"):
                var_item = var_item.strip("#").split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
@@ -619,11 +623,12 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
    var_names = [vv.strip("@") for vv in var_names]
 
    full_tags = list(set(full_tags))
+   mylogs.bp("full_tags")
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"] + [v for v in var_names if v.startswith("comment")]
+   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"] + [v for v in var_names if v.startswith("comment") or v.startswith("c-")]
    # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
    ii = len(existing_exps) if not reval else 0 
@@ -929,7 +934,7 @@ def train(**kwargs):
     if config_file and config_file.endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
-        config_file = op.join(mylogs.home, "ATTEMPT","attempt","confs", config_file)
+        config_file = op.join(_dir,"confs", config_file)
         model_args, data_args, training_args, adapter_args = parser.parse_json_file(
             json_file=config_file)
     else:
@@ -1166,6 +1171,7 @@ def train(**kwargs):
     task_args["data_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
     task_args["samples_per_head"] = kwargs.setdefault("samples_per_head", 3)
+    task_args["start_row"] = kwargs.setdefault("start_row", 0)
     task_args["mapping"] = kwargs.setdefault("mapping", "map")
     task_args["use_cache_file"] = kwargs.setdefault("use_cache_file", True)
     task_args["use_config"] = kwargs.setdefault("use_config", True)
@@ -2344,6 +2350,8 @@ def train(**kwargs):
                         router_prefix=router_prefix)
 
         save_model_default = data_args.max_train_samples > 2000
+        if save_model_default:
+            save_model_default = "template"
         save_model = kwargs.setdefault("save_model", save_model_default)
         if save_model:
             # save all model parameters and tokenizers 

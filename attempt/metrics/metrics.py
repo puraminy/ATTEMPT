@@ -30,7 +30,7 @@ import json
 
 
 
-#from bleurt import score
+# from bleurt import score
 import tensorflow as tf
 
 
@@ -432,9 +432,6 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     base_path = "/content/drive/MyDrive/pret"
     if not colab:
         base_path = os.path.join(home, "pret")
-    checkpoint = f"{base_path}/paraphrase-MiniLM-L6-v2"
-    if not Path(checkpoint).exists():
-        checkpoint = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
 
     bert_scorer = None
     if colab:
@@ -443,29 +440,32 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
         if scorer is not None:
             bert_scorer = scorer
         else:
+            checkpoint = f"{base_path}/paraphrase-MiniLM-L6-v2"
+            if not Path(checkpoint).exists():
+                checkpoint = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
             bert_scorer = SentenceTransformer(checkpoint)
 
-    checkpoint = f"{base_path}/bleurt-20"
-    if not Path(checkpoint).exists():
-        # checkpoint = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
-        raise FileNotFoundError(checkpoint + " doesn't exists!")
 
     bleu_scorer = None
     if "bleu" in scorers:
         if scorer is not None:
             bleu_scorer = scorer
         else:
+            checkpoint = f"{base_path}/bleurt-20"
+            if not Path(checkpoint).exists():
+                # checkpoint = 'sentence-transformers/paraphrase-MiniLM-L6-v2'
+                raise FileNotFoundError(checkpoint + " doesn't exists!")
             bleu_scorer = score.BleurtScorer(checkpoint)
 
     rouge_scorer = None
     if "rouge" in scorers:
         rouge_scorer = Rouge()
 
-    checkpoint = f"{base_path}/nli-roberta-base-v2"
-    if not Path(checkpoint).exists():
-        checkpoint = 'sentence-transformers/nli-roberta-base-v2'
     nli_model = None
     if "nli" in scorers:
+        checkpoint = f"{base_path}/nli-roberta-base-v2"
+        if not Path(checkpoint).exists():
+            checkpoint = 'sentence-transformers/nli-roberta-base-v2'
         nli_model = CrossEncoder(checkpoint)
     nli_counter = {}
     nli_map = ['contradiction', 'entailment', 'neutral']
@@ -663,6 +663,8 @@ def do_score(df, scorers, save_path, reval=False, scores_to_image=False, use_wan
     scored_df = pd.DataFrame(rows)
     if reval:
         columns_to_drop = [col for col in df.columns if col.endswith('_new')]
+        if "bleu" in scorers:
+            df["bleu_score"] = 0
         df.drop(columns=columns_to_drop, inplace=True)
         df = pd.merge(df, scored_df, 
                 on=["input_text", "prefix"], how="left", suffixes=('', '_new'))

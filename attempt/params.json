@@ -13,6 +13,7 @@
   "gmin":"gen_thresh_min",
   "omit":"omit_part",
   "lent":"len_thresh",
+  "start":"start_row",
   "gmax":"gen_thresh_max",
   "nm":"norm_method",
   "gnm":"gen_norm_method",

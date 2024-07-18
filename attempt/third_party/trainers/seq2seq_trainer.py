@@ -185,7 +185,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
         # gen_inputs = inputs.clone().detach()
 
         gen_kwargs = {
-            "max_length":100,
+            "max_length":200,
             "min_length":2,
             "do_sample":True, 
             "top_p":0.9, 
