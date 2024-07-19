@@ -346,7 +346,6 @@ class AbstractTask(abc.ABC):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
-<<<<<<< HEAD
         elif isinstance(dataset, Dataset) and self.use_df:
             df = dataset.to_pandas()
             # Detect columns that need serialization
@@ -356,8 +355,6 @@ class AbstractTask(abc.ABC):
                     # Serialize the entire column
                     df[column] = df[column].apply(serialize_column) 
             df.to_csv(output_filename, index=False)
-=======
->>>>>>> dcc6723e12b18d6784e0f00af96dff5b0f0515fa
         elif isinstance(dataset, Dataset):
             if save_df is True and not Path(output_filename).is_file():
                 df = dataset.to_pandas()
@@ -1338,6 +1335,8 @@ class MaskedCommonsenseQA(CommonsenseQA):
         
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
         question = example['new_question']
+        if "vs" in self.template:
+            question = question.replace("[MASK]","what") 
         self.question = "question:" + question 
         src_texts = ["choice1:", choices["text"][0], 
                      "choice2:", choices["text"][1],
@@ -2847,6 +2846,7 @@ TASK_MAPPING = OrderedDict(
         ('nq', Squad),
         ('hotpotqa', Squad),
         ("social-i-qa", SocialIQA),
+        ("siqa", SocialIQA),
         ("commonsense-qa", CommonsenseQA),
         ("csqa", CommonsenseQA),
         ("masked-csqa", MaskedCommonsenseQA),
