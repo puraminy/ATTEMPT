@@ -88,6 +88,8 @@ class AbstractTask(abc.ABC):
     do_split = False
     labels_list = None
     pcounter = 0
+    start_row = 0
+    post_subsample = False
     rel_nat = None
     rel_nats = {}
     rel_nat_key = None
@@ -145,6 +147,7 @@ class AbstractTask(abc.ABC):
         self.data_path = task_args.data_path
         self.seed = task_args.data_seed
         self.template = task_args.template
+        self.start_row = task_args.get("start_row", 0)
         self.tokenizer = tokenizer
         self.omit = task_args.get("omit_part",self.omit)
         self.qpos = task_args.get("qpos",self.qpos)
@@ -277,7 +280,7 @@ class AbstractTask(abc.ABC):
             return ds
         if indices is None:
             indices = self.shuffled_indices(dataset)
-        indices = indices[:n_obs]
+        indices = indices[self.start_row:n_obs]
         ds = dataset.select(indices)
         return ds
 
@@ -351,7 +354,7 @@ class AbstractTask(abc.ABC):
             # Detect columns that need serialization
             for column in df.columns:
                 # Check if the column contains at least one dictionary
-                if any(isinstance(val, dict) for val in df[column]):
+                if all(isinstance(val, dict) for val in df[column]):
                     # Serialize the entire column
                     df[column] = df[column].apply(serialize_column) 
             df.to_csv(output_filename, index=False)
@@ -398,7 +401,10 @@ class AbstractTask(abc.ABC):
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
 
-    def filter_dataset(self, example):
+    def post_map_filter(self, example):
+        return True 
+
+    def pre_map_filter(self, example):
         return True 
 
     def get_records_num(self, split, n_obs):
@@ -496,7 +502,7 @@ class AbstractTask(abc.ABC):
                 do_filter = False
                 do_map = True
                 save_ds = False
-            elif self.use_cache_file and self.use_df and not self.load_df and split_file is not None and Path(split_file).is_file(): 
+            elif self.use_cache_file and not self.load_df and split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved DataFrame Split FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
@@ -506,7 +512,7 @@ class AbstractTask(abc.ABC):
                 df = df.dropna(how='all')
                 for column in df.columns:
                     # Check if the column contains at least one JSON string
-                    if any(isinstance(val, str) and val.startswith('{') for val in df[column]):
+                    if all(isinstance(val, str) and val.startswith('{') for val in df[column]):
                         # Deserialize the entire column
                         df[column] = df[column].apply(deserialize_column)
 
@@ -534,12 +540,18 @@ class AbstractTask(abc.ABC):
 
         self.save_dataset(dataset, split_file, directory, save_ds=save_ds)
         self.records_num[split] = len(dataset)
+        if do_subsample and n_obs is not None and not self.post_subsample:
+            dataset = self.subsample(dataset, n_obs)
+        if do_filter is True:
+            do_subsample = True
+            dataset = dataset.filter(functools.partial(self.pre_map_filter),
+                    load_from_cache_file=False)
         dataset = self.map_dataset(dataset, prefix)
         if do_filter is True:
             do_subsample = True
-            dataset = dataset.filter(functools.partial(self.filter_dataset),
+            dataset = dataset.filter(functools.partial(self.post_map_filter),
                     load_from_cache_file=False)
-        if do_subsample and n_obs is not None:
+        if do_subsample and n_obs is not None and self.post_subsample:
             dataset = self.subsample(dataset, n_obs)
         if self.use_processed_df and not Path(outfile).is_file():
             self.save_dataset(dataset, outfile, save_ds=False, save_df=True) 
@@ -1162,7 +1174,7 @@ class QA(AbstractTask):
            template = "vnat_0-vs2"
         return template
 
-    def filter_dataset(self, example):
+    def post_map_filter(self, example):
         anslen = len(example['extra_fields']["answer"])
         return self.len_thresh is None or anslen < self.len_thresh
 
@@ -1674,6 +1686,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
+    post_subsample = True
     use_df = True
     load_df = True
     df_format= ".tsv" 
@@ -1685,7 +1698,6 @@ class Atomic(AbstractTask):
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         train_sph = task_args.get("samples_per_head", 1)
-        self.start_row = task_args.get("start_row", 0)
         self.samples_per_head_per_split["train"] = train_sph
         if not self.rels:
             if not task_args.rels:
@@ -2271,10 +2283,25 @@ class MNLI(AbstractTask):
 
 class ParsNLI(AbstractTask):
     name = "parsnli"
-    labels_list = ["c", "e", "n"]
+    labels_list = ["c", "e", "n"] # "xx"]
+    use_df = True
+    split_prefix = {"train":"out_"}
+    labels_map = {
+            "map2": {
+                "e":"علت", 
+                "n":"خنثی", 
+                "c": "تضاد",
+               # "xx": "نامشخص",
+                },
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+        }
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     # labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
+    def pre_map_filter(self, example):
+        label = example["label"]
+        label = label.strip()
+        return label in self.labels_list
 
     def load_dataset(self, split):
         return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
@@ -2285,6 +2312,21 @@ class ParsNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+class ParsSent(AbstractTask):
+    name = "pars-sent"
+    labels_list = ["c", "e", "n"]
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    # labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
+
+    def load_dataset(self, split):
+        return datasets.load_dataset("persiannlp/parsinlu_sentiment", split=split)
+
+    def preprocessor(self, example, prefix):
+        src_texts = ["premise:", example['sent1'],
+                     "hypothesis:", example["sent2"]]
+        tgt_texts = [str(example['label'])]
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class PAWS(AbstractTask):
     name = "paws"

@@ -1692,6 +1692,7 @@ def train(**kwargs):
 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
+                breakpoint()
                 mylogs.bp("load")
                 load_prompt = False
                 if encoder.is_private:
