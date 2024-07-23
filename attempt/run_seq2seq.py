@@ -1443,7 +1443,7 @@ def train(**kwargs):
     config.normalize = kwargs.setdefault("normalize", True)
     config.bias = kwargs.setdefault("bias", None)
     config.add_target = model_args.add_target #my option
-    config.random_source = kwargs.setdefault("random_source", True)
+    config.random_source = kwargs.setdefault("random_source", 0)
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
     norm_method = kwargs.setdefault("norm_method", "after_sigmoid") #my option
