@@ -71,6 +71,7 @@ def deserialize_column(value):
 
 class AbstractTask(abc.ABC):
     name = None
+    ds_name = None
     do_shuffle = True  # My code
     config = NotImplemented
     prefix = None
@@ -87,6 +88,8 @@ class AbstractTask(abc.ABC):
     do_split = False
     labels_list = None
     pcounter = 0
+    start_row = 0
+    post_subsample = False
     rel_nat = None
     rel_nats = {}
     rel_nat_key = None
@@ -144,6 +147,7 @@ class AbstractTask(abc.ABC):
         self.data_path = task_args.data_path
         self.seed = task_args.data_seed
         self.template = task_args.template
+        self.start_row = task_args.get("start_row", 0)
         self.tokenizer = tokenizer
         self.omit = task_args.get("omit_part",self.omit)
         self.qpos = task_args.get("qpos",self.qpos)
@@ -276,7 +280,7 @@ class AbstractTask(abc.ABC):
             return ds
         if indices is None:
             indices = self.shuffled_indices(dataset)
-        indices = indices[:n_obs]
+        indices = indices[self.start_row:n_obs]
         ds = dataset.select(indices)
         return ds
 
@@ -286,6 +290,8 @@ class AbstractTask(abc.ABC):
             path = op.join(mylogs.home, self.data_path)
         if split in self.split_folder:
             ds_name = self.split_folder[split]
+        elif self.ds_name is not None:
+            ds_name = self.ds_name
         else:
             ds_name = self.name
         path = op.join(path, ds_name)
@@ -304,11 +310,12 @@ class AbstractTask(abc.ABC):
         return split_prefix + split
 
     def get_folder_path(self):
-        folder = self.data_path 
+        folder = self.data_path
+        ds_name = self.ds_name if self.ds_name else self.name
         if not folder.startswith("/"):
-            folder = op.join(mylogs.home, self.data_path, self.name)
+            folder = op.join(mylogs.home, self.data_path, ds_name)
         else:
-            folder = op.join(folder, self.name)
+            folder = op.join(folder, ds_name)
         return folder 
 
     def get_stored_file(self, split, n_obs):
@@ -342,18 +349,15 @@ class AbstractTask(abc.ABC):
             # Save Pandas DataFrame to CSV
             dataset.to_csv(output_filename, index=False)
             print(f"Dataset saved as CSV: {output_filename}")
-<<<<<<< HEAD
         elif isinstance(dataset, Dataset) and self.use_df:
             df = dataset.to_pandas()
             # Detect columns that need serialization
             for column in df.columns:
                 # Check if the column contains at least one dictionary
-                if any(isinstance(val, dict) for val in df[column]):
+                if all(isinstance(val, dict) for val in df[column]):
                     # Serialize the entire column
                     df[column] = df[column].apply(serialize_column) 
             df.to_csv(output_filename, index=False)
-=======
->>>>>>> dcc6723e12b18d6784e0f00af96dff5b0f0515fa
         elif isinstance(dataset, Dataset):
             if save_df is True and not Path(output_filename).is_file():
                 df = dataset.to_pandas()
@@ -397,7 +401,10 @@ class AbstractTask(abc.ABC):
                            remove_columns=dataset.column_names,
                            load_from_cache_file=False)
 
-    def filter_dataset(self, example):
+    def post_map_filter(self, example):
+        return True 
+
+    def pre_map_filter(self, example):
         return True 
 
     def get_records_num(self, split, n_obs):
@@ -433,6 +440,7 @@ class AbstractTask(abc.ABC):
         if split in self.split_prefix:
             split_prefix = self.split_prefix[split]
         split_file = op.join(directory, split_prefix + split + ".csv")
+        print("split_file:", split_file)
         save_ds = False
         do_subsample = True
         do_filter = True
@@ -494,7 +502,7 @@ class AbstractTask(abc.ABC):
                 do_filter = False
                 do_map = True
                 save_ds = False
-            elif self.use_cache_file and self.use_df and not self.load_df and split_file is not None and Path(split_file).is_file(): 
+            elif self.use_cache_file and not self.load_df and split_file is not None and Path(split_file).is_file(): 
                 mylogs.minfo("------------- LOADING FROM Saved DataFrame Split FILE:" + \
                              split_file + " ----------")
                 # dataset = datasets.load_dataset(
@@ -504,7 +512,7 @@ class AbstractTask(abc.ABC):
                 df = df.dropna(how='all')
                 for column in df.columns:
                     # Check if the column contains at least one JSON string
-                    if any(isinstance(val, str) and val.startswith('{') for val in df[column]):
+                    if all(isinstance(val, str) and val.startswith('{') for val in df[column]):
                         # Deserialize the entire column
                         df[column] = df[column].apply(deserialize_column)
 
@@ -532,15 +540,21 @@ class AbstractTask(abc.ABC):
 
         self.save_dataset(dataset, split_file, directory, save_ds=save_ds)
         self.records_num[split] = len(dataset)
+        if do_subsample and n_obs is not None and not self.post_subsample:
+            dataset = self.subsample(dataset, n_obs)
+        if do_filter is True:
+            do_subsample = True
+            dataset = dataset.filter(functools.partial(self.pre_map_filter),
+                    load_from_cache_file=False)
         dataset = self.map_dataset(dataset, prefix)
         if do_filter is True:
             do_subsample = True
-            dataset = dataset.filter(functools.partial(self.filter_dataset),
+            dataset = dataset.filter(functools.partial(self.post_map_filter),
                     load_from_cache_file=False)
-        if do_subsample and n_obs is not None:
+        if do_subsample and n_obs is not None and self.post_subsample:
             dataset = self.subsample(dataset, n_obs)
         if self.use_processed_df and not Path(outfile).is_file():
-            self.save_dataset(dataset, outfile, save_df=True) 
+            self.save_dataset(dataset, outfile, save_ds=False, save_df=True) 
         return dataset
 
     # my post proc
@@ -569,20 +583,21 @@ class AbstractTask(abc.ABC):
     def fill_verbalizer(self, data, target):
         mylogs.bp("verb")
         label = data["target"].strip()
+        source = data["source"].strip()
         vtarget = ""
-        vcounter = self.rel_vnat 
+        vcounter = source + self.rel_vnat 
         target_list = []
         pos = self.target_pos
         random_choice = "none"
         mask_placeholder = ""
-        if "{mask}" in vcounter:
-            mask_placeholder = " {mask} "
+        if "[MASK]" in vcounter:
+            mask_placeholder = " [MASK] "
             if pos != 100:
-                while "{mask}" in vcounter:
-                    vcounter = vcounter.replace("{mask}","",1)
-                    if "{mask}" in vcounter or pos == 0 or "{m-mask}" in vcounter:
+                while "[MASK]" in vcounter:
+                    vcounter = vcounter.replace("[MASK]","",1)
+                    if "[MASK]" in vcounter or pos == 0 or "[M-MASK]" in vcounter:
                         random_choice = self.get_verbalizer_choice(label) 
-                        vtarget = " {mask} " +  random_choice
+                        vtarget = " [MASK] " +  random_choice
                         target_list.append(vtarget)
         elif pos != 100:
             while "{ans}" in vcounter:
@@ -597,7 +612,8 @@ class AbstractTask(abc.ABC):
         elif pos > 0:
             t = mask_placeholder + target 
             target_list.insert(pos -1, t) 
-        target = " ".join(target_list)
+        if target_list:
+            target = " ".join(target_list)
         return target, random_choice
 
     def before_scoring(self, df):
@@ -776,13 +792,13 @@ class AbstractTask(abc.ABC):
         pcom = 0  # number of shared prompts among all tasks
         for part in parts:
             if part == "mask":
-                src = src.replace("(mask)", "{mask} (mask)")
-                target = target.replace("(mask)", "{mask} (mask)")
+                src = src.replace("(mask)", "[MASK] (mask)")
+                target = target.replace("(mask)", "[MASK] (mask)")
             elif part == "unsup":
-                src = src.replace("(mask)", "{mask}")
-                target = target.replace("(mask)", "{mask}")
+                src = src.replace("(mask)", "[MASK]")
+                target = target.replace("(mask)", "[MASK]")
             elif part == "unsupnat":
-                target = target.replace("(mask)", "{mask}")
+                target = target.replace("(mask)", "[MASK]")
             elif part == "sup":
                 src = src.replace("(mask)", "")
                 target = target.replace("(mask)", "")
@@ -791,7 +807,7 @@ class AbstractTask(abc.ABC):
                 src = src.replace("(prompt)", "[com_i] (prompt) ", 1)
                 pcom += 1
             elif part == "pmask":
-                src = src.replace("(prompt)", "[tar-task_k] {mask} (prompt) ", 1)
+                src = src.replace("(prompt)", "[tar-task_k] [MASK] (prompt) ", 1)
             elif part == "ptar":
                 src = src.replace("(prompt)", "[tar-task_k] (prompt) ", 1)
             elif part == "p0" or part == "0":
@@ -937,14 +953,14 @@ class AbstractTask(abc.ABC):
         return data
 
     def replace_mask(self, text):
-        # Replace {mask} with <extra_id_i>
+        # Replace [MASK] with <extra_id_i>
         mask_counter = 0
-        mask_placeholder = "{m-mask}"
+        mask_placeholder = "[M-MASK]"
         if mask_placeholder in text:
             replacement = f"<extra_id_0>"
             text = text.replace(mask_placeholder, replacement)
             mask_counter = 1
-        mask_placeholder = "{mask}"
+        mask_placeholder = "[MASK]"
         while mask_placeholder in text:
             replacement = f"<extra_id_{mask_counter}>"
             text = text.replace(mask_placeholder, replacement, 1)
@@ -978,13 +994,14 @@ class AbstractTask(abc.ABC):
         # fill the templates with data
 
         # Replace masks in src and tgt
-        # src_texts = src_texts.replace("{mask}", mask)
-        src = self.replace_mask(src)
-        tgt = self.replace_mask(tgt)
+        # src = self.replace_mask(src)
+        # src_texts = src_texts.replace("[MASK]", mask)
         ex_fields["query_template"] = src 
         ex_fields["resp_template"] = src 
         src_texts = src.format_map(data)
         tgt_texts = tgt.format_map(data)
+        src_texts = self.replace_mask(src_texts)
+        tgt_texts = self.replace_mask(tgt_texts)
 
         src_texts = self.insert_prompts(src_texts)
         ex_fields["query"] = src_texts
@@ -1130,12 +1147,12 @@ class QA(AbstractTask):
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     rel_vnats = {
-            "v0": "{mask} is correct",
-            "v1": "The answer is {mask}, {mask} is correct",
-            "v3": "{mask}, the correct choice is {mask}",
-            "v4": "{mask}",
-            "v3so": "{mask}, so the correct choice is {mask}",
-            "v2": "{mask}, so {mask} is correct",
+            "v0": "[MASK] is correct",
+            "v1": "The answer is [MASK], [MASK] is correct",
+            "v3": "[MASK], the correct choice is [MASK]",
+            "v4": "[MASK]",
+            "v3so": "[MASK], so the correct choice is [MASK]",
+            "v2": "[MASK], so [MASK] is correct",
             "vs1": "{ans}, the correct choice is ",
             "vs2": "{ans}",
         }
@@ -1157,7 +1174,7 @@ class QA(AbstractTask):
            template = "vnat_0-vs2"
         return template
 
-    def filter_dataset(self, example):
+    def post_map_filter(self, example):
         anslen = len(example['extra_fields']["answer"])
         return self.len_thresh is None or anslen < self.len_thresh
 
@@ -1167,6 +1184,7 @@ class QA(AbstractTask):
         else:
             src_texts.insert(0, self.question)
         answer = self.get_verbalizer_choice()
+        mylogs.bp("qpos")
         extra_fields = {"answer": answer}
         return super().seq2seq_format(src_texts, tgt_texts, prefix, 
                 extra_fields=extra_fields)
@@ -1276,9 +1294,9 @@ class CommonsenseQA(QA):
     labels_map = {"map": {"0":"choice1", "1":"choice2", "2":"choice3", 
         "3":"choice4","4":"choice5"}}
     rel_vnats___temp = {
-            "v0": "{mask} is correct",
-            "v1": "The answer is {mask}, so {mask} is correct",
-            "v2": "{mask}, so {mask} is correct",
+            "v0": "[MASK] is correct",
+            "v1": "The answer is [MASK], so [MASK] is correct",
+            "v2": "[MASK], so [MASK] is correct",
         }
     split_to_data_split = {"train": "train",
                            "test": "validation",
@@ -1308,8 +1326,37 @@ class CommonsenseQA(QA):
         return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
 class MaskedCommonsenseQA(CommonsenseQA):
-    split_prefix = {"train": "masked", "test":"masked_"}
+    name = "masked-csqa"
+    ds_name = "commonsense-qa"
+    split_prefix = {"train": "masked_", "test":"masked_"}
     use_df = True
+    rel_vnats = {
+            "v0": "[MASK] is correct",
+            "v1": "The answer is [MASK], [MASK] is correct",
+            "v3": "the correct choice is [MASK]",
+            "v4": " ",
+            "v3so": "[MASK], so the correct choice is [MASK]",
+            "v2": "[MASK], so [MASK] is correct",
+            "vs1": "{ans}, the correct choice is ",
+            "vs2": "{ans}",
+        }
+
+    def preprocessor(self, example, prefix):
+        self.cur_example = example
+        choices = example["choices"]
+        
+        label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
+        question = example['new_question']
+        if "vs" in self.template:
+            question = question.replace("[MASK]","what") 
+        self.question = "question:" + question 
+        src_texts = ["choice1:", choices["text"][0], 
+                     "choice2:", choices["text"][1],
+                     "choice3:", choices["text"][2], 
+                     "choice4:", choices["text"][3], 
+                     "choice5:", choices["text"][4]]
+        tgt_texts = [label2id[example["answerKey"]]]
+        return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
 
 class SocialIQA(QA):
@@ -1477,10 +1524,10 @@ class Sentiment(AbstractTask):
     }
 
     rel_vnats = {
-            "v1": "It sounds {mask}",
+            "v1": "It sounds [MASK]",
             "vs1": "{ans}, the opinion is ",
-            "v3": "{mask}, the opinion is {mask}",
-            "v2": "It sounds {mask}, the opinion is {mask}",
+            "v3": "[MASK], the opinion is [MASK]",
+            "v2": "It sounds [MASK], the opinion is [MASK]",
             "vs2": "{ans}",
         }
     rel_vnat = "My opinion is "
@@ -1500,7 +1547,7 @@ class IMDB(Sentiment):
         "positive": ["good","great"],
         "negative": ["bad", "poor"]
     }
-    rel_vnat = "It sounds {mask}, so it's "
+    rel_vnat = "It sounds [MASK], so it's "
     rel_nat = "My opinion is "
 
     def load_dataset(self, split):
@@ -1524,7 +1571,7 @@ class TweetEval(Sentiment):
             "map": {"0":"negative", "1":"neutral", "2":"positive"},
         }
     # rel_nat = "The sentiment is"
-    rel_vnat = "It sounds {mask}, I feel "
+    rel_vnat = "It sounds [MASK], I feel "
     rel_nat = "It sounds "
 
     def load_dataset(self, split):
@@ -1556,7 +1603,7 @@ class SST2(Sentiment):
     # labels_map = {"map":{"0":"bad", "1":"good"}
     # labels_map = {"map":{"0":"L", "1":"M"}
     #rel_nat = "As a result, they feel"
-    rel_vnat = "It sounds {mask}"
+    rel_vnat = "It sounds [MASK]"
     target_pos = -1 
     rel_nat = "It sounds "
 
@@ -1577,7 +1624,7 @@ class YelpPolarity(Sentiment):
     metric_names = ["accuracy"]
     split_to_data_split = {"train": "train", "test": "test"}
     # rel_nat = " he feels "
-    rel_vnat = "I think they are {mask}"
+    rel_vnat = "I think they are [MASK]"
     rel_nat = "My opinion is "
     labels_map = {
             "map": {"0":"negative", "1":"positive"},
@@ -1639,6 +1686,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
+    post_subsample = True
     use_df = True
     load_df = True
     df_format= ".tsv" 
@@ -1650,7 +1698,6 @@ class Atomic(AbstractTask):
     def __init__(self, config, task_args, task="", tokenizer=None):
         super().__init__(config, task_args, task, tokenizer)
         train_sph = task_args.get("samples_per_head", 1)
-        self.start_row = task_args.get("start_row", 0)
         self.samples_per_head_per_split["train"] = train_sph
         if not self.rels:
             if not task_args.rels:
@@ -2236,10 +2283,25 @@ class MNLI(AbstractTask):
 
 class ParsNLI(AbstractTask):
     name = "parsnli"
-    labels_list = ["c", "e", "n"]
+    labels_list = ["c", "e", "n"] # "xx"]
+    use_df = True
+    split_prefix = {"train":"out_"}
+    labels_map = {
+            "map2": {
+                "e":"علت", 
+                "n":"خنثی", 
+                "c": "تضاد",
+               # "xx": "نامشخص",
+                },
+            # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
+        }
     metric = [metrics.accuracy]
     metric_names = ["accuracy"]
     # labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
+    def pre_map_filter(self, example):
+        label = example["label"]
+        label = label.strip()
+        return label in self.labels_list
 
     def load_dataset(self, split):
         return datasets.load_dataset("persiannlp/parsinlu_entailment", split=split)
@@ -2250,6 +2312,21 @@ class ParsNLI(AbstractTask):
         tgt_texts = [str(example['label'])]
         return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
+class ParsSent(AbstractTask):
+    name = "pars-sent"
+    labels_list = ["c", "e", "n"]
+    metric = [metrics.accuracy]
+    metric_names = ["accuracy"]
+    # labels_map = {"map":{"e":"en", "n":"neutral", "c": "contradiction"}
+
+    def load_dataset(self, split):
+        return datasets.load_dataset("persiannlp/parsinlu_sentiment", split=split)
+
+    def preprocessor(self, example, prefix):
+        src_texts = ["premise:", example['sent1'],
+                     "hypothesis:", example["sent2"]]
+        tgt_texts = [str(example['label'])]
+        return self.seq2seq_format(src_texts, tgt_texts, prefix)
 
 class PAWS(AbstractTask):
     name = "paws"
@@ -2811,7 +2888,9 @@ TASK_MAPPING = OrderedDict(
         ('nq', Squad),
         ('hotpotqa', Squad),
         ("social-i-qa", SocialIQA),
+        ("siqa", SocialIQA),
         ("commonsense-qa", CommonsenseQA),
+        ("csqa", CommonsenseQA),
         ("masked-csqa", MaskedCommonsenseQA),
         ("commonsense-qa-2", CommonsenseQA2),
         ("common-gen", CommonGen),

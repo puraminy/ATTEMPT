@@ -305,7 +305,7 @@ def create_label(row):
     elif row['compose_method'] == "mwavg":
         label = 'MSUM'
     elif row['compose_method'] == "wavg":
-        if row["use_source_prompts"]:
+        if "use_source_prompts" in row and  row["use_source_prompts"]:
             label = 'SSUM'
         else:
             label = 'MPT'
