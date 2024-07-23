@@ -397,7 +397,7 @@ def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars,
         not_copy_prev_exp = not_copy_prev_exp or exp_args.get("not_copy_prev_exp", False)
         exp_conf_name = Path(exp_conf).stem
         exp_args["conf"] = exp_conf_name
-        exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"].split("-")[-1])
+        exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"]).split("-")[-1]
         if experiment == "exp":
             experiment = exp_args["experiment"] + "_" + mylogs.now 
         if test:
@@ -1107,7 +1107,7 @@ def train(**kwargs):
     nsp = 0
     inp_nsp = kwargs.setdefault("num_source_prompts", nsp) 
     source_per_task = kwargs.setdefault("source_per_task", False) 
-    if source_per_task and inp_nsp == 0:
+    if source_per_task: # and inp_nsp == 0:
         nsp = len(tasks)
         data_args.source_prompts = tasks # source are the same target tasks
     elif use_source_set:
@@ -1692,14 +1692,13 @@ def train(**kwargs):
 
             if load_source_prompts or (load_private_prompts and encoder.is_private): 
                 ignore_if_prompt_not_exists = kwargs.setdefault("ignore_if_prompt_not_exists", False)
-                breakpoint()
                 mylogs.bp("load")
                 load_prompt = False
                 if encoder.is_private:
                     if load_private_prompts: 
                         encoder_name = encoder.name.replace("_for","")
                         load_prompt = True
-                if encoder.is_source:
+                elif encoder.is_source:
                     load_prompt = True
                     if "_com" in encoder.name and not reval:
                         #pattern = re.compile(r"com\d+")
@@ -1760,7 +1759,7 @@ def train(**kwargs):
                     encoder_type=encoder_type, 
                     shared_mat= shared_mat) 
 
-            opp = kwargs.setdefault("output_prompts_prefix", None) 
+            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
             if opp is None:
                 opp = str(training_args.num_train_epochs) + \
                     str(data_args.max_train_samples)
@@ -1836,6 +1835,7 @@ def train(**kwargs):
         exp_info["len_encoders"] = ",".join([str(e.length) for e in prompt_encoders])
         exp_info["taginfo"].append("len_encoders")
         tasks = data_args.task_name
+        mylogs.bp("setenc")
         model.encoder.set_encoders(prompt_encoders, 
             source_prompts, 
             source_prompt_length,
@@ -2323,7 +2323,7 @@ def train(**kwargs):
             prompts_to_save = kwargs.setdefault("prompts_to_save", None) 
             save_all_prompts = kwargs.setdefault("save_all_prompts", True) 
             ssp = kwargs.setdefault("save_source_prompts", save_all_prompts) 
-            opp = kwargs.setdefault("output_prompts_prefix", None) 
+            opp = kwargs.setdefault("output_prompts_prefix", prompts_prefix) 
             if opp is None:
                 opp = str(training_args.num_train_epochs) + \
                     str(data_args.max_train_samples)
@@ -2866,6 +2866,7 @@ def train(**kwargs):
                             orig_mask_matrix = orig_mask.index_select(0, targets)
                         for idx, (task, test_dataset) in enumerate(test_datasets.items()):
                             auto_task = auto_tasks[task]
+                            mylogs.bp("attn_mask")
                             gen_conf["attn_mask"] = model.encoder.attn_mask_orig 
                             if mask is not None: 
                                mylogs.bp("testmask")
