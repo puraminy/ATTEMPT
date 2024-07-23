@@ -6,7 +6,7 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
-from metrics.metrics import do_score
+# from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -266,7 +266,7 @@ def recalc_v3(df, spath):
            cond2 = cleaned_vpred in cleaned_vtarget
        else:
            cond2 = cleaned_vtarget in cleaned_vpred
-       return 1. if cond1 or cond2 else 0.
+       return 1. if cond1 else 0.
 
    df["rouge_score"] = df.apply(match_text1, axis=1)
    df.to_csv(spath, index=False, sep="\t")
@@ -532,7 +532,8 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
     if score_col is not None: 
         score_cols = [score_col,'num_preds'] 
     else:
-        score_cols = ['rouge_score', 'num_preds'] 
+        score_cols = ['m_score', 'num_preds'] 
+        #score_cols = ['rouge_score', 'num_preds'] 
 
     main_vars = get_main_vars(df)
     rep_cols = rep_cols + score_cols + main_vars + sel_cols 
@@ -1065,11 +1066,12 @@ def show_df(df, summary=False):
     settings = load_obj("settings", "gtasks", {})
 
     rels = [] # df["prefix"].unique()
-    use_rouge = settings["use_rouge"] if "use_rouge" in settings else False 
+    use_rouge = False # settings["use_rouge"] if "use_rouge" in settings else False 
     if use_rouge:
         score_cols = ['rouge_score','num_preds'] 
     else:
-        score_cols = ['bert_score', 'num_preds'] 
+        score_cols = ['m_score','num_preds'] 
+        # score_cols = ['bert_score', 'num_preds'] 
 
     rep_cols = main_vars + sel_cols + rep_cols + score_cols
     rep_cols = list(dict.fromkeys(rep_cols))

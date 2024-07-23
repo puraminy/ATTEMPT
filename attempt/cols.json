@@ -14,7 +14,7 @@
     "method",
     "qpos",
     "vpredin_score",
-    "rouge_score",
+    "m_score",
     "prefix"
   ],
   "ex_cols":[
@@ -80,6 +80,6 @@
     "max_train_samples",
     "num_prompt_tokens"
   ],
-  "score_cols_m":["m_score"],
-  "score_cols":["rouge_score","num_preds"]
+  "score_cols":["m_score"],
+  "score_cols_m":["rouge_score","num_preds"]
 }
