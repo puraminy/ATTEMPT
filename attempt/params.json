@@ -51,6 +51,7 @@
   "amin":"anneal_min",
   "arate":"anneal_rate",
   "atype":"anneal_type",
+  "pconf":"prompts_conf",
   "upp":"use_private_prompts",
   "usp":"use_source_prompts",
   "lpp":"load_private_prompts",

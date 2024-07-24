@@ -1074,9 +1074,6 @@ def train(**kwargs):
 
         return flags
 
-
-
-
     mylogs.bp("nsp")
     prompts_conf = kwargs.get("prompts_conf", None)
     if prompts_conf:
@@ -1086,10 +1083,11 @@ def train(**kwargs):
     num_prompts = kwargs.setdefault("num_prompts", 1) 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
+    use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     load_source_prompts = kwargs.setdefault("load_source_prompts", False) 
+    learn_source_prompts = kwargs.setdefault("learn_source_prompts", False) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
     load_private_prompts = kwargs.setdefault("load_private_prompts", False)
-    use_source_prompts = kwargs.setdefault("use_source_prompts", True)
     add_target_prompt = kwargs.setdefault("add_target", False)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
@@ -1501,7 +1499,7 @@ def train(**kwargs):
     if sign_router:
        model_args.learn_attention = False
     config.learn_attention = model_args.learn_attention 
-    config.learn_source_prompts = model_args.learn_source_prompts
+    config.learn_source_prompts = learn_source_prompts
     config.learn_target_prompts = model_args.learn_target_prompts
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
@@ -1904,7 +1902,7 @@ def train(**kwargs):
                 continue
             elif encoder.is_source:
                 mylogs.bp("learn")
-                if model_args.learn_source_prompts:
+                if learn_source_prompts:
                     if encoder.is_private and not learn_private_prompts:
                         continue
                     if encoder.is_loaded and not learn_loaded_prompts:

@@ -318,12 +318,6 @@ class ModelArguments:
             "help": "whether freeze attentions."
         },
     )
-    learn_source_prompts: bool = field(
-        default=True,
-        metadata={
-            "help": "whether freeze target prompts."
-        },
-    )
     learn_target_prompts: bool = field(
         default=True,
         metadata={
