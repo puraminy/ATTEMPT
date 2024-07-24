@@ -293,13 +293,6 @@ class ModelArguments:
         },
     )
     # my option
-    add_target: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to add the target prompt to the soft prompt resulted from attention."
-        },
-    )
-
     target_share: float = field(
         default=None,
         metadata={

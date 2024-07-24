@@ -1049,13 +1049,48 @@ def train(**kwargs):
                 tasks.append(t)
         data_args.task_name = tasks
 
+    
+    def parse_prompts_conf(label):
+        flags = {
+            'add_target': False,
+            'use_source_prompts': False,
+            'load_source_prompts': False,
+            'learn_source_prompts': False,
+            'use_private_prompts': False,
+            'load_private_prompts': False
+        }
+        if 'A' in label:
+            flags['add_target'] = True
+        if 'S' in label:
+            flags['use_source_prompts'] = True
+            if 'I' in label[label.index('S') + 1:]:
+                flags['load_source_prompts'] = True
+            if 'L' in label[label.index('S') + 1:]:
+                flags['learn_source_prompts'] = True
+        if 'P' in label:
+            flags['use_private_prompts'] = True
+            if 'I' in label[label.index('P') + 1:]:
+                flags['load_private_prompts'] = True
+
+        return flags
+
+
+
+
     mylogs.bp("nsp")
+    prompts_conf = kwargs.get("prompts_conf", None)
+    if prompts_conf:
+        pflags = parse_prompts_conf(prompts_conf)
+        kwargs = {**kwargs, **pflags}
+
     num_prompts = kwargs.setdefault("num_prompts", 1) 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
     load_source_prompts = kwargs.setdefault("load_source_prompts", False) 
     use_private_prompts = kwargs.setdefault("use_private_prompts", False)
+    load_private_prompts = kwargs.setdefault("load_private_prompts", False)
     use_source_prompts = kwargs.setdefault("use_source_prompts", True)
+    add_target_prompt = kwargs.setdefault("add_target", False)
     use_source_set = kwargs.setdefault("use_source_set", False)
 
     #if not use_source_prompts:
@@ -1141,13 +1176,13 @@ def train(**kwargs):
         num_target_prompts = max(num_target_prompts, 1)
         if model_args.compose_method in ["cat", "concat"]: #, "pool", "mpool","lin"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
-        #    if model_args.add_target:
+        #    if add_target_prompt:
         #        target_prompt_length += adapter_args.num_prompt_tokens
         elif model_args.compose_method in ["catw","mcat","scat","mscat"]:
             target_prompt_length = num_target_prompts * adapter_args.num_prompt_tokens
         elif model_args.compose_method in ["wcat", "wcp", "wcp1"]:
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
-        #    if model_args.add_target:
+        #    if add_target_prompt:
         #        target_prompt_length += adapter_args.num_prompt_tokens
         elif model_args.compose_method == "tcat":
             target_prompt_length = 2 * adapter_args.num_prompt_tokens
@@ -1442,7 +1477,7 @@ def train(**kwargs):
     config.route_method = model_args.route_method #my option
     config.normalize = kwargs.setdefault("normalize", True)
     config.bias = kwargs.setdefault("bias", None)
-    config.add_target = model_args.add_target #my option
+    config.add_target = add_target_prompt #my option
     config.random_source = kwargs.setdefault("random_source", True)
     config.target_share = model_args.target_share #my option
     config.sig_coef = model_args.sig_coef #my option
@@ -1588,7 +1623,6 @@ def train(**kwargs):
         prompts_prefix = str(training_args.num_train_epochs) + \
                 str(data_args.max_train_samples)
 
-    load_private_prompts = kwargs.setdefault("load_private_prompts", False)
     exp_info["load_private_prompts"] = load_private_prompts
     if not load_source_prompts and model_args.attn_tuning:
         prompts_prefix = prompts_prefix 
@@ -1804,7 +1838,7 @@ def train(**kwargs):
                             encoder.attend_to_mask[i] = 0 
                         attn_flag = True
                     if "tar-" in n: 
-                        if "source_" + n in encoder.attend_to and model_args.add_target:
+                        if "source_" + n in encoder.attend_to and add_target_prompt:
                             encoder.attend_to_mask[i] = 1 
                         else:
                             encoder.attend_to_mask[i] = 0 
@@ -2743,7 +2777,7 @@ def train(**kwargs):
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_private")
                     mkey = str(col) + "-" + mask_type + "-private"
                     gen_masks[mkey] = mask
-                if (model_args.add_target 
+                if (add_target_prompt 
                     and not model_args.compose_method in ["mcat","mwavg"]):
                     col += 1
                     mask = model.encoder.make_attn_mask(col, 1, mask_type + "_target")
@@ -2997,7 +3031,7 @@ def train(**kwargs):
                             scores_matrix = scores_matrix.round(decimals=2)
                             if multi_tasking:
                                 start = 0 if add_or_attend_input else 1 
-                                if model_args.add_target is True:
+                                if add_target_prompt is True:
                                     scores_matrix = scores_matrix[:,start:]
                                 else:
                                     scores_matrix = scores_matrix[:,start:slen+tlen + 1]
@@ -3026,7 +3060,7 @@ def train(**kwargs):
                                 mylogs.bp("keepinp")
                             if multi_tasking:
                                 start = 0 if add_or_attend_input else 1 
-                                if model_args.add_target is True:
+                                if add_target_prompt is True:
                                     mask_matrix = mask_matrix[:,start:]
                                 else:
                                     mask_matrix = mask_matrix[:,start:slen+tlen + 1]

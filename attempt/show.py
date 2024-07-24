@@ -292,7 +292,7 @@ function_map = {
         "vpredin": vpredin,
         }
 
-def create_label(row):
+def create_label2(row):
     label = 'PT'
     if not "compose_method" in row:
         return label
@@ -311,7 +311,7 @@ def create_label(row):
             label = 'MPT'
     return label
 
-def create_label2(row):
+def create_label(row):
     label = ''
     if row['add_target']:
         label += 'A'
