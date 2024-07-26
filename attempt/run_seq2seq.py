@@ -963,7 +963,43 @@ def train(**kwargs):
         training_args.report_to = kwargs.get("report_to", "wandb")
 
     new_exp_folder = kwargs.get("new_exp_folder","")
+    prompts_conf = kwargs.get("prompts_conf", None)
+    if prompts_conf in ["SLP","SL"]:
+        kwargs["num_train_epochs"] = int(kwargs["num_train_epochs"]) + 10
+    if prompts_conf in ["SIL","SL"] and kwargs["compose_method"] == "wsp1":
+        kwargs["compose_method"] = "wavg" 
+
     kwargs = overwrite_conf(kwargs)
+
+    def parse_prompts_conf(label):
+        flags = {
+            'add_target': False,
+            'use_source_prompts': False,
+            'load_source_prompts': False,
+            'learn_source_prompts': False,
+            'use_private_prompts': False,
+            'load_private_prompts': False
+        }
+        if 'A' in label:
+            flags['add_target'] = True
+        if 'S' in label:
+            flags['use_source_prompts'] = True
+            if 'SI' in label:
+                flags['load_source_prompts'] = True
+            if 'L' in label[label.index('S') + 1:]:
+                flags['learn_source_prompts'] = True
+        if 'P' in label:
+            flags['use_private_prompts'] = True
+            if 'PI' in label:
+                flags['load_private_prompts'] = True
+
+        return flags
+
+    mylogs.bp("nsp")
+    if prompts_conf:
+        pflags = parse_prompts_conf(prompts_conf)
+        kwargs = {**kwargs, **pflags}
+
     kwargs = dotdict(kwargs)
     _dict = kwargs.copy()
     for c in ["tag","log_var","main_vars","full_tag","new_exp_folder", 
@@ -1050,36 +1086,6 @@ def train(**kwargs):
         data_args.task_name = tasks
 
     
-    def parse_prompts_conf(label):
-        flags = {
-            'add_target': False,
-            'use_source_prompts': False,
-            'load_source_prompts': False,
-            'learn_source_prompts': False,
-            'use_private_prompts': False,
-            'load_private_prompts': False
-        }
-        if 'A' in label:
-            flags['add_target'] = True
-        if 'S' in label:
-            flags['use_source_prompts'] = True
-            if 'I' in label[label.index('S') + 1:]:
-                flags['load_source_prompts'] = True
-            if 'L' in label[label.index('S') + 1:]:
-                flags['learn_source_prompts'] = True
-        if 'P' in label:
-            flags['use_private_prompts'] = True
-            if 'I' in label[label.index('P') + 1:]:
-                flags['load_private_prompts'] = True
-
-        return flags
-
-    mylogs.bp("nsp")
-    prompts_conf = kwargs.get("prompts_conf", None)
-    if prompts_conf:
-        pflags = parse_prompts_conf(prompts_conf)
-        kwargs = {**kwargs, **pflags}
-
     num_prompts = kwargs.setdefault("num_prompts", 1) 
     target_prompt_length = adapter_args.num_prompt_tokens
     source_prompt_length = adapter_args.num_prompt_tokens
@@ -1704,7 +1710,7 @@ def train(**kwargs):
             encoder_name = prompt
             encoder_type = adapter_args.prompt_encoder_type
             if "_for" in encoder_name:
-                # encoder_type = kwargs.get("private_prompt_encoder_type", encoder_type)
+                encoder_type = kwargs.get("private_prompt_encoder_type", encoder_type)
                 encoder_type = encoder_type 
             encoder, enc_type = create_encoder(encoder_name, model, tokenizer, 
                     prompt_tokens=[],
@@ -1949,7 +1955,8 @@ def train(**kwargs):
         if bp and bp in "data|examples":
             logger.info("sourece: %s", examples["source"][:5])
             logger.info("target: %s", examples["target"][:5])
-            logger.info("extra: %s", examples["extra_fields"][:5])
+            if "extra_fields" in examples:
+                logger.info("extra: %s", examples["extra_fields"][:5])
             breakpoint()
         # Setup the tokenizer for targets
         mylogs.bp("encode")
@@ -2148,10 +2155,11 @@ def train(**kwargs):
                    p for n, p in encoder.named_parameters() if p.requires_grad and n != "A"]
            if para_list: 
                if encoder.is_source and not encoder.is_private:
-                   if encoder.name in source_prompts:
-                       src_prompt_params.extend(para_list)
-                   else:
-                       shr_prompt_params.extend(para_list)
+                   src_prompt_params.extend(para_list)
+                   #if encoder.name in source_prompts:
+                   #    src_prompt_params.extend(para_list)
+                   #else:
+                   #    shr_prompt_params.extend(para_list)
                elif encoder.is_private:
                    pvt_prompt_params.extend(para_list)
                else:
@@ -2673,7 +2681,7 @@ def train(**kwargs):
                 x_labels=x_labels,
                 mask_zeros = mask_zeros,
                 #title = title,
-                title = spec + " (" + str(num_source_prompts) + ")" # + ("| remove" if "rem" in title else "")
+                title = prompts_conf if prompts_conf else spec + " (" + str(num_source_prompts) + ")" # + ("| remove" if "rem" in title else "")
                         #title  
                         #+ " | " + str(kwargs.gen_norm_method) \
                         #+ " | " + str(kwargs.gen_thresh_min) \
@@ -3027,17 +3035,23 @@ def train(**kwargs):
                                                 scores_matrix[j][:])
 
                             scores_matrix = scores_matrix.round(decimals=2)
+                            square = False
                             if multi_tasking:
                                 start = 0 if add_or_attend_input else 1 
-                                if add_target_prompt is True:
-                                    scores_matrix = scores_matrix[:,start:]
+                                if model_args.compose_method == "wsp1":
+                                    scores_matrix = scores_matrix[:,start:slen + 1]
+                                    square = True
                                 else:
-                                    scores_matrix = scores_matrix[:,start:slen+tlen + 1]
+                                    if add_target_prompt is True:
+                                        scores_matrix = scores_matrix[:,start:]
+                                    else:
+                                        scores_matrix = scores_matrix[:,start:slen+tlen + 1]
 
                             #if len(torch.nonzero(scores_matrix)) < 1:
                             #    start = slen if add_or_attend_input else slen + 1 
                             #    scores_matrix[:tlen, start: start + tlen +1] = torch.eye(tlen)
                             save_image(eval_folder, model, {"score":scores_matrix}, 
+                                        square = square,
                                         spec = norm_method + "-" + str(gmin) \
                                                 + "-" + str(gmax) \
                                                 + " | {:.2f}".format(mean_score))

@@ -1096,7 +1096,7 @@ class AbstractTask(abc.ABC):
         return {'source': src_text,
                 'target': tgt_text,
                 'task': self.name,
-                'extra_fields': extra_fields}
+                'extra_fields': ex_fields}
 
 
 class Squad(AbstractTask):

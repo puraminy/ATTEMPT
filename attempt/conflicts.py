@@ -25,7 +25,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 #assert model_args.route_method == "direct", "route method for const method must be direct"  
 #            if not model_args.attn_tuning:
 #                if model_args.attend_target is False:
-#                    assert model_args.add_target is True, "Can't both attend target and add target be false"
+#                    assert kwargs.add_target is True, "Can't both attend target and add target be false"
             if kwargs.compose_method == "wcat":
                 assert kwargs.use_private_prompts is True, "wcat works with private prompts"
             if kwargs.prompt_sharing == "shared_prompts":
@@ -39,7 +39,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert model_args.attn_tuning, " load source prompts works for attention tuninng"
             if kwargs.num_source_prompts > 0:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
-            if model_args.add_target is True:
+            if kwargs.add_target is True:
                 assert model_args.attn_tuning is True, " This option works for attention tuninng"
                 # assert kwargs.num_source_prompts > 0 or kwargs.use_private_prompts or kwargs.source_prompts or kwargs.use_prompt_set or kwargs.source_per_task or not kwargs.use_source_prompts, "add target needs source prompts"
             if model_args.attend_target is True:
@@ -48,10 +48,10 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
             #if model_args.attend_input is True:
             #    assert model_args.attn_tuning, " Attend input is  for attention tuninng"
             if model_args.target_share is None:
-                assert not model_args.add_target, " Target share None is for not add_target"
+                assert not kwargs.add_target, " Target share None is for not add_target"
             if model_args.target_share is not None:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
-                # assert model_args.add_target, " Target share not None is for add target"
+                # assert kwargs.add_target, " Target share not None is for add target"
             if kwargs.use_private_prompts is True:
                 assert model_args.attn_tuning, " This option works for attention tuninng"
         elif adapter_args.train_task_adapters:
@@ -63,7 +63,7 @@ def check_conflicts(model_args, data_args, training_args, adapter_args, kwargs):
                 assert kwargs.opt_type != "sep", "Fine tuning needs regular optimizers such as ada, adam"
 
             if model_args.target_share is not None:
-                assert model_args.add_target is True, "Target share needs target to be added"
+                assert kwargs.add_target is True, "Target share needs target to be added"
     except AssertionError as e:
         msg = str(e.args[0])
         if resolved: msg = "Resolved:" + msg 
