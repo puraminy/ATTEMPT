@@ -235,9 +235,9 @@ folder=${PWD##*/}
 log=${home}/logs   
 echo "log: ${log}"
 
-if [ -z "$_bs" ]; then  _bs=8; fi
-if [ -z "$_lr" ]; then  _lr=0.01; fi
-if [ -z "$_alr" ]; then _alr=0.08; fi
+if [ -z "$_bs" ]; then  _bs=16; fi
+if [ -z "$_lr" ]; then  _lr=0.05; fi
+if [ -z "$_alr" ]; then _alr=0.1; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
 if [ -z "$_inp" ]; then  _inp=False; fi

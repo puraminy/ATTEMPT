@@ -22,6 +22,15 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/sg/super_glue.py"
+def deserialize_column(value):
+    try:
+        # Try to load the value from JSON
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        # If it fails, return the original value
+        raise ValueError("Type Error")
+        return value
+
 
 class AbstractTask(abc.ABC):
     name = NotImplemented
@@ -123,6 +132,20 @@ class AbstractTask(abc.ABC):
         else:
             return indices[validation_size:]
 
+    def read_csv(self, file_name):
+        df = pd.read_csv(file_name)
+        #df.label = df.label.astype(int)
+        df = df.dropna(how='all')
+        for column in df.columns:
+            # Check if the column contains at least one JSON string
+            if all(isinstance(val, str) and val.startswith('{') for val in df[column]):
+                # Deserialize the entire column
+                df[column] = df[column].apply(deserialize_column)
+
+        dataset = Dataset.from_pandas(df)
+        return dataset
+
+
     def map_dataset(self, dataset, add_prefix):
         mylogs.bp("map")
         return dataset.map(functools.partial(self.preprocessor, add_prefix=add_prefix),
@@ -143,9 +166,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
             if file_name is not None:
-                print("----------------- Reading from", file_name)
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                dataset = self.read_csv(file_name)
             else:
                 dataset = self.load_dataset(split=mapped_split)
             indices = self.get_split_indices(
@@ -159,9 +180,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split="train", lang_code=lang)
             if file_name is not None:
-                print("----------------- Reading from", file_name)
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                dataset = self.read_csv(file_name)
             else:
                 dataset = self.load_dataset(split="train")
             indices = self.get_split_indices(
@@ -173,9 +192,7 @@ class AbstractTask(abc.ABC):
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
             if file_name is not None: 
-                print("----------------- Reading from", file_name)
-                dataset = datasets.load_dataset(
-                    'csv', data_files={split:file_name})[split]
+                dataset = self.read_csv(file_name)
             else:
                 directory = op.join(mylogs.home, "datasets", self.name, split)
 				# directory = outfile.replace(self.df_format,"") 
@@ -303,7 +320,7 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target} </s>"
+        target = "(mask) (nat) {target}"
         return src, target
 
     def get_template(self):

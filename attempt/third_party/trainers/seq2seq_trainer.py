@@ -190,7 +190,7 @@ class Seq2SeqTrainer(Seq2SeqTrainer, BaseTrainer):
                 generated_tokens, gen_kwargs["max_length"])
 
         with torch.no_grad():
-            if self.use_amp:
+            if False: #self.use_amp:
                 with autocast():
                     outputs = model(**inputs)
             else:
