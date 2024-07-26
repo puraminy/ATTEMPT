@@ -241,7 +241,7 @@ if [ -z "$_alr" ]; then _alr=0.08; fi
 if [ -z "$_adir" ]; then  _adir=-1; fi
 if [ -z "$_tmpr" ]; then  _tmpr=5.; fi
 if [ -z "$_inp" ]; then  _inp=False; fi
-if [ -z "$_numt" ]; then  _numt=50; fi
+if [ -z "$_numt" ]; then  _numt=20; fi
 if [ -z "$_pl" ]; then  _pl=$_numt; fi
 if [ -z "$_sr" ]; then  _sr=False; fi # save router
 if [ -z "$_usr" ]; then  _usr=False; fi # use saved router
@@ -285,7 +285,7 @@ else
    main_vars="${main_vars}--max_train_samples"
 fi
 if [ -z "$_vn" ]; then  _vn=50; fi
-if [ -z "$_tsn" ]; then _tsn=500; fi
+if [ -z "$_tsn" ]; then _tsn=100; fi
 if [ -z "$_ep" ]; then  
    _ep=20; 
 else
@@ -343,12 +343,12 @@ params="${params} --max_test_samples=$_tsn"
 params="${params} --samples_per_head=$_sph"
 params="${params} --multi_choice=$_mc"
 params="${params} --map_labels=True"
-#params="${params} --data_seed=123"
+#params="${params} --d_seed=123"
 params="${params} --overwrite_cache=True"
 if [ -z $_seed ]; then
-   params="${params} --@data_seed=123"
+   params="${params} --@d_seed=123"
 else
-   params="${params} --@data_seed=$_seed"
+   params="${params} --@d_seed=$_seed"
 fi
 
 # task

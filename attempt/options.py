@@ -558,7 +558,7 @@ class DataTrainingArguments:
         metadata={
             "help": "Defines a dictionary from tasks to the tasks embeddings."}
     )
-    data_seed: Optional[int] = field(
+    d_seed: Optional[int] = field(
         default=123, metadata={"help": "seed used to shuffle the data."})
 
     train_file: Optional[str] = field(

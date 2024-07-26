@@ -688,7 +688,7 @@ def train(**kwargs):
     kwargs["source_prompt_length"] = source_prompt_length 
     kwargs["target_prompt_length"] = target_prompt_length 
     task_args = {}
-    task_args["data_seed"] = data_args.data_seed
+    task_args["d_seed"] = data_args.d_seed
     task_args["map_labels"] = kwargs.setdefault("map_labels", True)
     task_args["multi_choice"] = kwargs.setdefault("multi_choice", False)
     task_args["train_samples"] = data_args.max_train_samples

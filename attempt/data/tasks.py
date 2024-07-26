@@ -17,6 +17,8 @@ import attempt.mylogs as mylogs
 from itertools import cycle, islice
 from random import shuffle
 
+from pathlib import Path
+
 logger = logging.getLogger(__name__)
 
 super_glue = mylogs.home + "/sg/super_glue.py"
@@ -47,7 +49,7 @@ class AbstractTask(abc.ABC):
 
     def __init__(self, config, task_args, task="", tokenizer=None):
         self.config = config
-        self.seed = task_args.data_seed
+        self.seed = task_args.d_seed
         self.template = task_args.template
         self.tokenizer = tokenizer
         ## list of prompts
@@ -131,6 +133,9 @@ class AbstractTask(abc.ABC):
         # For small datasets (n_samples < 10K) without test set, we divide validation set to
         # half, use one half as test set and one half as validation set.
         self.split = split
+        csv_file =  op.join(mylogs.home, "datasets", self.name, split + ".csv")
+        if Path(csv_file).is_file():
+            file_name = csv_file
         mylogs.bp("get")
         if split_validation_test and self.name in self.small_datasets_without_all_splits \
                 and split != "train":
@@ -138,6 +143,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
             if file_name is not None:
+                print("----------------- Reading from", file_name)
                 dataset = datasets.load_dataset(
                     'csv', data_files={split:file_name})[split]
             else:
@@ -153,6 +159,7 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split="train", lang_code=lang)
             if file_name is not None:
+                print("----------------- Reading from", file_name)
                 dataset = datasets.load_dataset(
                     'csv', data_files={split:file_name})[split]
             else:
@@ -165,11 +172,21 @@ class AbstractTask(abc.ABC):
             if lang is not None:
                 dataset = self.load_dataset(split=mapped_split, lang_code=lang)
 
-            if file_name is not None:
+            if file_name is not None: 
+                print("----------------- Reading from", file_name)
                 dataset = datasets.load_dataset(
                     'csv', data_files={split:file_name})[split]
             else:
-                dataset = self.load_dataset(split=mapped_split)
+                directory = op.join(mylogs.home, "datasets", self.name, split)
+				# directory = outfile.replace(self.df_format,"") 
+                if Path(directory).exists(): 
+                    try:
+                       print("----------------- Reading from", directory)
+                       dataset = datasets.load_from_disk(directory)
+                    except FileNotFoundError:
+                       dataset = self.load_dataset(split=mapped_split)
+                else:
+                    dataset = self.load_dataset(split=mapped_split)
             # shuffles the data and samples it.
             if n_obs is not None:
                 dataset = self.subsample(dataset, n_obs)
@@ -286,7 +303,7 @@ class AbstractTask(abc.ABC):
 
     def get_template_format(self):
         src = "(prefix) (prompt) {source} (prefix) (prompt) (nat) (prompt) (mask)" 
-        target = "(mask) (nat) {target}"
+        target = "(mask) (nat) {target} </s>"
         return src, target
 
     def get_template(self):
