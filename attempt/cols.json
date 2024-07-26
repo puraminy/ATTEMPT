@@ -13,6 +13,7 @@
     "template",
     "method",
     "qpos",
+    "source_prompts",
     "vpredin_score",
     "m_score",
     "prefix"
@@ -34,6 +35,7 @@
     "max_train_samples",
     "template",
     "time",
+    "source_prompts",
     "use_private_prompts",
     "load_source_prompts",
     "load_private_prompts",
