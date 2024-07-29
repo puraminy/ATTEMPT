@@ -49,6 +49,7 @@
   "ts":"target_share",
   "tst":"target_share_temperature",
   "amin":"anneal_min",
+  "adir":"anneal_dir",
   "arate":"anneal_rate",
   "atype":"anneal_type",
   "pconf":"prompts_conf",

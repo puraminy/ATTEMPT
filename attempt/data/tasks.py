@@ -1686,7 +1686,7 @@ class Atomic(AbstractTask):
     metric_names = ["rouge"]
     generation = True
     do_shuffle = True
-    post_subsample = True
+    post_subsample = False
     use_df = True
     load_df = True
     df_format= ".tsv" 

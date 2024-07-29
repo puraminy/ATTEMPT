@@ -293,7 +293,7 @@ def cli():
 @click.option(
     "--merge",
     "-merge",
-    default="task_name",
+    default="",
     type=str,
     help="Merge experiments in one folder"
 )
@@ -1413,7 +1413,7 @@ def train(**kwargs):
         if training_args.warmup_steps is not None:
             warmup_steps = training_args.warmup_steps
         else:
-            warmup_steps = 0.1 * steps
+            warmup_steps = 0.2 * steps
         total_steps = steps + warmup_steps + 5
     
     mylogs.bp("steps")
@@ -1900,11 +1900,13 @@ def train(**kwargs):
    
     learn_loaded_prompts = kwargs.setdefault("learn_loaded_prompts", True) 
     learn_private_prompts = kwargs.setdefault("learn_private_prompts", True) 
+    requires_grad_encoders = []
     if adapter_args.prompt_tuning:
         for encoder in prompt_encoders: 
             if encoder.is_private and learn_private_prompts:
                 for n,p in encoder.named_parameters():
                     p.requires_grad = True
+                    requires_grad_encoders.append(encoder.name)
                 continue
             elif encoder.is_source:
                 mylogs.bp("learn")
@@ -1915,15 +1917,18 @@ def train(**kwargs):
                         continue
                     for n,p in encoder.named_parameters():
                         p.requires_grad = True
+                        requires_grad_encoders.append(encoder.name)
             else:
                 if model_args.learn_target_prompts:
                     for n,p in encoder.named_parameters():
                         p.requires_grad = True
+                        requires_grad_encoders.append(encoder.name)
 
     rgrad = len([p for p in model.parameters() if p.requires_grad])
     nrgrad = len([p for p in model.parameters() if not p.requires_grad])
     exp_info["rgrad-nrgrad"] = str(rgrad) + "|" + str(nrgrad)
-    mylogs.plog.info("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
+    mylogs.minfo("After freeze: requires grad: %s   Not requires grad: %s", rgrad, nrgrad)
+    # mylogs.minfo("Encoders require grad: %s",requires_grad_encoders)
     mylogs.bp("freeze")
 
     # Load training set
