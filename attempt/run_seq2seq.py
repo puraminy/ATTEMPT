@@ -936,6 +936,9 @@ def train(**kwargs):
     source_per_task = kwargs.setdefault("source_per_task", False) 
     if source_per_task:
         nsp = len(tasks)
+    if source_per_task and data_args.source_prompts is None:
+        nsp = len(tasks)
+        data_args.source_prompts = tasks
     if use_source_set:
         nsp = max([len(s) for s in task_source_prompts_set.values()])
     if data_args.source_prompts is not None:
@@ -2259,15 +2262,15 @@ def train(**kwargs):
                         df["src_path"] = op.join(mylogs.home, data_args.data_path, 
                                                 ds_conf,"test.tsv")
                         mylogs.bp("test")
-                        test_rouge = wandb.run.summary["test_rouge"]
-                        test_bert = wandb.run.summary["test_bert"]
-                        num_preds = wandb.run.summary["num_preds"]
+                        #test_rouge = wandb.run.summary["test_rouge"]
+                        #test_bert = wandb.run.summary["test_bert"]
+                        #num_preds = wandb.run.summary["num_preds"]
                         da = {}
                         da["task"] = task
                         da["route_method"] = route_method
-                        da["test_rouge"] = test_rouge
-                        da["test_bert"] = test_bert
-                        da["num_preds"] = num_preds
+                        #da["test_rouge"] = test_rouge
+                        #da["test_bert"] = test_bert
+                        #da["num_preds"] = num_preds
                         sdf_rows.append(da)
 
                         ii += 1
