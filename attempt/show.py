@@ -39,9 +39,30 @@ from tqdm import tqdm
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
+from PIL import ImageChops
 #import sklearn
 #import sklearn.metrics
 #import attempt.metrics.metrics as mets
+
+def trim_white_borders(image):
+    # Convert the image to RGB (if not already in that mode)
+    image = image.convert('RGB')
+
+    # Create a new image with the same size and a white background
+    bg = Image.new('RGB', image.size, (255, 255, 255))
+
+    # Find the difference between the image and the white background
+    diff = ImageChops.difference(image, bg)
+    
+    # Find the bounding box of the non-zero regions in the difference image
+    bbox = diff.getbbox()
+    
+    if bbox:
+        # Crop the image to the bounding box
+        cropped_image = image.crop(bbox)
+        # Save the cropped image
+        return cropped_image
+
 
 def combine_x(images):
     widths, heights = zip(*(i.size for i in images))
@@ -315,8 +336,8 @@ def create_label(row):
     label = ''
     if row['add_target']:
         label += 'A'
-    if row['use_source_prompts']:
-        label += '_S'
+    if not "use_source_prompts" in row or row['use_source_prompts']:
+        label += 'S'
         if row['load_source_prompts']:
             label += 'I'
         if row['learn_source_prompts']:
@@ -1364,6 +1385,10 @@ def show_df(df, summary=False):
                 # TODO fixed
                 img_list = [img_dict[k] for k in key_list if k in img_dict] 
                 max_width = 0
+                if crop:
+                    for i, img in enumerate(img_list):
+                        img_list[i] = trim_white_borders(img)
+
                 if len(img_list) > 0:
                     if len(img_list) > 1 and merge == "vert":
                         new_im = combine_y(img_list)
@@ -1379,9 +1404,10 @@ def show_df(df, summary=False):
             for key, img_list in c_imgs.items():
                 for i, img in enumerate(img_list):
                     if crop:
-                        imageBox = img.getbbox()
-                        _image = img.crop(imageBox)
-                        _image = add_margin(_image, 10, 0, 0, 0, (255, 255, 255))
+                        #imageBox = img.getbbox()
+                        #_image = img.crop(imageBox)
+                        _image = trim_white_borders(img)
+                        # _image = add_margin(_image, 10, 0, 0, 0, (255, 255, 255))
                         c_imgs[key][i] = _image
                     elif img.width < max_width:
                         dif = max_width - img.width // 2
@@ -1784,11 +1810,11 @@ def show_df(df, summary=False):
                 image_keys = ["effect"]
                 merge = "vert"
             elif char == "k" or char == "p":
-                image_keys = ["score","router","effect"]
-                merge = "vert"
+                image_keys = ["score","rsim"]
+                merge = "horiz"
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
-                    merge = merge, image_keys = image_keys, crop = char == "y")
+                    merge = merge, image_keys = image_keys, crop = char == "k")
             dif_cols = ["expid"]
             for col in sel_cols:
                 if col in pcols or col in ["eid"]:
@@ -1810,13 +1836,13 @@ def show_df(df, summary=False):
                 images.append(im)
 
             if images:
-                pic = combine_x(images) # if char =="o" else combine_y(images)
+                pic = combine_x(images) if char =="o" else combine_y(images)
                 if len(images) > 1:
                     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 30)
                 else:
                     font = ImageFont.truetype("/usr/share/vlc/skins2/fonts/FreeSans.ttf", 20)
                 im = pic
-                if capt_pos and capt_pos != "none" and char != "y":
+                if capt_pos and capt_pos != "none" and char != "k":
                     width, height = im.size
                     gap = 150*len(exprs) + 50
                     if capt_pos == "top":
@@ -3603,7 +3629,8 @@ def show_df(df, summary=False):
             if cur_col_name.endswith("_score"):
                 score_col = cur_col_name
             else:
-                score_col = 'All' if context == "pivot" else 'rouge_score'
+                score_col = 'All' # if context == "pivot" else 'rouge_score'
+            score_col = 'All'
             tdf = tdf.groupby(selected_cols)[score_col].mean().reset_index()
             hue_palette = sns.color_palette("husl", len(tdf[selected_cols[-1]].unique()))
             g = sns.FacetGrid(tdf, col=cat_col, col_order=facet_order,
