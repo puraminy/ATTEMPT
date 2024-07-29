@@ -2335,7 +2335,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             prompts_and_router_only=False,
             save_source_prompts = False, prompts_to_save=None, prefix="", 
             router_prefix="", save_router=False):
-        prefix = prefix.strip("_")
+        prefix = prefix.strip("_") if type(prefix) == str else str(prefix)
         if prompts_to_save:
             for encoder in self.prompt_encoders:
                 if not save_source_prompts and encoder.is_source:

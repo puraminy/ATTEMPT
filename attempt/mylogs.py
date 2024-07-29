@@ -19,6 +19,17 @@ main_args = {}
 prev_args = {}
 prev_main_vars = {}
 
+class colors:
+    HEADER = '\033[95m'
+    INFO = '\033[94m'
+    INFO2 = '\033[96m'
+    SUCCESS = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 def args(key, default="no_default"):
     if key in main_args:
         return main_args[key]
@@ -29,7 +40,10 @@ def is_debug():
     return main_args["is_debug"]
 
 def get_full_tag(as_str=False):
-    return get_tag(main_args["full_tag"], main_args, as_str)
+    if "full_tag" in main_args:
+        return get_tag(main_args["full_tag"], main_args, as_str)
+    else:
+        "none"
 
 def get_tag(tags=None, args=None, as_str=False):
     if args is None: args = main_args
@@ -39,7 +53,7 @@ def get_tag(tags=None, args=None, as_str=False):
     for _t in tags:
         if _t in args:
             val = args[_t]
-            if type(val) == list: val = "@".join(val)
+            if type(val) == list: val = "@".join([str(v) for v in val])
             val = str(val).split("/")[-1]
             tag_dict[_t] = val
             tag_str += "|" + _t + "=" + val
@@ -59,15 +73,16 @@ if not colab:
     logPath = os.path.join(home, "logs")
     resPath = os.path.join(home, "results") 
     pretPath = os.path.join(home, "pret") 
+    confPath = os.path.join(home, "confs") 
 else:
     home = "/content/drive/MyDrive/"
     pretPath = "/content/drive/MyDrive/pret"
     logPath = "/content/drive/MyDrive/logs"
     resPath = "/content/drive/MyDrive/logs/results"
+    confPath = "/content/drive/MyDrive/logs/confs"
 
 pp = Path(__file__).parent.parent.resolve()
 dataPath = os.path.join(pp, "data", "atomic2020")
-confPath = "base_confs" 
 
 Path(resPath).mkdir(exist_ok=True, parents=True)
 Path(logPath).mkdir(exist_ok=True, parents=True)
@@ -97,14 +112,28 @@ def getFname(name, path=""):
     logFilename = os.path.join(path, f"{name}.log")
     return logFilename
 
+def minfo(text, *args, **kwargs):
+    log = kwargs.pop("log", True)
+    if log:
+        mlog.info(colors.INFO2 + text + colors.ENDC + "\n", *args)
+    else:
+        print(colors.INFO2 + text + colors.ENDC + "\n", *args)
+
+def success(text, *args, **kwargs):
+    log = kwargs.pop("log", True)
+    if log:
+        mlog.info(colors.SUCCESS + text + colors.ENDC + "\n", *args)
+    else:
+        print(colors.SUCCESS + text + colors.ENDC + "\n", *args)
+
+def warning(text, *args, **kwargs):
+    mlog.info(colors.WARNING + text + colors.ENDC + "\n", *args)
+
 def tinfo(text, *args, **kwargs):
     tlog.info(text, *args)
 
 def winfo(lname, text, *args, **kwargs):
     logger = logging.getLogger(lname)
-    if not logger.handlers:
-        logger.info(text, *args)
-        add_handler(logger, lname, True)
     logger.info(text, *args)
 
 import inspect
@@ -119,7 +148,7 @@ def bp(break_point):
     if colab: return
     cond = False 
     equal = False
-    if str(break_point).startswith("="):  
+    if str(break_point).startswith(">"):  
         break_point = str(break_point).strip("=") 
         cond = break_point in str(BREAK_POINT) 
         equal = True
@@ -127,7 +156,8 @@ def bp(break_point):
         cond = str(BREAK_POINT) in str(break_point) 
         equal = True
     if not equal:
-        cond = break_point in str(BREAK_POINT) or str(BREAK_POINT) in break_point 
+        # cond = break_point in str(BREAK_POINT) 
+        cond = str(BREAK_POINT) in break_point # or cond 
     if cond:
         fname = sys._getframe().f_back.f_code.co_name
         line = sys._getframe().f_back.f_lineno
@@ -146,19 +176,20 @@ def trace(frame, event, arg):
 
 mlog.info(now)
 #sys.settrace(trace)
-def add_handler(logger, fname, set_format=False):
+def add_handler(logger, fname, set_format=False, base_folder=""):
+    log_folder = os.path.join(base_folder, "logs")
+    Path(log_folder).mkdir(parents=True, exist_ok=True)
     logger.setLevel(logging.INFO)
-    logFilename = os.path.join("logs", fname + ".log")
+    logFilename = os.path.join(log_folder, fname + ".log")
     handler = logging.FileHandler(logFilename, mode="w")
     if set_format:
         handler.setFormatter(FORMAT)
     logger.addHandler(handler)
     return logFilename
 
-Path("logs").mkdir(parents=True, exist_ok=True)
-
-for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
-    add_handler(logger, fname)
+def init_logs(base_folder):
+    for logger, fname in zip([mlog,dlog,clog,vlog,tlog,timelog], ["main","data","cfg","eval","train", "time"]):
+        add_handler(logger, fname, base_folder)
 
 def diff_args():
     if not prev_args:
@@ -173,6 +204,7 @@ def set_args(args):
     tlog.handlers.clear()
     tags = "_".join(list(get_tag(args["tag"]).values()))
     exp = str(args["expid"]) + "_" + tags 
+    exp = exp.strip("-")
     tHandler = logging.FileHandler(getFname(exp + "_time", 
         path=args["save_path"]), mode='w')
     tHandler.setFormatter(FORMAT)
@@ -234,3 +266,13 @@ def is_obj(name, directory, common = False, ext=".pkl"):
     if not name.endswith(ext):
         name = name + ext
     fname = os.path.join(folder, name)
+
+
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore, dirs_exist_ok=True)
+        else:
+            shutil.copy2(s, d)

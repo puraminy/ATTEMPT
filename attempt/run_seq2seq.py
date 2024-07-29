@@ -100,12 +100,32 @@ import click
 import debugpy
 import os.path as op
 
+def map_param(param_map, x, key=False):
+    k, v = x, ""
+    if "=" in x:
+        k, v = x.split("=")
+    k = k.strip("--")
+    pre = ""
+    if k.startswith("@"):
+        k = k.strip("@")
+    pre += "@"
+    if k.startswith("^"):
+        k = k.strip("^")
+        pre += "^"
+    m = param_map[k] if k in param_map else k
+    if key is True or not v: 
+        return m
+    else:
+        return pre + m + "=" + v 
+
 @click.group()
 def cli():
     pass
 @cli.command(context_settings=dict(
             ignore_unknown_options=True,
             allow_extra_args=True,))
+
+@click.argument('cfgpat')
 @click.option(
     "--experiment",
     "-exp",
@@ -145,7 +165,7 @@ def cli():
     "-mv",
     type=str,
     default="",
-    help="The name of one multi-valued variable for which you want to check the difference of their values, if not given it runs all combinations"
+    help="The name of one multi-valued variable for which you want to check the difference of their values, if not given it runs all combinations e.g. var1@var2@var3"
 )
 @click.option(
     "--log_var",
@@ -153,6 +173,13 @@ def cli():
     type=str,
     default="",
     help="The name of an experiment multi-valued variables for which you want to log some data in a logfile names varied with the different values of the varibale"
+)
+@click.option(
+    "--last_var",
+    "-last",
+    type=str,
+    default="",
+    help="The name of multi-valued variable you want to be the most nesting loop in combination of expeiments."
 )
 @click.option(
     "--debug",
@@ -176,10 +203,30 @@ def cli():
     help="You can set it for continueing experiments with different versions (after some changes)"
 )
 @click.option(
+    "--skip",
+    "-skip",
+    is_flag=True,
+    help="Skip existing experiments"
+)
+@click.option(
+    "--save_conf",
+    "-conf",
+    default="",
+    type=str,
+    help="Save config for using later"
+)
+@click.option(
     "--rem",
     "-rem",
     is_flag=True,
     help="Remove the existing experiment folder"
+)
+@click.option(
+    "--label",
+    "-l",
+    default="",
+    type=str,
+    help="label for experiment"
 )
 @click.option(
     "--repeat",
@@ -196,12 +243,31 @@ def cli():
 @click.option(
     "--merge",
     "-merge",
-    is_flag=True,
+    default="task_name",
+    type=str,
     help="Merge experiments in one folder"
 )
 @click.option(
+    "--not_copy_prev_exp",
+    "-nc",
+    is_flag=True,
+    help="Don't copy the experiment of the source config to new experiment"
+)
+@click.option(
     "--reval",
-    "-e",
+    "-reval",
+    is_flag=True,
+    help="Evaluation without training"
+)
+@click.option(
+    "--test",
+    "-test",
+    is_flag=True,
+    help="Evaluation without training"
+)
+@click.option(
+    "--use_wandb",
+    "-uw",
     is_flag=True,
     help="Evaluation without training"
 )
@@ -220,109 +286,247 @@ def cli():
 )
 @click.option(
     "--new_exp_folder",
+    "-to",
     "-new",
-    is_flag=True,
-    help="Whether create a new directory for experiment when loadign an existing config file"
+    default="",
+    type=str,
+    help="The name of a new directory for experiment when loading an existing config file"
 )
 @click.option(
-    "--log_path",
+    "--copy_to",
+    "-copy",
+    default="",
+    type=str,
+    help="The name of directory to copy done experiments."
+)
+@click.option(
+    "--inp_log_path",
     "-lp",
     default="",
     type=str,
     help="The directory to save all experiments"
 )
 @click.pass_context
-def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main_vars, 
-        debug, version, trial, rem, repeat, deep_check, merge, 
-        reval, download_model, max_exp, new_exp_folder, log_path):
+def run(ctx, cfgpat, experiment, exp_conf, break_point, preview, exp_vars, 
+        log_var, last_var, main_vars, 
+        debug, version, trial, skip, save_conf, rem, repeat, 
+        label, deep_check, merge, not_copy_prev_exp, 
+        reval, test, use_wandb, download_model, max_exp, 
+        new_exp_folder, copy_to, inp_log_path):
    if debug:
        port = "1234"
        if not break_point: break_point = debug
        debugpy.listen(('0.0.0.0', int(port)))
        print("Waiting for client at run...port:", port)
        debugpy.wait_for_client()  # blocks execution until client is attached
+   if break_point:
+       mylogs.setbp(break_point)
    exclude_list = []
    exp_args = {}
    save_path = ""
+   prev_exp_folder = ""
+   prev_save_path = ""
+   log_path = inp_log_path
    if not log_path:
-       log_path = mylogs.logPath
+       log_path = mylogs.logPath 
    if not log_path.startswith("/"):
        log_path = os.path.join(mylogs.logPath, log_path)
-   if exp_conf:
+   if exp_conf or cfgpat:
+        print("Experiment pattern:", cfgpat)
+        cur_path = os.getcwd()
+        print("Cur path:", cur_path)
+        confs = glob.glob(f"*{cfgpat}*")
+        print("Experiment matched confs:", confs)
+        if not exp_conf and confs:
+            exp_conf = confs[0]
+        print("Experiment config:", exp_conf)
         with open(exp_conf) as f:
             exp_args = json.load(f)
-        if reval:
-            repeat = True
+        prev_exp_folder = exp_args["output_dir"]
+        prev_save_path = exp_args.get("save_path","")
+        not_copy_prev_exp = not_copy_prev_exp or exp_args.get("not_copy_prev_exp", False)
+        exp_conf_name = Path(exp_conf).stem
+        exp_args["conf"] = exp_conf_name
+        exp_args["trial"] = str(trial) + "-ret-" + str(exp_args["expid"]).split("-")[-1]
+        if experiment == "exp":
+            experiment = exp_args["experiment"] + "_" + mylogs.now 
+        if test:
             exp_args["do_train"] = False
             exp_args["do_test"] = True 
-   experiment = experiment.replace("#","-").replace("@","-")
-   if exp_conf: 
-       save_path = exp_args["save_path"]
-   if not save_path or experiment == "self":
-       save_path = os.getcwd()
-   if (not exp_conf and experiment != "self") or new_exp_folder:
+        if reval:
+            exp_args["load_model_dir"] = prev_exp_folder 
+            exp_args["do_train"] = False
+            exp_args["do_test"] = True 
+            exp_args["reval"] = True
+            exp_args["trial"] = str(trial) + "-rev-" + str(exp_args["expid"].split("-")[-1])
+
+   mylogs.bp("start")
+   experiment = experiment.replace("#","-").replace("@","-").replace(":","-")
+   if exp_conf and "experiment" in exp_args:
+       cc = 1
+       exp_name = experiment
+       while exp_name == exp_args["experiment"]:
+           exp_name = experiment + "-" + str(cc)
+           cc += 1
+       experiment = exp_name
+
+   #if exp_conf and not new_exp_folder: 
+   #   log_folder = experiment 
+      #ans = input("Do you want save the results in (otherwise enter new folder) "+log_folder+ "[yes]:")
+      #if ans and ans != "yes":
+      #    new_exp_folder = ans
+      #else:
+   #   new_exp_folder = log_folder 
+
+   mylogs.bp("start") 
+   if experiment == "self":
+       save_path = os.path.join(os.getcwd(), "output")
+   if prev_exp_folder and not new_exp_folder:
+       save_path = prev_save_path
+   elif not reval or new_exp_folder:
        if new_exp_folder and save_path:
-          save_path = os.path.join(str(Path(save_path).parent), experiment)
+          relative_path = os.path.relpath(save_path, log_path)
+          parts = relative_path.split(os.path.sep)
+          parts[0] = new_exp_folder 
+          new_path =  os.path.sep.join(parts)
+          save_path = os.path.join(mylogs.resPath, new_path) 
+          # save_path = os.path.join(str(Path(save_path).parent), experiment)
+       elif new_exp_folder:
+          save_path = os.path.join(log_path, new_exp_folder)
        else:
           save_path = os.path.join(log_path, experiment)
        if Path(save_path).exists():
-          if not rem:
-               while Path(save_path).exists():
-                  ans = "u" #input("Do you want to delete '" + save_path + \
-                            #"'? d)delete u)use  newname)")
-                  if ans == "d": 
-                      rem = True
-                  elif ans == "u":
-                      break
-                  else:
-                      experiment = ans
-                      save_path = os.path.join(log_path, experiment)
-          if rem:
-               save_path = save_path.rstrip("/")
-               dirs = glob.glob(save_path + '/*/')
-               for d in dirs:
-                    shutil.rmtree(d)
+          #if not rem:
+          #     while Path(save_path).exists():
+          #        ans = "u" #input("Do you want to delete '" + save_path + \
+          #                  #"'? d)delete u)use  newname)")
+          #        if ans == "d": 
+          #            rem = True
+          #        elif ans == "u":
+          #            break
+          #        else:
+          #            experiment = ans
+          #            save_path = os.path.join(log_path, experiment)
+          if False: #rem:
+               main_folder = save_path
+               ans = "yes" #input("Do you want to remove " + main_folder + ":")
+               if ans == "yes":
+                   main_folder = main_folder.rstrip("/")
+                   dirs = glob.glob(main_folder + '/*/')
+                   for d in dirs:
+                        shutil.rmtree(d)
 
        if Path(save_path).is_file():
            os.remove(save_path)
-       Path(save_path).mkdir(exist_ok=True, parents=True)
+
+   if not save_path:
+       save_path = prev_save_path if prev_save_path else os.getcwd()
+   Path(save_path).mkdir(exist_ok=True, parents=True)
+   if copy_to:
+      copy_to = os.path.join(log_path, copy_to)
+      Path(copy_to).mkdir(exist_ok=True, parents=True)
+
    args = {}
-   args["conf"] = Path(exp_conf).stem
+   args["conf"] = exp_conf
    args["save_path"] = save_path
+
+   args["new_exp_folder"] = new_exp_folder
+   args["not_copy_prev_exp"] = not_copy_prev_exp
    args["load_path"] = "" 
+   args["label"] = label
    args["is_debug"] = debug
+   if not reval:
+      args["trial"] = trial
    if not download_model:
-       args["load_path"] = mylogs.pretPath 
-   args["experiment"] = "%" + experiment # % forces to reserve the value as it is  
+      args["load_path"] = mylogs.pretPath 
+   if not experiment.startswith("%"):
+       experiment = "%" + experiment # % forces to reserve the value as it is  
+   args["experiment"] = experiment 
    args["version"] = version 
    args["break_point"] = break_point 
    args["preview"] = preview 
    args["repeat"] = repeat 
    args["reval"] = reval 
+   args["use_wandb"] = use_wandb 
    tags = exp_args["tag"] if "tag" in exp_args else ["expid"] 
    full_tags = exp_args["full_tag"] if "full_tag" in exp_args else ["expid"] 
-   if break_point:
-       mylogs.setbp(break_point)
 
-   all_vars = [x.strip("--") for x in ctx.args]
-   var_names = [x.split("=")[0] for x in all_vars]
+   mylogs.bp("start")
+   _dir = Path(__file__).parent
+   param_map = {}
+   param_file = os.path.join(_dir, "params.json")
+   if Path(param_file).is_file():
+       with open(param_file) as f:
+          param_map = json.load(f)
+
+   all_vars = [map_param(param_map, x) for x in ctx.args]
+   # all_vars = [x.strip("--") for x in ctx.args]
+   mylogs.bp("vars")
+   var_names = [x.split("=")[0] for x in all_vars] 
+          # if not (x.split("=")[0].startswith("@comment") 
+          #     or x.split("=")[0].startswith("@c-"))]
    values = []
    for x in all_vars:
        _vv = x.split("=")
        if len(_vv) < 2:
            assert False, "invalid argument " + str(x) + "|" + str(_vv)
-       _vvv = _vv[1].split("#")
+       if not (_vv[0].startswith("@comment") or _vv[0].startswith("@c-")):
+           _vv = _vv[1].strip("#")
+           _vvv = _vv.split("#")
+       else:
+           _vvv = [_vv[1]]
+          #  continue
        values.append(_vvv)
    var_dict = {k:n for k,n in zip(var_names, values)} 
+   if last_var:
+       last_var = map_param(param_map, last_var)
+       last_var = "@" + last_var
+       var_dict[last_var] = var_dict.pop(last_var)
    _mvars = []
-   for var in main_vars.split("--"):
+   mylogs.bp("mvar")
+   if main_vars and "--" in main_vars:
+       main_vars = main_vars.split("--")
+   if not main_vars:
+       main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
+   if not main_vars:
+       main_vars = [map_param(param_map,x,key=True) for x in ctx.args if x.startswith("--")]
+   for var in main_vars:
+       if not var: continue
+       var = map_param(param_map, var)
        if "=" in var:
-           var_name = var.split("=")[0]
-           assert var_name in exp_args, var_name +" must be in experiment variables (config)"
-           var_item = var.split("=")[1].split("#")
+           var_name = var.split("=")[0].strip("@")
+           if False: #TODO temporary 
+               assert var_name in exp_args, var_name +" must be in experiment variables (config)"
+           var_item = var.split("=")[1]
+           if not var_name.startswith("comment") or var_name.startswith("c"):
+               var_item = var_item.strip("#").split("#")
            var_dict["@" + var_name] = var_item
            _mvars.append(var_name)
+       else:
+           _mvars.append(var)
    if _mvars: main_vars = _mvars
+
+   
+   mylogs.bp("prev")
+   if prev_exp_folder and not "prompts_prefix" in main_vars:
+       args["prompt_encoders_dir"] = prev_exp_folder
+   if prev_exp_folder and not "task_name" in main_vars and not not_copy_prev_exp and not repeat:
+       prev_folder = Path(prev_exp_folder)
+       prev_exp_id = prev_folder.name
+       eval_folders = glob.glob(
+               os.path.join(prev_folder.parent, "Eval-" + prev_exp_id + "*no-mask*"))
+       try:
+           shutil.copytree(prev_exp_folder, 
+                   os.path.join(save_path, Path(prev_exp_folder).name))
+       except (FileNotFoundError, FileExistsError):
+           pass
+       for folder in eval_folders:
+           try:
+               shutil.copytree(folder, os.path.join(save_path, Path(folder).name))
+           except (FileNotFoundError, FileExistsError):
+               pass
+
+
    for key,val in var_dict.items():
        multi = [item for item in val if re.match("multi-(.*)", item)]
        members = [x.strip("@") for x in val if not x in multi and not "@" in x.strip("@")]
@@ -340,9 +544,10 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    var_names = list(var_dict.keys())
    values = list(var_dict.values())
    inp_exp_vars = exp_vars
-   mylogs.bp("run")
-   if not main_vars:
-       main_vars = [vv.strip("@") for vv in var_names if vv.endswith("@")]
+   mylogs.bp("start")
+   mylogs.bp("mvar")
+       # main_vars = "--".join([x.strip("@") for x in main_vars])
+
    if not exp_vars:
        #if main_vars:
        #    exp_vars = main_vars
@@ -350,8 +555,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        exp_vars = [vv.strip("@") for vv in var_names if vv.startswith("@")]
    elif type(exp_vars) != list:
        exp_vars = inp_exp_vars = [exp_vars]
-   if exp_vars and not log_var:
-       log_var = exp_vars[0]
    full_tags.extend([x for x in exp_vars if not "^" in x])
    args["log_var"] = log_var 
    for ii, (vv, cc) in enumerate(zip(var_names, values)):
@@ -361,8 +564,8 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                tags.append(vv.strip("^"))
            full_tags.append(vv.strip("^"))
            values[ii] = [x for x in cc if not x.startswith("!")] 
-           if (exp_vars and not vv in exp_vars) or (main_vars and not vv in main_vars):
-               values[ii] = [values[ii][0]] # ignore the rest of values for this item 
+           #if (exp_vars and not vv in exp_vars) or (main_vars and not vv in main_vars):
+           #    values[ii] = [values[ii][0]] # ignore the rest of values for this item 
       if len(values[ii]) == 1:
            if not vv.startswith("@"):
                exclude_list.append(vv)
@@ -370,14 +573,15 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
    var_names = [vv.strip("@") for vv in var_names]
 
    full_tags = list(set(full_tags))
+   mylogs.bp("full_tags")
    for pv in inp_exp_vars:
        assert pv in full_tags, f"Eror: {pv} must be 'all' or one of {full_tags} which have multiple values"
 
    existing_exps = glob.glob(op.join(save_path, "*.json"))
-   not_conf = ["break_point","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "trial", "num_target_prompts", "num_random_masks", "per_device_train_batch_size"]
-   args["full_tag"] = full_tags 
+   not_conf = ["break_point","copy","expid", "total_exp", "full_tag", "tag", "preview", "output_dir", "experiment", "use_cache_file", "use_cache", "trial", "exp_number", "num_target_prompts", "prompt_masking", "per_device_train_batch_size","comment"] + [v for v in var_names if v.startswith("comment") or v.startswith("c-")]
+   # args["full_tag"] = full_tags 
    tot_comb = [dict(zip(var_names, comb)) for comb in itertools.product(*values)]
-   ii = len(existing_exps) 
+   ii = len(existing_exps) if not reval else 0 
    exps_done = 0
    orig_args = args.copy()
    total = len(tot_comb)
@@ -398,7 +602,11 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        old_comb = comb.copy()
 
    args["tag"] = ctags 
+   mylogs.bp("merge")
+   args["merge"] = merge
+   args["save_conf"] = save_conf 
    y_labels = []
+   exp_number = 1
    for comb in tot_comb:
        _output_dir = []
        prev_name = ""
@@ -409,7 +617,7 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            if var_name.startswith("^") and prev_name:
                prev_vals = values[kk-1]
                cur_vals = values[kk]
-               assert len(prev_vals) == len(cur_vals), "Pair variables must have same number"
+               assert len(prev_vals) == len(cur_vals), str(prev_vals) + " " + str(cur_vals) + "Pair variables must have same number"
                pairs = zip(prev_vals, cur_vals)
                if not (prev_item, var_item) in pairs:
                    conflict = prev_name + ":" + prev_item + " "+ var_name + ":" + var_item
@@ -426,44 +634,91 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            print(f"Dep var observed {conflict} ignored")
            continue
        ii += 1
+       mylogs.bp("expid")
        if max_exp > 0 and exps_done > max_exp:
            print(f"Max number of exp reached {max_exp} ")
            return
-       if not "expid" in exp_args: 
+       exp_dir = experiment.split("/")[-1] 
+       mylogs.bp("merge")
+       if merge:
+           merge = map_param(param_map, merge, key=True)
+       if not "expid" in exp_args or merge: 
            if merge:
-               args["expid"] = experiment.split("/")[-1] 
+               for (nn, vv) in mvars.items():
+                   if nn != merge and not nn in not_conf:
+                       exp_dir += "_" + nn + "-" + str(vv)
+               # exp_dir = str(hash(exp_dir))
+               h =  str(str2int(exp_dir)) 
+               hash_dir = h[:3] + str(len(exp_dir)) + h[-2:]
+               args["expid"] = hash_dir
            else:
                args["expid"] = ii 
-       elif merge: 
-           args["expid"] = str(exp_args["expid"]) 
+       elif "-" in str(exp_args["expid"]):
+           expid = str(exp_args["expid"]).replace("-rep","")
+           expid = expid.strip("-")
+           args["expid"] = expid.split("-")[-1] + "." + str(ii)
        else:
-           args["expid"] = str(exp_args["expid"]) + "-" + str(ii)
+           args["expid"] = ii 
+
        args["main_vars"] = mvars
        args["cat"] = experiment.split("/")[-1] 
        args = {**exp_args, **args}
        #_output_dir.append(str(args["expid"]))
        output_dir = save_path 
-       if exp_conf:
-           output_dir = exp_args["output_dir"]
-       elif not merge:
-           ee = int(args["expid"]) 
-           _output_dir = str(ee)
+       #if exp_conf:
+       #    output_dir = exp_args["output_dir"]
+       if merge:
+           ee = args["expid"]
+           exp_file = args[merge]
+           _output_dir = label + "-" + str(ee)
+           _output_dir = _output_dir.strip("-")
            output_dir = os.path.join(save_path, _output_dir)
-           while Path(output_dir).exists():
-               ee += 1 
-               _output_dir = str(ee)
-               output_dir = os.path.join(save_path, _output_dir)
-           args["expid"] = experiment.split("/")[-1] + "-" + str(ee)
+           if glob.glob(op.join(output_dir, f"*{exp_file}{trial}*.tsv")): 
+               if skip is True:
+                   print("The experiment already exists, skipping!!")
+                   print(exp_dir)
+                   print(output_dir)
+                   if copy_to:
+                      print("Copying to ", copy_to)
+                      shutil.copytree(output_dir, 
+                           os.path.join(copy_to, Path(output_dir).name))
+                   print("-----------------------------------------")
+                   continue
+               print("Merging to ", output_dir)
+       else:
+           ee = round(float(args["expid"]))
+           eee = ee
+           _output_dir = label + "-" + str(ee)
+           _output_dir = _output_dir.strip("-")
+           output_dir = os.path.join(save_path, _output_dir)
+           #if Path(output_dir).exists() and not repeat:
+           #    mylogs.minfo(f"The folder {output_dir} already exists....")
+           #    ans = input("Do you want to skip the experiment?")
+           #    if True: #ans == "y":
+           #        continue
+           if not reval:
+               while Path(output_dir).exists():
+                   ee += 1 
+                   _output_dir = label + str(ee)
+                   output_dir = os.path.join(save_path, _output_dir)
+           if label:
+               expid = experiment.split("/")[-1] + "-" + label + "-" + str(eee)
+               expid = expid.strip("-")
+               args["expid"] = expid
+           else:
+               expid = experiment.split("/")[-1] + "-" + str(eee)
+               expid = expid.strip("-")
+               args["expid"] = expid
        if repeat:
           args["expid"] += "-rep"
-       if not save_path:
-           output_dir = os.getcwd()
        args["output_dir"] = "%" + output_dir 
        _conf = json.dumps(args, indent=2)
        if preview == "conf":
            print(f"================ {ii}/{total} =====================")
            print(_conf)
-           with open("logs/exp_" + str(ii) + ".json","w") as f:
+           out_conf_file = os.path.join(save_path, "logs", "exp_" + str(ii) + ".json")
+           Path(os.path.join(save_path, "logs")).mkdir(exist_ok = True, parents=True)
+           with open(out_conf_file,"w") as f:
                print(_conf, file=f)
            continue
        # break point before running to check arguments (breakpoint must be check)
@@ -473,12 +728,21 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
        #title = "@".join(list(tags_dict.values()))
        title =  mylogs.get_tag(tags, args, as_str=True)
        exp_exists = False
-       if existing_exps:
+       conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
+       if not exp_conf and existing_exps:
            for ee in existing_exps:
                if preview == "ex-why":
                    print("Checking existaince for ", ee)
                with open(ee) as f:
                    jj = json.load(f)
+                   if reval and ee == conf_fname: 
+                       args = jj.copy()
+                       args["do_train"] = False
+                       args["do_test"] = True 
+                       args["trial"] = str(jj["trial"]) + "-re"
+                       args["reval"] = True
+                       break
+
                    if "output_dir" in jj:
                        output_dir = jj["output_dir"].strip("%")
                        if glob.glob(op.join(output_dir, "*.tsv")):
@@ -497,7 +761,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                if deep_check:
                   exp_exists = exp_exists and are_equal
                   break
-       args["trial"] = trial
        if preview == "tag":
            print(f"=#============== {ii}/{total} =====================")
            conf_str = json.dumps(full_tags_dict, indent=2)
@@ -507,23 +770,47 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
            with open("logs/exp_" + str(ii) + ".tag","w") as f:
                print(conf_str, file=f)
            continue
-       if exp_exists:
+       if exp_exists and not reval:
            args["output_dir"] = "%" + output_dir 
            print("Skipping experiment ", ii, ": The experiment already exists!")
            if not preview and not repeat:
               continue 
        # preview existing experiments 
-       if preview == "ex" or preview == "ex-why" or preview == "exists": #
-           continue
+       if preview in ["ex","ex-why","exists","run"]: #
+           #print(f"========== Experiment {ii} pf {total},  Input Vars: ===============")
+           #all_var_str = json.dumps(var_dict, indent=2)
+           #print(all_var_str)
+           print(f"========== Experiment {ii} pf {total},  Main Vars: ===============")
+           main_var_str = json.dumps(mvars, indent=2)
+           print(main_var_str)
+           print("==================================================================")
+           if preview != "run":
+               ans = input("Continue preview? [yes]:")
+               if not ans or ans == "yes":
+                   continue
+               else:
+                   print("Stop!")
+                   return
        done = "na"
+       args["exp_number"] = exp_number
+       exp_number += 1
        if debug:
            ctx.invoke(train, **args)
        else:
            try:
-               done = ctx.invoke(train, **args)
+               if preview == "run":
+                   ans = input("Run this? [yes/stop/next] [yes]:")
+                   if not ans or ans == "yes":
+                       done = ctx.invoke(train, **args)
+                   elif ans == "stop":
+                       print("Stop!")
+                       return
+                   else:
+                       continue
+               else:
+                   done = ctx.invoke(train, **args)
                y_labels.append(args["expid"])
                if done != "has_conflict" and done != "is_repeated":
-                   conf_fname = os.path.join(save_path,"conf_"+str(args["expid"])+".json")
                    with open(conf_fname, "w") as f:
                        print(_conf, file=f)
                    exps_done += 1
@@ -535,14 +822,15 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                print(_conf)
                raise Exception("An error occured in the experiment")
        if preview == "one" or (preview == "data" and done == "data_preview"):
+           print("return due preview:", preview, " done:",  done)
            return
 
-   if global_scores:
+   if False: #global_scores:
         score = torch.cat(global_scores, dim=0)
         img_buf = WBCallback.save_image(score=score, 
            y_labels=global_y_labels,
            x_labels=global_x_labels,
-           title = "cat" + args["cat"], 
+           title = "cat-" + args["cat"], 
            df=None) 
         if img_buf:
             cur_img = Image.open(img_buf)
@@ -555,7 +843,6 @@ def run(ctx, experiment, exp_conf, break_point, preview, exp_vars, log_var, main
                 _image = Image.open(pp)
                 cur_img = combine_y([cur_img, _image])
             cur_img.save(pp)
-
 # m3
 @cli.command()
 def train(**kwargs):

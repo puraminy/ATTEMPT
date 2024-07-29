@@ -10,13 +10,34 @@ import torch
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
+import hashlib
 
+# version last
 
 import sys
 sys.path.append('..')
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def str2int(s: str) -> int:
+    # Encode the string to bytes
+    encoded_string = s.encode()
+    
+    # Create an MD5 hash object
+    md5_hash = hashlib.md5()
+    
+    # Update the hash object with the encoded string
+    md5_hash.update(encoded_string)
+    
+    # Get the hexadecimal representation of the hash
+    hex_digest = md5_hash.hexdigest()
+    
+    # Convert the hexadecimal digest to an integer
+    unique_integer = int(hex_digest, 16)
+    
+    return unique_integer
 
 ##### My utils
 def ordered(obj):

@@ -62,6 +62,9 @@ echo "Run Prarams: ${run_params}"
 eval "${bash_params}"
 echo "Tasks: $_tasks"
 
+if [ -n "$_stsb" ]; then
+   _tasks="cola@stsb#mnli@stsb#qnli@stsb#rte@stsb#qqp@stsb#mrpc@stsb#sst2@stsb"
+fi
 if [ -n "$_ttasks" ]; then
    _tasks="${_tasks}#qnli#rte#mrpc#qqp"
 fi
@@ -102,7 +105,7 @@ if [ -n "$_pat" ]; then
    if [ -n "$_seqt" ] && [ -z "$_stasks" ]; then
       _stasks=$_tasks
    fi
-   if [ -z "$_nsp" ] && [ -z "$_stasks" ]; then
+   if [ -z "$_single" ] && [ -z "$_nsp" ] && [ -z "$_stasks" ]; then
       echo "_stasks (source tasks) is missinge e.g. _stasks mnli qqp rte "
       exit
    fi
