@@ -263,7 +263,7 @@ def recalc_rouge(df, spath):
    return df["rouge_score"].mean()
 
 def preserve_choices(text):
-    pattern = r'choice\d*'
+    pattern = r'choice\d+'
     matches = re.findall(pattern, text)
     preserved_text = ' '.join(matches)
     return preserved_text.strip() 
@@ -278,18 +278,44 @@ def remove_choice(text):
     return cleaned_text
 
 def recalc_v3(df, spath):
-   def match_text1(row):
-       pred = preserve_choices(row["pred_text1"])
+   def match_text(row):
        cleaned_vpred = remove_choice(str(row['vpred']))
        cleaned_vtarget = remove_choice(str(row['vtarget']))
-       cond1 = pred == row['target_text'].strip()
+       cond = cleaned_vtarget in cleaned_vpred and len(cleaned_vpred) < len(cleaned_vtarget) + 10
+       return 1. if cond else 0.
+
+   def match_text1_tt(row):
+        pred_choice = preserve_choices(row["pred_text1"])
+        cleaned_vpred = remove_choice(str(row['vpred']))
+        cleaned_vtarget = remove_choice(str(row['vtarget']))
+        match_choice = pred_choice == row['target_text'].strip()
+        match_text = cleaned_vpred.strip() != '' and cleaned_vpred in cleaned_vtarget
+        match_text = match_text and len(cleaned_vpred) < len(cleaned_vtarget) + 10
+        other_choice_text = not match_text and cleaned_vpred in row["input_text"]
+        match_choice = match_choice and not other_choice_text
+        return row['target_text'] if (match_choice or matche_text) else 'mistake'
+
+
+   def match_text1(row):
+       pred_choice = preserve_choices(row["pred_text1"])
+       cleaned_vpred = remove_choice(str(row['vpred']))
+       cleaned_vtarget = remove_choice(str(row['vtarget']))
+       cond1 = pred_choice == row['target_text'].strip()
        if len(cleaned_vpred.split()) > 2:
            cond2 = cleaned_vpred in cleaned_vtarget
        else:
            cond2 = cleaned_vtarget in cleaned_vpred
-       return 1. if cond1 else 0.
+       cond3 = not cond2 and cleaned_vpred in row["input_text"]
+       return 1. if cond1 and not cond3 else 0.
 
-   df["rouge_score"] = df.apply(match_text1, axis=1)
+   def match_text2(row):
+       pred_choice = preserve_choices(row["pred_text1"])
+       return pred_choice
+
+   if "MaskedChoicePrompting" in df["template"].iloc[0]:
+       df["rouge_score"] = df.apply(match_text1, axis=1)
+   else:
+       df["rouge_score"] = df.apply(match_text, axis=1)
    df.to_csv(spath, index=False, sep="\t")
    return df["rouge_score"].mean()
 
@@ -427,8 +453,15 @@ def pred_colors(df,row,col, default=None):
     pred = str(pred)
     target = df.iloc[row]["target_text"]
     terget = str(target)
+    vpred = df.iloc[row]["vpred"] if "vpred" in df.iloc[row] else ""
+    vtarget = df.iloc[row]["vtarget"] if "vtarget" in df.iloc[row] else ""
+    vpred = str(vpred)
+    vtarget= str(vtarget)
     if pred in target:
-        return WARNING_COLOR
+        if vtarget in vpred:
+            return WARNING_COLOR
+        else:
+            return MSG_COLOR
     return 81
 
 def cat_colors(df,row,col, default=None):
@@ -553,8 +586,8 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
     if score_col is not None: 
         score_cols = [score_col,'num_preds'] 
     else:
-        score_cols = ['m_score', 'num_preds'] 
-        #score_cols = ['rouge_score', 'num_preds'] 
+        #score_cols = ['m_score', 'num_preds'] 
+        score_cols = ['rouge_score', 'num_preds'] 
 
     main_vars = get_main_vars(df)
     rep_cols = rep_cols + score_cols + main_vars + sel_cols 
@@ -665,6 +698,8 @@ def add_cols(df):
     for col in df.columns:
         if col.endswith("score"):
             df[col] = pd.to_numeric(df[col])
+
+    df = df.drop(columns = [c for c in df.columns if c.startswith("c-")])
     df['id']=df.index
     df = df.reset_index(drop=True)
     if not "tag" in df:
@@ -709,6 +744,7 @@ def add_cols(df):
          'sup-nat': 'Prompting', 
          'unsup-nat': 'MaskedPrompting',
          'vnat-v3': 'MaskedChoicePrompting',
+         'vnat-v33': 'MaskedChoicePrompting33',
          'vnat_1-vs2': "ChoicePrompting",
          'vnat_0-v4': "MaskedAnswerPrompting",
          'vnat_0-vs2': "AnswerPrompting",
@@ -1087,9 +1123,9 @@ def show_df(df, summary=False):
     settings = load_obj("settings", "gtasks", {})
 
     rels = [] # df["prefix"].unique()
-    use_rouge = False # settings["use_rouge"] if "use_rouge" in settings else False 
+    use_rouge = True # settings["use_rouge"] if "use_rouge" in settings else False 
     if use_rouge:
-        score_cols = ['rouge_score','num_preds'] 
+        score_cols = ['rouge_score','depth_score','perp_score','num_preds'] 
     else:
         score_cols = ['m_score','num_preds'] 
         # score_cols = ['bert_score', 'num_preds'] 
@@ -1438,7 +1474,7 @@ def show_df(df, summary=False):
             "tag":20,
             }
     adjust = True
-    show_consts = True
+    show_consts = False
     show_extra = False
     show_infos = False
     show_rest = False
@@ -1511,10 +1547,16 @@ def show_df(df, summary=False):
                 infos.append("{},{}:{}".format(sel_row, _sel_col, _sel_val))
                 show_rest = type(_sel_val) == str and len(_sel_val) > 50
                 if show_infos and not show_rest:
-                    _, _sel_val = get_sel_rows(df, col="query", from_main=True) 
-                    infos.append("resp:{}".format(_sel_val))
+                    if "query" in df.iloc[sel_row]:
+                        _sel_val = df.iloc[sel_row]["query"]
+                    else:
+                        _, _sel_val = get_sel_rows(df, col="query", from_main=True) 
+                    infos.append("query:{}".format(_sel_val))
                     infos.append("-------------------------")
-                    _, _sel_val = get_sel_rows(df, col="resp", from_main=True) 
+                    if "resp" in df.iloc[sel_row]:
+                        _sel_val = df.iloc[sel_row]["resp"]
+                    else:
+                        _, _sel_val = get_sel_rows(df, col="resp", from_main=True) 
                     infos.append("resp:{}".format(_sel_val))
         for c in sel_cols:
             if not c in df:
@@ -1701,20 +1743,29 @@ def show_df(df, summary=False):
         elif char == "l" and prev_char == "l":
             seq = ""
         elif char == "s":
-            col = sel_cols[cur_col]
-            df = df.sort_values(by=col, ascending=asc)
+            if selected_cols:
+                df = df.sort_values(by=selected_cols, ascending=asc)
+            else:
+                col = sel_cols[cur_col]
+                df = df.sort_values(by=col, ascending=asc)
             asc = not asc
-        elif char in ["+","\""] or ch == cur.KEY_NPAGE:
+        elif char in ["\""] or ch == cur.KEY_NPAGE:
             col = sel_cols[cur_col]
             if col in selected_cols:
                 selected_cols.remove(col)
             else:
                 selected_cols.append(col)
             consts["selected_cols"] = selected_cols
-            if char == "+":
-                cur_col += 1
+            cur_col += 1
+            mbeep()
+        elif char in ["+"]:
+            col = sel_cols[cur_col]
+            if col in score_cols:
+                score_cols.remove(col)
             else:
-                cur_col -= 1
+                score_cols.append(col)
+            consts["score_cols"] = score_cols 
+            cur_col += 1
             mbeep()
         elif char == "-":
             backit(df, sel_cols)
@@ -1810,7 +1861,7 @@ def show_df(df, summary=False):
                 image_keys = ["effect"]
                 merge = "vert"
             elif char == "k" or char == "p":
-                image_keys = ["score","rsim"]
+                image_keys = ["score","sim"]
                 merge = "horiz"
 
             experiment_images, fnames = get_images(tdf, exprs, 'eid', 
@@ -2201,7 +2252,10 @@ def show_df(df, summary=False):
             if not selected_cols:
                 cols = ["label", "max_train_samples"]
             if len(cols) > 0:
-                df = df.groupby(cols, as_index=False)["All"].agg(['mean', 'std']).reset_index()
+                if "All" in df:
+                    df = df.groupby(cols, as_index=False)["All"].agg(['mean', 'std']).reset_index()
+                else:
+                    df = df.groupby(cols, as_index=False)["m_score"].agg(['mean', 'std']).reset_index()
                 # df = df.groupby(cols, as_index=False).mean(numeric_only=True).reset_index()
                 # df.iloc[:, -2:] = df.iloc[:, -2:] * 100
                 df = df.round(2)
@@ -2232,12 +2286,15 @@ def show_df(df, summary=False):
             else:
                 col = sel_cols[cur_col]
                 # df = df.groupby(col, as_index=False).mean(numeric_only=True).reset_index()
-                df = df.groupby(col)["All"].agg(['mean', 'std']).reset_index()
-                df.columns = ['_'.join(col).strip() 
-                        if isinstance(col, tuple) else col for col in df.columns]
                 if "m_score" in df:
-                    df = df.sort_values(by=["m_score"], ascending=False)
+                    df = df.groupby(col)["m_score"].agg(['mean', 'std']).reset_index()
+                    df.columns = ['_'.join(col).strip() 
+                            if isinstance(col, tuple) else col for col in df.columns]
+                    # df = df.sort_values(by=["m_score"], ascending=False)
                 elif "All" in df:
+                    df = df.groupby(col)["All"].agg(['mean', 'std']).reset_index()
+                    df.columns = ['_'.join(col).strip() 
+                        if isinstance(col, tuple) else col for col in df.columns]
                     df = df.sort_values(by=["All"], ascending=False)
                 df = df.round(2)
                 sel_cols = list(df.columns)
@@ -3333,7 +3390,7 @@ def show_df(df, summary=False):
                    handles, labels = ax.get_legend_handles_labels()
                    ordered_handles=[handles[labels.index(label)] for label in desired_order]
                    ordered_labels = desired_order
-                   ax.legend(ordered_handles, ordered_labels)
+                   ax.legend(ordered_handles, ordered_labels, fontsize=20)
                xmax = df[xcol].max() 
                ax.set_xlim([0, xmax]) 
                ax.set_xbound(lower=0.0, upper=xmax)
@@ -3344,11 +3401,19 @@ def show_df(df, summary=False):
                   name = rowinput("Title:", name)
                if cmd == 'cplot':
                   xlabel = rowinput("X Label:")
-                  ax.set_xlabel(xlabel)
                if cmd == 'cplot':
                   xlabel = rowinput("Y Label:")
-                  ax.set_ylabel(xlabel)
-               ax.set_title(name)
+
+               # Retrieve current labels
+               xlabel = ax.get_xlabel()
+               ylabel = ax.get_ylabel()
+               if not ylabel: ylabel = "Accuracy"
+               ax.set_ylabel(ylabel, fontsize=18)
+               ax.set_xlabel(xlabel, fontsize=18)
+
+               ax.set_title(ylabel + ' vs. ' + xlabel, fontsize=16)
+               ax.legend(fontsize=20)  # You can set this to any desired font size
+
                plt.show()
                # char = "H"
         if char == "H":

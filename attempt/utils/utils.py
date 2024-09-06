@@ -12,6 +12,7 @@ from PIL import ImageFont
 from PIL import ImageDraw
 import hashlib
 
+# version last
 
 import sys
 sys.path.append('..')

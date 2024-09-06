@@ -13,14 +13,17 @@
     "template",
     "method",
     "qpos",
+    "temperature",
     "source_prompts",
     "vpredin_score",
-    "m_score",
+    "rouge_score",
+    "perp_score",
+    "full_score",
+    "depth_score",
     "prefix"
   ],
   "ex_cols":[
-    "trial",
-    "temperature"
+    "trial"
   ],
   "rep_cols2":[
     "model_base",
@@ -35,6 +38,7 @@
     "max_train_samples",
     "template",
     "time",
+    "temperature",
     "source_prompts",
     "use_private_prompts",
     "load_source_prompts",
@@ -47,6 +51,7 @@
     "num_train_epochs",
     "d_seed",
     "model_temp",
+    "depth_score",
     "model_base",
     "trial"
   ],
