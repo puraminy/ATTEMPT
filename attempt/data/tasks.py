@@ -25,6 +25,7 @@ from itertools import cycle, islice
 from random import shuffle
 from collections import defaultdict
 import random
+from tqdm import tqdm
 #import nltk
 #nltk.download('punkt')
 #from nltk.tokenize import sent_tokenize
@@ -119,6 +120,7 @@ class AbstractTask(abc.ABC):
     split_prefix = {}
     target_pos = -1
     qpos = "start"
+    chpos = "start"
     omit = ""
     template_func = ""
     len_thresh = None
@@ -151,6 +153,7 @@ class AbstractTask(abc.ABC):
         self.tokenizer = tokenizer
         self.omit = task_args.get("omit_part",self.omit)
         self.qpos = task_args.get("qpos",self.qpos)
+        self.chpos = task_args.get("chpos",self.chpos)
         self.len_thresh = task_args.get("len_thresh", self.len_thresh)
         prefix = self.prefix if self.prefix else self.name
         self.prefix = task_args.get("prefix", prefix)
@@ -621,11 +624,11 @@ class AbstractTask(abc.ABC):
             return df
         valid_labels = self.labels_map["map"].values() 
         def preserve_choices(text):
-            pattern = r'choice\d*'
+            pattern = r'choice\d+'
             matches = re.findall(pattern, text)
             preserved_text = ' '.join(matches)
 			
-            return preserved_text.strip() 
+            return preserved_text.lower().strip() 
 
         def clean_text_and_extract_removed(text):
             words = text.split()
@@ -641,20 +644,27 @@ class AbstractTask(abc.ABC):
             cleaned_text = pattern.sub('', text)
             # Remove any extra whitespace that may result from the removal
             cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
-            return cleaned_text.strip()
+            return cleaned_text.lower().strip()
 
         def match_text1(row):
-            pred = preserve_choices(row["pred_text1"]) 
+            pred_choice = preserve_choices(row["pred_text1"]) 
             cleaned_vpred = remove_choice(str(row['vpred']))
             cleaned_vtarget = remove_choice(str(row['vtarget']))
-            cond1 = pred == row['target_text'].strip() 
-            cond2 = cleaned_vpred.strip() != '' and cleaned_vpred in cleaned_vtarget
-            return row['target_text'] if cond1 or cond2 else 'mistake'
+            match_choice = pred_choice == row['target_text'].strip() 
+            match_text = cleaned_vpred.strip() != '' and cleaned_vpred in cleaned_vtarget
+            match_text = match_text and len(cleaned_vpred) < len(cleaned_vtarget) + 10
+            other_choice_text = not match_text and cleaned_vpred in row["input_text"]
+            match_choice = match_choice and not other_choice_text
+            return row['target_text'] if (match_choice or match_text) else 'mistake'
 
         def match_text(row):
             cleaned_vpred = remove_choice(str(row['vpred']))
             cleaned_vtarget = remove_choice(str(row['vtarget']))
-            return row['target_text'] if cleaned_vtarget in cleaned_vpred else 'mistake'
+            cond = cleaned_vtarget in cleaned_vpred 
+            cond = cond and len(cleaned_vpred) < len(cleaned_vtarget) + 10
+
+            return row['target_text'] if cond else 'mistake'
+
 		# Apply the cleaning function to each row in 'pred_text1'
         if True: #self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
@@ -1096,7 +1106,7 @@ class AbstractTask(abc.ABC):
         return {'source': src_text,
                 'target': tgt_text,
                 'task': self.name,
-                'extra_fields': ex_fields}
+                'extra_fields': extra_fields}
 
 
 class Squad(AbstractTask):
@@ -1150,6 +1160,7 @@ class QA(AbstractTask):
             "v0": "[MASK] is correct",
             "v1": "The answer is [MASK], [MASK] is correct",
             "v3": "[MASK], the correct choice is [MASK]",
+            "v33": "[MASK] [MASK]",
             "v4": "[MASK]",
             "v3so": "[MASK], so the correct choice is [MASK]",
             "v2": "[MASK], so [MASK] is correct",
@@ -1204,10 +1215,16 @@ class OpenBookQA(QA):
         choices = example["choices"]
         labels = choices["label"]
         self.question = "question:" + example['question_stem'].strip(".")
-        src_texts = ["choice1:", choices["text"][0], ",", 
-                     "choice2:", choices["text"][1], ",",
-                     "choice3:", choices["text"][2], ",", 
-                     "choice4:", choices["text"][3]]
+        if self.chpos == "end":
+            src_texts = ["", choices["text"][0], " choice1,", 
+                         "", choices["text"][1], " choice2,",
+                         "", choices["text"][2], " choice3,", 
+                         "", choices["text"][3], " choice4"]
+        else:
+            src_texts = ["choice1:", choices["text"][0], ", ", 
+                         "choice2:", choices["text"][1], ", ",
+                         "choice3:", choices["text"][2], ", ", 
+                         "choice4", choices["text"][3], ""]
         if self.omit != "fact1":
             src_texts.append(", fact:" + example["fact1"])
         tgt_texts = [label2id[example["answerKey"]]]
@@ -1317,11 +1334,18 @@ class CommonsenseQA(QA):
         
         label2id = {"A": "0", "B": "1", "C": "2", "D": "3", "E": "4"}
         self.question = "question:" + example['question'];
-        src_texts = ["choice1:", choices["text"][0], 
-                     "choice2:", choices["text"][1],
-                     "choice3:", choices["text"][2], 
-                     "choice4:", choices["text"][3], 
-                     "choice5:", choices["text"][4]]
+        if self.chpos == "end":
+            src_texts = ["", choices["text"][0], " choice1", 
+                     "", choices["text"][1], " choice2,", 
+                     "", choices["text"][2], " choice3,",  
+                     "", choices["text"][3], " choice4,",  
+                     "", choices["text"][4], " choice5"]
+        else:
+            src_texts = ["choice1:", choices["text"][0], ", ", 
+                     "choice2:", choices["text"][1], ", ", 
+                     "choice3:", choices["text"][2], ", ",  
+                     "choice4:", choices["text"][3], ", ",  
+                     "choice5:", choices["text"][4], ""]
         tgt_texts = [label2id[example["answerKey"]]]
         return super().seq2seq_format(src_texts, tgt_texts, prefix)
 
@@ -1718,6 +1742,10 @@ class Atomic(AbstractTask):
             df = pd.read_table(path)
         else:
             df = pd.read_csv(path)
+        if "all" in self.rels:
+            all_rels = df["prefix"].unique()
+            self.rels += list(all_rels)
+            self.rels.remove("all")
         if self.do_split or (split == "test" and len(df) < 300):
             path = self.get_data_path("train")
             if self.df_format == ".tsv":
@@ -1820,11 +1848,12 @@ class Atomic(AbstractTask):
         mylogs.bp("filter")
         df = df[~df["target_text"].str.contains('none', na=False) 
                 & (df["target_text"].str.len() >= 3)]
-        for val in self.rels:
-            cond += f"| (df['prefix'] == '{val}') "
-        cond = cond.strip("|")
-        if cond:
-            df = df[eval(cond)]
+        if not "all" in self.rels:
+            for val in self.rels:
+                cond += f"| (df['prefix'] == '{val}') "
+            cond = cond.strip("|")
+            if cond:
+                df = df[eval(cond)]
         return df
 
     # ppppppppppppppp
@@ -1921,6 +1950,7 @@ class AtomicRel(Atomic):
         assert len(rels) > 0, "rels is empty"
         assert self.start_row < len(df), "start row is more than lenght of dataframe"
         samples_per_head = self.samples_per_head_per_split[self.split]
+        pbar = tqdm(total=n_obs * len(rels), position=0, leave=True) #,dynamic_ncols=True)
         for idx, row in df.iterrows():
             # print(len(rows), row.prefix, pcounter)
             if len(rows) >= n_obs * len(rels):
@@ -1943,11 +1973,14 @@ class AtomicRel(Atomic):
             if pcounter[row.prefix] > self.start_row + n_obs * w: 
                 continue
             rows.append(row.to_dict())
+            pbar.update(1)
         self.df = pd.DataFrame(data=rows)
         ds = Dataset.from_pandas(self.df)
         return ds
 
     def get_records_num(self, split, n_obs):
+        if "all" in self.rels:
+            self.read_df("train")
         return n_obs*len(self.rels)*self.samples_per_head_per_split["train"]
 
     def preprocessor(self, example, prefix):
@@ -1995,7 +2028,7 @@ class FreeCS(Atomic):
     split_folder = {"train": "free-rels", "test":"free-rels"}
     #split_folder = {"train": "sent", "test":"sent"}
     #split_prefix = {"train": "sup_", "test":"sup_"}
-    split_prefix = {"train": "8000_", "test":""}
+    split_prefix = {"train": "8000_rand_", "test":""}
     def preproc_df(self, df, split):
         return df
 
@@ -2098,6 +2131,16 @@ class SplitDS(AbstractTask):
 
 class SplitOMCS(SplitDS):
     name = "omcs"
+    def preprocessor(self, example, prefix):
+        src_texts = [str(example["text"])]
+        tgt_texts = src_texts
+        extra_fields = {}
+        return self.seq2seq_format(src_texts, tgt_texts,
+                                   prefix, extra_fields=extra_fields)
+
+class SplitOpSent(SplitDS):
+    name = "opsent"
+    split_prefix = {"train": "opsent", "test":"opsent_"}
     def preprocessor(self, example, prefix):
         src_texts = [str(example["text"])]
         tgt_texts = src_texts
@@ -2848,6 +2891,7 @@ TASK_MAPPING = OrderedDict(
         ('task-clf2', TaskClassifier2),
         ('splitter', Splitter),
         ('omcs', SplitOMCS),
+        ('opsent', SplitOpSent),
         ('sent', SplitSent),
         ('squad', Squad),
         ('mrpc', MRPC),
@@ -2881,6 +2925,7 @@ TASK_MAPPING = OrderedDict(
         ('snli', SNLI),
         ('piqa', PIQA),
         ('openbook-qa', OpenBookQA),
+        ('obqa', OpenBookQA),
         ('drop', DROP),
         ('newsqa', Squad),
         ('searchqa', Squad),

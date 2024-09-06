@@ -70,6 +70,8 @@
   "save":"save_model",
   "eq":"equal_labels",
   "numt":"num_prompt_tokens",
+  "pl": "prompt_length",
+  "fz": "freeze_model",
   "alr":"attn_learning_rate",
   "attn":"attn_method",
   "ppx":"prompts_prefix",
