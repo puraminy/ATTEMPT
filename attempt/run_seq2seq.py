@@ -2551,6 +2551,7 @@ def train(**kwargs):
         
         no_mask_preds = {}
         # multi-task evaluations
+
         def compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels):
             # Ensure model is in evaluation mode
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -2565,20 +2566,21 @@ def train(**kwargs):
                 labels = labels.unsqueeze(0)
 
             model.eval()
-            
+
             # Initialize accumulators for perplexity and depth rank
             total_log_likelihood = 0.0
             depth_ranks = []
-            
+
             # Loop through the target sequence (label tokens) token-by-token
             for i in range(1, len(labels[0])):  # Start from the second token
-                # Use the input + the generated tokens so far
-                current_input_ids = torch.cat([input_ids, labels[0, :i].unsqueeze(0)], dim=1)
-                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
+                # Decoder input up to the current token (i.e., labels generated so far)
+                decoder_input_ids = labels[0, :i].unsqueeze(0).to(device)
 
                 with torch.no_grad():
-                    # Forward pass through the model
-                    outputs = model(input_ids=current_input_ids, attention_mask=current_attention_mask)
+                    # Forward pass through the model (T5 requires both encoder and decoder inputs)
+                    outputs = model(input_ids=input_ids,
+                                    attention_mask=attention_mask,
+                                    decoder_input_ids=decoder_input_ids)
 
                 # Get logits for the next token prediction
                 logits = outputs.logits[:, -1, :]  # Logits for the last token in the sequence
@@ -2587,15 +2589,19 @@ def train(**kwargs):
                 prob_dist = torch.softmax(logits, dim=-1)
 
                 # Get the true next token
-                true_next_token = labels[0, i]
+                true_next_token = labels[0, i].item()
 
                 # Compute log likelihood (negative log-probability of the true token)
                 log_prob = torch.log(prob_dist[0, true_next_token])
                 total_log_likelihood += log_prob.item()
 
                 # Compute DepthRank
-                sorted_indices = torch.argsort(prob_dist, descending=True)
-                rank = (sorted_indices == true_next_token).nonzero(as_tuple=True)[0].item() + 1
+                sorted_indices = torch.argsort(prob_dist, descending=True).squeeze(0).tolist()
+                if true_next_token in sorted_indices:
+                    rank = sorted_indices.index(true_next_token) + 1  # Find the index and add 1 (1-based rank)
+                else:
+                    rank = len(sorted_indices)  # If not found, assign the worst possible rank
+
                 depth_ranks.append(rank)
 
             # Compute average log likelihood and perplexity
@@ -2606,8 +2612,6 @@ def train(**kwargs):
             depth_rank = sum(depth_ranks) / len(depth_ranks)
 
             return perplexity, depth_rank
-
-
 
         def compute_depth_rank_and_perplexity2(model, input_ids, attention_mask, labels):
             # Ensure model is in evaluation mode
