@@ -11,9 +11,6 @@ from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 import hashlib
-
-# version last
-
 import sys
 sys.path.append('..')
 
@@ -266,9 +263,11 @@ def freeze_model_params(model, adapter_args, adapter_config):
             unfreeze_attn_params(model, adapter_args, adapter_config)
 
     if adapter_args.prompt_tuning:
-        for n, m in model.named_parameters():
-            if True: #not "prompt_encoders" in n: 
-                m.requires_grad = False
+        # freeze_params(model)
+        if adapter_args.freeze_model is True: 
+            for n, m in model.named_parameters():
+                if True: #not "prompt_encoders" in n: 
+                    m.requires_grad = False
         if adapter_config.attn_prompt is True: 
             unfreeze_attn_params(model, adapter_args, adapter_config)
 

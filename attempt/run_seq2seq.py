@@ -973,7 +973,7 @@ def train(**kwargs):
 
     def parse_prompts_conf(label):
         flags = {
-            'add_target': False,
+            'add_target': kwargs.get("add_target", False),
             'use_source_prompts': False,
             'load_source_prompts': False,
             'learn_source_prompts': False,
@@ -1222,6 +1222,7 @@ def train(**kwargs):
     task_args["test_samples"] = data_args.max_test_samples
     task_args["omit_part"] = kwargs.get("omit_part","")
     task_args["qpos"] = kwargs.get("qpos","end") # position of question
+    task_args["chpos"] = kwargs.get("chpos","start") # position of question
     task_args["len_thresh"] = kwargs.get("len_thresh", None) # position of question
     task_args["num_prompts"] = num_prompts 
     task_args["target_prompt_length"] = target_prompt_length 
@@ -1507,6 +1508,8 @@ def train(**kwargs):
     config.learn_attention = model_args.learn_attention 
     config.learn_source_prompts = learn_source_prompts
     config.learn_target_prompts = model_args.learn_target_prompts
+
+    adapter_args.freeze_model = kwargs.get("freeze_model", True)
     adapter_config = get_adapter_config(
         adapter_args, data_args, training_args, config)
 
@@ -1979,6 +1982,25 @@ def train(**kwargs):
         model_inputs["labels"] = labels["input_ids"]
         #if preview == "data":
         #    logger.info("target encoded input ids: %s", labels["input_ids"])
+        # Check for <extra_id_x> in the source and reconstruct full sentence
+        full_sentences = []
+        for source, target in zip(examples['source'], examples['target']):
+            if "<extra_id_" in source:
+                for i, segment in enumerate(target.split("<extra_id_")):
+                    if i > 0:  # Skip the first part before <extra_id_0>
+                        placeholder = f"<extra_id_{i-1}>"
+                        source = source.replace(placeholder, segment.split(">")[1], 1)
+                full_sentence = source
+            else:
+                full_sentence = source + " " + target
+
+            full_sentences.append(full_sentence)
+
+        # Tokenize the full sentence and add to model_inputs
+        full_tokenized = tokenizer(full_sentences, max_length=data_args.max_source_length + max_target_length,
+                                   padding=padding, truncation=True)
+        model_inputs["full_ids"] = full_tokenized["input_ids"]
+        ##################
         if "task_ids" in examples["extra_fields"]:
             model_inputs["task_ids"] = examples["extra_fields"]["task_ids"]
         mylogs.bp("train_test_data")
@@ -2529,6 +2551,96 @@ def train(**kwargs):
         
         no_mask_preds = {}
         # multi-task evaluations
+        def compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels):
+            # Ensure model is in evaluation mode
+           # Convert numpy arrays to PyTorch tensors
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            input_ids = torch.tensor(input_ids).to(device)
+            attention_mask = torch.tensor(attention_mask).to(device)
+            labels = torch.tensor(labels).to(device)
+
+            # Ensure input is treated as a batch of size 1
+            if input_ids.ndim == 1:
+                input_ids = input_ids.unsqueeze(0)
+                attention_mask = attention_mask.unsqueeze(0)
+                labels = labels.unsqueeze(0)
+
+            # Get model outputs without computing gradients
+            model.eval()
+            with torch.no_grad():
+                outputs = model(input_ids=input_ids,
+                                attention_mask=attention_mask,
+                                labels=labels)
+
+
+            # Get model outputs without computing gradients
+            loss = outputs.loss
+            logits = outputs.logits
+
+            # Compute perplexity
+            perplexity = torch.exp(loss)
+
+            # Compute DepthRank
+            depth_ranks = []
+            batch_size, seq_len, vocab_size = logits.size()
+            for i in range(seq_len):
+                logits_i = logits[0, i]  # shape: (vocab_size)
+                token_id = labels[0, i]
+                prob_dist = torch.softmax(logits_i, dim=-1)
+                sorted_indices = torch.argsort(prob_dist, descending=True)
+                rank = (sorted_indices == token_id).nonzero(as_tuple=True)[0].item() + 1
+                depth_ranks.append(rank)
+
+            depth_rank = sum(depth_ranks) / len(depth_ranks)
+
+            return perplexity.item(), depth_rank
+
+        def compute_sentence_perplexity(model, full_ids):
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            model.eval()
+            
+            # Convert inputs to tensors and move to device
+            full_ids = torch.tensor(full_ids).to(device)
+
+            # Initialize loss to accumulate the log likelihoods
+            total_log_likelihood = 0.0
+
+            # Loop through each token and compute the log likelihood
+            for i in range(1, len(full_ids)):
+                # Get the current input sequence up to the ith token
+                current_input_ids = full_ids[:i].unsqueeze(0)
+                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
+
+                # The next token you want to predict (as decoder input)
+                decoder_input_ids = full_ids[:i].unsqueeze(0)
+
+                # Forward pass (without gradients)
+                with torch.no_grad():
+                    outputs = model(input_ids=current_input_ids, 
+                                    attention_mask=current_attention_mask,
+                                    decoder_input_ids=decoder_input_ids)
+
+                # Get logits for the next token prediction
+                logits = outputs.logits[:, -1, :]  # Get logits for the last token
+
+                # Compute softmax probabilities
+                probs = torch.softmax(logits, dim=-1)
+
+                # Get the log probability of the true next token
+                true_next_token = full_ids[i]
+                log_prob = torch.log(probs[0, true_next_token])
+
+                # Accumulate the log probability
+                total_log_likelihood += log_prob.item()
+
+            # Compute perplexity from the accumulated log likelihoods
+            avg_log_likelihood = total_log_likelihood / len(full_ids)
+            # Convert avg_log_likelihood to a tensor before computing perplexity
+            avg_log_likelihood_tensor = torch.tensor(avg_log_likelihood)
+            # Compute perplexity from the accumulated log likelihoods
+            perplexity = torch.exp(-avg_log_likelihood_tensor)
+            return perplexity.item()
+
         def evaluate_test(task, test_dataset, save_to, ds_name, auto_task, 
                 gen_conf = {}, use_cache=False):
             mylogs.bp("ttt")
@@ -2616,6 +2728,22 @@ def train(**kwargs):
                 pred = pred.strip()
                 preds.append(pred)
                 df.at[i, "pred_text1"] = pred
+
+                # Compute perplexity and DepthRank
+                # Extract input_ids, attention_mask, and labels from the row
+                input_ids = row["input_ids"]
+                attention_mask = row["attention_mask"]
+                labels = row["labels"]
+                # Compute perplexity and DepthRank using the precomputed values
+                perplexity, depth_rank = compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels)
+
+                full_ids = row["full_ids"]
+                full_perplexity = compute_sentence_perplexity(model, full_ids)
+
+                df.at[i, 'perp_score'] = perplexity
+                df.at[i, 'depth_score'] = depth_rank
+                df.at[i, 'full_score'] = full_perplexity 
+
             df = df.drop(columns=["input_ids","labels","attention_mask"])
             # assert task in TASK_TO_METRICS, "There is no metric for task " + task
             if task in TASK_TO_METRICS:

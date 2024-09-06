@@ -179,6 +179,9 @@ class WBCallback(WandbCallback):
             return
         mylogs.bp("save_router")
         model = kwargs.pop("model", None)
+        self.save_router(model, state)
+
+    def save_router(self, model, state):
         targets = model.encoder.target_encoders_idx
         y_labels = [model.encoder.prompt_names[i] for i in targets]
         y_labels = [y.replace("tar-","") for y in y_labels]
@@ -214,11 +217,6 @@ class WBCallback(WandbCallback):
         epoch = floor(state.epoch)
         mylogs.bp("wand")
         epoch = int(epoch)
-        if epoch % 10 == 1 or state.global_step == 2:
-            self.cur_epoch = epoch
-            p = "start" if state.global_step == 1 else "ep"
-            x_labels = y_labels = model.encoder.prompt_names
-            scores = model.encoder.attn_scores
-            model.encoder.first_image = True
-            #WBCallback.save_images(scores, x_labels, y_labels, 
-            #                       state, fname= p + "_attn_scores")
+        if state.global_step % 50 == 1 or state.global_step == 2:
+            self.save_router(model, state)
+
