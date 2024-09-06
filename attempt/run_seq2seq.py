@@ -2553,6 +2553,64 @@ def train(**kwargs):
         # multi-task evaluations
         def compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels):
             # Ensure model is in evaluation mode
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            input_ids = torch.tensor(input_ids).to(device)
+            attention_mask = torch.tensor(attention_mask).to(device)
+            labels = torch.tensor(labels).to(device)
+
+            # Ensure input is treated as a batch of size 1
+            if input_ids.ndim == 1:
+                input_ids = input_ids.unsqueeze(0)
+                attention_mask = attention_mask.unsqueeze(0)
+                labels = labels.unsqueeze(0)
+
+            model.eval()
+            
+            # Initialize accumulators for perplexity and depth rank
+            total_log_likelihood = 0.0
+            depth_ranks = []
+            
+            # Loop through the target sequence (label tokens) token-by-token
+            for i in range(1, len(labels[0])):  # Start from the second token
+                # Use the input + the generated tokens so far
+                current_input_ids = torch.cat([input_ids, labels[0, :i].unsqueeze(0)], dim=1)
+                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
+
+                with torch.no_grad():
+                    # Forward pass through the model
+                    outputs = model(input_ids=current_input_ids, attention_mask=current_attention_mask)
+
+                # Get logits for the next token prediction
+                logits = outputs.logits[:, -1, :]  # Logits for the last token in the sequence
+
+                # Compute softmax probabilities
+                prob_dist = torch.softmax(logits, dim=-1)
+
+                # Get the true next token
+                true_next_token = labels[0, i]
+
+                # Compute log likelihood (negative log-probability of the true token)
+                log_prob = torch.log(prob_dist[0, true_next_token])
+                total_log_likelihood += log_prob.item()
+
+                # Compute DepthRank
+                sorted_indices = torch.argsort(prob_dist, descending=True)
+                rank = (sorted_indices == true_next_token).nonzero(as_tuple=True)[0].item() + 1
+                depth_ranks.append(rank)
+
+            # Compute average log likelihood and perplexity
+            avg_log_likelihood = total_log_likelihood / len(labels[0])
+            perplexity = torch.exp(-torch.tensor(avg_log_likelihood)).item()
+
+            # Compute DepthRank for the entire sentence
+            depth_rank = sum(depth_ranks) / len(depth_ranks)
+
+            return perplexity, depth_rank
+
+
+
+        def compute_depth_rank_and_perplexity2(model, input_ids, attention_mask, labels):
+            # Ensure model is in evaluation mode
            # Convert numpy arrays to PyTorch tensors
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             input_ids = torch.tensor(input_ids).to(device)
@@ -2737,12 +2795,12 @@ def train(**kwargs):
                 # Compute perplexity and DepthRank using the precomputed values
                 perplexity, depth_rank = compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels)
 
-                full_ids = row["full_ids"]
-                full_perplexity = compute_sentence_perplexity(model, full_ids)
-
                 df.at[i, 'perp_score'] = perplexity
                 df.at[i, 'depth_score'] = depth_rank
-                df.at[i, 'full_score'] = full_perplexity 
+                
+                # full_ids = row["full_ids"]
+                # full_perplexity = compute_sentence_perplexity(model, full_ids)
+                # df.at[i, 'full_score'] = full_perplexity 
 
             df = df.drop(columns=["input_ids","labels","attention_mask"])
             # assert task in TASK_TO_METRICS, "There is no metric for task " + task
