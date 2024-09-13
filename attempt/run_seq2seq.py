@@ -2677,17 +2677,16 @@ def train(**kwargs):
             # Start decoder with <pad> token
             decoder_input_ids = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
 
-            # Use dummy input for encoder (e.g., a single <pad> token)
-            dummy_encoder_input = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
-            dummy_attention_mask = torch.tensor([1]).unsqueeze(0).to(device)  # Mask for dummy input
+            # Loop through each token and compute the log likelihood
+            for i in range(len(full_ids)):  # Now starting from the first token of full_ids
+                # Get the current input sequence up to the ith token (encoder input)
+                current_input_ids = full_ids.unsqueeze(0)  # Treat the input as a batch of size 1
+                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
 
-            # Loop through each token and compute log likelihood and depth rank
-            for i in range(len(full_ids)):
-                # Forward pass (without gradients)
                 with torch.no_grad():
                     outputs = model(
-                        input_ids=dummy_encoder_input,  # Dummy input for the encoder
-                        attention_mask=dummy_attention_mask,
+                        input_ids=current_input_ids,  # Dummy input for the encoder
+                        attention_mask=current_attention_mask,
                         decoder_input_ids=decoder_input_ids
                     )
 
@@ -2726,7 +2725,6 @@ def train(**kwargs):
             depth_rank = sum(depth_ranks) / len(depth_ranks)
 
             return perplexity, depth_rank
-
 
         def evaluate_test(task, test_dataset, save_to, ds_name, auto_task, 
                 gen_conf = {}, use_cache=False):

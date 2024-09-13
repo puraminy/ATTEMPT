@@ -634,6 +634,9 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
 def add_scores(df):
     score_col = "rouge_score"
     # backit(df, sel_cols)
+    if "depth_score" in df:
+        df["depth_min_score"] = df.groupby(['fid','prefix','input_text'])["depth_score"].transform("min")
+    # df["perp_min_score"] = df.groupby(['fid','prefix','input_text'])["perp_score"].transform("min")
     df["rouge_score"] = df.groupby(['fid','prefix','input_text'])["rouge_score"].transform("max")
     df["bert_score"] = df.groupby(['fid','prefix','input_text'])["bert_score"].transform("max")
     df["hscore"] = df.groupby(['fid','prefix','input_text'])["hscore"].transform("max")
@@ -661,7 +664,7 @@ def grouping(df, FID='fid'):
     _agg = {}
     for c in df.columns:
         if c.endswith("score"):
-            _agg[c] = "mean"
+            _agg[c] = ['mean', 'std']  # Aggregate both mean and standard deviation
         else:
             _agg[c] = ["first", "nunique"]
     #df = df.groupby(col).agg(_agg).reset_index(drop=True)
@@ -930,6 +933,7 @@ def show_df(df, summary=False):
 
     hk = hotkey
     cmd = global_cmd 
+    ms_cmd = False
     sel_row = 0
     cur_col = -1
     cur_row = 0
@@ -1323,6 +1327,29 @@ def show_df(df, summary=False):
                break
         return infos, col_widths
 
+    def get_sel_dfs(df, row_id="fid", col="eid"):
+        dfs = []
+        s_rows = sel_rows
+        if not s_rows:
+            s_rows = [sel_row]
+        
+        # Iterate through each selected row
+        for s_row in s_rows:
+            # If row_id is present in df, use it to filter main_df
+            if row_id in df.columns:
+                row_value = df.iloc[s_row][row_id]
+                # Filter main_df using row_id and append result to dfs
+                tdf = main_df[main_df[row_id] == row_value]
+                dfs.append(tdf)
+        
+        # Concatenate the filtered DataFrames if we have any
+        if dfs:
+            return pd.concat(dfs, ignore_index=True)
+        
+        # If no DataFrame filtering was done, return None 
+        return None 
+
+
     def get_sel_rows(df, row_id="eid", col="eid", from_main=True):
         values = []
         s_rows = sel_rows
@@ -1583,25 +1610,29 @@ def show_df(df, summary=False):
                 if type(val) == list:
                     val = "-".join(val)
                 infos.append("{:<5}:{}".format(key,val))
-        if show_infos or show_rest:
+        if show_infos or show_rest or show_consts or show_extra:
             info_lines = change_info(infos)
 
         prev_char = chr(ch)
         prev_cmd = cmd
-        if global_cmd and not hotkey or hotkey == "q":
-            cmd = global_cmd
-            global_cmd = ""
+        if not ms_cmd:
+            if global_cmd and not hotkey or hotkey == "q":
+                cmd = global_cmd
+                global_cmd = ""
+            else:
+                cmd = ""
+            if hotkey == "":
+                cur.doupdate()
+                if new_df:
+                    cur.flushinp()
+                    cur.flash()
+                ch = std.getch()
+            else:
+                ch, hotkey = ord(hotkey[0]), hotkey[1:]
+            char = chr(ch)
         else:
-            cmd = ""
-        if hotkey == "":
-            cur.doupdate()
-            if new_df:
-                cur.flushinp()
-                cur.flash()
-            ch = std.getch()
-        else:
-            ch, hotkey = ord(hotkey[0]), hotkey[1:]
-        char = chr(ch)
+            ch = 0
+            char = ""
         if char != "q" and prev_char == "q": 
             consts["exit"] = ""
             prev_char = ""
@@ -2077,6 +2108,8 @@ def show_df(df, summary=False):
             sel_df = df.sort_values(by=["prefix","input_text","target_text"]).drop_duplicates()
             sel_df.to_csv(sel_path, sep="\t", index=False)
         elif char in ["w","W"]:
+            sel_cols, info_cols, tag_cols = remove_uniques(df, sel_cols, orig_tag_cols)
+        elif char in ["w","W"] and False:
             inp = df.loc[df.index[sel_row],["prefix", "input_text","pred_text1"]]
             df.loc[(df.prefix == inp.prefix) & 
                     (df.input_text == inp.input_text),["sel"]] = True
@@ -3308,7 +3341,7 @@ def show_df(df, summary=False):
             sel_rows= []
             context = "cross"
             group_col = "label"
-        if cmd == "line" or (char == "h" and context == "pivot"):
+        if cmd == "mline" or (char == "h" and context == "pivot"):
              try:
                  cur_col_name = sel_cols[cur_col]
                  if len(selected_cols) == 0:
@@ -3531,13 +3564,80 @@ def show_df(df, summary=False):
             sns.heatmap(tdf, annot=True, cmap='coolwarm')
             plt.title('Heatmap of Mean Scores by Category1 and Category2')
             plt.show()
+        if cmd.startswith("violin"):
+            if not selected_cols:
+                selected_cols = ["model_temp", "template"]
+            plt.figure(figsize=(12, 6))
+            tdf = get_sel_dfs(df)
+            sns.violinplot(x=selected_cols[0], y=selected_cols[-1], 
+                    hue=selected_cols[1], data=tdf, split=True)
+            plt.title('Boxplot of Scores by Category1 and Category2')
+            plt.show()
         if cmd.startswith("box"):
             if not selected_cols:
                 selected_cols = ["model_temp", "template"]
             plt.figure(figsize=(12, 6))
-            sns.boxplot(x=selected_cols[0], y='All', hue=selected_cols[1], data=df)
+            tdf = get_sel_dfs(df)
+            sns.boxplot(x=selected_cols[0], y=selected_cols[-1], 
+                    hue=selected_cols[1], data=tdf)
             plt.title('Boxplot of Scores by Category1 and Category2')
             plt.show()
+        if cmd.startswith("ebar"):
+            sns.set(style="whitegrid")
+            plt.figure(figsize=(10, 6))
+
+            sns.boxplot(x='prefix', y='depth_score', hue='max_train_samples', data=df, ci=None, palette="Blues", edgecolor='w')
+
+            for index, row in df.iterrows():
+                plt.errorbar(x=index, y=row['depth_score'], yerr=row['depth_score_std'], fmt='none', c='black', capsize=5)
+
+            # plt.title('Depth Score and Standard Deviation by Relation Type and Training Samples')
+            plt.xlabel('Relation Type')
+            plt.ylabel('Depth Score')
+            plt.legend(title='Training Samples (tn)')
+            plt.xticks(rotation=45)
+
+            plt.tight_layout()
+            plt.show()            
+        if cmd.startswith("bar") or cmd.startswith("line"):
+            show_extra = True
+            consts["columns"] = sel_cols 
+            if len(selected_cols) < 3:
+                ms_cmd = True
+                i = len(selected_cols)
+                sel_col = sel_cols[cur_col]
+                inp = ["Filter col", "X col", "Y col"]
+                col = rowinput(inp[i] + ":", default=sel_col)
+                if not col:
+                    ms_cmd = False
+                else:
+                    consts[inp[i]] = col 
+                    selected_cols.append(col)
+            else:
+                ms_cmd = False
+                show_extra = False
+                filter_col = selected_cols[0]
+                x_col = selected_cols[1]
+                y_col = selected_cols[2]
+                unique_filter_values = df[filter_col].unique()
+                #desired_order = ['xIntent', 'xNeed', 'xWant', 'xAttr', 'AtLocation', 'ObjectUse']
+
+                #df[filter_col] = pd.Categorical(df[filter_col], categories=desired_order, ordered=True)
+
+                g = sns.FacetGrid(df, col=filter_col, col_wrap=3, height=4, aspect=1)  #
+                if cmd == "bar":
+                    hue_col = selected_cols[3]  if len(selected_cols) > 3 else x_col
+                    g.map_dataframe(sns.barplot, x=x_col, y=y_col, 
+                            hue=hue_col, palette="muted")
+                else:
+                    hue_col = selected_cols[3]  if len(selected_cols) > 3 else filter_col
+                    g.map_dataframe(sns.lineplot, x=x_col, y=y_col, 
+                            hue=hue_col, palette="muted", marker='o')
+                g.set_axis_labels("Train Samples", 'Depth Score')
+                g.set_titles('{col_name}')
+                # g.add_legend(loc='upper right', title_fontsize=14) 
+                plt.tight_layout()
+                plt.show()
         if cmd.startswith("sbar"):
             #tdf = df.groupby(selected_cols + ['model_base'])['All'].mean().unstack().reset_index()
             if not selected_cols:
@@ -3571,7 +3671,7 @@ def show_df(df, summary=False):
                 fig.delaxes(axes[i])
 
             plt.show()
-        elif cmd.startswith("bar"):
+        elif cmd.startswith("bar") and False:
             if False: #context == "main":
                 score_col = "rouge_score"
                 if sel_cols[cur_col].endswith("_score"):
@@ -3695,7 +3795,6 @@ def show_df(df, summary=False):
                 score_col = cur_col_name
             else:
                 score_col = 'All' # if context == "pivot" else 'rouge_score'
-            score_col = 'All'
             tdf = tdf.groupby(selected_cols)[score_col].mean().reset_index()
             hue_palette = sns.color_palette("husl", len(tdf[selected_cols[-1]].unique()))
             g = sns.FacetGrid(tdf, col=cat_col, col_order=facet_order,
@@ -3715,6 +3814,36 @@ def show_df(df, summary=False):
             #    for label in ax.get_xticklabels():
             #        label.set_rotation(45)
             g.add_legend(loc='upper right', title_fontsize=14) 
+            plt.show()
+
+        elif cmd.startswith("mscat"):
+            category_column = selected_cols[2]
+            categories = df[category_column].unique()
+
+            for category in categories:
+                category_df = df[df[category_column] == category]
+                
+                x = category_df[selected_cols[0]]
+                y = category_df[selected_cols[1]]
+                
+                plt.scatter(x, y, label=f'Category: {category}')
+                
+                # Fit a polynomial (linear fit)
+                coefficients = np.polyfit(x, y, 1)
+                polynomial = np.poly1d(coefficients)
+                y_fit = polynomial(x)
+                
+                # Plot the fit line for each category
+                plt.plot(x, y_fit, label=f'Fit Line ({category})')
+
+            xlabel = selected_cols[0].replace('_', ' ').title()
+            ylabel = selected_cols[1].replace('_', ' ').title()
+
+            plt.xlabel(xlabel, fontsize=16)
+            plt.ylabel(ylabel, fontsize=16)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
+            plt.legend(fontsize=10, loc='best')
             plt.show()
         elif cmd.startswith("scat"):
             x = df[selected_cols[0]]

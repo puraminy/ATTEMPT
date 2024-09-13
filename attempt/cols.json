@@ -12,14 +12,12 @@
     "model_temp",
     "template",
     "method",
-    "qpos",
-    "temperature",
     "source_prompts",
     "vpredin_score",
     "rouge_score",
     "perp_score",
-    "full_score",
     "depth_score",
+    "max_train_samples",
     "prefix"
   ],
   "ex_cols":[
