@@ -2552,7 +2552,7 @@ def train(**kwargs):
         no_mask_preds = {}
         # multi-task evaluations
 
-        def compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels):
+        def compute_depth_rank_and_perplexity(model, tokenizer, input_ids, attention_mask, labels, prediction):
             # Ensure model is in evaluation mode
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             input_ids = torch.tensor(input_ids).to(device)
@@ -2571,11 +2571,11 @@ def train(**kwargs):
             total_log_likelihood = 0.0
             depth_ranks = []
 
-            # Loop through the target sequence (label tokens) token-by-token
-            for i in range(1, len(labels[0])):  # Start from the second token
-                # Decoder input up to the current token (i.e., labels generated so far)
-                decoder_input_ids = labels[0, :i].unsqueeze(0).to(device)
+            # Initialize decoder with start token for T5 (using <pad> token in this case)
+            decoder_input_ids = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
 
+            # Loop through the target sequence (label tokens) token-by-token
+            for i in range(len(labels[0])):  # Start from the first token in labels
                 with torch.no_grad():
                     # Forward pass through the model (T5 requires both encoder and decoder inputs)
                     outputs = model(input_ids=input_ids,
@@ -2597,12 +2597,17 @@ def train(**kwargs):
 
                 # Compute DepthRank
                 sorted_indices = torch.argsort(prob_dist, descending=True).squeeze(0).tolist()
+
+                # Ensure correct token ranking
                 if true_next_token in sorted_indices:
                     rank = sorted_indices.index(true_next_token) + 1  # Find the index and add 1 (1-based rank)
                 else:
                     rank = len(sorted_indices)  # If not found, assign the worst possible rank
 
                 depth_ranks.append(rank)
+
+                # Update decoder input by appending the true token
+                decoder_input_ids = torch.cat([decoder_input_ids, labels[0, i].unsqueeze(0).unsqueeze(0)], dim=1).to(device)
 
             # Compute average log likelihood and perplexity
             avg_log_likelihood = total_log_likelihood / len(labels[0])
@@ -2612,6 +2617,7 @@ def train(**kwargs):
             depth_rank = sum(depth_ranks) / len(depth_ranks)
 
             return perplexity, depth_rank
+
 
         def compute_depth_rank_and_perplexity2(model, input_ids, attention_mask, labels):
             # Ensure model is in evaluation mode
@@ -2657,30 +2663,33 @@ def train(**kwargs):
 
             return perplexity.item(), depth_rank
 
-        def compute_sentence_perplexity(model, full_ids):
+        def compute_sentence_perplexity(model, full_ids, tokenizer):
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             model.eval()
-            
+
             # Convert inputs to tensors and move to device
             full_ids = torch.tensor(full_ids).to(device)
 
-            # Initialize loss to accumulate the log likelihoods
+            # Initialize accumulators for log likelihood and depth rank
             total_log_likelihood = 0.0
+            depth_ranks = []
 
-            # Loop through each token and compute the log likelihood
-            for i in range(1, len(full_ids)):
-                # Get the current input sequence up to the ith token
-                current_input_ids = full_ids[:i].unsqueeze(0)
-                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
+            # Start decoder with <pad> token
+            decoder_input_ids = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
 
-                # The next token you want to predict (as decoder input)
-                decoder_input_ids = full_ids[:i].unsqueeze(0)
+            # Use dummy input for encoder (e.g., a single <pad> token)
+            dummy_encoder_input = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
+            dummy_attention_mask = torch.tensor([1]).unsqueeze(0).to(device)  # Mask for dummy input
 
+            # Loop through each token and compute log likelihood and depth rank
+            for i in range(len(full_ids)):
                 # Forward pass (without gradients)
                 with torch.no_grad():
-                    outputs = model(input_ids=current_input_ids, 
-                                    attention_mask=current_attention_mask,
-                                    decoder_input_ids=decoder_input_ids)
+                    outputs = model(
+                        input_ids=dummy_encoder_input,  # Dummy input for the encoder
+                        attention_mask=dummy_attention_mask,
+                        decoder_input_ids=decoder_input_ids
+                    )
 
                 # Get logits for the next token prediction
                 logits = outputs.logits[:, -1, :]  # Get logits for the last token
@@ -2695,13 +2704,29 @@ def train(**kwargs):
                 # Accumulate the log probability
                 total_log_likelihood += log_prob.item()
 
-            # Compute perplexity from the accumulated log likelihoods
+                # Compute Depth Rank
+                sorted_indices = torch.argsort(probs, descending=True).squeeze(0).tolist()
+                if true_next_token in sorted_indices:
+                    rank = sorted_indices.index(true_next_token) + 1  # Find the 1-based index
+                else:
+                    rank = len(sorted_indices)  # If not found, assign the worst rank
+
+                # Add rank to depth ranks list
+                depth_ranks.append(rank)
+
+                # Update the decoder input ids by appending the true next token
+                decoder_input_ids = torch.cat([decoder_input_ids, full_ids[i].unsqueeze(0).unsqueeze(0)], dim=1).to(device)
+
+            # Compute average log likelihood and perplexity
             avg_log_likelihood = total_log_likelihood / len(full_ids)
-            # Convert avg_log_likelihood to a tensor before computing perplexity
             avg_log_likelihood_tensor = torch.tensor(avg_log_likelihood)
-            # Compute perplexity from the accumulated log likelihoods
-            perplexity = torch.exp(-avg_log_likelihood_tensor)
-            return perplexity.item()
+            perplexity = torch.exp(-avg_log_likelihood_tensor).item()
+
+            # Compute Depth Rank for the entire sentence
+            depth_rank = sum(depth_ranks) / len(depth_ranks)
+
+            return perplexity, depth_rank
+
 
         def evaluate_test(task, test_dataset, save_to, ds_name, auto_task, 
                 gen_conf = {}, use_cache=False):
@@ -2774,10 +2799,10 @@ def train(**kwargs):
                     df.at[i, "vtarget"] = vtarget 
                 golds.append(label)
                 df.at[i, "target_text"] = label 
-                sel = False
-                if "sel" in extra:
-                    sel = extra["sel"] 
-                df.at[i, "sel"] = sel 
+                #sel = False
+                #if "sel" in extra:
+                #    sel = extra["sel"] 
+                #df.at[i, "sel"] = sel 
                 df.at[i, "query"] = extra["query"]  
                 df.at[i, "resp"] =  extra["resp"]  
                 mylogs.bp("decode")
@@ -2797,14 +2822,15 @@ def train(**kwargs):
                 attention_mask = row["attention_mask"]
                 labels = row["labels"]
                 # Compute perplexity and DepthRank using the precomputed values
-                perplexity, depth_rank = compute_depth_rank_and_perplexity(model, input_ids, attention_mask, labels)
+                perplexity, depth_rank = compute_depth_rank_and_perplexity(model, tokenizer, input_ids, attention_mask, labels, predictions[i])
 
                 df.at[i, 'perp_score'] = perplexity
                 df.at[i, 'depth_score'] = depth_rank
                 
-                # full_ids = row["full_ids"]
-                # full_perplexity = compute_sentence_perplexity(model, full_ids)
-                # df.at[i, 'full_score'] = full_perplexity 
+                #full_ids = row["full_ids"]
+                #full_perplexity, full_depth_rank = compute_sentence_perplexity(model, full_ids, tokenizer)
+                #df.at[i, 'full_score'] = full_perplexity 
+                #df.at[i, 'full_depth_rank'] = full_depth_rank 
 
             df = df.drop(columns=["input_ids","labels","attention_mask"])
             # assert task in TASK_TO_METRICS, "There is no metric for task " + task

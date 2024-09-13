@@ -990,6 +990,7 @@ class AbstractTask(abc.ABC):
         data = {**data, **ex_data}
         if "rel_nat" in ex_data and "{source}" in ex_data["rel_nat"] and "{rel_nat}" in src:
             src = src.replace("{source}.","")
+            src = src.replace("{source}","")
             src = src.replace("{rel_nat}", ex_data["rel_nat"])
         if "target" in data:
             if "rel_vnat" in ex_data and "vnat" in self.template and "{rel_vnat}" in src:
@@ -1387,7 +1388,7 @@ class SocialIQA(QA):
     name = "social-i-qa"
     labels_list = ["0", "1", "2"]
     labels_map = {
-            "map": {"0":"choice0", "1":"choice1", "2": "choice3"},
+            "map": {"0":"choice0", "1":"choice1", "2": "choice2"},
             # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
         }
     metric = [metrics.accuracy]
@@ -2195,6 +2196,7 @@ class oReact(Atomic):
 class AtLocation(Atomic):
     name = "AtLocation"
     rel_nat = "you are likely to find {source} in"
+    # rel_nat = "is located at"
 
 class ObjectUse(Atomic):
     name = "ObjectUse"
