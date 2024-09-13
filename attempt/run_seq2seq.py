@@ -2657,7 +2657,7 @@ def train(**kwargs):
 
             return perplexity.item(), depth_rank
 
-        def compute_sentence_perplexity(model, full_ids):
+        def compute_sentence_perplexity(model, full_ids, tokenizer):
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             model.eval()
             
@@ -2667,14 +2667,14 @@ def train(**kwargs):
             # Initialize loss to accumulate the log likelihoods
             total_log_likelihood = 0.0
 
-            # Loop through each token and compute the log likelihood
-            for i in range(1, len(full_ids)):
-                # Get the current input sequence up to the ith token
-                current_input_ids = full_ids[:i].unsqueeze(0)
-                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
+            # Start decoder with <pad> token
+            decoder_input_ids = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
 
-                # The next token you want to predict (as decoder input)
-                decoder_input_ids = full_ids[:i].unsqueeze(0)
+            # Loop through each token and compute the log likelihood
+            for i in range(len(full_ids)):  # Now starting from the first token of full_ids
+                # Get the current input sequence up to the ith token (encoder input)
+                current_input_ids = full_ids.unsqueeze(0)  # Treat the input as a batch of size 1
+                current_attention_mask = torch.ones(current_input_ids.size(), dtype=torch.long).to(device)
 
                 # Forward pass (without gradients)
                 with torch.no_grad():
@@ -2695,13 +2695,18 @@ def train(**kwargs):
                 # Accumulate the log probability
                 total_log_likelihood += log_prob.item()
 
-            # Compute perplexity from the accumulated log likelihoods
+                # Update the decoder input ids by appending the true next token
+                decoder_input_ids = torch.cat([decoder_input_ids, full_ids[i].unsqueeze(0).unsqueeze(0)], dim=1).to(device)
+
+            # Compute average log likelihood and perplexity
             avg_log_likelihood = total_log_likelihood / len(full_ids)
             # Convert avg_log_likelihood to a tensor before computing perplexity
             avg_log_likelihood_tensor = torch.tensor(avg_log_likelihood)
             # Compute perplexity from the accumulated log likelihoods
             perplexity = torch.exp(-avg_log_likelihood_tensor)
+            
             return perplexity.item()
+
 
         def evaluate_test(task, test_dataset, save_to, ds_name, auto_task, 
                 gen_conf = {}, use_cache=False):
@@ -2802,9 +2807,9 @@ def train(**kwargs):
                 df.at[i, 'perp_score'] = perplexity
                 df.at[i, 'depth_score'] = depth_rank
                 
-                # full_ids = row["full_ids"]
-                # full_perplexity = compute_sentence_perplexity(model, full_ids)
-                # df.at[i, 'full_score'] = full_perplexity 
+                full_ids = row["full_ids"]
+                full_perplexity = compute_sentence_perplexity(model, full_ids)
+                df.at[i, 'full_score'] = full_perplexity 
 
             df = df.drop(columns=["input_ids","labels","attention_mask"])
             # assert task in TASK_TO_METRICS, "There is no metric for task " + task
