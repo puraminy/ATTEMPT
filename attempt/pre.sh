@@ -15,7 +15,7 @@ alias reval="python3 /content/ATTEMPT/attempt/run_seq2seq.py run -reval "
 
 # Unsupervised Pre-Training using 8000 sample
 for mod in t5-large; do
-retrain FT --t=free-cs -to opsent --cache=False --tn=6500 --ep=3 --tsn=100 --bs=12 --temp="sup#unsup" --lr=0.0001 --model=$mod --save=template-opsent-6500 -mod
+retrain FT --t=free-cs -to opsent --cache=False --tn=6500 --ep=3 --tsn=100 --bs=24 --temp="sup#unsup" --lr=0.0001 --model=$mod --save=template-opsent-6500 -mod
 done
 
 #retrain FT --t=free-cs -to fc-2 --cache=False --tn=8000 --ep=5 --tsn=100 --bs=8 --temp=mixed#sup --lr=0.0001 --model=t5-calm --save=template-free --do_test=False
