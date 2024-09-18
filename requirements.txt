@@ -1,0 +1,6 @@
+ rouge
+ transformers
+ datasets
+ wandb
+ deepdiff
+ appdirs
