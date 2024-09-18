@@ -669,7 +669,7 @@ class AbstractTask(abc.ABC):
         if True: #self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
             #df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
-            if "v3" in self.template:
+            if "v3" in self.template or "tr2" in self.template:
                 df["pred_text1"] = df.apply(match_text1, axis=1) 
             else:
                 df["pred_text1"] = df.apply(match_text, axis=1) 
@@ -1364,6 +1364,7 @@ class MaskedCommonsenseQA(CommonsenseQA):
             "v2": "[MASK], so [MASK] is correct",
             "vs1": "{ans}, the correct choice is ",
             "vs2": "{ans}",
+            "vvs2": "{ans}",
         }
 
     def preprocessor(self, example, prefix):
@@ -1554,6 +1555,7 @@ class Sentiment(AbstractTask):
             "v3": "[MASK], the opinion is [MASK]",
             "v2": "It sounds [MASK], the opinion is [MASK]",
             "vs2": "{ans}",
+            "vvs2": "{ans}",
         }
     rel_vnat = "My opinion is "
     target_pos = -1 

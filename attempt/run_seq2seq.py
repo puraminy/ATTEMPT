@@ -2570,6 +2570,7 @@ def train(**kwargs):
             # Initialize accumulators for perplexity and depth rank
             total_log_likelihood = 0.0
             depth_ranks = []
+            pred_tokens = []
 
             # Initialize decoder with start token for T5 (using <pad> token in this case)
             decoder_input_ids = torch.tensor([tokenizer.pad_token_id]).unsqueeze(0).to(device)
@@ -2590,6 +2591,11 @@ def train(**kwargs):
 
                 # Get the true next token
                 true_next_token = labels[0, i].item()
+                next_token = tokenizer.decode(true_next_token) 
+                if next_token.startswith("<"):
+                    decoder_input_ids = torch.cat([decoder_input_ids, labels[0, i].unsqueeze(0).unsqueeze(0)], dim=1).to(device)
+                    continue
+                pred_tokens.append(next_token)
 
                 # Compute log likelihood (negative log-probability of the true token)
                 log_prob = torch.log(prob_dist[0, true_next_token])
@@ -2616,7 +2622,7 @@ def train(**kwargs):
             # Compute DepthRank for the entire sentence
             depth_rank = sum(depth_ranks) / len(depth_ranks)
 
-            return perplexity, depth_rank
+            return perplexity, depth_rank, depth_ranks, pred_tokens
 
 
         def compute_depth_rank_and_perplexity2(model, input_ids, attention_mask, labels):
@@ -2820,10 +2826,13 @@ def train(**kwargs):
                 attention_mask = row["attention_mask"]
                 labels = row["labels"]
                 # Compute perplexity and DepthRank using the precomputed values
-                perplexity, depth_rank = compute_depth_rank_and_perplexity(model, tokenizer, input_ids, attention_mask, labels, predictions[i])
+                if kwargs.get("depth", False):
+                    perplexity, depth_rank, depth_ranks, pred_tokens = compute_depth_rank_and_perplexity(model, tokenizer, input_ids, attention_mask, labels, predictions[i])
 
-                df.at[i, 'perp_score'] = perplexity
-                df.at[i, 'depth_score'] = depth_rank
+                    df.at[i, 'perp_score'] = perplexity
+                    df.at[i, 'depth_score'] = depth_rank
+                    df.at[i, 'depth_ranks'] = ";".join([str(d) for d in depth_ranks])
+                    df.at[i, 'pred_tokens'] = ";".join([str(d) for d in pred_tokens])
                 
                 #full_ids = row["full_ids"]
                 #full_perplexity, full_depth_rank = compute_sentence_perplexity(model, full_ids, tokenizer)
