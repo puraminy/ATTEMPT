@@ -2032,7 +2032,7 @@ class FreeCS(Atomic):
     #split_folder = {"train": "sent", "test":"sent"}
     #split_prefix = {"train": "sup_", "test":"sup_"}
     #split_prefix = {"train": "8000_rand_", "test":""}
-    split_prefix = {"train": "opsent_6500", "test":""}
+    split_prefix = {"train": "opsent_6500_", "test":""}
     def preproc_df(self, df, split):
         return df
 
