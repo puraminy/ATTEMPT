@@ -669,7 +669,7 @@ class AbstractTask(abc.ABC):
         if True: #self.target_pos == 0:
             df["vpred"] = df["pred_text1"]
             #df["pred_text1"] = df["pred_text1"].apply(lambda x: "positive" if x in self.verbalizer["positive"] else "negative")
-            if "v3" in self.template:
+            if "v3" in self.template or "tr2" in self.template:
                 df["pred_text1"] = df.apply(match_text1, axis=1) 
             else:
                 df["pred_text1"] = df.apply(match_text, axis=1) 
@@ -990,6 +990,7 @@ class AbstractTask(abc.ABC):
         data = {**data, **ex_data}
         if "rel_nat" in ex_data and "{source}" in ex_data["rel_nat"] and "{rel_nat}" in src:
             src = src.replace("{source}.","")
+            src = src.replace("{source}","")
             src = src.replace("{rel_nat}", ex_data["rel_nat"])
         if "target" in data:
             if "rel_vnat" in ex_data and "vnat" in self.template and "{rel_vnat}" in src:
@@ -1363,6 +1364,7 @@ class MaskedCommonsenseQA(CommonsenseQA):
             "v2": "[MASK], so [MASK] is correct",
             "vs1": "{ans}, the correct choice is ",
             "vs2": "{ans}",
+            "vvs2": "{ans}",
         }
 
     def preprocessor(self, example, prefix):
@@ -1387,7 +1389,7 @@ class SocialIQA(QA):
     name = "social-i-qa"
     labels_list = ["0", "1", "2"]
     labels_map = {
-            "map": {"0":"choice0", "1":"choice1", "2": "choice3"},
+            "map": {"0":"choice0", "1":"choice1", "2": "choice2"},
             # "map2":{"0":"entailment", "1":"neutral", "2": "contradiction"}
         }
     metric = [metrics.accuracy]
@@ -1553,6 +1555,7 @@ class Sentiment(AbstractTask):
             "v3": "[MASK], the opinion is [MASK]",
             "v2": "It sounds [MASK], the opinion is [MASK]",
             "vs2": "{ans}",
+            "vvs2": "{ans}",
         }
     rel_vnat = "My opinion is "
     target_pos = -1 
@@ -2028,7 +2031,8 @@ class FreeCS(Atomic):
     split_folder = {"train": "free-rels", "test":"free-rels"}
     #split_folder = {"train": "sent", "test":"sent"}
     #split_prefix = {"train": "sup_", "test":"sup_"}
-    split_prefix = {"train": "8000_rand_", "test":""}
+    #split_prefix = {"train": "8000_rand_", "test":""}
+    split_prefix = {"train": "opsent_6500_", "test":""}
     def preproc_df(self, df, split):
         return df
 
@@ -2195,6 +2199,7 @@ class oReact(Atomic):
 class AtLocation(Atomic):
     name = "AtLocation"
     rel_nat = "you are likely to find {source} in"
+    # rel_nat = "is located at"
 
 class ObjectUse(Atomic):
     name = "ObjectUse"

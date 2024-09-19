@@ -7,7 +7,8 @@ from statsmodels.formula.api import ols
 from pandas.plotting import table
 # import dataframe_image as dfi
 # from metrics.metrics import do_score
-import pyperclip
+#import pyperclip
+#from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -1856,7 +1857,7 @@ def show_df(df, summary=False):
         elif char in ["W"] and prev_char == "x":
             save_df(df)
         elif char == "B":
-            scorers = settings.get("scorer","bleu")
+            scorers = settings.get("scorer","bert")
             _score = scorers + "_score"
             if not _score in df:
                 df[_score] = 0

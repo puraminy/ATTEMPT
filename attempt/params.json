@@ -2,6 +2,7 @@
   "tasks":"task_name",
   "t":"task_name",
   "d":"d_seed",
+  "gas":"gradient_accumulation_steps",
   "cache":"use_cache_file",
   "uc":"use_config",
   "utc":"use_test_config",
