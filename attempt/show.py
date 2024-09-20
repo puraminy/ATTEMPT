@@ -6,7 +6,9 @@ from statsmodels.formula.api import ols
 # from pandas.table.plotting import table # EDIT: see deprecation warnings below
 from pandas.plotting import table
 # import dataframe_image as dfi
-from metrics.metrics import do_score
+# from metrics.metrics import do_score
+#import pyperclip
+#from metrics.metrics import do_score
 
 from distutils.dir_util import copy_tree, remove_tree
 import subprocess
@@ -623,8 +625,8 @@ def summarize(df, rep_cols=None, score_col=None, rename =True):
             else col[0][0:2] + "-" + col[1] if col[0] in score_cols else col[0]
             for col in pdf.columns]
     # pdf['cat'] = pdf['cat'].apply(lambda x: x.split('-')[0]) 
-    if not "label" in pdf:
-        pdf['label'] = pdf.apply(create_label, axis=1)
+    # if not "label" in pdf:
+    #    pdf['label'] = pdf.apply(create_label, axis=1)
     #pdf['ref'] = pdf.apply(
     #        lambda row: f" \\ref{{{'fig:' + str(row['eid'])}}}", axis=1)
     pdf = pdf.round(2)
@@ -798,7 +800,7 @@ def add_cols(df):
     if "use_masked_attn" in df:
         df["use_masked_attn"] = df["use_masked_attn"].astype(str)
 
-    if True:
+    if False:
         # df.loc[df["rouge_score"] < 1, ["rouge_score", "bert_score"]] *= 100
         df["rouge_score"] = df["rouge_score"]*100 
         df["bert_score"] = df["bert_score"]*100 
@@ -1990,7 +1992,7 @@ def show_df(df, summary=False):
                 pic.save(dest)
                 #pname=tdf.iloc[sel_row]["image"]
                 subprocess.Popen(["eog", dest])
-        elif char == "L":
+        elif char == "L" and False:
             label = rowinput("label:")
             s_rows = sel_rows
             if not s_rows: s_rows = [sel_row]
@@ -3619,10 +3621,10 @@ def show_df(df, summary=False):
                 filter_col = selected_cols[0]
                 x_col = selected_cols[1]
                 y_col = selected_cols[2]
-                unique_filter_values = df[filter_col].unique()
-                #desired_order = ['xIntent', 'xNeed', 'xWant', 'xAttr', 'AtLocation', 'ObjectUse']
+                # unique_filter_values = df[filter_col].unique()
+                # desired_order = ['xAttr', 'AtLocation', 'ObjectUse', 'xIntent', 'xWant', 'xNeed']
 
-                #df[filter_col] = pd.Categorical(df[filter_col], categories=desired_order, ordered=True)
+                # df[filter_col] = pd.Categorical(df[filter_col], categories=desired_order, ordered=True)
 
                 g = sns.FacetGrid(df, col=filter_col, col_wrap=3, height=4, aspect=1)  #
                 if cmd == "bar":
@@ -3671,7 +3673,7 @@ def show_df(df, summary=False):
                 fig.delaxes(axes[i])
 
             plt.show()
-        elif cmd.startswith("bar") and False:
+        elif cmd.startswith("qbar"):
             if False: #context == "main":
                 score_col = "rouge_score"
                 if sel_cols[cur_col].endswith("_score"):
@@ -3695,7 +3697,7 @@ def show_df(df, summary=False):
             category1_order = tdf[selected_cols[1]].unique()
             category2_order = templates
             facet_order = tdf[cat_col].unique()
-            convert_labels = True #settings.get("convert_labels", False)
+            convert_labels = False #settings.get("convert_labels", False)
 
             palette = ['orange','#B33', '#4cc', '#24f', 'pink','#909', '#b7d99c', '#293']
             if  "model_temp" in selected_cols:
@@ -3712,7 +3714,7 @@ def show_df(df, summary=False):
                         'Mixed'
                         ]
                 tdf['model_temp'] = tdf['model_temp'].map(category1_mapping)
-            if convert_labels and "template" in selected_cols:
+            if  "template" in selected_cols:
                 if any("ptar" in t for t in templates):
                     category2_order = ['PrePT', 'PostPT', 
                             'MaskedPrePT', 'MaskedPostPT',
@@ -3744,14 +3746,14 @@ def show_df(df, summary=False):
                             }
                 
                     category2_order = [
-                            #'Mapping', 
-                            #'Prompting', 
-                            #'MaskedMapping', 
-                            #'MaskedPrompting', 
+                            'Mapping', 
+                            'Prompting', 
+                            'MaskedMapping', 
+                            'MaskedPrompting', 
                             "AnswerPrompting", 
-                            #"ChoicePrompting",
+                            "ChoicePrompting",
                             "MaskedAnswerPrompting",
-                            #"MaskedChoicePrompting",
+                            "MaskedChoicePrompting",
                             ]
                     palette = [v for k,v in cat_color.items() if k in category2_order]
                     category2_mapping = {
@@ -3766,8 +3768,9 @@ def show_df(df, summary=False):
                          # 'vnat_1-vs2': "Predict Choice Number",
                         }
                 cat2_mapping ={k:v for k,v in category2_mapping.items() if k in templates}
-                category2_order = [v for v in category2_order if v in cat2_mapping.values()]
-                tdf['template'] = tdf['template'].map(cat2_mapping)
+                # category2_order = [v for v in category2_order if v in cat2_mapping.values()]
+                if convert_labels:
+                    tdf['template'] = tdf['template'].map(cat2_mapping)
             if "qpos" in selected_cols:
                 category3_mapping = {
                         'start': 'question position: start',
@@ -3785,7 +3788,7 @@ def show_df(df, summary=False):
                         'lm': 'T5-lm', 'large': 'T5-large' 
                         }
 
-                facet_order = ['T5-large'] #, 'T5-large']  # specify the desired order
+                facet_order = ['T5-base','T5-large'] #, 'T5-large']  # specify the desired order
                 tdf['model_base'] = tdf['model_base'].map(category3_mapping)
                 palette = ['pink','#909', '#b7d99c', '#293']
 
@@ -3799,9 +3802,11 @@ def show_df(df, summary=False):
             hue_palette = sns.color_palette("husl", len(tdf[selected_cols[-1]].unique()))
             g = sns.FacetGrid(tdf, col=cat_col, col_order=facet_order,
                     col_wrap=num_cats, height=4, aspect=1.5)
-            g.map(sns.barplot, selected_cols[1], score_col, selected_cols[-1], 
+            g.map_dataframe(sns.barplot, x=selected_cols[1], 
+                    y=score_col, hue=selected_cols[-1], 
                     palette=palette, ci=None, 
                     order=category1_order, hue_order=category2_order)
+
             g.set_axis_labels("Unsupervised Training Objective", 'Mean Scores')
             g.set_titles('{col_name}')
             #g.fig.text(0.5, 0.04, 'Unsupervised Training Objective', 
@@ -3816,6 +3821,22 @@ def show_df(df, summary=False):
             g.add_legend(loc='upper right', title_fontsize=14) 
             plt.show()
 
+        elif cmd.startswith("dprop"):
+
+            # Group by prefix and training samples (tn*) to calculate proportion
+            df_grouped = df.groupby(['prefix', 'max_train_samples'])
+
+            results = []
+
+            for (prefix, tn_star), group in df_grouped:
+                prompting = group[group['template'] == 'Prompting']['depth_score'].values
+                masked_prompting = group[group['template'] == 'MaskedPrompting']['depth_score'].values
+                if prompting.size > 0 and masked_prompting.size > 0:
+                    proportion = ((prompting[0] - masked_prompting[0]) / prompting[0]) * 100
+                    results.append({'prefix': prefix, 'max_train_samples': tn_star, 'proportion (%)': round(proportion, 2)})
+
+            df = pd.DataFrame(results)
+            sel_cols = df.columns
         elif cmd.startswith("mscat"):
             category_column = selected_cols[2]
             categories = df[category_column].unique()
@@ -3845,6 +3866,9 @@ def show_df(df, summary=False):
             plt.yticks(fontsize=14)
             plt.legend(fontsize=10, loc='best')
             plt.show()
+        elif cmd.startswith("corr"):
+            correlation_matrix = df[selected_cols].corr()
+            df = pd.DataFrame(correlation_matrix)
         elif cmd.startswith("scat"):
             x = df[selected_cols[0]]
             y = df[selected_cols[1]]
@@ -4062,6 +4086,47 @@ def show_df(df, summary=False):
             info_cols = []
             #df.columns = [map_cols[col].replace("_","-") if col in map_cols else col 
             #              for col in pdf.columns]
+        if char == "L" or cmd.startswith("Latex"):
+            tdf = df
+            cols = selected_cols if selected_cols else sel_cols
+            latex_table=tabulate(tdf[cols],  #[rep_cols+score_cols], 
+                    headers='keys', tablefmt='latex_raw', showindex=False, floatfmt=".2f")
+            def rotate_columns(latex_table, cols_to_rotate):
+                for col in cols_to_rotate:
+                    latex_table = latex_table.replace(col, f"\\rot{{{col}}}")
+                return latex_table
+            #latex_table = latex_table.replace("tabular", "longtable")
+            latex_table = latex_table.replace("_", "-")
+            if "rot" in cmd:
+                latex_table = rotate_columns(latex_table, rot_cols)
+            latex_lines = latex_table.split('\n')
+            modified_latex_lines = []
+
+            for i, line in enumerate(latex_lines):
+                if i > 0 and '\\multirow{' in line:  
+                    modified_latex_lines.append(r'\hline')  
+                    modified_latex_lines.append(line)
+                else:
+                    modified_latex_lines.append(line)
+
+            latex_table = '\n'.join(modified_latex_lines)
+            pyperclip.copy(latex_table)
+            # clipboard_content = pyperclip.paste()
+            tname = rowinput("Table name:")
+            table_dir = "/home/ahmad/tehran-thesis/tables"
+            Path(table_dir).mkdir(exist_ok=True, parents=True)
+            with open(os.path.join(table_dir, tname + ".tex"), "w") as f:
+                f.write(latex_table)
+            #report = report.replace("mytable", latex_table + "\n\n \\newpage mytable")
+            #report = report.replace("mytable", "\n \\newpage mytable")
+            # tdf = pdf
+            # iiiiiiiiiiiii
+            #report = report.replace("mytable","")
+            #with open(m_report, "w") as f:
+            #    f.write(main_report)
+            mbeep()
+            #subprocess.run(["pdflatex", tex])
+            #subprocess.run(["okular", pdf])
         if char == "l" or char == "Z" or cmd.startswith("latex"):
             _dir = Path(__file__).parent
             doc_dir = "/home/ahmad/logs" #os.getcwd() 
