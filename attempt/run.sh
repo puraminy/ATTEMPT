@@ -87,10 +87,10 @@ fi
 echo "model: $model "
 if [ $tune = "FT" ]; then
 #if [ "$tune" = "FT" ] && { [ "$met" = "none" ] ||  [ "$met" = "unsup" ] || [ "$met" = "mixed" ]; }; then
-   for task in csqa; do
+   for task in obqa; do
    echo "task: $task"
    echo "----------------------"
-   retrain FT -to ft-$folder-$mod-$task --tn=30 --tsn=-1 --d=123#45#67 --ep=3#5 \
+   retrain FT -to ft-$folder-$mod-$task --tn=30 --tsn=-1 --d=67 --ep=3 \
       --comment-tn=9741#4950 \
       --chpos="start" \
       --qpos="end" \
