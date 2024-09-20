@@ -90,7 +90,7 @@ if [ $tune = "FT" ]; then
    for task in csqa; do
    echo "task: $task"
    echo "----------------------"
-   retrain FT -to ft-$folder-$mod-$task --tn=30 -mod --tsn=-1 --d=123#45#67 --ep=3#5 \
+   retrain FT -to ft-$folder-$mod-$task --tn=30 --tsn=-1 --d=123#45#67 --ep=3#5 \
       --comment-tn=9741#4950 \
       --chpos="start" \
       --qpos="end" \
